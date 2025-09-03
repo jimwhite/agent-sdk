@@ -100,13 +100,9 @@ class Conversation:
     def run(self) -> None:
         """Runs the conversation until the agent finishes."""
         iteration = 0
-        # If a follow-up user message was appended externally after the agent
-        # finished, reset the finished flag so the agent can process it.
+        # Reset finished state - if run() is called, caller expects agent to run
         with self.state:
-            if self.state.agent_finished and self.state.events:
-                last_event = self.state.events[-1]
-                if isinstance(last_event, MessageEvent) and last_event.source == "user":
-                    self.state.agent_finished = False
+            self.state.agent_finished = False
         while not self.state.agent_finished:
             logger.debug(f"Conversation run iteration {iteration}")
             # TODO(openhands): we should add a testcase that test IF:
