@@ -126,33 +126,14 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
 ]
 
 RESPONSES_API_PATTERNS: list[str] = [
-    # OpenAI reasoning models (primary use case for Responses API)
+    # OpenAI reasoning models (native Responses API support)
     "o1*",
     "o3*",
     "o4-mini*",
-    # OpenAI GPT models that support Responses API
+    # OpenAI GPT models with native Responses API support
     "gpt-4o*",
-    "gpt-4.1",
+    "gpt-4.1*",
     "gpt-5*",
-    # Anthropic models (supported via LiteLLM bridge)
-    "claude-3-7-sonnet*",
-    "claude-3.7-sonnet*",
-    "claude-sonnet-3-7-latest",
-    "claude-3-5-sonnet*",
-    "claude-3.5-haiku*",
-    "claude-3-5-haiku*",
-    "claude-3-opus-20240229",
-    "claude-3-haiku-20240307",
-    "claude-sonnet-4*",
-    "claude-opus-4*",
-    # Google Gemini models (supported via LiteLLM bridge)
-    "gemini-1.5-pro*",
-    "gemini-2.0-flash*",
-    "gemini-2.5-pro*",
-    "gemini-2.5-flash",
-    # DeepSeek reasoning family
-    "deepseek-r1*",
-    "deepseek-r1-0528*",
 ]
 
 
