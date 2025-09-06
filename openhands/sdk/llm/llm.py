@@ -696,12 +696,6 @@ class LLM(BaseModel, RetryMixin):
             out.pop("temperature", None)
             out.pop("top_p", None)
 
-        # Mistral / Gemini safety
-        if self.safety_settings:
-            ml = self.model.lower()
-            if "mistral" in ml or "gemini" in ml:
-                out["safety_settings"] = self.safety_settings
-
         # Remove parameters not supported by Responses API
         out.pop("tools", None)
         out.pop("tool_choice", None)
