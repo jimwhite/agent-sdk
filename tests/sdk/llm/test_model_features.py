@@ -229,3 +229,84 @@ def test_model_matches_with_provider_pattern():
     assert model_matches("openai/gpt-4", ["openai/*"])
     assert model_matches("anthropic/claude-3", ["anthropic/claude*"])
     assert not model_matches("openai/gpt-4", ["anthropic/*"])
+
+
+@pytest.mark.parametrize(
+    "model,expected_responses_api",
+    [
+        # o1 models
+        ("o1-preview", True),
+        ("o1-mini", True),
+        ("o1-2024-12-17", True),
+        # o3 models
+        ("o3-mini", True),
+        ("o3-2024-12-17", True),
+        # gpt-4o models
+        ("gpt-4o", True),
+        ("gpt-4o-mini", True),
+        ("gpt-4o-2024-11-20", True),
+        # Claude models
+        ("claude-3-5-sonnet-20241022", True),
+        ("claude-3-opus-20240229", True),
+        ("claude-3-haiku-20240307", True),
+        # Gemini models
+        ("gemini-2.0-flash-exp", True),
+        ("gemini-1.5-pro", True),
+        # DeepSeek R1 models
+        ("deepseek-r1", True),
+        ("deepseek-r1-distill-llama-70b", True),
+        ("deepseek-r1-distill-qwen-1.5b", True),
+        # Models that don't support Responses API
+        ("gpt-3.5-turbo", False),
+        ("gpt-4", False),
+        ("gpt-4-turbo", False),
+        ("claude-2", False),
+        ("llama-2-70b", False),
+        ("unknown-model", False),
+    ],
+)
+def test_responses_api_support(model, expected_responses_api):
+    """Test Responses API support detection."""
+    features = get_features(model)
+    assert features.supports_responses_api == expected_responses_api
+
+
+def test_responses_api_support_with_provider_prefixes():
+    """Test Responses API support with provider prefixes."""
+    # Should support
+    supported_models = [
+        "openai/o1-preview",
+        "anthropic/claude-3-5-sonnet-20241022",
+        "vertex_ai/gemini-2.0-flash-exp",
+        "deepseek/deepseek-r1",
+    ]
+    for model in supported_models:
+        features = get_features(model)
+        assert features.supports_responses_api, (
+            f"Model {model} should support Responses API"
+        )
+
+    # Should not support
+    unsupported_models = [
+        "openai/gpt-3.5-turbo",
+        "anthropic/claude-2",
+        "huggingface/llama-2-70b",
+    ]
+    for model in unsupported_models:
+        features = get_features(model)
+        assert not features.supports_responses_api, (
+            f"Model {model} should not support Responses API"
+        )
+
+
+def test_responses_api_backward_compatibility():
+    """Test that adding Responses API support doesn't break existing features."""
+    model = "gpt-4o"
+    features = get_features(model)
+
+    # Should support Responses API
+    assert features.supports_responses_api
+
+    # Should still have other expected features
+    assert features.supports_function_calling
+    assert not features.supports_prompt_cache  # gpt-4o doesn't support caching
