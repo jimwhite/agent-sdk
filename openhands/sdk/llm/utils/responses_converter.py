@@ -104,10 +104,14 @@ def responses_to_completion_format(
 
     # Build the response structure
     response = {
-        "id": getattr(responses_result, "id", ""),
+        "id": responses_result.id,  # Always present in ResponsesAPIResponse
         "object": "chat.completion",
-        "created": getattr(responses_result, "created", 0),
-        "model": getattr(responses_result, "model", ""),
+        "created": getattr(
+            responses_result, "created_at", 0
+        ),  # Fixed: field is 'created_at', not 'created'
+        "model": getattr(
+            responses_result, "model", ""
+        ),  # Keep getattr: model can be None
         "choices": [
             {
                 "index": 0,

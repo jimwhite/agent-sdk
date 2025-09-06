@@ -88,7 +88,9 @@ def test_responses_to_completion_format_basic():
     class MockResponse:
         def __init__(self):
             self.id = "resp_123"
-            self.created = 1234567890
+            self.created_at = (
+                1234567890  # Fixed: ResponsesAPIResponse uses created_at, not created
+            )
             self.model = "o1-preview"
             self.output = [
                 MockOutput("message", content_text="Hello, how can I help you?"),
