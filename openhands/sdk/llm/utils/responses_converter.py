@@ -125,19 +125,8 @@ def responses_to_completion_format(
     # Extract usage information if available
     if hasattr(responses_result, "usage"):
         usage = responses_result.usage
-        if hasattr(usage, "input_tokens"):
-            response["usage"]["prompt_tokens"] = usage.input_tokens
-        if hasattr(usage, "output_tokens"):
-            response["usage"]["completion_tokens"] = usage.output_tokens
-        if hasattr(usage, "total_tokens"):
-            response["usage"]["total_tokens"] = usage.total_tokens
-        elif (
-            response["usage"]["prompt_tokens"]
-            and response["usage"]["completion_tokens"]
-        ):
-            response["usage"]["total_tokens"] = (
-                response["usage"]["prompt_tokens"]
-                + response["usage"]["completion_tokens"]
-            )
+        response["usage"]["prompt_tokens"] = usage.input_tokens
+        response["usage"]["completion_tokens"] = usage.output_tokens
+        response["usage"]["total_tokens"] = usage.total_tokens
 
     return ModelResponse(**response)

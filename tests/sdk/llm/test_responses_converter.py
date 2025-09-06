@@ -80,9 +80,10 @@ def test_responses_to_completion_format_basic():
             self.text = text
 
     class MockUsage:
-        def __init__(self, input_tokens=10, output_tokens=20):
+        def __init__(self, input_tokens=10, output_tokens=20, total_tokens=30):
             self.input_tokens = input_tokens
             self.output_tokens = output_tokens
+            self.total_tokens = total_tokens
 
     class MockResponse:
         def __init__(self):
