@@ -102,16 +102,37 @@ def responses_to_completion_format(
     if reasoning_content:
         message["reasoning_content"] = reasoning_content
 
-    # Build the response structure
+    # Build the response structure with robust field coercion
+    def _to_int(val, default: int = 0):
+        try:
+            if isinstance(val, bool):
+                return int(val)
+            if isinstance(val, (int, float)):
+                return int(val)
+            if isinstance(val, str) and val.isdigit():
+                return int(val)
+        except Exception:
+            pass
+        return default
+
+    # created can be either `created` (int) or `created_at` (int). Avoid MagicMock.
+    created_val = getattr(responses_result, "created", None)
+    created = _to_int(created_val, default=-1)
+    if created < 0:
+        created = _to_int(getattr(responses_result, "created_at", None), default=0)
+
+    model_val = getattr(responses_result, "model", "")
+    model = (
+        model_val
+        if isinstance(model_val, str)
+        else (str(model_val) if model_val is not None else "")
+    )
+
     response = {
-        "id": responses_result.id,  # Always present in ResponsesAPIResponse
+        "id": getattr(responses_result, "id", ""),
         "object": "chat.completion",
-        "created": getattr(
-            responses_result, "created_at", 0
-        ),  # Fixed: field is 'created_at', not 'created'
-        "model": getattr(
-            responses_result, "model", ""
-        ),  # Keep getattr: model can be None
+        "created": created,
+        "model": model,
         "choices": [
             {
                 "index": 0,
@@ -127,10 +148,20 @@ def responses_to_completion_format(
     }
 
     # Extract usage information if available
-    if hasattr(responses_result, "usage"):
-        usage = responses_result.usage
-        response["usage"]["prompt_tokens"] = usage.input_tokens
-        response["usage"]["completion_tokens"] = usage.output_tokens
-        response["usage"]["total_tokens"] = usage.total_tokens
+    if hasattr(responses_result, "usage") and responses_result.usage is not None:
+        try:
+            usage = responses_result.usage
+            response["usage"]["prompt_tokens"] = _to_int(
+                getattr(usage, "input_tokens", 0), 0
+            )
+            response["usage"]["completion_tokens"] = _to_int(
+                getattr(usage, "output_tokens", 0), 0
+            )
+            response["usage"]["total_tokens"] = _to_int(
+                getattr(usage, "total_tokens", 0), 0
+            )
+        except Exception:
+            # Ignore malformed usage
+            pass
 
     return ModelResponse(**response)
