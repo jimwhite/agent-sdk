@@ -194,6 +194,28 @@ def responses_to_completion_format(
             response["usage"]["total_tokens"] = _to_int(
                 getattr(usage, "total_tokens", 0), 0
             )
+            # Map Responses usage.output_tokens_details.reasoning_tokens
+            # to ChatCompletions usage.completion_tokens_details.reasoning_tokens
+            try:
+                details = getattr(usage, "output_tokens_details", None)
+                if details is None and isinstance(usage, dict):
+                    details = usage.get("output_tokens_details")
+                rt = None
+                if details is not None:
+                    try:
+                        rt = getattr(details, "reasoning_tokens", None)
+                    except Exception:
+                        rt = None
+                    if rt is None and isinstance(details, dict):
+                        rt = details.get("reasoning_tokens")
+                if rt is not None:
+                    response["usage"]["completion_tokens_details"] = {
+                        "reasoning_tokens": _to_int(rt, 0)
+                    }
+            except Exception:
+                # Best-effort mapping; ignore if structure is unexpected
+                pass
+
         except Exception:
             # Ignore malformed usage
             pass
