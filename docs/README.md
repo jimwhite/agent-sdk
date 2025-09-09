@@ -32,3 +32,4 @@ Core concepts
 Navigation
 - Use the left sidebar in the docs site to explore Getting Started, Architecture, Tools, MCP Integration, and Examples.
 - For a deep dive into tool internals, see Tools System.
+- For LLM configuration and provider setup, see [LLM Configuration](llm.md).

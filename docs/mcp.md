@@ -10,7 +10,7 @@ from pydantic import SecretStr
 from openhands.sdk import LLM, Agent, Conversation, Message, TextContent, create_mcp_tools
 from openhands.tools import BashTool, FileEditorTool
 
-# Configure LLM
+# Configure LLM (see docs/llm.md for more configuration options)
 llm = LLM(
     model="anthropic/claude-sonnet-4-20250514",
     api_key=SecretStr(os.getenv("ANTHROPIC_API_KEY")),
