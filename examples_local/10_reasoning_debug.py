@@ -190,6 +190,10 @@ def test_reasoning_oh_responses() -> None:
     print("\n=== OH Responses API probe: starting ===\n")
     results: list[dict[str, Any]] = []
 
+    # Ensure audit log directory exists and wire Telemetry there
+    out_dir = Path(os.getenv("REASONING_LOG_DIR", "logs/reasoning"))
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     for entry in model_entries:
         label = str(entry["label"])  # type: ignore[index]
         model = str(entry["model"])  # type: ignore[index]
@@ -209,6 +213,7 @@ def test_reasoning_oh_responses() -> None:
             base_url=base_url,  # type: ignore[arg-type]
             api_key=SecretStr(api_key_val),
             log_completions=True,
+            log_completions_folder=str(out_dir),
             reasoning_effort="high",
         )
 
@@ -260,7 +265,7 @@ def test_reasoning_oh_responses() -> None:
             )
 
     # Persist results
-    out_dir = Path(os.getenv("REASONING_LOG_DIR", "logs"))
+    out_dir = Path(os.getenv("REASONING_LOG_DIR", "logs/reasoning"))
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     with open(out_dir / f"reasoning_probe_oh_responses_{ts}.json", "w") as f:

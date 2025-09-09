@@ -505,7 +505,8 @@ class LLM(BaseModel, RetryMixin):
             resp = self._transport_responses_call(input=input_str, **call_kwargs)
             # Convert to ChatCompletions format for compatibility
             converted_resp = responses_to_completion_format(resp)
-            self._telemetry.on_response(converted_resp)
+            # Log both converted and raw Responses payloads for audit
+            self._telemetry.on_response(converted_resp, raw_resp=resp)
 
             # Ensure at least one choice
             if not converted_resp.get("choices") or len(converted_resp["choices"]) < 1:

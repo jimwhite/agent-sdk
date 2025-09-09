@@ -235,7 +235,13 @@ class Telemetry(BaseModel):
 
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
-                data["raw_response"] = raw_resp
+                try:
+                    data["raw_response"] = raw_resp.model_dump()
+                except Exception:
+                    # Fallback: attempt dict()/str() for non-pydantic types
+                    data["raw_response"] = (
+                        raw_resp.dict() if hasattr(raw_resp, "dict") else str(raw_resp)
+                    )
             # pop duplicated tools
             if "tool" in data and "tool" in data.get("kwargs", {}):
                 data["kwargs"].pop("tool")
