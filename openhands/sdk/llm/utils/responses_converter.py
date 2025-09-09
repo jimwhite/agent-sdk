@@ -86,11 +86,45 @@ def responses_to_completion_format(
     for item in output_items:
         if hasattr(item, "type"):
             if item.type == "message":
-                if hasattr(item, "content") and hasattr(item.content, "text"):
-                    content = item.content.text
+                # response.output.message.content can be list or object
+                # depending on SDK version
+                try:
+                    if hasattr(item, "content"):
+                        c = item.content
+                        # Newer SDKs: content may be a list of segments
+                        if isinstance(c, list) and c:
+                            # Find output_text item
+                            for seg in c:
+                                if getattr(
+                                    seg, "type", None
+                                ) == "output_text" and hasattr(seg, "text"):
+                                    content = getattr(seg, "text", "") or content
+                        # Older / simplified: content has `.text`
+                        elif hasattr(c, "text"):
+                            content = getattr(c, "text", "") or content
+                except Exception:
+                    pass
             elif item.type == "reasoning":
-                if hasattr(item, "content"):
-                    reasoning_content = item.content
+                # OpenAI Responses may include explicit reasoning items with `.content`
+                try:
+                    if hasattr(item, "content") and item.content:
+                        reasoning_content = str(item.content)
+                except Exception:
+                    pass
+
+    # Fallback to top-level reasoning.summary if no explicit block found
+    if not reasoning_content:
+        try:
+            top_reasoning = getattr(responses_result, "reasoning", None)
+            if top_reasoning is not None:
+                # top_reasoning may be dict-like or pydantic model
+                summary = getattr(top_reasoning, "summary", None)
+                if summary is None and isinstance(top_reasoning, dict):
+                    summary = top_reasoning.get("summary")
+                if summary:
+                    reasoning_content = str(summary)
+        except Exception:
+            pass
 
     # Create a ChatCompletions-compatible response
     message = {

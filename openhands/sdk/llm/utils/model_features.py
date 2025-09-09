@@ -115,8 +115,8 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "o4-mini-2025-04-16",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
-    "gpt-5",
-    "gpt-5-2025-08-07",
+    # OpenAI GPT-5 family (includes mini variants)
+    "gpt-5*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
