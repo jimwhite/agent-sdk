@@ -260,6 +260,33 @@ class LLM(BaseModel, RetryMixin):
         if not secret_value or not secret_value.strip():
             return None
 
+        # Coerce string inputs to SecretStr
+        if not isinstance(v, SecretStr):
+            return SecretStr(secret_value)
+
+        return v
+
+    @field_validator("aws_access_key_id", "aws_secret_access_key", mode="before")
+    @classmethod
+    def _validate_aws_credentials(cls, v):
+        """Coerce string inputs to SecretStr for AWS credentials."""
+        if v is None:
+            return None
+
+        # Handle both SecretStr and string inputs
+        if isinstance(v, SecretStr):
+            secret_value = v.get_secret_value()
+        else:
+            secret_value = str(v)
+
+        # If the credential is empty or whitespace-only, return None
+        if not secret_value or not secret_value.strip():
+            return None
+
+        # Coerce string inputs to SecretStr
+        if not isinstance(v, SecretStr):
+            return SecretStr(secret_value)
+
         return v
 
     @model_validator(mode="before")

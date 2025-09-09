@@ -85,3 +85,51 @@ def test_aws_credentials_handling():
     assert llm.aws_secret_access_key is not None
     assert llm.aws_secret_access_key.get_secret_value() == "test-secret-key"
     assert llm.aws_region_name == "us-west-2"
+
+
+def test_string_api_key_coerced_to_secret_str():
+    """Test that string API keys are automatically coerced to SecretStr."""
+    llm = LLM(model="gpt-4", api_key="my-api-key")  # type: ignore[arg-type]
+    assert llm.api_key is not None
+    assert isinstance(llm.api_key, SecretStr)
+    assert llm.api_key.get_secret_value() == "my-api-key"
+
+
+def test_string_aws_credentials_coerced_to_secret_str():
+    """Test that string AWS credentials are automatically coerced to SecretStr."""
+    llm = LLM(
+        model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
+        api_key=None,
+        aws_access_key_id="test-access-key",  # type: ignore[arg-type]
+        aws_secret_access_key="test-secret-key",  # type: ignore[arg-type]
+        aws_region_name="us-west-2",
+    )
+    assert llm.api_key is None
+    assert llm.aws_access_key_id is not None
+    assert isinstance(llm.aws_access_key_id, SecretStr)
+    assert llm.aws_access_key_id.get_secret_value() == "test-access-key"
+    assert llm.aws_secret_access_key is not None
+    assert isinstance(llm.aws_secret_access_key, SecretStr)
+    assert llm.aws_secret_access_key.get_secret_value() == "test-secret-key"
+    assert llm.aws_region_name == "us-west-2"
+
+
+def test_mixed_secret_str_and_string_inputs():
+    """Test that mixed SecretStr and string inputs work correctly."""
+    llm = LLM(
+        model="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
+        api_key="my-api-key",  # type: ignore[arg-type]
+        aws_access_key_id=SecretStr("test-access-key"),
+        aws_secret_access_key="test-secret-key",  # type: ignore[arg-type]
+        aws_region_name="us-west-2",
+    )
+    assert llm.api_key is not None
+    assert isinstance(llm.api_key, SecretStr)
+    assert llm.api_key.get_secret_value() == "my-api-key"
+    assert llm.aws_access_key_id is not None
+    assert isinstance(llm.aws_access_key_id, SecretStr)
+    assert llm.aws_access_key_id.get_secret_value() == "test-access-key"
+    assert llm.aws_secret_access_key is not None
+    assert isinstance(llm.aws_secret_access_key, SecretStr)
+    assert llm.aws_secret_access_key.get_secret_value() == "test-secret-key"
+    assert llm.aws_region_name == "us-west-2"
