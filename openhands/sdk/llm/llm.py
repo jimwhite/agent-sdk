@@ -724,9 +724,19 @@ class LLM(BaseModel, RetryMixin):
             # Preferred: use reasoning_effort
             if self.reasoning_effort is not None:
                 out["reasoning_effort"] = self.reasoning_effort
+            # Also send OpenAI Responses-style reasoning config to request summaries
+            # LiteLLM forwards this to providers that support the Responses API.
+            effort = (
+                self.reasoning_effort
+                if self.reasoning_effort not in (None, "none")
+                else "low"
+            )
+            out.setdefault("reasoning", {"effort": effort, "summary": "concise"})
             # Reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
+            # Encourage concise text output; does not affect tool outputs
+            out.setdefault("text", {"verbosity": "low"})
 
         # Remove parameters not supported by Responses API
         out.pop("stop", None)  # Responses API doesn't support stop words
