@@ -699,8 +699,15 @@ class LLM(BaseModel, RetryMixin):
                     _custom_provider = "openai"
                 elif self.model.startswith("litellm_proxy/azure/"):
                     _custom_provider = "azure"
+                # LiteLLM Proxy expects underlying model id
+                # (strip the 'litellm_proxy/' prefix if present)
+                model_for_proxy = (
+                    self.model.removeprefix("litellm_proxy/")
+                    if self.model.startswith("litellm_proxy/")
+                    else self.model
+                )
                 ret = litellm_responses(
-                    model=self.model,
+                    model=model_for_proxy,
                     api_key=self.api_key.get_secret_value() if self.api_key else None,
                     api_base=self.base_url,  # Responses API expects api_base
                     api_version=self.api_version,
