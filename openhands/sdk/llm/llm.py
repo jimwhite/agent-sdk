@@ -748,15 +748,14 @@ class LLM(BaseModel, RetryMixin):
             )
             out.setdefault(
                 "reasoning",
-                {"effort": effort, "summary": "concise", "generate_summary": "concise"},
+                {"effort": effort},
             )
             # Reasoning models ignore temp/top_p
             out.pop("temperature", None)
             out.pop("top_p", None)
-            # Encourage concise text output; does not affect tool outputs
-            out.setdefault("text", {"verbosity": "low"})
-            # Ask for encrypted reasoning content if provider supports it
-            out.setdefault("include", ["reasoning.encrypted_content"])
+            # Avoid non-standard params until verified supported by provider
+            out.pop("text", None)
+            out.pop("include", None)
 
         # Remove parameters not supported by Responses API
         out.pop("stop", None)  # Responses API doesn't support stop words
