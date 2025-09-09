@@ -5,7 +5,7 @@ This guide shows how to create a simple agent that can run bash commands and edi
 Prerequisites
 - Python 3.12+
 - uv installed
-- A LiteLLM proxy API key set in LITELLM_API_KEY (see [LLM Configuration](llm.md) for other provider options)
+- A LiteLLM proxy API key set in LITELLM_API_KEY (see [LLM Configuration](llms/llms.md) for other provider options)
 
 Install
 ```bash
@@ -25,7 +25,7 @@ llm = LLM(
     model="anthropic/claude-sonnet-4-20250514",
     api_key=SecretStr(api_key),
 )
-# For more LLM configuration options, see docs/llm.md
+# For more LLM configuration options, see docs/llms/llms.md
 
 tools: list[Tool] = [BashTool(working_dir=os.getcwd()), FileEditorTool()]
 agent = Agent(llm=llm, tools=tools)

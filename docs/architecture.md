@@ -12,7 +12,7 @@ Design principles
 Key modules
 - Agent: composes LLM with tools to decide next actions
 - Conversation: drives message flow, state, and callbacks
-- LLM: typed messages and a registry for reuse (see [LLM Configuration](llm.md))
+- LLM: typed messages and a registry for reuse (see [LLM Configuration](llms/llms.md))
 - Tool: typed action/observation schemas and executors
 - Context: microagents and repo/knowledge ingestion
 

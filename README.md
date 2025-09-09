@@ -121,7 +121,7 @@ agent = Agent(
 
 ### LLM Integration
 
-The SDK supports multiple LLM providers through a unified interface. For detailed configuration options and provider-specific setup, see [docs/llm.md](docs/llm.md).
+The SDK supports multiple LLM providers through a unified interface. For detailed configuration options and provider-specific setup, see [docs/llms/llms.md](docs/llms/llms.md) and [Provider Guides](docs/llms/README.md).
 
 ```python
 from openhands.sdk import LLM, LLMRegistry
