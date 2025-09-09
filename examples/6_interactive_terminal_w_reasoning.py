@@ -25,7 +25,8 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
     # model="litellm_proxy/gemini/gemini-2.5-pro",
-    model="litellm_proxy/deepseek/deepseek-reasoner",
+    # model="litellm_proxy/deepseek/deepseek-reasoner",
+    model="litellm_proxy/openai/gpt-5-mini-2025-08-07",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
