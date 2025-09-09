@@ -748,7 +748,7 @@ class LLM(BaseModel, RetryMixin):
             )
             out.setdefault(
                 "reasoning",
-                {"effort": effort, "summary": "concise"},
+                {"effort": effort, "summary": "detailed"},
             )
             # Reasoning models ignore temp/top_p
             out.pop("temperature", None)
