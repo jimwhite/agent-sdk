@@ -104,7 +104,7 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
 ]
 
 REASONING_EFFORT_PATTERNS: list[str] = [
-    # Mirror main behavior exactly (no unintended expansion), plus DeepSeek support
+    # Mirror main behavior exactly (no unintended expansion)
     "o1-2024-12-17",
     "o1*",  # Match all o1 variants including o1-preview
     "o3*",  # Match all o3 variants
@@ -117,8 +117,6 @@ REASONING_EFFORT_PATTERNS: list[str] = [
     "gemini-2.5-pro",
     "gpt-5",
     "gpt-5-2025-08-07",
-    # DeepSeek reasoning family
-    "deepseek-r1-0528*",
 ]
 
 PROMPT_CACHE_PATTERNS: list[str] = [
@@ -139,6 +137,7 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "o1*",
     # grok-4 specific model name (basename)
     "grok-4-0709",
+    "grok-code-fast-1",
     # DeepSeek R1 family
     "deepseek-r1-0528*",
 ]
