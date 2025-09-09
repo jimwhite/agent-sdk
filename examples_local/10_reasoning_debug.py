@@ -403,4 +403,5 @@ def test_reasoning_litellm() -> None:
 
 if __name__ == "__main__":
     test_reasoning_content_oh()
-    # test_reasoning_litellm() # uncomment to run both probes
+    test_reasoning_oh_responses()
+    # test_reasoning_litellm() # optional third probe
