@@ -242,8 +242,8 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
             input="Test input",
             tools=[
                 {"type": "function", "function": {"name": "test"}}
-            ],  # Should be removed
-            stop=["STOP"],  # Should be removed
+            ],  # Should be kept (Responses API supports tools)
+            stop=["STOP"],  # Should be removed (not supported)
         )
 
     # Verify parameters were normalized
@@ -258,8 +258,11 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
     assert "max_output_tokens" in kwargs
     assert kwargs["max_output_tokens"] == 1000
 
-    # Should NOT have tools or stop (not supported by Responses API)
-    assert "tools" not in kwargs
+    # Should have tools (OpenAI Responses API supports tools + reasoning)
+    assert "tools" in kwargs
+    assert kwargs["tools"] == [{"type": "function", "function": {"name": "test"}}]
+
+    # Should NOT have stop (not supported by Responses API)
     assert "stop" not in kwargs
 
     # Temperature should be removed for reasoning models
