@@ -730,6 +730,7 @@ class LLM(BaseModel, RetryMixin):
 
         # Remove parameters not supported by Responses API
         out.pop("stop", None)  # Responses API doesn't support stop words
+        out.pop("tools", None)  # Responses API doesn't support tools
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
