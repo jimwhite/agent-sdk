@@ -363,6 +363,14 @@ class LLM(BaseModel, RetryMixin):
         else:
             messages = cast(list[dict[str, Any]], messages)
 
+        # 1.5) Delegate to Responses API when supported unless explicitly disabled
+        if self.is_responses_api_supported() and not kwargs.pop(
+            "force_chat_completions", False
+        ):
+            # Pass tools/tool_choice through to Responses API; converter will surface
+            # reasoning_content and usage details back into ChatCompletions format.
+            return self.responses(messages=messages, tools=tools, **kwargs)
+
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(messages)
