@@ -4,7 +4,7 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
-    "openhands-sdk",
+    "openhands",
     "openhands-tools",
 ]
 
@@ -1128,8 +1128,8 @@ wheels = [
 ]
 
 [[package]]
-name = "openhands-sdk"
-version = "1.0.0"
+name = "openhands"
+version = "1.0.0a0"
 source = { editable = "openhands/sdk" }
 dependencies = [
     { name = "fastmcp" },
@@ -1153,14 +1153,14 @@ requires-dist = [
 
 [[package]]
 name = "openhands-tools"
-version = "1.0.0"
+version = "1.0.0a0"
 source = { editable = "openhands/tools" }
 dependencies = [
     { name = "bashlex" },
     { name = "binaryornot" },
     { name = "cachetools" },
     { name = "libtmux" },
-    { name = "openhands-sdk" },
+    { name = "openhands" },
     { name = "pydantic" },
 ]
 
@@ -1170,7 +1170,7 @@ requires-dist = [
     { name = "binaryornot", specifier = ">=0.4.4" },
     { name = "cachetools", specifier = ">=6.1.0" },
     { name = "libtmux", specifier = ">=0.46.2" },
-    { name = "openhands-sdk", editable = "openhands/sdk" },
+    { name = "openhands", editable = "openhands/sdk" },
     { name = "pydantic", specifier = ">=2.11.7" },
 ]
 

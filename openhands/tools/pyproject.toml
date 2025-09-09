@@ -1,11 +1,11 @@
 [project]
 name = "openhands-tools"
-version = "1.0.0"
+version = "1.0.0a0"
 description = "OpenHands Tools - Runtime tools for AI agents"
 
 requires-python = ">=3.12"
 dependencies = [
-    "openhands-sdk",
+    "openhands",
     "bashlex>=0.18",
     "binaryornot>=0.4.4",
     "cachetools>=6.1.0",
