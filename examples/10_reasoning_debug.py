@@ -4,13 +4,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
 from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
     Event,
+    ImageContent,
     Message,
     TextContent,
     Tool,
@@ -18,9 +19,89 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation import ConversationVisualizer
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
 
 
 logger = get_logger(__name__)
+
+
+# Calculator tool implementation
+class CalculateAction(ActionBase):
+    """Action to calculate a mathematical expression."""
+
+    expression: str = Field(
+        description="Mathematical expression to evaluate (e.g., '2+2', '78*964')"
+    )
+
+
+class CalculateObservation(ObservationBase):
+    """Observation containing the calculation result."""
+
+    result: str = Field(description="The result of the calculation")
+    error: str | None = Field(
+        default=None, description="Error message if calculation failed"
+    )
+
+    @property
+    def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Get the observation to show to the agent."""
+        if self.error:
+            return [TextContent(text=f"Error: {self.error}")]
+        return [TextContent(text=f"Result: {self.result}")]
+
+
+class CalculatorExecutor(ToolExecutor):
+    """Executor for the calculator tool."""
+
+    def __call__(self, action: CalculateAction) -> CalculateObservation:
+        """Execute a calculation safely."""
+        try:
+            # Simple safe evaluation for basic math
+            import ast
+            import operator
+
+            # Supported operations
+            ops = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+                ast.Pow: operator.pow,
+                ast.USub: operator.neg,
+            }
+
+            def eval_expr(node):
+                if isinstance(node, ast.Constant):
+                    return node.value
+                elif isinstance(node, ast.BinOp):
+                    return ops[type(node.op)](
+                        eval_expr(node.left), eval_expr(node.right)
+                    )
+                elif isinstance(node, ast.UnaryOp):
+                    return ops[type(node.op)](eval_expr(node.operand))
+                else:
+                    raise TypeError(f"Unsupported operation: {type(node)}")
+
+            result = eval_expr(ast.parse(action.expression, mode="eval").body)
+            return CalculateObservation(result=str(result))
+        except Exception as e:
+            return CalculateObservation(
+                result="", error=f"Error calculating {action.expression}: {e}"
+            )
+
+
+def _create_calculator_tool() -> Tool:
+    """Create a calculator tool for testing tools + reasoning."""
+    return Tool(
+        name="calculate",
+        description=(
+            "Calculate a mathematical expression safely. "
+            "Supports basic arithmetic operations (+, -, *, /, **) and parentheses."
+        ),
+        input_schema=CalculateAction,
+        output_schema=CalculateObservation,
+        executor=CalculatorExecutor(),
+    )
 
 
 def _default_model_entries(proxy_base: str) -> list[dict[str, str | None]]:
@@ -103,7 +184,7 @@ def test_reasoning_content_oh() -> None:
         "REASONING_TASK",
         (
             "Solve this carefully and show your internal reasoning as available: "
-            "78*964 + 17."
+            "78*964 + 17. You have access to a calculator tool if needed."
         ),
     )
 
@@ -136,7 +217,8 @@ def test_reasoning_content_oh() -> None:
             reasoning_effort="high",
         )
 
-        tools: list[Tool] = []
+        # Add a simple calculator tool to test tools + reasoning
+        tools: list[Tool] = [_create_calculator_tool()]
         agent = Agent(llm=llm, tools=tools)
         visualizer = ConversationVisualizer()
 
@@ -163,82 +245,56 @@ def test_reasoning_content_oh() -> None:
                     print(msg_rc)
                     print("============================================\n")
 
+        # Test responses API (note: has limitations with GPT-5 models)
+        print("\n" + "=" * 50)
+        print("RESPONSES API TEST")
+        print("=" * 50)
+        if llm.is_responses_api_supported():
+            print("✅ Model supports Responses API")
+            try:
+                # Test responses API without tools (tools cause litellm bug)
+                resp = llm.responses(input="What is 2+2?")
+                print("✅ Responses API call successful")
+                if hasattr(resp, "usage"):
+                    usage = getattr(resp, "usage", None)
+                    if usage:
+                        print(f"📊 Usage: {usage}")
+
+                # Note: Responses API currently has limitations with GPT-5 models
+                # - Empty content returned
+                # - No reasoning_content field
+                # - Tools cause "empty function name" error
+                print("⚠️  Note: Responses API has known limitations with GPT-5 models")
+                print("   - Content may be empty")
+                print("   - reasoning_content field not available")
+                print("   - Tools integration has issues")
+            except Exception as e:
+                print(f"❌ Responses API failed: {e}")
+        else:
+            print("❌ Model does not support Responses API")
+        print("=" * 50 + "\n")
+
+        # Test regular conversation flow (this works perfectly with GPT-5)
+        print("=" * 50)
+        print("CONVERSATION FLOW TEST")
+        print("=" * 50)
         conversation = Conversation(agent=agent, callbacks=[on_event])
-
-        try:
-            # Test if model supports responses API and try that first
-            print(f"Model supports Responses API: {llm.is_responses_api_supported()}")
-            if llm.is_responses_api_supported():
-                print(
-                    "Model supports Responses API, testing direct responses() call..."
-                )
-                try:
-                    resp = llm.responses(input=task)
-                    print(f"Responses API call successful, response type: {type(resp)}")
-                    if hasattr(resp, "choices") and resp.choices:
-                        choice = resp.choices[0]
-                        print(
-                            f"Choice type: {type(choice)}, "
-                            f"has message: {hasattr(choice, 'message')}"
-                        )
-                        if hasattr(choice, "message"):
-                            message = getattr(choice, "message", None)
-                            if message:
-                                print(
-                                    f"Message type: {type(message)}, "
-                                    f"has reasoning_content: "
-                                    f"{hasattr(message, 'reasoning_content')}"
-                                )
-                                if hasattr(message, "reasoning_content"):
-                                    reasoning_content = getattr(
-                                        message, "reasoning_content", None
-                                    )
-                                    print(
-                                        f"Reasoning content present: "
-                                        f"{reasoning_content is not None}"
-                                    )
-                                    if reasoning_content:
-                                        saw_reasoning = True
-                                        print(
-                                            "\n==== reasoning_content "
-                                            "(from responses API) ====\n"
-                                        )
-                                        print(reasoning_content)
-                                        print(
-                                            "==============================================\n"
-                                        )
-                except Exception as e:
-                    print(f"Responses API test failed: {e}")
-                    import traceback
-
-                    traceback.print_exc()
-
-            # Also test the regular conversation flow
-            conversation.send_message(
-                message=Message(role="user", content=[TextContent(text=task)])
-            )
-            conversation.run()
-            m = agent.llm.metrics
-            if m and m.token_usages:
-                last_reasoning_tokens = m.token_usages[-1].reasoning_tokens
-            results.append(
-                {
-                    "model": model,
-                    "label": label,
-                    "result": "YES" if saw_reasoning else "NO",
-                    "reasoning_tokens": last_reasoning_tokens,
-                }
-            )
-        except Exception as e:  # noqa: BLE001
-            print(f"[error] {label}: {e}")
-            results.append(
-                {
-                    "model": model,
-                    "label": label,
-                    "result": f"ERROR: {type(e).__name__}: {e}",
-                    "reasoning_tokens": last_reasoning_tokens,
-                }
-            )
+        conversation.send_message(
+            message=Message(role="user", content=[TextContent(text=task)])
+        )
+        conversation.run()
+        print("✅ Conversation completed successfully")
+        m = agent.llm.metrics
+        if m and m.token_usages:
+            last_reasoning_tokens = m.token_usages[-1].reasoning_tokens
+        results.append(
+            {
+                "model": model,
+                "label": label,
+                "result": "YES" if saw_reasoning else "NO",
+                "reasoning_tokens": last_reasoning_tokens,
+            }
+        )
 
     # Persist results
     out_dir = Path(os.getenv("REASONING_LOG_DIR", "logs"))
