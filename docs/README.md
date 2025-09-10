@@ -29,6 +29,19 @@ Core concepts
 - LLM: thin adapter with registry for reuse across services
 - Context: microagents and knowledge that condition the agent
 
-Navigation
-- Use the left sidebar in the docs site to explore Getting Started, Architecture, Tools, MCP Integration, and Examples.
-- For a deep dive into tool internals, see Tools System.
+## Architecture Documentation
+
+Comprehensive architecture documentation is available in the [`../architecture/`](../architecture/) folder:
+
+- **[Overview](../architecture/overview.md)** - High-level component interactions and design principles
+- **[Tool System](../architecture/tool.md)** - Tool framework, built-ins, runtime tools, and MCP integration  
+- **[Agent Architecture](../architecture/agent.md)** - Agent execution flow, system prompts, and context management
+- **[LLM Integration](../architecture/llm.md)** - Provider support, message types, and advanced features
+- **[Conversation System](../architecture/conversation.md)** - State management, event system, and persistence
+
+## Additional Documentation
+
+- **[Getting Started](./getting-started.md)** - Step-by-step setup guide
+- **[Examples](./examples.md)** - Code examples and use cases  
+- **[MCP Integration](./mcp.md)** - Model Context Protocol integration guide
+- **[Context System](./context/README.md)** - Context management and microagents

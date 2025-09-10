@@ -1,22 +1,23 @@
-# Architecture Overview
+# Architecture Documentation
 
-Packages
-- openhands.sdk: agent, conversation, config, context, llm, tool, utils
-- openhands.tools: concrete tools (bash, file editor, task tracker) and executors
+> **📍 This documentation has moved!**
+>
+> Comprehensive architecture documentation is now available in the dedicated:
+> **[`../architecture/`](../architecture/) folder**
 
-Design principles
-- Keep functions short; minimize indentation depth
-- Prefer data-structure design over branching
-- Backward compatibility will not be kept; breakages will be documented
+## Complete Architecture Documentation
 
-Key modules
-- Agent: composes LLM with tools to decide next actions
-- Conversation: drives message flow, state, and callbacks
-- LLM: typed messages and a registry for reuse
-- Tool: typed action/observation schemas and executors
-- Context: microagents and repo/knowledge ingestion
+- **[Overview](../architecture/overview.md)** - High-level component interactions and design principles
+- **[Tool System](../architecture/tool.md)** - Tool framework, built-ins, runtime tools, and MCP integration
+- **[Agent Architecture](../architecture/agent.md)** - Agent execution flow, system prompts, and context management
+- **[LLM Integration](../architecture/llm.md)** - Provider support, message types, and advanced features
+- **[Conversation System](../architecture/conversation.md)** - State management, event system, and persistence
 
-Testing strategy
-- Unit tests per package (openhands/sdk/tests, openhands/tools/tests)
-- Integration tests under tests/
-- Pre-commit runs ruff/pyright/pycodestyle
+## What's New
+
+The new architecture documentation provides:
+- **Comprehensive coverage** of all SDK components
+- **Detailed diagrams** showing component interactions
+- **Working examples** with complete code snippets
+- **Development guides** for extending and customizing components
+- **Performance optimization** tips and best practices

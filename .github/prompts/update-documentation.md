@@ -19,18 +19,22 @@ You are a world-class documentation writer tasked with keeping the OpenHands Age
 
 ### 2. Documentation Review
 Review these key files for accuracy:
-- `docs/tools-system.md` - Main tools documentation
-- `docs/README.md` - Overview and tool listings
-- `docs/architecture.md` - Architecture references
+- `architecture/overview.md` - High-level component interactions and design principles
+- `architecture/tool.md` - Tool system, inheritance, and MCP integration
+- `architecture/agent.md` - Agent architecture and execution flow
+- `architecture/llm.md` - LLM integration and capabilities
+- `architecture/conversation.md` - Conversation interface and persistence
+- `docs/README.md` - Overview and navigation
+- `docs/mcp.md` - MCP integration guide
 - `README.md` - Root project documentation
 
 ### 3. Content Updates Required
 
 #### Architecture Diagrams
-- Keep mermaid diagrams SIMPLE and READABLE
-- Focus on core components, not every possible class
+- Keep mermaid diagrams SIMPLE and READABLE across all architecture/ files
+- Focus on core components and relationships, not every possible class
 - Include all current runtime tools: BashTool, FileEditorTool, TaskTrackerTool, etc.
-- Verify class inheritance reflects actual codebase structure
+- Verify component interactions and inheritance reflect actual codebase structure
 
 #### Tool Documentation
 For each tool, ensure:
@@ -40,10 +44,13 @@ For each tool, ensure:
 - Clear descriptions of functionality
 
 #### Core Framework Classes
-Verify documentation for:
-- `Tool`, `ActionBase`, `ObservationBase`, `ToolExecutor`
-- `Schema`, `ToolAnnotations`
+Verify documentation across architecture/ files for:
+- `Tool`, `ActionBase`, `ObservationBase`, `ToolExecutor` (architecture/tool.md)
+- `Agent`, `AgentBase`, system prompts (architecture/agent.md)
+- `LLM`, message types, provider support (architecture/llm.md)
+- `Conversation`, `ConversationState`, event system (architecture/conversation.md)
 - All built-in tools: `FinishTool`, `ThinkTool`
+- All runtime tools: `BashTool`, `FileEditorTool`, `TaskTrackerTool`
 
 ### 4. Verification Steps
 - Test all documented code examples to ensure they work
