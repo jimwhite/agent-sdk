@@ -124,22 +124,28 @@ def responses_to_completion_format(
                 except Exception:
                     pass
             elif item.type == "reasoning":
-                # Surface reasoning summaries
+                # Surface reasoning content first, then fallback to summary
                 try:
-                    summary = getattr(item, "summary", None)
-                    if summary is not None:
-                        try:
-                            # summary may be a list of Summary objects; join text
-                            parts = []
-                            for seg in summary:
-                                t = getattr(seg, "text", None)
-                                if t:
-                                    parts.append(str(t))
-                            if parts:
-                                reasoning_content = "\n\n".join(parts)
-                        except Exception:
-                            # summary might be a simple string/dict
-                            reasoning_content = str(summary)
+                    content_field = getattr(item, "content", None)
+                    if isinstance(content_field, str) and content_field:
+                        reasoning_content = content_field
+                    elif hasattr(content_field, "text"):
+                        rc = getattr(content_field, "text", None)
+                        if rc:
+                            reasoning_content = str(rc)
+                    else:
+                        summary = getattr(item, "summary", None)
+                        if summary is not None:
+                            try:
+                                parts = []
+                                for seg in summary:
+                                    t = getattr(seg, "text", None)
+                                    if t:
+                                        parts.append(str(t))
+                                if parts:
+                                    reasoning_content = "\n\n".join(parts)
+                            except Exception:
+                                reasoning_content = str(summary)
                 except Exception:
                     pass
 

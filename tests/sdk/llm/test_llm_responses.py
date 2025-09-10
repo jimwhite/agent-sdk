@@ -260,7 +260,10 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
 
     # Should have tools (supported by Responses API) but NOT stop (not supported)
     assert "tools" in kwargs
-    assert kwargs["tools"] == [{"type": "function", "function": {"name": "test"}}]
+    # Responses API expects a flattened tool schema with top-level name
+    assert kwargs["tools"] == [
+        {"type": "function", "name": "test", "description": None, "parameters": None}
+    ]
     assert "stop" not in kwargs
 
     # Temperature should be removed for reasoning models
