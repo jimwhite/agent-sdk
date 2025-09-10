@@ -130,20 +130,6 @@ def responses_to_completion_format(
                 except Exception:
                     pass
 
-    # Fallback to top-level reasoning.summary if no explicit block found
-    if not reasoning_content:
-        try:
-            top_reasoning = getattr(responses_result, "reasoning", None)
-            if top_reasoning is not None:
-                # top_reasoning may be dict-like or pydantic model
-                summary = getattr(top_reasoning, "summary", None)
-                if summary is None and isinstance(top_reasoning, dict):
-                    summary = top_reasoning.get("summary")
-                if summary:
-                    reasoning_content = str(summary)
-        except Exception:
-            pass
-
     # Create a ChatCompletions-compatible response
     message = {
         "role": "assistant",
