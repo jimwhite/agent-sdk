@@ -82,6 +82,7 @@ class StrReplaceEditorObservation(ObservationBase):
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Get the agent observation with output or error message."""
         if self.error:
             return [TextContent(text=self.error)]
         return [TextContent(text=self.output)]

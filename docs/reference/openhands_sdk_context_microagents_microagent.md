@@ -1,5 +1,7 @@
 # openhands.sdk.context.microagents.microagent
 
+Microagent implementations for different types of agents.
+
 ## Classes
 
 ### BaseMicroagent

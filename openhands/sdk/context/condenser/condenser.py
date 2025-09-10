@@ -1,3 +1,5 @@
+"""Abstract condenser interface and rolling condenser base class."""
+
 from abc import ABC, abstractmethod
 from logging import getLogger
 
@@ -63,6 +65,7 @@ class RollingCondenser(Condenser, ABC):
         """Get the condensation from a view."""
 
     def condense(self, view: View) -> View | Condensation:
+        """Condense a view based on rolling condenser logic."""
         # If we trigger the condenser-specific condensation threshold, compute and
         # return the condensation.
         if self.should_condense(view):

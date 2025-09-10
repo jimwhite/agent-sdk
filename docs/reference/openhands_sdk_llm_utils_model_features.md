@@ -1,14 +1,18 @@
 # openhands.sdk.llm.utils.model_features
 
+Model feature detection and normalization utilities.
+
 ## Classes
 
 ### ModelFeatures
 
-ModelFeatures(supports_function_calling: bool, supports_reasoning_effort: bool, supports_prompt_cache: bool, supports_stop_words: bool)
+Feature capabilities of a language model.
 
 ## Functions
 
 ### get_features(model: str) -> openhands.sdk.llm.utils.model_features.ModelFeatures
+
+Get the feature capabilities for a given model.
 
 ### model_matches(model: str, patterns: list[str]) -> bool
 

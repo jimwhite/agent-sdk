@@ -19,6 +19,8 @@ logger = get_logger(__name__)
 
 
 class TaskItem(BaseModel):
+    """A single task item in the task tracker."""
+
     title: str = Field(..., description="A brief title for the task.")
     notes: str = Field("", description="Additional details or notes about the task.")
     status: Literal["todo", "in_progress", "done"] = Field(

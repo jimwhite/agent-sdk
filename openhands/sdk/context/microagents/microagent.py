@@ -1,3 +1,5 @@
+"""Microagent implementations for different types of agents."""
+
 import io
 import re
 from itertools import chain
@@ -43,6 +45,7 @@ class BaseMicroagent(BaseModel):
     def _handle_third_party(
         cls, path: Path, file_content: str
     ) -> Union["RepoMicroagent", None]:
+        """Handle third-party microagent files."""
         # Determine the agent name based on file type
         microagent_name = cls.PATH_TO_THIRD_PARTY_MICROAGENT_NAME.get(path.name.lower())
 
@@ -173,6 +176,7 @@ class KnowledgeMicroagent(BaseMicroagent):
     )
 
     def __init__(self, **data):
+        """Initialize the knowledge microagent."""
         super().__init__(**data)
 
     def match_trigger(self, message: str) -> str | None:
@@ -211,6 +215,7 @@ class RepoMicroagent(BaseMicroagent):
     @field_validator("mcp_tools")
     @classmethod
     def _validate_mcp_tools(cls, v: MCPConfig | dict | None, info):
+        """Validate MCP tools configuration."""
         if v is None:
             return v
         if isinstance(v, dict):
@@ -224,6 +229,7 @@ class RepoMicroagent(BaseMicroagent):
 
     @model_validator(mode="after")
     def _enforce_repo_type(self):
+        """Enforce that this is a repo knowledge type microagent."""
         if self.type != MicroagentType.REPO_KNOWLEDGE:
             raise MicroagentValidationError(
                 f"RepoMicroagent initialized with incorrect type: {self.type}"
@@ -247,6 +253,7 @@ class TaskMicroagent(KnowledgeMicroagent):
     )
 
     def __init__(self, **data):
+        """Initialize the task microagent."""
         super().__init__(**data)
         self._append_missing_variables_prompt()
 

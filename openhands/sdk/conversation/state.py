@@ -1,3 +1,5 @@
+"""Conversation state management with thread-safe locking."""
+
 import uuid
 from threading import RLock, get_ident
 from typing import Optional
@@ -8,6 +10,8 @@ from openhands.sdk.event import Event
 
 
 class ConversationState(BaseModel):
+    """Thread-safe conversation state with locking mechanism."""
+
     model_config = ConfigDict(
         arbitrary_types_allowed=True,  # allow RLock in PrivateAttr
         validate_assignment=True,  # validate on attribute set
@@ -31,10 +35,12 @@ class ConversationState(BaseModel):
 
     # Lock/guard API
     def acquire(self) -> None:
+        """Acquire the conversation state lock."""
         self._lock.acquire()
         self._owner_tid = get_ident()
 
     def release(self) -> None:
+        """Release the conversation state lock."""
         self._owner_tid = None
         self._lock.release()
 
@@ -46,5 +52,6 @@ class ConversationState(BaseModel):
         self.release()
 
     def assert_locked(self) -> None:
+        """Assert that the current thread holds the lock."""
         if self._owner_tid != get_ident():
             raise RuntimeError("State not held by current thread")

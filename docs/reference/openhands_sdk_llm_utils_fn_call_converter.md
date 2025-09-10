@@ -11,27 +11,11 @@ We follow format from: https://docs.litellm.ai/docs/completion/function_call
 
 ### CacheControl
 
-dict() -> new empty dictionary
-dict(mapping) -> new dictionary initialized from a mapping object's
-    (key, value) pairs
-dict(iterable) -> new dictionary initialized as if via:
-    d = {}
-    for k, v in iterable:
-        d[k] = v
-dict(**kwargs) -> new dictionary initialized with the name=value pairs
-    in the keyword argument list.  For example:  dict(one=1, two=2)
+Cache control configuration for text parts.
 
 ### TextPart
 
-dict() -> new empty dictionary
-dict(mapping) -> new dictionary initialized from a mapping object's
-    (key, value) pairs
-dict(iterable) -> new dictionary initialized as if via:
-    d = {}
-    for k, v in iterable:
-        d[k] = v
-dict(**kwargs) -> new dictionary initialized with the name=value pairs
-    in the keyword argument list.  For example:  dict(one=1, two=2)
+Text part with optional cache control.
 
 ## Functions
 
@@ -57,9 +41,13 @@ Convert tool call to content in string format.
 
 ### convert_tools_to_description(tools: list[litellm.types.llms.openai.ChatCompletionToolParam]) -> str
 
+Convert tools to text description for non-function-calling models.
+
 ### get_example_for_tools(tools: list[litellm.types.llms.openai.ChatCompletionToolParam]) -> str
 
 Generate an in-context learning example based on available tools.
 
 ### refine_prompt(prompt: str) -> str
+
+Refine prompt for platform-specific commands.
 

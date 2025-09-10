@@ -1,3 +1,5 @@
+"""Conversation management - Agent-user interaction handling."""
+
 from openhands.sdk.conversation.conversation import Conversation
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.conversation.types import ConversationCallbackType

@@ -1,5 +1,7 @@
 # openhands.sdk.context.agent_context
 
+Agent context management for prompt extension and microagent integration.
+
 ## Classes
 
 ### AgentContext

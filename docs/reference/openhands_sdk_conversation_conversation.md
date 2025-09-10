@@ -4,6 +4,8 @@
 
 ### Conversation
 
+Main conversation handler for agent interactions.
+
 #### Functions
 
 ##### pause(self) -> None
@@ -48,4 +50,6 @@ Enable or disable confirmation mode and store it in conversation state.
 ## Functions
 
 ### compose_callbacks(callbacks: Iterable[Callable[[Annotated[openhands.sdk.event.base.EventBase, DiscriminatedUnion[EventBase]]], NoneType]]) -> Callable[[Annotated[openhands.sdk.event.base.EventBase, DiscriminatedUnion[EventBase]]], NoneType]
+
+Compose multiple callbacks into a single callback function.
 

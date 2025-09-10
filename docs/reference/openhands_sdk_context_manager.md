@@ -1,5 +1,7 @@
 # openhands.sdk.context.manager
 
+LLM context management utilities.
+
 ## Classes
 
 ### LLMContextManager

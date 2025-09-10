@@ -25,6 +25,8 @@ logger = get_logger(__name__)
 def compose_callbacks(
     callbacks: Iterable[ConversationCallbackType],
 ) -> ConversationCallbackType:
+    """Compose multiple callbacks into a single callback function."""
+
     def composed(event) -> None:
         for cb in callbacks:
             if cb:
@@ -34,6 +36,8 @@ def compose_callbacks(
 
 
 class Conversation:
+    """Main conversation handler for agent interactions."""
+
     def __init__(
         self,
         agent: "AgentBase",

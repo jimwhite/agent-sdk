@@ -1,5 +1,7 @@
 # openhands.sdk.tool.tool
 
+Tool framework for defining and executing tools with validation.
+
 ## Classes
 
 ### Tool
@@ -275,6 +277,8 @@ This is useful if you want to do some validation that requires the entire model 
 Create a new Tool instance with the given executor.
 
 ##### to_mcp_tool(self) -> dict[str, typing.Any]
+
+Convert tool to MCP tool format.
 
 ##### to_openai_tool(self) -> litellm.types.llms.openai.ChatCompletionToolParam
 
@@ -816,6 +820,8 @@ This is useful if you want to do some validation that requires the entire model 
 Create a new Tool instance with the given executor.
 
 ##### to_mcp_tool(self) -> dict[str, typing.Any]
+
+Convert tool to MCP tool format.
 
 ##### to_openai_tool(self) -> litellm.types.llms.openai.ChatCompletionToolParam
 

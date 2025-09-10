@@ -1,10 +1,12 @@
 # openhands.sdk.tool.builtins.finish
 
+Finish tool for signaling task completion.
+
 ## Classes
 
 ### FinishAction
 
-Base schema for input action.
+Action for finishing a task or conversation.
 
 #### Methods
 
@@ -245,11 +247,11 @@ This is useful if you want to do some validation that requires the entire model 
 
 ### FinishExecutor
 
-Executor function type for a Tool.
+Executor for finish tool.
 
 ### FinishObservation
 
-Base schema for output observation.
+Observation for finish action.
 
 #### Methods
 

@@ -1,3 +1,5 @@
+"""Utilities for generating and visualizing diffs."""
+
 from difflib import SequenceMatcher
 
 from pydantic import BaseModel
@@ -5,6 +7,8 @@ from rich.text import Text
 
 
 class EditGroup(BaseModel):
+    """Group of edits showing before and after changes."""
+
     before_edits: list[str]
     after_edits: list[str]
 

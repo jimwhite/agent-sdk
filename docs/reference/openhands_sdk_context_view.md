@@ -1,5 +1,7 @@
 # openhands.sdk.context.view
 
+View implementation for event processing and condensation.
+
 ## Classes
 
 ### View

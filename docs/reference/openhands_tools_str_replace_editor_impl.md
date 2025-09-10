@@ -1,10 +1,12 @@
 # openhands.tools.str_replace_editor.impl
 
+File editor tool implementation and executor.
+
 ## Classes
 
 ### FileEditorExecutor
 
-Executor function type for a Tool.
+Executor for file editor operations.
 
 ## Functions
 

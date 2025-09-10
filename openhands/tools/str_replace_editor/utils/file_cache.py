@@ -12,7 +12,15 @@ logger = get_logger(__name__)
 
 
 class FileCache:
+    """A file-based cache with size limits and LRU eviction."""
+
     def __init__(self, directory: str, size_limit: Optional[int] = None):
+        """Initialize the file cache.
+
+        Args:
+            directory: Directory to store cached files
+            size_limit: Maximum cache size in bytes (None for unlimited)
+        """
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.size_limit = size_limit
@@ -24,16 +32,19 @@ class FileCache:
         )
 
     def _get_file_path(self, key: str) -> Path:
+        """Get the file path for a cache key."""
         hashed_key = hashlib.sha256(key.encode()).hexdigest()
         return self.directory / f"{hashed_key}.json"
 
     def _update_current_size(self):
+        """Update the current cache size by scanning all files."""
         self.current_size = sum(
             f.stat().st_size for f in self.directory.glob("*.json") if f.is_file()
         )
         logger.debug(f"Current size updated: {self.current_size}")
 
     def set(self, key: str, value: Any) -> None:
+        """Set a value in the cache."""
         file_path = self._get_file_path(key)
         content = json.dumps({"key": key, "value": value})
         content_size = len(content.encode("utf-8"))
@@ -84,6 +95,7 @@ class FileCache:
         )  # Update access and modification time
 
     def _evict_oldest(self, exclude_path: Optional[Path] = None):
+        """Evict the oldest cache entry."""
         oldest_file = min(
             (
                 f
@@ -101,6 +113,7 @@ class FileCache:
         )
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Get a value from the cache."""
         file_path = self._get_file_path(key)
         if not file_path.exists():
             logger.debug(f"Get: Key not found: {key}")
@@ -112,6 +125,7 @@ class FileCache:
             return data["value"]
 
     def delete(self, key: str) -> None:
+        """Delete a key from the cache."""
         file_path = self._get_file_path(key)
         if file_path.exists():
             deleted_size = file_path.stat().st_size
@@ -123,6 +137,7 @@ class FileCache:
             )
 
     def clear(self) -> None:
+        """Clear all entries from the cache."""
         for item in self.directory.glob("*.json"):
             if item.is_file():
                 os.remove(item)

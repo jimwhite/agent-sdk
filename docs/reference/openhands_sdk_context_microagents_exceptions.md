@@ -1,5 +1,7 @@
 # openhands.sdk.context.microagents.exceptions
 
+Exception classes for microagent operations.
+
 ## Classes
 
 ### MicroagentError

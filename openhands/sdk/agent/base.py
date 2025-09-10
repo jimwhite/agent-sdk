@@ -16,6 +16,8 @@ logger = get_logger(__name__)
 
 
 class AgentBase(BaseModel, ABC):
+    """Base class for all OpenHands agents."""
+
     model_config = ConfigDict(
         frozen=True,
         arbitrary_types_allowed=True,

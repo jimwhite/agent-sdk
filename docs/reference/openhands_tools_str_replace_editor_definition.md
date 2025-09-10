@@ -273,6 +273,8 @@ Create a new Tool instance with the given executor.
 
 ##### to_mcp_tool(self) -> dict[str, typing.Any]
 
+Convert tool to MCP tool format.
+
 ##### to_openai_tool(self) -> litellm.types.llms.openai.ChatCompletionToolParam
 
 Convert an MCP tool to an OpenAI tool.

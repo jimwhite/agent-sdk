@@ -1,5 +1,7 @@
 # openhands.sdk.tool.builtins.think
 
+Think tool for logging thoughts and reasoning.
+
 ## Classes
 
 ### ThinkAction
@@ -245,7 +247,7 @@ This is useful if you want to do some validation that requires the entire model 
 
 ### ThinkExecutor
 
-Executor function type for a Tool.
+Executor for the think tool.
 
 ### ThinkObservation
 

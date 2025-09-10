@@ -1,3 +1,5 @@
+"""LLM interface and implementation using LiteLLM."""
+
 import copy
 import json
 import os
@@ -88,8 +90,13 @@ class RetryMixin:
         retry_multiplier: float,
         retry_listener: Callable[[int, int], None] | None = None,
     ):
+        """Create a retry decorator with exponential backoff."""
+
         def decorator(fn: Callable[[], Any]):
+            """Decorator function for retry logic."""
+
             def wrapped():
+                """Wrapped function with retry logic."""
                 import random
 
                 attempt = 0
@@ -265,6 +272,7 @@ class LLM(BaseModel, RetryMixin):
     @model_validator(mode="before")
     @classmethod
     def _coerce_inputs(cls, data):
+        """Coerce and validate input data before model creation."""
         if not isinstance(data, dict):
             return data
         d = dict(data)
@@ -297,6 +305,7 @@ class LLM(BaseModel, RetryMixin):
 
     @model_validator(mode="after")
     def _set_env_side_effects(self):
+        """Set environment variables based on model configuration."""
         if self.openrouter_site_url:
             os.environ["OR_SITE_URL"] = self.openrouter_site_url
         if self.openrouter_app_name:
@@ -431,6 +440,7 @@ class LLM(BaseModel, RetryMixin):
     def _transport_call(
         self, *, messages: list[dict[str, Any]], **kwargs
     ) -> ModelResponse:
+        """Make a transport call to the LLM API."""
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
@@ -461,6 +471,7 @@ class LLM(BaseModel, RetryMixin):
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
+        """Context manager for thread-safe litellm modify_params."""
         old = getattr(litellm, "modify_params", None)
         try:
             litellm.modify_params = flag
@@ -550,6 +561,7 @@ class LLM(BaseModel, RetryMixin):
         nonfncall_msgs: list[dict],
         tools: list[ChatCompletionToolParam],
     ) -> ModelResponse:
+        """Post-process response for prompt mocking."""
         if len(resp.choices) < 1:
             raise LLMNoResponseError(
                 "Response choices is less than 1 (seen in some providers). Resp: "
@@ -587,6 +599,7 @@ class LLM(BaseModel, RetryMixin):
     # Capabilities, formatting, and info
     # =========================================================================
     def _init_model_info_and_caps(self) -> None:
+        """Initialize model information and capabilities."""
         # Try to get model info via openrouter or litellm proxy first
         tried = False
         try:
@@ -667,6 +680,7 @@ class LLM(BaseModel, RetryMixin):
         )
 
     def vision_is_active(self) -> bool:
+        """Check if vision capabilities are active."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return not self.disable_vision and self._supports_vision()
@@ -755,6 +769,7 @@ class LLM(BaseModel, RetryMixin):
         return [message.to_llm_dict() for message in messages]
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
+        """Get token count for messages."""
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):
             logger.info(
                 "Message objects now include serialized tool calls in token counting"
@@ -785,22 +800,27 @@ class LLM(BaseModel, RetryMixin):
     # =========================================================================
     @classmethod
     def deserialize(cls, data: dict[str, Any]) -> "LLM":
+        """Deserialize LLM from dictionary."""
         return cls(**data)
 
     def serialize(self) -> dict[str, Any]:
+        """Serialize LLM to dictionary."""
         return self.model_dump()
 
     @classmethod
     def load_from_json(cls, json_path: str) -> "LLM":
+        """Load LLM from JSON file."""
         with open(json_path, "r") as f:
             data = json.load(f)
         return cls.deserialize(data)
 
     @classmethod
     def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
+        """Load LLM from environment variables."""
         TRUTHY = {"true", "1", "yes", "on"}
 
         def _unwrap_type(t: Any) -> Any:
+            """Unwrap optional types."""
             origin = get_origin(t)
             if origin is None:
                 return t
@@ -808,6 +828,7 @@ class LLM(BaseModel, RetryMixin):
             return args[0] if args else t
 
         def _cast_value(raw: str, t: Any) -> Any:
+            """Cast string value to appropriate type."""
             t = _unwrap_type(t)
             if t is SecretStr:
                 return SecretStr(raw)
@@ -853,6 +874,7 @@ class LLM(BaseModel, RetryMixin):
 
     @classmethod
     def load_from_toml(cls, toml_path: str) -> "LLM":
+        """Load LLM from TOML file."""
         try:
             import tomllib
         except ImportError:

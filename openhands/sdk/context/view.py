@@ -1,3 +1,5 @@
+"""View implementation for event processing and condensation."""
+
 from logging import getLogger
 from typing import overload
 
@@ -27,6 +29,7 @@ class View(BaseModel):
     unhandled_condensation_request: bool = False
 
     def __len__(self) -> int:
+        """Return the number of events in the view."""
         return len(self.events)
 
     # To preserve list-like indexing, we ideally support slicing and position-based
@@ -35,14 +38,19 @@ class View(BaseModel):
     # decorators.
 
     @overload
-    def __getitem__(self, key: slice) -> list[LLMConvertibleEvent]: ...
+    def __getitem__(self, key: slice) -> list[LLMConvertibleEvent]:
+        """Get a slice of events."""
+        ...
 
     @overload
-    def __getitem__(self, key: int) -> LLMConvertibleEvent: ...
+    def __getitem__(self, key: int) -> LLMConvertibleEvent:
+        """Get a single event by index."""
+        ...
 
     def __getitem__(
         self, key: int | slice
     ) -> LLMConvertibleEvent | list[LLMConvertibleEvent]:
+        """Get event(s) by index or slice."""
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             return [self[i] for i in range(start, stop, step)]

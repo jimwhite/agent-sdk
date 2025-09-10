@@ -1,5 +1,7 @@
 # openhands.sdk.llm.utils.telemetry
 
+Telemetry utilities for LLM usage tracking and logging.
+
 ## Classes
 
 ### Telemetry
@@ -266,7 +268,11 @@ Args:
 
 ##### on_error(self, err: Exception) -> None
 
+Handle errors during request processing.
+
 ##### on_request(self, log_ctx: dict | None) -> None
+
+Record the start of a request.
 
 ##### on_response(self, resp: litellm.types.utils.ModelResponse, raw_resp: litellm.types.utils.ModelResponse | None = None) -> openhands.sdk.llm.utils.metrics.Metrics
 

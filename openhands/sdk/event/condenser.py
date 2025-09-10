@@ -1,3 +1,5 @@
+"""Event classes for conversation history condensation."""
+
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.types import SourceType
 
@@ -30,6 +32,7 @@ class Condensation(EventBase):
 
     @property
     def message(self) -> str:
+        """Get a human-readable message describing the condensation."""
         if self.summary:
             return f"Summary: {self.summary}"
         return f"Condenser is dropping the events: {self.forgotten}."
@@ -46,4 +49,5 @@ class CondensationRequest(EventBase):
 
     @property
     def message(self) -> str:
+        """Get a human-readable message describing the condensation request."""
         return "Requesting a condensation of the conversation history."

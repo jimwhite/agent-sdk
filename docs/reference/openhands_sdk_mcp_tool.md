@@ -14,6 +14,8 @@ MCP Tool that wraps an MCP client and provides tool functionality.
 
 ##### from_mcp(mcp_tool: mcp.types.Tool, mcp_client: openhands.sdk.mcp.client.MCPClient) -> 'MCPTool'
 
+Create an MCPTool from an MCP tool definition.
+
 ##### from_orm(obj: 'Any') -> 'Self'
 
 ##### model_construct(_fields_set: 'set[str] | None' = None, **values: 'Any') -> 'Self'
@@ -275,6 +277,8 @@ Create a new Tool instance with the given executor.
 
 ##### to_mcp_tool(self) -> dict[str, typing.Any]
 
+Convert tool to MCP tool format.
+
 ##### to_openai_tool(self) -> litellm.types.llms.openai.ChatCompletionToolParam
 
 Convert an MCP tool to an OpenAI tool.
@@ -287,7 +291,11 @@ Executor for MCP tools.
 
 ##### call_tool(self, action: openhands.sdk.tool.schema.MCPActionBase) -> openhands.sdk.mcp.definition.MCPToolObservation
 
+Call an MCP tool asynchronously.
+
 ## Functions
 
 ### to_camel_case(s: str) -> str
+
+Convert a string to CamelCase.
 

@@ -1,3 +1,5 @@
+"""Finish tool for signaling task completion."""
+
 from pydantic import Field
 
 from openhands.sdk.llm.message import ImageContent, TextContent
@@ -11,14 +13,19 @@ from openhands.sdk.tool.tool import (
 
 
 class FinishAction(ActionBase):
+    """Action for finishing a task or conversation."""
+
     message: str = Field(description="Final message to send to the user.")
 
 
 class FinishObservation(ObservationBase):
+    """Observation for finish action."""
+
     message: str = Field(description="Final message sent to the user.")
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Return agent observation content."""
         return [TextContent(text=self.message)]
 
 
@@ -37,7 +44,10 @@ The message should include:
 
 
 class FinishExecutor(ToolExecutor):
+    """Executor for finish tool."""
+
     def __call__(self, action: FinishAction) -> FinishObservation:
+        """Execute finish action."""
         return FinishObservation(message=action.message)
 
 

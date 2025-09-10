@@ -1,5 +1,7 @@
 # openhands.sdk.llm.llm
 
+LLM interface and implementation using LiteLLM.
+
 ## Classes
 
 ### LLM
@@ -12,13 +14,21 @@ Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 
 ##### deserialize(data: dict[str, typing.Any]) -> 'LLM'
 
+Deserialize LLM from dictionary.
+
 ##### from_orm(obj: 'Any') -> 'Self'
 
 ##### load_from_env(prefix: str = 'LLM_') -> 'LLM'
 
+Load LLM from environment variables.
+
 ##### load_from_json(json_path: str) -> 'LLM'
 
+Load LLM from JSON file.
+
 ##### load_from_toml(toml_path: str) -> 'LLM'
+
+Load LLM from TOML file.
 
 ##### model_construct(_fields_set: 'set[str] | None' = None, **values: 'Any') -> 'Self'
 
@@ -197,6 +207,8 @@ Formats Message objects for LLM consumption.
 
 ##### get_token_count(self, messages: list[dict] | list[openhands.sdk.llm.message.Message]) -> int
 
+Get token count for messages.
+
 ##### is_caching_prompt_active(self) -> bool
 
 Check if prompt caching is supported and enabled for current model.
@@ -298,9 +310,15 @@ Args:
 
 ##### retry_decorator(self, *, num_retries: int, retry_exceptions: tuple[type[Exception], ...], retry_min_wait: int, retry_max_wait: int, retry_multiplier: float, retry_listener: Optional[Callable[[int, int], NoneType]] = None)
 
+Create a retry decorator with exponential backoff.
+
 ##### serialize(self) -> dict[str, typing.Any]
 
+Serialize LLM to dictionary.
+
 ##### vision_is_active(self) -> bool
+
+Check if vision capabilities are active.
 
 ### RetryMixin
 
@@ -309,4 +327,6 @@ Minimal retry mixin kept from your original design.
 #### Functions
 
 ##### retry_decorator(self, *, num_retries: int, retry_exceptions: tuple[type[Exception], ...], retry_min_wait: int, retry_max_wait: int, retry_multiplier: float, retry_listener: Optional[Callable[[int, int], NoneType]] = None)
+
+Create a retry decorator with exponential backoff.
 

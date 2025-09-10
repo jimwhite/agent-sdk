@@ -1,5 +1,7 @@
 # openhands.sdk.event.condenser
 
+Event classes for conversation history condensation.
+
 ## Classes
 
 ### Condensation

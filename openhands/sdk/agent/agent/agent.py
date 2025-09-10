@@ -1,3 +1,5 @@
+"""Main agent implementation for OpenHands."""
+
 import json
 from types import MappingProxyType
 from typing import cast
@@ -45,6 +47,8 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
+    """Main agent implementation for OpenHands."""
+
     system_prompt_filename: str = Field(default="system_prompt.j2")
     condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
     cli_mode: bool = Field(default=True)
@@ -52,6 +56,7 @@ class Agent(AgentBase):
     @model_validator(mode="before")
     @classmethod
     def _merge_builtins(cls, data: dict):
+        """Merge built-in tools with provided tools."""
         tools: list[Tool] = data.get("tools", [])
         if not isinstance(tools, list):
             # Let AgentBase.tools validator handle the exact error message/shape,
@@ -91,6 +96,7 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        """Initialize the conversation state with system prompt."""
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
         llm_convertible_messages = [
@@ -112,6 +118,7 @@ class Agent(AgentBase):
         action_events: list[ActionEvent],
         on_event: ConversationCallbackType,
     ):
+        """Execute a list of action events."""
         for action_event in action_events:
             self._execute_action_events(state, action_event, on_event=on_event)
 
@@ -120,6 +127,7 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        """Execute one step of the agent conversation."""
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
@@ -270,7 +278,7 @@ class Agent(AgentBase):
         metrics: MetricsSnapshot | None = None,
         reasoning_content: str | None = None,
     ) -> ActionEvent | None:
-        """Handle tool calls from the LLM.
+        """Convert LLM tool call to action event.
 
         NOTE: state will be mutated in-place.
         """

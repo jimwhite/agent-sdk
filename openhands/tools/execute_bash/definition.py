@@ -62,6 +62,7 @@ class ExecuteBashObservation(ObservationBase):
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Get the agent observation with formatted output and metadata."""
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"

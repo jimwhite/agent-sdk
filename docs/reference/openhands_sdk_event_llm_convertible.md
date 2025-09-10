@@ -1,10 +1,12 @@
 # openhands.sdk.event.llm_convertible
 
+Events that can be converted to LLM messages.
+
 ## Classes
 
 ### ActionEvent
 
-Base class for events that can be converted to LLM messages.
+Event representing an action taken by the agent.
 
 #### Methods
 
@@ -479,6 +481,8 @@ This is useful if you want to do some validation that requires the entire model 
 
 ##### to_llm_message(self) -> openhands.sdk.llm.message.Message
 
+Convert to LLM message.
+
 ### MessageEvent
 
 Message from either agent or user.
@@ -717,9 +721,11 @@ This is useful if you want to do some validation that requires the entire model 
 
 ##### to_llm_message(self) -> openhands.sdk.llm.message.Message
 
+Convert to LLM message.
+
 ### ObservationEvent
 
-Base class for events that can be converted to LLM messages.
+Event representing an observation from the environment.
 
 #### Methods
 
@@ -952,6 +958,8 @@ Override this method to perform additional initialization after `__init__` and `
 This is useful if you want to do some validation that requires the entire model to be initialized.
 
 ##### to_llm_message(self) -> openhands.sdk.llm.message.Message
+
+Convert to LLM message.
 
 ### SystemPromptEvent
 
@@ -1189,6 +1197,8 @@ This is useful if you want to do some validation that requires the entire model 
 
 ##### to_llm_message(self) -> openhands.sdk.llm.message.Message
 
+Convert to LLM message.
+
 ### UserRejectObservation
 
 Observation when user rejects an action in confirmation mode.
@@ -1424,4 +1434,6 @@ Override this method to perform additional initialization after `__init__` and `
 This is useful if you want to do some validation that requires the entire model to be initialized.
 
 ##### to_llm_message(self) -> openhands.sdk.llm.message.Message
+
+Convert to LLM message.
 
