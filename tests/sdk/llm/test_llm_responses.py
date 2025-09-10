@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message
@@ -241,8 +242,11 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
         llm.responses(
             input="Test input",
             tools=[
-                {"type": "function", "function": {"name": "test"}}
-            ],  # Should be kept (Responses API supports tools)
+                ChatCompletionToolParam(
+                    type="function",
+                    function=ChatCompletionToolParamFunctionChunk(name="test"),
+                )
+            ],
             stop=["STOP"],  # Should be removed
         )
 
@@ -261,10 +265,62 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
     # Should have tools (supported by Responses API) but NOT stop (not supported)
     assert "tools" in kwargs
     # Responses API expects a flattened tool schema with top-level name
-    assert kwargs["tools"] == [
-        {"type": "function", "name": "test", "description": None, "parameters": None}
-    ]
+    assert kwargs["tools"] == [{"type": "function", "name": "test"}]
     assert "stop" not in kwargs
 
     # Temperature should be removed for reasoning models
     assert "temperature" not in kwargs
+
+
+@patch("openhands.sdk.llm.llm.litellm_responses")
+def test_responses_method_parameter_normalization_with_tool_object(
+    mock_litellm_responses,
+):
+    """Tools provided as our Tool objects should be converted via to_responses()."""
+    mock_response = Mock()
+    mock_response.id = "resp_toolobj"
+    mock_response.model = "o1-preview"
+    mock_response.created = 1234567896
+    mock_response.output = []
+    mock_usage = Mock()
+    mock_usage.input_tokens = 7
+    mock_usage.output_tokens = 11
+    mock_usage.total_tokens = 18
+    mock_response.usage = mock_usage
+    mock_litellm_responses.return_value = mock_response
+
+    from pydantic import Field
+
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
+
+    class MyArgs(ActionBase):
+        x: int = Field(..., description="x value")
+
+    t = Tool(name="my_tool", description="runs", action_type=MyArgs)
+
+    llm = LLM(model="o1-preview", reasoning_effort="high", max_output_tokens=123)
+
+    with patch.object(llm, "_telemetry") as mock_telemetry:
+        mock_telemetry.log_enabled = False
+        llm.responses(input="run", tools=[t])
+
+    call_args = mock_litellm_responses.call_args
+    kwargs = call_args[1]
+
+    assert kwargs["tools"] == [
+        {
+            "type": "function",
+            "name": "my_tool",
+            "description": "runs",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"title": "X", "description": "x value", "type": "integer"}
+                },
+                "required": ["x"],
+            },
+        }
+    ]
+    assert "stop" not in kwargs
+    assert kwargs["max_output_tokens"] == 123
