@@ -4,7 +4,15 @@ import os
 import time
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, TypeGuard, cast, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    TypeGuard,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import httpx
 from pydantic import (
@@ -58,7 +66,6 @@ from openhands.sdk.llm.utils.fn_call_converter import (
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.responses_converter import (
-    messages_to_responses_input,
     responses_to_completion_format,
 )
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -124,7 +131,7 @@ class RetryMixin:
         return decorator
 
 
-class LLM(BaseModel, RetryMixin):
+class LLM(RetryMixin, BaseModel):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
     # =========================================================================
@@ -355,7 +362,6 @@ class LLM(BaseModel, RetryMixin):
         """
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
-            raise ValueError("Streaming is not supported")
 
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
@@ -408,14 +414,14 @@ class LLM(BaseModel, RetryMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported in responses() method")
 
-        # Determine input string
+        # Determine input payload (structured list or direct string)
         if input is not None:
-            input_str = input
+            input_payload = input
         elif messages is not None:
             if isinstance(messages, str):
-                input_str = messages
+                input_payload = messages
             else:
-                input_str = messages_to_responses_input(messages)
+                input_payload = self._messages_to_responses_items(messages)  # type: ignore[arg-type]
         else:
             raise ValueError("Either 'messages' or 'input' parameter must be provided")
 
@@ -427,7 +433,7 @@ class LLM(BaseModel, RetryMixin):
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "input": input_str,
+                "input": input_payload,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
             }
@@ -444,7 +450,7 @@ class LLM(BaseModel, RetryMixin):
         )
         def _one_attempt() -> ModelResponse:
             assert self._telemetry is not None
-            resp = self._transport_responses_call(input=input_str, **call_kwargs)
+            resp = self._transport_responses_call(input=input_payload, **call_kwargs)
             # Convert to ChatCompletions format for compatibility
             converted_resp = responses_to_completion_format(resp)
             # Log both converted and raw Responses payloads for audit
@@ -484,11 +490,11 @@ class LLM(BaseModel, RetryMixin):
                 if messages is None:
                     raise ValueError("Either 'messages' or 'input' must be provided")
                 if isinstance(messages, str):  # type: ignore[unreachable]
-                    input_str = cast(str, messages)
+                    input_payload = cast(str, messages)
                 else:
-                    input_str = messages_to_responses_input(messages)
+                    input_payload = self._messages_to_responses_items(messages)  # type: ignore[arg-type]
             else:
-                input_str = input
+                input_payload = input
 
             # Normalize Responses kwargs
             if tools is not None:
@@ -499,7 +505,7 @@ class LLM(BaseModel, RetryMixin):
             log_ctx = None
             if self._telemetry.log_enabled:
                 log_ctx = {
-                    "input": input_str,
+                    "input": input_payload,
                     "kwargs": {k: v for k, v in call_kwargs.items()},
                     "context_window": self.max_input_tokens,
                 }
@@ -514,7 +520,7 @@ class LLM(BaseModel, RetryMixin):
                 retry_listener=self.retry_listener,
             )
             def _one_attempt() -> ModelResponse:
-                raw = self._transport_responses_call(input=input_str, **call_kwargs)
+                raw = self._transport_responses_call(input=input_payload, **call_kwargs)
                 converted = responses_to_completion_format(raw)
                 assert self._telemetry is not None
                 self._telemetry.on_response(converted, raw_resp=raw)
@@ -751,7 +757,7 @@ class LLM(BaseModel, RetryMixin):
         resp.choices[0].message = LiteLLMMessage.model_validate(last)
         return resp
 
-    def _transport_responses_call(self, *, input: str, **kwargs) -> Any:
+    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
         """Transport call for Responses API using litellm.responses()."""
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
@@ -1050,6 +1056,54 @@ class LLM(BaseModel, RetryMixin):
                 message.force_string_serializer = True
 
         return [message.to_llm_dict() for message in messages]
+
+    # =========================================================================
+    # Responses input conversion helpers
+    # =========================================================================
+
+    # =========================================================================
+    # Responses input conversion helpers
+    # =========================================================================
+    def _messages_to_responses_items(
+        self, messages: list[dict[str, Any]] | list[Message]
+    ) -> list[dict[str, Any]]:
+        """Convert ChatCompletions-style messages into Responses "easy" items.
+
+        - Accepts either list[Message] or list[dict]
+        - Returns a list of {"role": ..., "content": ...} items suitable for
+          litellm.responses input parameter.
+        - Flattens structured content lists into plain text by concatenating
+          text segments; non-text segments (e.g., images) are ignored.
+        """
+        if not messages:
+            return []
+
+        # Normalize to list[dict]
+        if isinstance(messages[0], Message):
+            dict_messages = self.format_messages_for_llm(cast(list[Message], messages))
+        else:
+            dict_messages = cast(list[dict[str, Any]], messages)
+
+        def _to_text(content: Any) -> str:
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                parts: list[str] = []
+                for seg in content:
+                    if isinstance(seg, dict):
+                        t = seg.get("text")
+                        if isinstance(t, str) and t:
+                            parts.append(t)
+                return "".join(parts)
+            return str(content) if content is not None else ""
+
+        out: list[dict[str, Any]] = []
+        for msg in dict_messages:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            text = _to_text(content)
+            out.append({"role": str(role), "content": text})
+        return out
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):

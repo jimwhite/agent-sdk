@@ -111,9 +111,12 @@ def test_responses_method_with_messages_dict(mock_litellm_responses):
     mock_litellm_responses.assert_called_once()
     call_args = mock_litellm_responses.call_args
 
-    # The input should be converted from messages format
-    expected_input = "User: What is 2+2?\n\nAssistant: 2+2 equals 4."
-    assert call_args[1]["input"] == expected_input
+    # The input should be a structured list of message items for Responses API
+    assert isinstance(call_args[1]["input"], list)
+    assert call_args[1]["input"] == [
+        {"role": "user", "content": "What is 2+2?"},
+        {"role": "assistant", "content": "2+2 equals 4."},
+    ]
 
     # Verify the call was made correctly
 
@@ -151,9 +154,12 @@ def test_responses_method_with_message_objects(mock_litellm_responses):
     mock_litellm_responses.assert_called_once()
     call_args = mock_litellm_responses.call_args
 
-    # The input should be converted from Message objects
-    expected_input = "User: Hello\n\nAssistant: Hi there!"
-    assert call_args[1]["input"] == expected_input
+    # The input should be a structured list when Message objects are provided
+    assert isinstance(call_args[1]["input"], list)
+    assert call_args[1]["input"] == [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there!"},
+    ]
 
 
 @patch("openhands.sdk.llm.llm.litellm_responses")
