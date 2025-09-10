@@ -17,6 +17,8 @@ dev = [
     "ruff>=0.12.10",
     "pycodestyle>=2.12.0",
     "pytest-asyncio>=1.1.0",
+
+    "interrogate>=1.7.0",
 ]
 
 # Ruff configuration
@@ -47,4 +49,15 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
+
+# Interrogate configuration for docstring coverage
+[tool.interrogate]
+fail-under = 90
+exclude = ["docs", "tests"]
+ignore-init-method = true
+ignore-magic = true
+ignore-nested-classes = true
+ignore-nested-functions = true
+verbose = 1
+color = true
 

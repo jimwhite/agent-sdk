@@ -1,0 +1,45 @@
+name: Markdown Docs & Docstrings
+
+on:
+  pull_request:
+    paths:
+      - "**.py"
+      - "pydoc-markdown.yml"
+      - "docs/scripts/gen_api_docs.sh"
+      - "pyproject.toml"
+      - ".github/workflows/docs-md.yml"
+  push:
+    branches: ["main"]
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Sync deps
+        run: uv sync --dev
+
+      - name: Docstring coverage
+        run: uv run interrogate openhands
+
+      - name: Regenerate Markdown API docs
+        run: uv run ./docs/scripts/gen_api_docs.sh
+
+      - name: Fail if docs are stale
+        run: |
+          git diff --exit-code || (echo "::error ::Generated docs are out of date. Run ./docs/scripts/gen_api_docs.sh and commit changes."; exit 1)
+
+      - name: Upload generated docs (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-md
+          path: docs/reference
