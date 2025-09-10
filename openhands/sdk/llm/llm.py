@@ -777,16 +777,17 @@ class LLM(BaseModel, RetryMixin):
                 tools = out["tools"]
                 converted = []
                 for t in tools:
-                    # Prefer our Tool abstraction, else expect ChatCompletionToolParam
+                    # Prefer our Tool abstraction; else assume Chat Completions dict
                     from openhands.sdk.tool.tool import Tool as _Tool
 
                     if isinstance(t, _Tool):
                         converted.append(t.to_responses())
-                    elif hasattr(t, "function"):
-                        fn = getattr(t, "function", None)
-                        name = getattr(fn, "name", None)
-                        desc = getattr(fn, "description", None)
-                        params = getattr(fn, "parameters", None)
+                    else:
+                        # Expect Chat Completions: {"type":"function","function":{...}}
+                        fn = t.get("function") if isinstance(t, dict) else None
+                        name = fn.get("name") if isinstance(fn, dict) else None
+                        desc = fn.get("description") if isinstance(fn, dict) else None
+                        params = fn.get("parameters") if isinstance(fn, dict) else None
                         if not name:
                             logger.warning("Skipping tool with no name: %r", t)
                         else:
@@ -796,8 +797,6 @@ class LLM(BaseModel, RetryMixin):
                             if params is not None:
                                 td["parameters"] = params
                             converted.append(td)
-                    else:
-                        logger.debug("Skipping non-ChatCompletionToolParam tool: %r", t)
                 if converted:
                     out["tools"] = converted
 
