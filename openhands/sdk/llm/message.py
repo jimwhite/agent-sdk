@@ -126,6 +126,12 @@ class Message(BaseModel):
         content = "\n".join(
             item.text for item in self.content if isinstance(item, TextContent)
         )
+        
+        # Fix for MistralException: Handle empty assistant messages
+        # If assistant message is empty, provide default message to prevent API errors
+        if self.role == "assistant" and not (content and content.strip()):
+            content = "Task completed."
+        
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
         # add tool call keys if we have a tool call or response
@@ -157,6 +163,11 @@ class Message(BaseModel):
                         elem.pop("cache_control", None)
                 content.extend(d_list)
 
+        # Fix for MistralException: Handle empty assistant messages
+        # If assistant message has no content, provide default message to prevent errors
+        if self.role == "assistant" and not content:
+            content = [{"type": "text", "text": "Task completed."}]
+        
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
         if role_tool_with_prompt_caching:
             message_dict["cache_control"] = {"type": "ephemeral"}
