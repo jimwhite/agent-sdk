@@ -104,7 +104,7 @@ When reviewing code, provide constructive feedback:
 This repo has two python packages, with unit tests specifically written for each package.
 ```
 ├── Makefile
-├── README.md
+├── README.mdx
 ├── examples
 ├── openhands
 │   ├── __init__.py
@@ -143,10 +143,9 @@ The tools package now provides two patterns for tool usage:
 ```python
 from openhands.tools import BashTool, FileEditorTool
 
-# Direct instantiation with simplified API
 tools = [
-    BashTool(working_dir=os.getcwd()),
-    FileEditorTool(),
+    BashTool.create(working_dir=os.getcwd()),
+    FileEditorTool.create(),
 ]
 ```
 
@@ -197,4 +196,5 @@ The simplified pattern eliminates the need for manual executor instantiation and
 - You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
 - DON'T write TEST CLASSES unless absolutely necessary!
 - If you find yourself duplicating logics in preparing mocks, loading data etc, these logic should be fixtures in conftest.py!
+- Please test only the logic implemented in the current codebase. Do not test functionality (e.g., BaseModel.model_dumps()) that is not implemented in this repository.
 </TESTING>

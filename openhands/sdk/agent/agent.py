@@ -1,13 +1,12 @@
 import json
-from types import MappingProxyType
-from typing import cast
+from typing import Any, cast
 
 from litellm.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Message as LiteLLMMessage,
 )
-from pydantic import Field, ValidationError, model_validator
+from pydantic import Field, ValidationError, field_validator
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context import render_template
@@ -49,28 +48,64 @@ class Agent(AgentBase):
     condenser: Condenser | None = Field(default=None, repr=False, exclude=True)
     cli_mode: bool = Field(default=True)
 
-    @model_validator(mode="before")
+    @field_validator("tools", mode="before")
     @classmethod
-    def _merge_builtins(cls, data: dict):
-        tools: list[Tool] = data.get("tools", [])
-        if not isinstance(tools, list):
-            # Let AgentBase.tools validator handle the exact error message/shape,
-            # but keep this strict so we can reason about built-ins here.
-            raise TypeError("tools must be a list[Tool]")
+    def _normalize_tools(cls, v: Any) -> dict[str, "Tool"]:
+        # Fast path: already a dict[str, Tool]
+        if isinstance(v, dict) and all(isinstance(t, Tool) for t in v.values()):
+            user_tools = cast(dict[str, Tool], v)
+        else:
+            # Accept Mapping[str, Tool|dict]
+            if isinstance(v, dict):
+                items = v.items()
+            # Accept Iterable[Tool|dict]
+            elif isinstance(v, list):
+                items = (
+                    (t.name if isinstance(t, Tool) else t.get("name"), t) for t in v
+                )
+            else:
+                raise TypeError(
+                    "`tools` must be a dict[str, Tool|dict] or an iterable of Tool|dict"
+                )
 
-        builtin_names = {t.name for t in BUILT_IN_TOOLS}
-        provided_names = {t.name for t in tools}
-        overlap = sorted(builtin_names & provided_names)
-        if overlap:
-            raise ValueError(
-                f"These built-in tools are auto-included and "
-                f"should not be provided: {overlap}"
-            )
+            user_tools: dict[str, Tool] = {}
+            for name, payload in items:
+                if not name or not isinstance(name, str):
+                    raise ValueError("Each tool must have a non-empty string `name`")
+                tool = (
+                    payload
+                    if isinstance(payload, Tool)
+                    else Tool.model_validate(payload)
+                )
+                if name in user_tools:
+                    raise ValueError(f"Duplicate tool name: {name}")
+                # Trust the tool's own name; also ensure it
+                # matches the key if coming from a dict
+                if tool.name != name:
+                    raise ValueError(
+                        f"Tool key/name mismatch: key={name} vs tool.name={tool.name}"
+                    )
+                user_tools[name] = tool
 
-        # Append built-ins; AgentBase will
-        # coerce list[Tool] -> MappingProxyType[str, Tool]
-        data["tools"] = tools + BUILT_IN_TOOLS
-        return data
+        # Make it idempotent:
+        # 1) If user provided a tool identical to a built-in, drop the user copy.
+        # 2) If user tries to override a built-in with different contents, error.
+        builtin_map = {t.name: t for t in BUILT_IN_TOOLS}
+        to_delete: list[str] = []
+        for name in set(user_tools) & set(builtin_map):
+            user_tool = user_tools[name]
+            builtin_tool = builtin_map[name]
+            # Compare meaningful fields; avoid identity. Use model_dump() to be explicit
+            if user_tool.model_dump() == builtin_tool.model_dump():
+                to_delete.append(name)  # keep canonical built-in
+            else:
+                raise ValueError(f"Tool '{name}' is built-in and cannot be overridden.")
+
+        for name in to_delete:
+            del user_tools[name]
+
+        # Built-ins last; ensures no duplicates
+        return {**user_tools, **builtin_map}
 
     @property
     def system_message(self) -> str:
@@ -97,7 +132,7 @@ class Agent(AgentBase):
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
         ]
         if len(llm_convertible_messages) == 0:
-            assert isinstance(self.tools, MappingProxyType)
+            assert isinstance(self.tools, dict)
             # Prepare system message
             event = SystemPromptEvent(
                 source="agent",
@@ -159,7 +194,7 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        assert isinstance(self.tools, MappingProxyType)
+        assert isinstance(self.tools, dict)
         tools = [tool.to_openai_tool() for tool in self.tools.values()]
         response = self.llm.completion(
             messages=_messages,
@@ -277,7 +312,7 @@ class Agent(AgentBase):
         assert tool_call.type == "function"
         tool_name = tool_call.function.name
         assert tool_name is not None, "Tool call must have a name"
-        assert isinstance(self.tools, MappingProxyType)
+        assert isinstance(self.tools, dict)
         tool = self.tools.get(tool_name, None)
         # Handle non-existing tools
         if tool is None:
@@ -333,7 +368,7 @@ class Agent(AgentBase):
         It will call the tool's executor and update the state & call callback fn
         with the observation.
         """
-        assert isinstance(self.tools, MappingProxyType)
+        assert isinstance(self.tools, dict)
         tool = self.tools.get(action_event.tool_name, None)
         if tool is None:
             raise RuntimeError(

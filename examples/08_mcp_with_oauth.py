@@ -10,7 +10,6 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Message,
     TextContent,
-    Tool,
     create_mcp_tools,
     get_logger,
 )
@@ -29,9 +28,9 @@ llm = LLM(
 )
 
 cwd = os.getcwd()
-tools: list[Tool] = [
-    BashTool(working_dir=cwd),
-    FileEditorTool(),
+tools = [
+    BashTool.create(working_dir=cwd),
+    FileEditorTool.create(),
 ]
 
 # Add MCP Tools

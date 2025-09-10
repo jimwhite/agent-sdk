@@ -175,13 +175,7 @@ class ObservationEvent(LLMConvertibleEvent):
         content.append("Tool: ", style="bold")
         content.append(self.tool_name)
         content.append("\nResult:\n", style="bold")
-
-        text_parts = content_to_str(self.observation.agent_observation)
-        if text_parts:
-            full_content = "".join(text_parts)
-            content.append(full_content)
-        else:
-            content.append("[no text content]", style="dim")
+        content.append(self.observation.visualize)
 
         return content
 
@@ -251,7 +245,7 @@ class MessageEvent(LLMConvertibleEvent):
         # Add microagent information if present
         if self.activated_microagents:
             content.append(
-                f"\n\nActivated Microagents: {', '.join(self.activated_microagents)}",
+                f"\nActivated Microagents: {', '.join(self.activated_microagents)}",
                 style="dim",
             )
 
@@ -263,9 +257,7 @@ class MessageEvent(LLMConvertibleEvent):
             text_parts = content_to_str(
                 cast(list[TextContent | ImageContent], self.extended_content)
             )
-            content.append(
-                "\n\nPrompt Extension based on Agent Context:\n", style="dim"
-            )
+            content.append("\nPrompt Extension based on Agent Context:\n", style="dim")
             content.append(" ".join(text_parts))
 
         return content
