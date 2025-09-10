@@ -24,7 +24,11 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+from litellm import (
+    ChatCompletionToolParam,
+    completion as litellm_completion,
+    responses as litellm_responses,
+)
 from litellm.exceptions import (
     APIConnectionError,
     InternalServerError,
@@ -46,11 +50,15 @@ from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
+from openhands.sdk.llm.utils.responses_converter import (
+    responses_to_completion_format,
+)
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
 logger = get_logger(__name__)
+
 
 __all__ = ["LLM"]
 
@@ -357,6 +365,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             messages = cast(list[dict[str, Any]], messages)
 
+        if get_features(self.model).supports_responses_api and not kwargs.pop(
+            "force_chat_completions", False
+        ):
+            return self._responses_request(messages=messages, tools=tools, **kwargs)
+
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
         original_fncall_msgs = copy.deepcopy(messages)
@@ -411,6 +424,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
+            # Ensure at least one choice
+            if not resp.get("choices") or len(resp["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(resp)
+                )
+            return resp
+
+        try:
+            resp = _one_attempt()
+            return resp
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+
+            if use_mock_tools:
+                raw_resp = copy.deepcopy(resp)
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
+                )
+            # 6) telemetry
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
@@ -426,6 +460,187 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         except Exception as e:
             self._telemetry.on_error(e)
             raise
+
+            if use_mock_tools:
+                raw_resp = copy.deepcopy(resp)
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
+                )
+            # 6) telemetry
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
+
+            # Ensure at least one choice
+            if not resp.get("choices") or len(resp["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(resp)
+                )
+
+            return resp
+
+        try:
+            resp = _one_attempt()
+            return resp
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+
+    def responses(
+        self,
+        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        input: str | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        if not get_features(self.model).supports_responses_api:
+            raise ValueError(
+                f"Model {self.model} does not support the Responses API. "
+                f"Use completion() method instead."
+            )
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported in responses() method")
+        return self._responses_request(messages=messages, input=input, **kwargs)
+
+    def _responses_request(
+        self,
+        *,
+        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        input: str | None = None,
+        tools: list[Any] | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        assert self._telemetry is not None
+        if input is not None:
+            input_payload = input
+        elif messages is not None:
+            if isinstance(messages, str):
+                input_payload = messages
+            else:
+                input_payload = self._messages_to_responses_items(messages)  # type: ignore[arg-type]
+        else:
+            raise ValueError("Either 'messages' or 'input' parameter must be provided")
+
+        # Ensure default store=False for Responses API
+        if tools is not None:
+            kwargs = {**kwargs, "tools": tools}
+        call_kwargs = self._normalize_responses_kwargs(kwargs)
+        call_kwargs.setdefault("store", False)
+        call_kwargs.setdefault("store", False)
+
+        if tools is not None:
+            kwargs = {**kwargs, "tools": tools}
+        call_kwargs = self._normalize_responses_kwargs(kwargs)
+
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "input": input_payload,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": self.max_input_tokens,
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt() -> ModelResponse:
+            raw = self._transport_responses_call(input=input_payload, **call_kwargs)
+            # Convert raw Responses into ChatCompletions-compatible response
+            converted = responses_to_completion_format(raw)
+            assert self._telemetry is not None
+            self._telemetry.on_response(converted, raw_resp=raw)
+            if not converted.get("choices") or len(converted["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(converted)
+                )
+            return converted
+
+        return _one_attempt()
+
+    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
+        with self._litellm_modify_params_ctx(self.modify_params):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="httpx.*"
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r".*content=.*upload.*",
+                    category=DeprecationWarning,
+                )
+                return litellm_responses(
+                    model=self.model,
+                    api_key=self.api_key.get_secret_value() if self.api_key else None,
+                    api_base=self.base_url,
+                    api_version=self.api_version,
+                    timeout=self.timeout,
+                    input=input,
+                    **kwargs,
+                )
+
+    def _normalize_responses_kwargs(self, opts: dict) -> dict:
+        out = dict(opts)
+        if self.top_k is not None:
+            out.setdefault("top_k", self.top_k)
+        if self.top_p is not None:
+            out.setdefault("top_p", self.top_p)
+        if self.temperature is not None:
+            out.setdefault("temperature", self.temperature)
+        if self.max_output_tokens is not None:
+            out.setdefault("max_output_tokens", self.max_output_tokens)
+        if get_features(self.model).supports_reasoning_effort:
+            if self.reasoning_effort is not None:
+                out["reasoning_effort"] = self.reasoning_effort
+            effort = (
+                self.reasoning_effort
+                if self.reasoning_effort not in (None, "none")
+                else "low"
+            )
+            out.setdefault("reasoning", {"effort": effort, "summary": "detailed"})
+            out.pop("temperature", None)
+            out.pop("top_p", None)
+            out.pop("text", None)
+            out.pop("include", None)
+        out.pop("stop", None)
+        try:
+            if "tools" in out and out["tools"]:
+                tools = out["tools"]
+                converted = []
+                for t in tools:
+                    from openhands.sdk.tool.tool import Tool as _Tool
+
+                    if isinstance(t, _Tool):
+                        converted.append(t.to_responses())
+                    else:
+                        fn = t.get("function", None)
+                        name = fn.get("name", None)
+                        desc = fn.get("description", None)
+                        params = fn.get("parameters", None)
+                        if name:
+                            td = {"type": "function", "name": name}
+                            if desc is not None:
+                                td["description"] = desc
+                            if params is not None:
+                                td["parameters"] = params
+                            converted.append(td)
+                if converted:
+                    out["tools"] = converted
+            tc = out.get("tool_choice")
+            if (
+                isinstance(tc, dict)
+                and "function" in tc
+                and isinstance(tc["function"], dict)
+            ):
+                name = tc["function"].get("name")
+                out["tool_choice"] = {"type": "function", "function": {"name": name}}
+        except Exception as e:
+            logger.debug("Responses tool conversion failed: %r", e)
+        if "litellm_proxy" not in self.model:
+            out.pop("extra_body", None)
+        return out
 
     # =========================================================================
     # Transport + helpers
@@ -573,6 +788,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             except Exception as e:
                 logger.info(f"Error fetching model info from proxy: {e}")
 
+    def is_responses_api_supported(self) -> bool:
+        """Returns whether Responses API is supported for this model."""
+        return get_features(self.model).supports_responses_api
+
         # Fallbacks: try base name variants
         if not self._model_info:
             try:
@@ -700,6 +919,39 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 message.force_string_serializer = True
 
         return [message.to_llm_dict() for message in messages]
+
+    # =========================================================================
+    # Responses input conversion helpers
+    # =========================================================================
+    def _messages_to_responses_items(
+        self, messages: list[dict[str, Any]] | list[Message]
+    ) -> list[dict[str, Any]]:
+        if not messages:
+            return []
+        if isinstance(messages[0], Message):
+            dict_messages = self.format_messages_for_llm(cast(list[Message], messages))
+        else:
+            dict_messages = cast(list[dict[str, Any]], messages)
+
+        def _to_text(content: Any) -> str:
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                parts: list[str] = []
+                for seg in content:
+                    if isinstance(seg, dict):
+                        t = seg.get("text")
+                        if isinstance(t, str) and t:
+                            parts.append(t)
+                return "".join(parts)
+            return str(content) if content is not None else ""
+
+        out: list[dict[str, Any]] = []
+        for msg in dict_messages:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            out.append({"role": str(role), "content": _to_text(content)})
+        return out
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):
