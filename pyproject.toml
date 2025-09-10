@@ -1,11 +1,12 @@
 # UV workspace configuration
 [tool.uv.workspace]
-members = ["openhands/sdk", "openhands/tools"]
+members = ["openhands/sdk", "openhands/tools", "openhands/server"]
 
 # Workspace sources for intra-repo dependencies
 [tool.uv.sources]
 openhands-sdk = { workspace = true }
 openhands-tools = { workspace = true }
+openhands-server = { workspace = true }
 
 [dependency-groups]
 dev = [
