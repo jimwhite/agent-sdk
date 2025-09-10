@@ -1,7 +1,6 @@
 from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
-
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
