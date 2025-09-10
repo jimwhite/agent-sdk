@@ -1,6 +1,7 @@
 """Think tool for logging thoughts and reasoning."""
 
 from pydantic import Field
+from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
@@ -17,6 +18,26 @@ class ThinkAction(ActionBase):
 
     thought: str = Field(description="The thought to log.")
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation with thinking styling."""
+        content = Text()
+
+        # Add thinking icon and header
+        content.append("🤔 ", style="yellow")
+        content.append("Thinking: ", style="bold yellow")
+
+        # Add the thought content with proper formatting
+        if self.thought:
+            # Split into lines for better formatting
+            lines = self.thought.split("\n")
+            for i, line in enumerate(lines):
+                if i > 0:
+                    content.append("\n")
+                content.append(line.strip(), style="italic white")
+
+        return content
+
 
 class ThinkObservation(ObservationBase):
     """Observation returned after logging a thought."""
@@ -29,6 +50,12 @@ class ThinkObservation(ObservationBase):
     def agent_observation(self) -> list[TextContent | ImageContent]:
         """Return the observation content for the agent."""
         return [TextContent(text=self.content)]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation - empty since action shows the thought."""
+        # Don't duplicate the thought display - action already shows it
+        return Text()
 
 
 THINK_DESCRIPTION = """Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought. Use it when complex reasoning or brainstorming is needed.

@@ -17,9 +17,9 @@ _GLOBAL_EDITOR: FileEditor | None = None
 class FileEditorExecutor(ToolExecutor):
     """Executor for file editor operations."""
 
-    def __init__(self):
+    def __init__(self, workspace_root: str | None = None):
         """Initialize the file editor executor."""
-        self.editor = FileEditor()
+        self.editor = FileEditor(workspace_root=workspace_root)
 
     def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
         """Execute a file editor action."""
