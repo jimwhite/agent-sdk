@@ -3,7 +3,7 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from openhands.sdk.agent.agent.agent import Agent
+from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
 
 
@@ -131,6 +131,7 @@ class TestAgentImmutability:
         )
 
         # They should have the same configuration
+        assert agent1 == agent2
         assert agent1.system_prompt_filename == agent2.system_prompt_filename
         assert agent1.cli_mode == agent2.cli_mode
 

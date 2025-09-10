@@ -4,15 +4,7 @@ import os
 import time
 import warnings
 from contextlib import contextmanager
-from typing import (
-    Any,
-    Callable,
-    Literal,
-    TypeGuard,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import Any, Callable, Literal, cast, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -25,17 +17,14 @@ from pydantic import (
     model_validator,
 )
 
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
+
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import (
-    ChatCompletionToolParam,
-    Message as LiteLLMMessage,
-    completion as litellm_completion,
-    responses as litellm_responses,
-)
+from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
     InternalServerError,
@@ -43,11 +32,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
-from litellm.types.utils import (
-    Choices,
-    ModelResponse,
-    StreamingChoices,
-)
+from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
     get_model_info,
@@ -58,16 +43,9 @@ from litellm.utils import (
 # OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
-from openhands.sdk.llm.utils.fn_call_converter import (
-    STOP_WORDS,
-    convert_fncall_messages_to_non_fncall_messages,
-    convert_non_fncall_messages_to_fncall_messages,
-)
+from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
-from openhands.sdk.llm.utils.responses_converter import (
-    responses_to_completion_format,
-)
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
@@ -131,7 +109,7 @@ class RetryMixin:
         return decorator
 
 
-class LLM(RetryMixin, BaseModel):
+class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
     # =========================================================================
@@ -242,6 +220,15 @@ class LLM(RetryMixin, BaseModel):
     metrics: Metrics | None = Field(default=None, exclude=True)
     retry_listener: Callable[[int, int], None] | None = Field(
         default=None, exclude=True
+    )
+    # ===== Plain class vars (NOT Fields) =====
+    # When serializing, these fields (SecretStr) will be dump to "****"
+    # When deserializing, these fields will be ignored and we will override
+    # them from the LLM instance provided at runtime.
+    OVERRIDE_ON_SERIALIZE: tuple[str, ...] = (
+        "api_key",
+        "aws_access_key_id",
+        "aws_secret_access_key",
     )
 
     # Runtime-only private attrs
@@ -360,86 +347,51 @@ class LLM(RetryMixin, BaseModel):
 
         Normalize → (maybe) mock tools → transport → postprocess.
         """
+        # Check if streaming is requested
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
+        # 1) serialize messages
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
         else:
             messages = cast(list[dict[str, Any]], messages)
 
-        if self.is_responses_api_supported() and not kwargs.pop(
-            "force_chat_completions", False
-        ):
-            return self._unified_request(
-                kind="responses", messages=messages, tools=tools, **kwargs
+        # 2) choose function-calling strategy
+        use_native_fc = self.is_function_calling_active()
+        original_fncall_msgs = copy.deepcopy(messages)
+        use_mock_tools = self.should_mock_tool_calls(tools)
+        if use_mock_tools:
+            logger.debug(
+                "LLM.completion: mocking function-calling via prompt "
+                f"for model {self.model}"
             )
-        return self._unified_request(
-            kind="chat", messages=messages, tools=tools, **kwargs
-        )
-
-    def responses(
-        self,
-        messages: list[dict[str, Any]] | list[Message] | str | None = None,
-        input: str | None = None,
-        **kwargs,
-    ) -> ModelResponse:
-        """Use OpenAI Responses API for reasoning models.
-
-        The Responses API is designed for reasoning models and provides access
-        to reasoning content. It uses a simpler input format compared to
-        ChatCompletions.
-
-        Args:
-            messages: Messages in ChatCompletions format (will be converted to input)
-            input: Direct string input for Responses API (takes precedence over
-                messages)
-            **kwargs: Additional parameters for the Responses API
-
-        Returns:
-            ModelResponse in ChatCompletions format for compatibility
-
-        Raises:
-            ValueError: If model doesn't support Responses API or if streaming is
-                requested
-        """
-        # Check if model supports Responses API
-        if not self.is_responses_api_supported():
-            raise ValueError(
-                f"Model {self.model} does not support the Responses API. "
-                f"Use completion() method instead."
+            messages, kwargs = self.pre_request_prompt_mock(
+                messages, tools or [], kwargs
             )
 
-        # Check if streaming is requested
-        if kwargs.get("stream", False):
-            raise ValueError("Streaming is not supported in responses() method")
+        # 3) normalize provider params
+        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
+        has_tools_flag = (
+            bool(tools) and use_native_fc
+        )  # only keep tools when native FC is active
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
-        # Determine input payload (structured list or direct string)
-        if input is not None:
-            input_payload = input
-        elif messages is not None:
-            if isinstance(messages, str):
-                input_payload = messages
-            else:
-                input_payload = self._messages_to_responses_items(messages)  # type: ignore[arg-type]
-        else:
-            raise ValueError("Either 'messages' or 'input' parameter must be provided")
-
-        # Normalize parameters for Responses API
-        call_kwargs = self._normalize_responses_kwargs(kwargs)
-
-        # Optional request logging context
+        # 4) optional request logging context (kept small)
         assert self._telemetry is not None
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "input": input_payload,
+                "messages": messages[:],  # already simple dicts
+                "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
             }
+            if tools and not use_native_fc:
+                log_ctx["raw_messages"] = original_fncall_msgs
         self._telemetry.on_request(log_ctx=log_ctx)
 
-        # Make the call with retries
+        # 5) do the call with retries
         @self.retry_decorator(
             num_retries=self.num_retries,
             retry_exceptions=LLM_RETRY_EXCEPTIONS,
@@ -450,18 +402,23 @@ class LLM(RetryMixin, BaseModel):
         )
         def _one_attempt() -> ModelResponse:
             assert self._telemetry is not None
-            resp = self._transport_responses_call(input=input_payload, **call_kwargs)
-            # Convert to ChatCompletions format for compatibility
-            converted_resp = responses_to_completion_format(resp)
-            # Log both converted and raw Responses payloads for audit
-            self._telemetry.on_response(converted_resp, raw_resp=resp)
+            resp = self._transport_call(messages=messages, **call_kwargs)
+            raw_resp: ModelResponse | None = None
+            if use_mock_tools:
+                raw_resp = copy.deepcopy(resp)
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
+                )
+            # 6) telemetry
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
-            if not converted_resp.get("choices") or len(converted_resp["choices"]) < 1:
+            if not resp.get("choices") or len(resp["choices"]) < 1:
                 raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(converted_resp)
+                    "Response choices is less than 1. Response: " + str(resp)
                 )
-            return converted_resp
+
+            return resp
 
         try:
             resp = _one_attempt()
@@ -471,135 +428,6 @@ class LLM(RetryMixin, BaseModel):
             raise
 
     # =========================================================================
-
-    def _unified_request(
-        self,
-        *,
-        kind: Literal["chat", "responses"],
-        messages: list[dict[str, Any]] | None = None,
-        input: str | None = None,
-        tools: list[Any] | None = None,
-        **kwargs,
-    ) -> ModelResponse:
-        assert self._telemetry is not None
-
-        # Prepare per-kind inputs and kwargs
-        if kind == "responses":
-            # Determine input text (prioritize explicit input)
-            if input is None:
-                if messages is None:
-                    raise ValueError("Either 'messages' or 'input' must be provided")
-                if isinstance(messages, str):  # type: ignore[unreachable]
-                    input_payload = cast(str, messages)
-                else:
-                    input_payload = self._messages_to_responses_items(messages)  # type: ignore[arg-type]
-            else:
-                input_payload = input
-
-            # Normalize Responses kwargs
-            if tools is not None:
-                kwargs = {**kwargs, "tools": tools}
-            call_kwargs = self._normalize_responses_kwargs(kwargs)
-
-            # Log context mirrors the outgoing payload
-            log_ctx = None
-            if self._telemetry.log_enabled:
-                log_ctx = {
-                    "input": input_payload,
-                    "kwargs": {k: v for k, v in call_kwargs.items()},
-                    "context_window": self.max_input_tokens,
-                }
-            self._telemetry.on_request(log_ctx=log_ctx)
-
-            @self.retry_decorator(
-                num_retries=self.num_retries,
-                retry_exceptions=LLM_RETRY_EXCEPTIONS,
-                retry_min_wait=self.retry_min_wait,
-                retry_max_wait=self.retry_max_wait,
-                retry_multiplier=self.retry_multiplier,
-                retry_listener=self.retry_listener,
-            )
-            def _one_attempt() -> ModelResponse:
-                raw = self._transport_responses_call(input=input_payload, **call_kwargs)
-                converted = responses_to_completion_format(raw)
-                assert self._telemetry is not None
-                self._telemetry.on_response(converted, raw_resp=raw)
-                if not converted.get("choices") or len(converted["choices"]) < 1:
-                    raise LLMNoResponseError(
-                        "Response choices is less than 1. Response: " + str(converted)
-                    )
-                return converted
-
-            try:
-                return _one_attempt()
-            except Exception as e:
-                self._telemetry.on_error(e)
-                raise
-
-        # kind == "chat"
-        if messages is None:
-            raise ValueError("messages must be provided for chat requests")
-
-        # Decide tool-calling path
-        use_native_fc = self.is_function_calling_active()
-        raw_resp_needed = False
-        original_msgs = copy.deepcopy(messages)
-
-        # Prompt-mock tools when native FC is OFF
-        if tools and not use_native_fc:
-            messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
-            raw_resp_needed = True
-
-        # Normalize Chat kwargs
-        if tools is not None:
-            kwargs = {**kwargs, "tools": tools}
-        has_tools_flag = bool(tools) and use_native_fc
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
-
-        # Log context mirrors the outgoing payload
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "messages": messages[:],
-                "tools": tools if has_tools_flag else tools,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
-            }
-            if raw_resp_needed:
-                log_ctx["raw_messages"] = original_msgs
-
-        # Make the call with retries
-        @self.retry_decorator(
-            num_retries=self.num_retries,
-            retry_exceptions=LLM_RETRY_EXCEPTIONS,
-            retry_min_wait=self.retry_min_wait,
-            retry_max_wait=self.retry_max_wait,
-            retry_multiplier=self.retry_multiplier,
-            retry_listener=self.retry_listener,
-        )
-        def _one_attempt_chat() -> ModelResponse:
-            resp = self._transport_call(messages=messages, **call_kwargs)
-            raw_resp: ModelResponse | None = None
-            if raw_resp_needed:
-                raw_resp = copy.deepcopy(resp)
-                resp = self._post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
-                )
-            assert self._telemetry is not None
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
-            if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(resp)
-                )
-            return resp
-
-        try:
-            return _one_attempt_chat()
-        except Exception as e:
-            self._telemetry.on_error(e)
-            raise
-            raise
-
     # Transport + helpers
     # =========================================================================
     def _transport_call(
@@ -695,181 +523,6 @@ class LLM(RetryMixin, BaseModel):
         if not has_tools:
             out.pop("tools", None)
             out.pop("tool_choice", None)
-
-        # non litellm proxy special-case: keep `extra_body` off unless model requires it
-        if "litellm_proxy" not in self.model:
-            out.pop("extra_body", None)
-
-        return out
-
-    def _pre_request_prompt_mock(
-        self, messages: list[dict], tools: list[ChatCompletionToolParam], kwargs: dict
-    ) -> tuple[list[dict], dict]:
-        """Convert to non-fncall prompting when native tool-calling is off."""
-        add_iclex = not any(s in self.model for s in ("openhands-lm", "devstral"))
-        messages = convert_fncall_messages_to_non_fncall_messages(
-            messages, tools, add_in_context_learning_example=add_iclex
-        )
-        if get_features(self.model).supports_stop_words and not self.disable_stop_word:
-            kwargs = dict(kwargs)
-            kwargs["stop"] = STOP_WORDS
-
-        # Ensure we don't send tool_choice when mocking
-        kwargs.pop("tool_choice", None)
-        return messages, kwargs
-
-    def _post_response_prompt_mock(
-        self,
-        resp: ModelResponse,
-        nonfncall_msgs: list[dict],
-        tools: list[ChatCompletionToolParam],
-    ) -> ModelResponse:
-        if len(resp.choices) < 1:
-            raise LLMNoResponseError(
-                "Response choices is less than 1 (seen in some providers). Resp: "
-                + str(resp)
-            )
-
-        def _all_choices(
-            items: list[Choices | StreamingChoices],
-        ) -> TypeGuard[list[Choices]]:
-            return all(isinstance(c, Choices) for c in items)
-
-        if not _all_choices(resp.choices):
-            raise AssertionError(
-                "Expected non-streaming Choices when post-processing mocked tools"
-            )
-
-        # Preserve provider-specific reasoning fields before conversion
-        orig_msg = resp.choices[0].message
-        non_fn_message: dict = orig_msg.model_dump()
-        fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
-            nonfncall_msgs + [non_fn_message], tools
-        )
-        last: dict = fn_msgs[-1]
-
-        for name in ("reasoning_content", "provider_specific_fields"):
-            val = getattr(orig_msg, name, None)
-            if not val:
-                continue
-            last[name] = val
-
-        resp.choices[0].message = LiteLLMMessage.model_validate(last)
-        return resp
-
-    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
-        """Transport call for Responses API using litellm.responses()."""
-        # litellm.modify_params is GLOBAL; guard it for thread-safety
-        with self._litellm_modify_params_ctx(self.modify_params):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", category=DeprecationWarning, module="httpx.*"
-                )
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r".*content=.*upload.*",
-                    category=DeprecationWarning,
-                )
-                # Use OpenAI Responses provider
-                ret = litellm_responses(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    api_base=self.base_url,  # Responses API expects api_base
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    input=input,
-                    **kwargs,
-                )
-                return ret
-
-    def _normalize_responses_kwargs(self, opts: dict) -> dict:
-        """Normalize parameters for Responses API calls."""
-        out = dict(opts)
-
-        # Respect configured sampling params unless reasoning models override
-        if self.top_k is not None:
-            out.setdefault("top_k", self.top_k)
-        if self.top_p is not None:
-            out.setdefault("top_p", self.top_p)
-        if self.temperature is not None:
-            out.setdefault("temperature", self.temperature)
-
-        # Max tokens wiring for Responses API
-        if self.max_output_tokens is not None:
-            out.setdefault("max_output_tokens", self.max_output_tokens)
-
-        # Reasoning-model quirks
-        if get_features(self.model).supports_reasoning_effort:
-            # Preferred: use reasoning_effort
-            if self.reasoning_effort is not None:
-                out["reasoning_effort"] = self.reasoning_effort
-            # Also send OpenAI Responses-style reasoning config to request summaries
-            # LiteLLM forwards this to providers that support the Responses API.
-            effort = (
-                self.reasoning_effort
-                if self.reasoning_effort not in (None, "none")
-                else "low"
-            )
-            out.setdefault(
-                "reasoning",
-                {"effort": effort, "summary": "detailed"},
-            )
-            # Reasoning models ignore temp/top_p
-            out.pop("temperature", None)
-            out.pop("top_p", None)
-            # Avoid non-standard params until verified supported by provider
-            out.pop("text", None)
-            out.pop("include", None)
-
-        # Remove parameters not supported by Responses API
-        out.pop("stop", None)  # Responses API doesn't support stop words
-
-        # Convert Chat Completions-style tools to Responses API format if provided.
-        # ChatCompletions: {"type":"function","function":{name,description,parameters}}
-        # Responses API:   {"type":"function","name", "description", "parameters"}
-        try:
-            if "tools" in out and out["tools"]:
-                tools = out["tools"]
-                converted = []
-                for t in tools:
-                    # Prefer our Tool abstraction; else assume Chat Completions dict
-                    from openhands.sdk.tool.tool import Tool as _Tool
-
-                    if isinstance(t, _Tool):
-                        converted.append(t.to_responses())
-                    else:
-                        # Expect Chat Completions: {"type":"function","function":{...}}
-                        fn = t.get("function", None)
-                        name = fn.get("name", None)
-                        desc = fn.get("description", None)
-                        params = fn.get("parameters", None)
-                        if not name:
-                            logger.warning("Skipping tool with no name: %r", t)
-                        else:
-                            td = {"type": "function", "name": name}
-                            if desc is not None:
-                                td["description"] = desc
-                            if params is not None:
-                                td["parameters"] = params
-                            converted.append(td)
-                if converted:
-                    out["tools"] = converted
-
-            # Map tool_choice if provided (string passthrough is fine for OpenAI)
-            # Accept: "auto" | "required" | "none" |
-            # {"type":"function","function": {"name": "..."}}
-            tc = out.get("tool_choice")
-            if (
-                isinstance(tc, dict)
-                and "function" in tc
-                and isinstance(tc["function"], dict)
-            ):
-                # Keep function choice shape but ensure Responses-compatible keys
-                name = tc["function"].get("name")
-                out["tool_choice"] = {"type": "function", "function": {"name": name}}
-        except Exception as e:
-            # Non-fatal; log for visibility in case of unexpected tool shapes
-            logger.debug("Responses tool conversion failed: %r", e)
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
@@ -1006,15 +659,6 @@ class LLM(RetryMixin, BaseModel):
         """
         return bool(self._function_calling_active)
 
-    def is_responses_api_supported(self) -> bool:
-        """Returns whether the Responses API is supported for this model.
-
-        The Responses API is OpenAI's newer API that provides reasoning content
-        and is designed for agentic tasks. It's primarily supported by reasoning
-        models like o1, o3, and other advanced models.
-        """
-        return get_features(self.model).supports_responses_api
-
     @property
     def model_info(self) -> dict | None:
         """Returns the model info dictionary."""
@@ -1056,54 +700,6 @@ class LLM(RetryMixin, BaseModel):
                 message.force_string_serializer = True
 
         return [message.to_llm_dict() for message in messages]
-
-    # =========================================================================
-    # Responses input conversion helpers
-    # =========================================================================
-
-    # =========================================================================
-    # Responses input conversion helpers
-    # =========================================================================
-    def _messages_to_responses_items(
-        self, messages: list[dict[str, Any]] | list[Message]
-    ) -> list[dict[str, Any]]:
-        """Convert ChatCompletions-style messages into Responses "easy" items.
-
-        - Accepts either list[Message] or list[dict]
-        - Returns a list of {"role": ..., "content": ...} items suitable for
-          litellm.responses input parameter.
-        - Flattens structured content lists into plain text by concatenating
-          text segments; non-text segments (e.g., images) are ignored.
-        """
-        if not messages:
-            return []
-
-        # Normalize to list[dict]
-        if isinstance(messages[0], Message):
-            dict_messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            dict_messages = cast(list[dict[str, Any]], messages)
-
-        def _to_text(content: Any) -> str:
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                parts: list[str] = []
-                for seg in content:
-                    if isinstance(seg, dict):
-                        t = seg.get("text")
-                        if isinstance(t, str) and t:
-                            parts.append(t)
-                return "".join(parts)
-            return str(content) if content is not None else ""
-
-        out: list[dict[str, Any]] = []
-        for msg in dict_messages:
-            role = msg.get("role", "")
-            content = msg.get("content", "")
-            text = _to_text(content)
-            out.append({"role": str(role), "content": text})
-        return out
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):
@@ -1216,3 +812,39 @@ class LLM(RetryMixin, BaseModel):
         if "llm" in data:
             data = data["llm"]
         return cls.deserialize(data)
+
+    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+        """Resolve differences between a deserialized LLM and the current instance.
+
+        This is due to fields like api_key being serialized to "****" in dumps,
+        and we want to ensure that when loading from a file, we still use the
+        runtime-provided api_key in the self instance.
+
+        Return a new LLM instance equivalent to `persisted` but with
+        explicitly whitelisted fields (e.g. api_key) taken from `self`.
+        """
+        if persisted.__class__ is not self.__class__:
+            raise ValueError(
+                f"Cannot resolve_diff_from_deserialized between {self.__class__} "
+                f"and {persisted.__class__}"
+            )
+
+        # Copy allowed fields from runtime llm into the persisted llm
+        llm_updates = {}
+        persisted_dump = persisted.model_dump(exclude_none=True)
+        for field in self.OVERRIDE_ON_SERIALIZE:
+            if field in persisted_dump.keys():
+                llm_updates[field] = getattr(self, field)
+        if llm_updates:
+            reconciled = persisted.model_copy(update=llm_updates)
+        else:
+            reconciled = persisted
+
+        if self.model_dump(exclude_none=True) != reconciled.model_dump(
+            exclude_none=True
+        ):
+            raise ValueError(
+                "The LLM provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+        return reconciled

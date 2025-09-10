@@ -8,33 +8,42 @@ from openhands.sdk import (
     Conversation,
     Event,
     LLMConvertibleEvent,
+    LLMRegistry,
     Message,
     TextContent,
-    Tool,
     get_logger,
 )
 from openhands.tools import (
     BashTool,
+    FileEditorTool,
 )
 
 
 logger = get_logger(__name__)
 
-# Configure LLM
+# Configure LLM using LLMRegistry
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
-llm = LLM(
-    # model="litellm_proxy/gemini/gemini-2.5-pro",
-    # model="litellm_proxy/deepseek/deepseek-reasoner",
+
+# Create LLM instance
+main_llm = LLM(
     model="litellm_proxy/openai/gpt-5-mini-2025-08-07",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
+# Create LLM registry and add the LLM
+llm_registry = LLMRegistry()
+llm_registry.add("main_agent", main_llm)
+
+# Get LLM from registry
+llm = llm_registry.get("main_agent")
+
 # Tools
 cwd = os.getcwd()
-tools: list[Tool] = [
-    BashTool.create(working_dir=cwd, no_change_timeout_seconds=3),
+tools = [
+    BashTool.create(working_dir=cwd),
+    FileEditorTool.create(),
 ]
 
 # Agent
@@ -55,10 +64,8 @@ conversation.send_message(
         role="user",
         content=[
             TextContent(
-                text=(
-                    "Enter python interactive mode by directly running `python3`, "
-                    "then tell me the current time, and exit python interactive mode."
-                )
+                text="Hello! Can you create a new Python file named "
+                "hello_registry.py that prints 'Hello from LLM Registry!'?"
             )
         ],
     )
@@ -69,3 +76,21 @@ print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
     print(f"Message {i}: {str(message)[:200]}")
+
+print("=" * 100)
+print(f"LLM Registry services: {llm_registry.list_services()}")
+
+# Demonstrate getting the same LLM instance from registry
+same_llm = llm_registry.get("main_agent")
+print(f"Same LLM instance: {llm is same_llm}")
+
+# Demonstrate requesting a completion directly from an LLM
+completion_response = llm.completion(
+    messages=[{"role": "user", "content": "Say hello in one word."}]
+)
+# Access the response content
+if completion_response.choices and completion_response.choices[0].message:  # type: ignore
+    content = completion_response.choices[0].message.content  # type: ignore
+    print(f"Direct completion response: {content}")
+else:
+    print("No response content available")
