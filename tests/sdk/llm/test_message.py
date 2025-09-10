@@ -239,7 +239,7 @@ def test_empty_assistant_message_string_serializer():
     # Test with completely empty content
     message = Message(role="assistant", content=[])
     result = message.to_llm_dict()
-    
+
     assert result["role"] == "assistant"
     assert result["content"] == "Task completed."
 
@@ -250,12 +250,12 @@ def test_empty_assistant_message_list_serializer():
 
     # Test with completely empty content, forcing list serializer
     message = Message(
-        role="assistant", 
-        content=[], 
-        cache_enabled=True  # This forces list serializer
+        role="assistant",
+        content=[],
+        cache_enabled=True,  # This forces list serializer
     )
     result = message.to_llm_dict()
-    
+
     assert result["role"] == "assistant"
     assert result["content"] == [{"type": "text", "text": "Task completed."}]
 
@@ -267,7 +267,7 @@ def test_empty_text_assistant_message_string_serializer():
     # Test with empty text content
     message = Message(role="assistant", content=[TextContent(text="")])
     result = message.to_llm_dict()
-    
+
     assert result["role"] == "assistant"
     assert result["content"] == "Task completed."
 
@@ -279,7 +279,7 @@ def test_whitespace_assistant_message_string_serializer():
     # Test with whitespace-only text content
     message = Message(role="assistant", content=[TextContent(text="   \n\t  ")])
     result = message.to_llm_dict()
-    
+
     assert result["role"] == "assistant"
     assert result["content"] == "Task completed."
 
@@ -291,7 +291,7 @@ def test_non_empty_assistant_message_unchanged():
     # Test with actual content
     message = Message(role="assistant", content=[TextContent(text="Hello world")])
     result = message.to_llm_dict()
-    
+
     assert result["role"] == "assistant"
     assert result["content"] == "Hello world"
 
@@ -303,6 +303,6 @@ def test_empty_user_message_unchanged():
     # Test with empty user message
     message = Message(role="user", content=[])
     result = message.to_llm_dict()
-    
+
     assert result["role"] == "user"
     assert result["content"] == ""  # Should remain empty for non-assistant roles
