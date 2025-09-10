@@ -777,9 +777,11 @@ class LLM(BaseModel, RetryMixin):
                 tools = out["tools"]
                 converted = []
                 for t in tools:
-                    # Try our Tool abstraction first (has to_responses_tool())
-                    if hasattr(t, "to_responses_tool"):
-                        converted.append(t.to_responses_tool())
+                    # Prefer our Tool abstraction, else expect ChatCompletionToolParam
+                    from openhands.sdk.tool.tool import Tool as _Tool
+
+                    if isinstance(t, _Tool):
+                        converted.append(t.to_responses())
                     elif hasattr(t, "type") and hasattr(t, "function"):
                         # Litellm ChatCompletionToolParam-like
                         fn = getattr(t, "function", None)
