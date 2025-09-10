@@ -782,26 +782,20 @@ class LLM(BaseModel, RetryMixin):
 
                     if isinstance(t, _Tool):
                         converted.append(t.to_responses())
-                    elif hasattr(t, "type") and hasattr(t, "function"):
-                        # Litellm ChatCompletionToolParam-like
+                    elif hasattr(t, "function"):
                         fn = getattr(t, "function", None)
                         name = getattr(fn, "name", None)
                         desc = getattr(fn, "description", None)
                         params = getattr(fn, "parameters", None)
-                        td = {"type": "function", "name": name}
                         if not name:
-                            logger.warning(
-                                "Skipping tool with no name: %r",
-                                t,
-                            )
+                            logger.warning("Skipping tool with no name: %r", t)
                         else:
+                            td = {"type": "function", "name": name}
                             if desc is not None:
                                 td["description"] = desc
                             if params is not None:
                                 td["parameters"] = params
                             converted.append(td)
-                    # Only support ChatCompletionToolParam
-                    # (or Tool with to_responses_tool). Do not coerce dicts here.
                     else:
                         logger.debug("Skipping non-ChatCompletionToolParam tool: %r", t)
                 if converted:
