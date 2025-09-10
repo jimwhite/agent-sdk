@@ -1,0 +1,208 @@
+name: Server Tests and OpenAPI Generation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'openhands/server/**'
+      - 'openhands/sdk/**'
+      - 'pyproject.toml'
+      - '.github/workflows/server.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'openhands/server/**'
+      - 'openhands/sdk/**'
+      - 'pyproject.toml'
+      - '.github/workflows/server.yml'
+
+jobs:
+  test-server:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --group dev --group server
+
+    - name: Run server tests
+      run: |
+        uv run pytest tests/server/ -v
+      env:
+        OPENHANDS_MASTER_KEY: test-key-for-ci
+
+    - name: Test server startup
+      run: |
+        # Start server in background
+        OPENHANDS_MASTER_KEY=test-key-for-ci uv run python -m openhands.server.main &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 5
+        
+        # Test health endpoint
+        curl -f http://localhost:8000/alive || exit 1
+        
+        # Test auth requirement
+        curl -f http://localhost:8000/conversations && exit 1 || true
+        
+        # Test with auth
+        curl -f -H "Authorization: Bearer test-key-for-ci" http://localhost:8000/conversations || exit 1
+        
+        # Stop server
+        kill $SERVER_PID
+
+  generate-openapi:
+    runs-on: ubuntu-latest
+    needs: test-server
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --group dev --group server
+
+    - name: Generate OpenAPI schema
+      run: |
+        # Generate OpenAPI spec from the server
+        OPENHANDS_MASTER_KEY=dummy uv run python -c "
+        from openhands.server.main import app
+        import json
+        
+        # Generate OpenAPI spec
+        openapi_spec = app.openapi()
+        
+        # Save to file
+        with open('openapi.json', 'w') as f:
+            json.dump(openapi_spec, f, indent=2)
+        
+        print('OpenAPI specification generated successfully')
+        print(f'Total endpoints: {len(openapi_spec.get(\"paths\", {}))}')
+        "
+
+    - name: Validate OpenAPI schema
+      run: |
+        # Check that the schema is valid JSON
+        python -c "
+        import json
+        with open('openapi.json') as f:
+            spec = json.load(f)
+        
+        # Basic validation
+        assert 'openapi' in spec
+        assert 'info' in spec
+        assert 'paths' in spec
+        assert len(spec['paths']) > 0
+        
+        print('OpenAPI schema validation passed')
+        print(f'OpenAPI version: {spec[\"openapi\"]}')
+        print(f'API title: {spec[\"info\"][\"title\"]}')
+        print(f'API version: {spec[\"info\"][\"version\"]}')
+        print(f'Number of paths: {len(spec[\"paths\"])}')
+        "
+
+    - name: Test OpenAPI generator utility
+      run: |
+        # Test the standalone OpenAPI generator
+        uv run python openhands/server/utils/openapi_generator.py
+
+    - name: Upload OpenAPI schema
+      uses: actions/upload-artifact@v4
+      with:
+        name: openapi-schema
+        path: openapi.json
+        retention-days: 30
+
+    - name: Comment PR with OpenAPI info
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const spec = JSON.parse(fs.readFileSync('openapi.json', 'utf8'));
+          
+          const comment = `## 🔄 OpenAPI Schema Generated
+          
+          The OpenAPI schema has been automatically generated from the Conversation class:
+          
+          - **OpenAPI Version**: ${spec.openapi}
+          - **API Title**: ${spec.info.title}
+          - **API Version**: ${spec.info.version}
+          - **Total Endpoints**: ${Object.keys(spec.paths).length}
+          
+          ### Endpoints Summary
+          ${Object.entries(spec.paths).map(([path, methods]) => 
+            `- \`${path}\`: ${Object.keys(methods).join(', ').toUpperCase()}`
+          ).join('\n')}
+          
+          The schema is available as a workflow artifact and will be used for API documentation.
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: test-server
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --group dev --group server
+
+    - name: Run integration tests
+      run: |
+        # Start server in background
+        OPENHANDS_MASTER_KEY=integration-test-key uv run python -m openhands.server.main &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Run integration tests
+        OPENHANDS_MASTER_KEY=integration-test-key uv run pytest tests/integration/ -v
+        
+        # Stop server
+        kill $SERVER_PID

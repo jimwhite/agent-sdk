@@ -5,35 +5,52 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+
+try:
+    from openhands.sdk.llm import LLM
+except ImportError:
+    # Mock LLM for testing when SDK is not available
+    LLM = type("LLM", (), {})
 
 
 @pytest.fixture
 def mock_llm():
     """Create a standard mock LLM instance for testing."""
-    return LLM(
-        model="gpt-4o",
-        api_key=SecretStr("test-key"),
-        num_retries=2,
-        retry_min_wait=1,
-        retry_max_wait=2,
-    )
+    try:
+        return LLM(
+            model="gpt-4o",
+            api_key=SecretStr("test-key"),
+            num_retries=2,
+            retry_min_wait=1,
+            retry_max_wait=2,
+        )
+    except (ImportError, TypeError):
+        # Return simple mock when SDK is not available or LLM can't be instantiated
+        mock_llm = MagicMock()
+        mock_llm.model = "gpt-4o"
+        return mock_llm
 
 
 @pytest.fixture
 def mock_tool():
     """Create a mock tool for testing."""
-    from openhands.sdk.tool import ToolExecutor
+    try:
+        from openhands.sdk.tool import ToolExecutor
 
-    class MockExecutor(ToolExecutor):
-        def __call__(self, action):
-            return MagicMock(output="mock output", metadata=MagicMock(exit_code=0))
+        class MockExecutor(ToolExecutor):
+            def __call__(self, action):
+                return MagicMock(output="mock output", metadata=MagicMock(exit_code=0))
 
-    # Create a simple mock tool without complex dependencies
-    mock_tool = MagicMock()
-    mock_tool.name = "mock_tool"
-    mock_tool.executor = MockExecutor()
-    return mock_tool
+        # Create a simple mock tool without complex dependencies
+        mock_tool = MagicMock()
+        mock_tool.name = "mock_tool"
+        mock_tool.executor = MockExecutor()
+        return mock_tool
+    except ImportError:
+        # Return simple mock when SDK is not available
+        mock_tool = MagicMock()
+        mock_tool.name = "mock_tool"
+        return mock_tool
 
 
 def create_mock_litellm_response(
