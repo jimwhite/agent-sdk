@@ -133,11 +133,13 @@ class Tool(BaseModel, Generic[ActionT, ObservationT]):
 
     def to_openai_tool(self) -> ChatCompletionToolParam:
         """Convert an MCP tool to an OpenAI tool."""
+        # Only include keys with values to avoid sending nulls downstream
+        kwargs: dict[str, Any] = {"name": self.name}
+        if self.description is not None:
+            kwargs["description"] = self.description
+        if self.input_schema is not None:
+            kwargs["parameters"] = self.input_schema
         return ChatCompletionToolParam(
             type="function",
-            function=ChatCompletionToolParamFunctionChunk(
-                name=self.name,
-                description=self.description,
-                parameters=self.input_schema,
-            ),
+            function=ChatCompletionToolParamFunctionChunk(**kwargs),
         )

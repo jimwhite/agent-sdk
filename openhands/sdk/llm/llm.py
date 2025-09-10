@@ -786,14 +786,18 @@ class LLM(BaseModel, RetryMixin):
                         name = getattr(fn, "name", None)
                         desc = getattr(fn, "description", None)
                         params = getattr(fn, "parameters", None)
-                        converted.append(
-                            {
-                                "type": "function",
-                                "name": name,
-                                "description": desc,
-                                "parameters": params,
-                            }
-                        )
+                        td = {"type": "function", "name": name}
+                        if not name:
+                            logger.warning(
+                                "Skipping tool with no name: %r",
+                                t,
+                            )
+                        else:
+                            if desc is not None:
+                                td["description"] = desc
+                            if params is not None:
+                                td["parameters"] = params
+                            converted.append(td)
                     elif isinstance(t, dict):
                         # If already Responses-shaped, keep; else attempt conversion
                         if t.get("type") == "function" and "name" in t:
@@ -802,27 +806,49 @@ class LLM(BaseModel, RetryMixin):
                             t.get("function"), dict
                         ):
                             fn = t.get("function", {})
-                            converted.append(
-                                {
-                                    "type": "function",
-                                    "name": fn.get("name"),
-                                    "description": fn.get("description"),
-                                    "parameters": fn.get("parameters"),
-                                }
-                            )
+                            name = fn.get("name")
+                            if not name:
+                                logger.warning(
+                                    "Skipping dict.function with no name: %r",
+                                    t,
+                                )
+                            else:
+                                td = {"type": "function", "name": name}
+                                if (
+                                    "description" in fn
+                                    and fn.get("description") is not None
+                                ):
+                                    td["description"] = fn.get("description")
+                                if (
+                                    "parameters" in fn
+                                    and fn.get("parameters") is not None
+                                ):
+                                    td["parameters"] = fn.get("parameters")
+                                converted.append(td)
                     else:
                         # Fallback: best-effort dict coercion
                         try:
                             d = dict(t)
                             fn = d.get("function", {})
-                            converted.append(
-                                {
-                                    "type": "function",
-                                    "name": fn.get("name"),
-                                    "description": fn.get("description"),
-                                    "parameters": fn.get("parameters"),
-                                }
-                            )
+                            name = fn.get("name")
+                            if not name:
+                                logger.warning(
+                                    "Skipping fallback tool with no name: %r",
+                                    t,
+                                )
+                            else:
+                                td = {"type": "function", "name": name}
+                                if (
+                                    "description" in fn
+                                    and fn.get("description") is not None
+                                ):
+                                    td["description"] = fn.get("description")
+                                if (
+                                    "parameters" in fn
+                                    and fn.get("parameters") is not None
+                                ):
+                                    td["parameters"] = fn.get("parameters")
+                                converted.append(td)
                         except Exception:
                             pass
                 if converted:
@@ -840,9 +866,9 @@ class LLM(BaseModel, RetryMixin):
                 # Keep function choice shape but ensure Responses-compatible keys
                 name = tc["function"].get("name")
                 out["tool_choice"] = {"type": "function", "function": {"name": name}}
-        except Exception:
-            # Non-fatal; if conversion fails, let provider error surface for debugging
-            pass
+        except Exception as e:
+            # Non-fatal; log for visibility in case of unexpected tool shapes
+            logger.debug("Responses tool conversion failed: %r", e)
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
