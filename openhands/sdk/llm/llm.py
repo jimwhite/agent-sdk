@@ -701,28 +701,14 @@ class LLM(BaseModel, RetryMixin):
                     message=r".*content=.*upload.*",
                     category=DeprecationWarning,
                 )
-                # Use OpenAI Responses provider via proxy
-                # for litellm_proxy openai models
-                _custom_provider = None
-                if self.model.startswith("litellm_proxy/openai/"):
-                    _custom_provider = "openai"
-                elif self.model.startswith("litellm_proxy/azure/"):
-                    _custom_provider = "azure"
-                # LiteLLM Proxy expects underlying model id
-                # (strip the 'litellm_proxy/' prefix if present)
-                model_for_proxy = (
-                    self.model.removeprefix("litellm_proxy/")
-                    if self.model.startswith("litellm_proxy/")
-                    else self.model
-                )
+                # Use OpenAI Responses provider
                 ret = litellm_responses(
-                    model=model_for_proxy,
+                    model=self.model,
                     api_key=self.api_key.get_secret_value() if self.api_key else None,
                     api_base=self.base_url,  # Responses API expects api_base
                     api_version=self.api_version,
                     timeout=self.timeout,
                     input=input,
-                    custom_llm_provider=_custom_provider,
                     **kwargs,
                 )
                 return ret
