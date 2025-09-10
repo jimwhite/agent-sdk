@@ -523,11 +523,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             kwargs = {**kwargs, "tools": tools}
         call_kwargs = self._normalize_responses_kwargs(kwargs)
         call_kwargs.setdefault("store", False)
-        call_kwargs.setdefault("store", False)
-
-        if tools is not None:
-            kwargs = {**kwargs, "tools": tools}
-        call_kwargs = self._normalize_responses_kwargs(kwargs)
 
         log_ctx = None
         if self._telemetry.log_enabled:
