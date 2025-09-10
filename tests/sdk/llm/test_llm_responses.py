@@ -308,19 +308,17 @@ def test_responses_method_parameter_normalization_with_tool_object(
     call_args = mock_litellm_responses.call_args
     kwargs = call_args[1]
 
-    assert kwargs["tools"] == [
-        {
-            "type": "function",
-            "name": "my_tool",
-            "description": "runs",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "x": {"title": "X", "description": "x value", "type": "integer"}
-                },
-                "required": ["x"],
-            },
-        }
-    ]
+    tool = kwargs["tools"][0]
+    assert tool["type"] == "function"
+    assert tool["name"] == "my_tool"
+    assert tool["description"] == "runs"
+    params = tool["parameters"]
+    assert params["type"] == "object"
+    props = params["properties"]
+    assert "x" in props
+    assert props["x"]["type"] == "integer"
+    assert props["x"]["description"] == "x value"
+    # schema may include additional properties (e.g., security_risk); don't over-specify
+    assert "x" in params["required"]
     assert "stop" not in kwargs
     assert kwargs["max_output_tokens"] == 123
