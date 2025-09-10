@@ -768,8 +768,81 @@ class LLM(BaseModel, RetryMixin):
 
         # Remove parameters not supported by Responses API
         out.pop("stop", None)  # Responses API doesn't support stop words
-        # Keep tool-related fields if present; some providers may accept or ignore them
-        # We don't synthesize tools here, but avoid stripping if caller provided.
+
+        # Convert Chat Completions-style tools to Responses API format if provided.
+        # ChatCompletions: {"type":"function","function":{name,description,parameters}}
+        # Responses API:   {"type":"function","name", "description", "parameters"}
+        try:
+            if "tools" in out and out["tools"]:
+                tools = out["tools"]
+                converted = []
+                for t in tools:
+                    # Try our Tool abstraction first (has to_responses_tool())
+                    if hasattr(t, "to_responses_tool"):
+                        converted.append(t.to_responses_tool())
+                    elif hasattr(t, "type") and hasattr(t, "function"):
+                        # Litellm ChatCompletionToolParam-like
+                        fn = getattr(t, "function", None)
+                        name = getattr(fn, "name", None)
+                        desc = getattr(fn, "description", None)
+                        params = getattr(fn, "parameters", None)
+                        converted.append(
+                            {
+                                "type": "function",
+                                "name": name,
+                                "description": desc,
+                                "parameters": params,
+                            }
+                        )
+                    elif isinstance(t, dict):
+                        # If already Responses-shaped, keep; else attempt conversion
+                        if t.get("type") == "function" and "name" in t:
+                            converted.append(t)
+                        elif t.get("type") == "function" and isinstance(
+                            t.get("function"), dict
+                        ):
+                            fn = t.get("function", {})
+                            converted.append(
+                                {
+                                    "type": "function",
+                                    "name": fn.get("name"),
+                                    "description": fn.get("description"),
+                                    "parameters": fn.get("parameters"),
+                                }
+                            )
+                    else:
+                        # Fallback: best-effort dict coercion
+                        try:
+                            d = dict(t)
+                            fn = d.get("function", {})
+                            converted.append(
+                                {
+                                    "type": "function",
+                                    "name": fn.get("name"),
+                                    "description": fn.get("description"),
+                                    "parameters": fn.get("parameters"),
+                                }
+                            )
+                        except Exception:
+                            pass
+                if converted:
+                    out["tools"] = converted
+
+            # Map tool_choice if provided (string passthrough is fine for OpenAI)
+            # Accept: "auto" | "required" | "none" |
+            # {"type":"function","function": {"name": "..."}}
+            tc = out.get("tool_choice")
+            if (
+                isinstance(tc, dict)
+                and "function" in tc
+                and isinstance(tc["function"], dict)
+            ):
+                # Keep function choice shape but ensure Responses-compatible keys
+                name = tc["function"].get("name")
+                out["tool_choice"] = {"type": "function", "function": {"name": name}}
+        except Exception:
+            # Non-fatal; if conversion fails, let provider error surface for debugging
+            pass
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:

@@ -1,6 +1,15 @@
 from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+
+
+try:
+    # OpenAI Responses API tool param types (SDK 1.58+)
+    from openai.types.responses.function_tool_param import FunctionToolParam
+    from openai.types.responses.tool_param import ToolParam as OpenAIResponsesToolParam
+except Exception:  # pragma: no cover - older SDKs
+    OpenAIResponsesToolParam = Any  # type: ignore
+    FunctionToolParam = Any  # type: ignore
 from pydantic import BaseModel, Field
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase

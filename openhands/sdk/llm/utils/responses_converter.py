@@ -77,11 +77,12 @@ def responses_to_completion_format(
     Returns:
         ModelResponse in ChatCompletions format
     """
-    # Extract the main content and reasoning content if available
+    # Extract the main content, tool calls, and reasoning content if available
     output_items = getattr(responses_result, "output", [])
 
     content = ""
     reasoning_content = ""
+    tool_calls: list[dict[str, Any]] = []
 
     for item in output_items:
         if hasattr(item, "type"):
@@ -102,6 +103,24 @@ def responses_to_completion_format(
                         # Older / simplified: content has `.text`
                         elif hasattr(c, "text"):
                             content = getattr(c, "text", "") or content
+                except Exception:
+                    pass
+            elif item.type == "function_call":
+                # Map Responses function call to Chat Completions tool_call
+                try:
+                    name = getattr(item, "name", None)
+                    arguments = getattr(item, "arguments", None)
+                    call_id = getattr(item, "call_id", None)
+                    tool_calls.append(
+                        {
+                            "id": getattr(item, "id", call_id) or call_id or "",
+                            "type": "function",
+                            "function": {
+                                "name": name or "",
+                                "arguments": arguments or "{}",
+                            },
+                        }
+                    )
                 except Exception:
                     pass
             elif item.type == "reasoning":
@@ -129,6 +148,8 @@ def responses_to_completion_format(
         "role": "assistant",
         "content": content,
     }
+    if tool_calls:
+        message["tool_calls"] = tool_calls
 
     # Add reasoning content as a custom field if available
     if reasoning_content:
