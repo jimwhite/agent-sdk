@@ -798,59 +798,10 @@ class LLM(BaseModel, RetryMixin):
                             if params is not None:
                                 td["parameters"] = params
                             converted.append(td)
-                    elif isinstance(t, dict):
-                        # If already Responses-shaped, keep; else attempt conversion
-                        if t.get("type") == "function" and "name" in t:
-                            converted.append(t)
-                        elif t.get("type") == "function" and isinstance(
-                            t.get("function"), dict
-                        ):
-                            fn = t.get("function", {})
-                            name = fn.get("name")
-                            if not name:
-                                logger.warning(
-                                    "Skipping dict.function with no name: %r",
-                                    t,
-                                )
-                            else:
-                                td = {"type": "function", "name": name}
-                                if (
-                                    "description" in fn
-                                    and fn.get("description") is not None
-                                ):
-                                    td["description"] = fn.get("description")
-                                if (
-                                    "parameters" in fn
-                                    and fn.get("parameters") is not None
-                                ):
-                                    td["parameters"] = fn.get("parameters")
-                                converted.append(td)
+                    # Only support ChatCompletionToolParam
+                    # (or Tool with to_responses_tool). Do not coerce dicts here.
                     else:
-                        # Fallback: best-effort dict coercion
-                        try:
-                            d = dict(t)
-                            fn = d.get("function", {})
-                            name = fn.get("name")
-                            if not name:
-                                logger.warning(
-                                    "Skipping fallback tool with no name: %r",
-                                    t,
-                                )
-                            else:
-                                td = {"type": "function", "name": name}
-                                if (
-                                    "description" in fn
-                                    and fn.get("description") is not None
-                                ):
-                                    td["description"] = fn.get("description")
-                                if (
-                                    "parameters" in fn
-                                    and fn.get("parameters") is not None
-                                ):
-                                    td["parameters"] = fn.get("parameters")
-                                converted.append(td)
-                        except Exception:
-                            pass
+                        logger.debug("Skipping non-ChatCompletionToolParam tool: %r", t)
                 if converted:
                     out["tools"] = converted
 
