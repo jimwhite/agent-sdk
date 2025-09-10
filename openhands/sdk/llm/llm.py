@@ -353,90 +353,24 @@ class LLM(BaseModel, RetryMixin):
 
         Normalize → (maybe) mock tools → transport → postprocess.
         """
-        # Check if streaming is requested
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
+            raise ValueError("Streaming is not supported")
 
-        # 1) serialize messages
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
         else:
             messages = cast(list[dict[str, Any]], messages)
 
-        # 1.5) Delegate to Responses API when supported unless explicitly disabled
         if self.is_responses_api_supported() and not kwargs.pop(
             "force_chat_completions", False
         ):
-            # Pass tools/tool_choice through to Responses API; converter will surface
-            # reasoning_content and usage details back into ChatCompletions format.
-            return self.responses(messages=messages, tools=tools, **kwargs)
-
-        # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(messages)
-        if tools and not use_native_fc:
-            logger.debug(
-                "LLM.completion: mocking function-calling via prompt "
-                f"for model {self.model}"
+            return self._unified_request(
+                kind="responses", messages=messages, tools=tools, **kwargs
             )
-            messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
-
-        # 3) normalize provider params
-        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        has_tools_flag = (
-            bool(tools) and use_native_fc
-        )  # only keep tools when native FC is active
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
-
-        # 4) optional request logging context (kept small)
-        assert self._telemetry is not None
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "messages": messages[:],  # already simple dicts
-                "tools": tools,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
-            }
-            if tools and not use_native_fc:
-                log_ctx["raw_messages"] = original_fncall_msgs
-        self._telemetry.on_request(log_ctx=log_ctx)
-
-        # 5) do the call with retries
-        @self.retry_decorator(
-            num_retries=self.num_retries,
-            retry_exceptions=LLM_RETRY_EXCEPTIONS,
-            retry_min_wait=self.retry_min_wait,
-            retry_max_wait=self.retry_max_wait,
-            retry_multiplier=self.retry_multiplier,
-            retry_listener=self.retry_listener,
+        return self._unified_request(
+            kind="chat", messages=messages, tools=tools, **kwargs
         )
-        def _one_attempt() -> ModelResponse:
-            assert self._telemetry is not None
-            resp = self._transport_call(messages=messages, **call_kwargs)
-            raw_resp: ModelResponse | None = None
-            if tools and not use_native_fc:
-                raw_resp = copy.deepcopy(resp)
-                resp = self._post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools
-                )
-            # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
-
-            # Ensure at least one choice
-            if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(resp)
-                )
-
-            return resp
-
-        try:
-            resp = _one_attempt()
-            return resp
-        except Exception as e:
-            self._telemetry.on_error(e)
-            raise
 
     def responses(
         self,
@@ -531,6 +465,135 @@ class LLM(BaseModel, RetryMixin):
             raise
 
     # =========================================================================
+
+    def _unified_request(
+        self,
+        *,
+        kind: Literal["chat", "responses"],
+        messages: list[dict[str, Any]] | None = None,
+        input: str | None = None,
+        tools: list[Any] | None = None,
+        **kwargs,
+    ) -> ModelResponse:
+        assert self._telemetry is not None
+
+        # Prepare per-kind inputs and kwargs
+        if kind == "responses":
+            # Determine input text (prioritize explicit input)
+            if input is None:
+                if messages is None:
+                    raise ValueError("Either 'messages' or 'input' must be provided")
+                if isinstance(messages, str):  # type: ignore[unreachable]
+                    input_str = cast(str, messages)
+                else:
+                    input_str = messages_to_responses_input(messages)
+            else:
+                input_str = input
+
+            # Normalize Responses kwargs
+            if tools is not None:
+                kwargs = {**kwargs, "tools": tools}
+            call_kwargs = self._normalize_responses_kwargs(kwargs)
+
+            # Log context mirrors the outgoing payload
+            log_ctx = None
+            if self._telemetry.log_enabled:
+                log_ctx = {
+                    "input": input_str,
+                    "kwargs": {k: v for k, v in call_kwargs.items()},
+                    "context_window": self.max_input_tokens,
+                }
+            self._telemetry.on_request(log_ctx=log_ctx)
+
+            @self.retry_decorator(
+                num_retries=self.num_retries,
+                retry_exceptions=LLM_RETRY_EXCEPTIONS,
+                retry_min_wait=self.retry_min_wait,
+                retry_max_wait=self.retry_max_wait,
+                retry_multiplier=self.retry_multiplier,
+                retry_listener=self.retry_listener,
+            )
+            def _one_attempt() -> ModelResponse:
+                raw = self._transport_responses_call(input=input_str, **call_kwargs)
+                converted = responses_to_completion_format(raw)
+                assert self._telemetry is not None
+                self._telemetry.on_response(converted, raw_resp=raw)
+                if not converted.get("choices") or len(converted["choices"]) < 1:
+                    raise LLMNoResponseError(
+                        "Response choices is less than 1. Response: " + str(converted)
+                    )
+                return converted
+
+            try:
+                return _one_attempt()
+            except Exception as e:
+                self._telemetry.on_error(e)
+                raise
+
+        # kind == "chat"
+        if messages is None:
+            raise ValueError("messages must be provided for chat requests")
+
+        # Decide tool-calling path
+        use_native_fc = self.is_function_calling_active()
+        raw_resp_needed = False
+        original_msgs = copy.deepcopy(messages)
+
+        # Prompt-mock tools when native FC is OFF
+        if tools and not use_native_fc:
+            messages, kwargs = self._pre_request_prompt_mock(messages, tools, kwargs)
+            raw_resp_needed = True
+
+        # Normalize Chat kwargs
+        if tools is not None:
+            kwargs = {**kwargs, "tools": tools}
+        has_tools_flag = bool(tools) and use_native_fc
+        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
+
+        # Log context mirrors the outgoing payload
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "messages": messages[:],
+                "tools": tools if has_tools_flag else tools,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": self.max_input_tokens,
+            }
+            if raw_resp_needed:
+                log_ctx["raw_messages"] = original_msgs
+
+        # Make the call with retries
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt_chat() -> ModelResponse:
+            resp = self._transport_call(messages=messages, **call_kwargs)
+            raw_resp: ModelResponse | None = None
+            if raw_resp_needed:
+                raw_resp = copy.deepcopy(resp)
+                resp = self._post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
+                )
+            assert self._telemetry is not None
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            if not resp.get("choices") or len(resp["choices"]) < 1:
+                raise LLMNoResponseError(
+                    "Response choices is less than 1. Response: " + str(resp)
+                )
+            return resp
+
+        try:
+            return _one_attempt_chat()
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+            raise
+
     # Transport + helpers
     # =========================================================================
     def _transport_call(
