@@ -784,10 +784,10 @@ class LLM(BaseModel, RetryMixin):
                         converted.append(t.to_responses())
                     else:
                         # Expect Chat Completions: {"type":"function","function":{...}}
-                        fn = t.get("function") if isinstance(t, dict) else None
-                        name = fn.get("name") if isinstance(fn, dict) else None
-                        desc = fn.get("description") if isinstance(fn, dict) else None
-                        params = fn.get("parameters") if isinstance(fn, dict) else None
+                        fn = t.get("function", None)
+                        name = fn.get("name", None)
+                        desc = fn.get("description", None)
+                        params = fn.get("parameters", None)
                         if not name:
                             logger.warning("Skipping tool with no name: %r", t)
                         else:
