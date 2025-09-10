@@ -105,28 +105,22 @@ def responses_to_completion_format(
                 except Exception:
                     pass
             elif item.type == "reasoning":
-                # OpenAI Responses may include reasoning items with content or summaries
+                # Surface reasoning summaries
                 try:
-                    # Prefer decrypted content if present
-                    if getattr(item, "content", None):
-                        reasoning_content = str(item.content)
-                    else:
-                        # Fall back to concatenated summary texts
-                        summary = getattr(item, "summary", None)
-                        if summary is not None:
-                            try:
-                                # summary may be a list of Summary objects; join text
-                                parts = []
-                                for seg in summary:
-                                    t = getattr(seg, "text", None)
-                                    if t:
-                                        parts.append(str(t))
-                                if parts:
-                                    reasoning_content = "\n\n".join(parts)
-                            except Exception:
-                                # summary might be a simple string/dict
-                                reasoning_content = str(summary)
-                        # else: no reasoning content available on this item
+                    summary = getattr(item, "summary", None)
+                    if summary is not None:
+                        try:
+                            # summary may be a list of Summary objects; join text
+                            parts = []
+                            for seg in summary:
+                                t = getattr(seg, "text", None)
+                                if t:
+                                    parts.append(str(t))
+                            if parts:
+                                reasoning_content = "\n\n".join(parts)
+                        except Exception:
+                            # summary might be a simple string/dict
+                            reasoning_content = str(summary)
                 except Exception:
                     pass
 

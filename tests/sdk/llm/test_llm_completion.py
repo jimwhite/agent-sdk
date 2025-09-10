@@ -64,7 +64,7 @@ def test_llm_completion_basic(mock_completion):
 
     # Test completion
     messages = [{"role": "user", "content": "Hello"}]
-    response = llm.completion(messages=messages)
+    response = llm.completion(messages=messages, force_chat_completions=True)
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -119,7 +119,9 @@ def test_llm_completion_with_tools(mock_completion):
         }
     ]
 
-    response = llm.completion(messages=messages, tools=tools)
+    response = llm.completion(
+        messages=messages, tools=tools, force_chat_completions=True
+    )
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -144,7 +146,7 @@ def test_llm_completion_error_handling(mock_completion):
 
     # Should propagate the exception
     with pytest.raises(Exception, match="Test error"):
-        llm.completion(messages=messages)
+        llm.completion(messages=messages, force_chat_completions=True)
 
 
 def test_llm_token_counting_basic(default_config):
@@ -252,7 +254,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     llm = custom_config
 
     messages = [{"role": "user", "content": "Hello with custom params"}]
-    response = llm.completion(messages=messages)
+    response = llm.completion(messages=messages, force_chat_completions=True)
 
     assert response == mock_response
     mock_completion.assert_called_once()
