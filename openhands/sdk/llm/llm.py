@@ -44,7 +44,6 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
@@ -55,6 +54,9 @@ from openhands.sdk.llm.utils.responses_converter import (
 )
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
+
+# OpenHands utilities
+from openhands.sdk.tool.tool import Tool
 
 
 logger = get_logger(__name__)
@@ -451,52 +453,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             self._telemetry.on_error(e)
             raise
 
-            if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
-                )
-            # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
-
-            # Ensure at least one choice
-            if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(resp)
-                )
-
-            return resp
-
-        try:
-            resp = _one_attempt()
-            return resp
-        except Exception as e:
-            self._telemetry.on_error(e)
-            raise
-
-            if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
-                )
-            # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
-
-            # Ensure at least one choice
-            if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(resp)
-                )
-
-            return resp
-
-        try:
-            resp = _one_attempt()
-            return resp
-        except Exception as e:
-            self._telemetry.on_error(e)
-            raise
-
     def responses(
         self,
         messages: list[dict[str, Any]] | list[Message] | str | None = None,
@@ -612,39 +568,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             out.pop("text", None)
             out.pop("include", None)
         out.pop("stop", None)
-        try:
-            if "tools" in out and out["tools"]:
-                tools = out["tools"]
-                converted = []
-                for t in tools:
-                    from openhands.sdk.tool.tool import Tool as _Tool
-
-                    if isinstance(t, _Tool):
-                        converted.append(t.to_responses())
-                    else:
-                        fn = t.get("function", None)
-                        name = fn.get("name", None)
-                        desc = fn.get("description", None)
-                        params = fn.get("parameters", None)
-                        if name:
-                            td = {"type": "function", "name": name}
-                            if desc is not None:
-                                td["description"] = desc
-                            if params is not None:
-                                td["parameters"] = params
-                            converted.append(td)
-                if converted:
-                    out["tools"] = converted
-            tc = out.get("tool_choice")
-            if (
-                isinstance(tc, dict)
-                and "function" in tc
-                and isinstance(tc["function"], dict)
-            ):
-                name = tc["function"].get("name")
-                out["tool_choice"] = {"type": "function", "function": {"name": name}}
-        except Exception as e:
-            logger.debug("Responses tool conversion failed: %r", e)
+        # Tools mapping: accept either our Tool objects or OpenAI-style dicts
+        tools_param = out.get("tools")
+        if tools_param:
+            converted: list[dict] = []
+            for t in tools_param:
+                if isinstance(t, Tool):
+                    converted.append(t.to_responses())
+                else:
+                    converted.append(t)
+            out["tools"] = converted
+        # tool_choice schema is compatible – pass through as-is
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
         return out
