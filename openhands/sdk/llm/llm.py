@@ -55,8 +55,8 @@ from openhands.sdk.llm.utils.responses_converter import (
 from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
+
 # OpenHands utilities
-from openhands.sdk.tool.tool import Tool
 
 
 logger = get_logger(__name__)
@@ -573,10 +573,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if tools_param:
             converted: list[dict] = []
             for t in tools_param:
-                if isinstance(t, Tool):
-                    converted.append(t.to_responses())
+                if hasattr(t, "to_responses"):
+                    converted.append(t.to_responses())  # type: ignore[attr-defined]
                 else:
-                    converted.append(t)
+                    fn = t.get("function", {}) if isinstance(t, dict) else {}
+                    name = fn.get("name")
+                    desc = fn.get("description")
+                    params = fn.get("parameters")
+                    td: dict[str, Any] = {"type": "function"}
+                    if name is not None:
+                        td["name"] = name
+                    if desc is not None:
+                        td["description"] = desc
+                    if params is not None:
+                        td["parameters"] = params
+                    converted.append(td)
             out["tools"] = converted
         # tool_choice schema is compatible – pass through as-is
         if "litellm_proxy" not in self.model:
