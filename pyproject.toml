@@ -31,7 +31,8 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "D"]
+ignore = ["D100", "D104"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["openhands"]
