@@ -355,7 +355,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     ) -> ModelResponse:
         """Single entry point for LLM completion.
 
-        Normalize → (maybe) mock tools → transport → postprocess.
+        Serialize messages/tools → (maybe) mock tools
+          → normalize → transport → postprocess.
         """
         # Check if streaming is requested
         if kwargs.get("stream", False):
@@ -423,20 +424,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
-                # If provider already returned tool_calls, keep as-is.
-                has_tc = False
-                try:
-                    ch0 = resp.choices[0] if resp.choices else None
-                    msg0 = getattr(ch0, "message", None)
-                    if msg0 is not None and getattr(msg0, "tool_calls", None):  # type: ignore[attr-defined]
-                        has_tc = True
-                except Exception:
-                    has_tc = False
-                if not has_tc:
-                    raw_resp = copy.deepcopy(resp)
-                    resp = self.post_response_prompt_mock(
-                        resp, nonfncall_msgs=messages, tools=tools or []
-                    )
+                raw_resp = copy.deepcopy(resp)
+                resp = self.post_response_prompt_mock(
+                    resp, nonfncall_msgs=messages, tools=tools or []
+                )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
             # Ensure at least one choice
