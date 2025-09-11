@@ -132,6 +132,19 @@ class ActionEvent(LLMConvertibleEvent):
         content: list[TextContent | ImageContent] = cast(
             list[TextContent | ImageContent], self.thought
         )
+
+        # Ensure assistant messages have non-empty content (required by some providers)
+        # Check if this is a FinishAction with empty thought
+        from openhands.sdk.tool.builtins import FinishAction
+
+        if isinstance(self.action, FinishAction) and (
+            not content
+            or all(not c.text.strip() for c in content if isinstance(c, TextContent))
+        ):
+            content = cast(
+                list[TextContent | ImageContent], [TextContent(text="Task completed.")]
+            )
+
         return Message(
             role="assistant",
             content=content,
