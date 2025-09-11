@@ -123,7 +123,7 @@ def custom_openapi():
 
     # Add server information
     openapi_schema["servers"] = [
-        {"url": "http://localhost:8000", "description": "Development server"}
+        {"url": "http://localhost:9000", "description": "Development server"}
     ]
 
     # Add additional info
