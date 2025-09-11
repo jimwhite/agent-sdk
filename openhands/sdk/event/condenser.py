@@ -43,6 +43,7 @@ class CondensationRequest(EventBase):
 
     Attributes:
         action (str): The action type, namely ActionType.CONDENSATION_REQUEST.
+
     """
 
     source: SourceType = "environment"

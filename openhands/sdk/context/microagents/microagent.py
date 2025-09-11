@@ -301,6 +301,7 @@ def load_microagents_from_dir(
 
     Returns:
         Tuple of (repo_agents, knowledge_agents) dictionaries
+
     """
     if isinstance(microagent_dir, str):
         microagent_dir = Path(microagent_dir)

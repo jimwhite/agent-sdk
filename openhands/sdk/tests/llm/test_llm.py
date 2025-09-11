@@ -107,7 +107,8 @@ def test_token_usage_add():
 
 def test_metrics_merge_accumulated_token_usage():
     """Test that accumulated token usage is properly merged between two Metrics
-    instances."""
+    instances.
+    """
     # Create two Metrics instances
     metrics1 = Metrics(model_name="model1")
     metrics2 = Metrics(model_name="model2")
@@ -145,7 +146,8 @@ def test_metrics_merge_accumulated_token_usage():
 
 def test_metrics_diff():
     """Test that metrics diff correctly calculates the difference between two
-    metrics."""
+    metrics.
+    """
     # Create baseline metrics
     baseline = Metrics(model_name="test-model")
     baseline.add_cost(1.0)

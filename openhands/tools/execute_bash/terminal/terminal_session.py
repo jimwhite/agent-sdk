@@ -60,6 +60,7 @@ class TerminalSession(TerminalSessionBase):
         Args:
             terminal: The terminal backend to use
             no_change_timeout_seconds: Timeout for no output change
+
         """
         super().__init__(
             terminal.work_dir,

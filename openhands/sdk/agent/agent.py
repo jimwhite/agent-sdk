@@ -281,8 +281,7 @@ class Agent(AgentBase):
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]
     ) -> bool:
-        """
-        Decide whether user confirmation is needed to proceed.
+        """Decide whether user confirmation is needed to proceed.
 
         Rules:
             1. Confirmation mode is enabled

@@ -97,6 +97,7 @@ class TmuxTerminal(TerminalInterface):
         Args:
             text: Text or key sequence to send
             enter: Whether to send Enter key after the text
+
         """
         if not self._initialized or not isinstance(self.pane, libtmux.Pane):
             raise RuntimeError("Tmux terminal is not initialized")
@@ -108,6 +109,7 @@ class TmuxTerminal(TerminalInterface):
 
         Returns:
             Current visible content of the tmux pane
+
         """
         if not self._initialized or not isinstance(self.pane, libtmux.Pane):
             raise RuntimeError("Tmux terminal is not initialized")
@@ -135,6 +137,7 @@ class TmuxTerminal(TerminalInterface):
 
         Returns:
             True if interrupt was sent successfully, False otherwise
+
         """
         if not self._initialized or not isinstance(self.pane, libtmux.Pane):
             return False

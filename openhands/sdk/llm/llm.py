@@ -642,6 +642,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns:
             bool: True if model is vision capable. Return False if model not
                 supported by litellm.
+
         """
         # litellm.supports_vision currently returns False for 'openai/gpt-...' or 'anthropic/claude-...' (with prefixes)  # noqa: E501
         # but model_info will have the correct value for some reason.
@@ -664,6 +665,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns:
             boolean: True if prompt caching is supported and enabled for the given
                 model.
+
         """
         if not self.caching_prompt:
             return False
@@ -703,7 +705,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
         """Formats Message objects for LLM consumption."""
-
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
             self._apply_prompt_caching(messages)

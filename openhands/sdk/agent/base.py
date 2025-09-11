@@ -89,8 +89,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
     def resolve_diff_from_deserialized(self, persisted: "AgentType") -> "AgentType":
-        """
-        Return a new AgentBase instance equivalent to `persisted` but with
+        """Return a new AgentBase instance equivalent to `persisted` but with
         explicitly whitelisted fields (e.g. api_key) taken from `self`.
         """
         if persisted.__class__ is not self.__class__:

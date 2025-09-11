@@ -52,7 +52,6 @@ def file_editor(
     insert_line: int | None = None,
 ) -> StrReplaceEditorObservation:
     """A global FileEditor instance to be used by the tool."""
-
     global _GLOBAL_EDITOR
     if _GLOBAL_EDITOR is None:
         _GLOBAL_EDITOR = FileEditor()

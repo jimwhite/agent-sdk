@@ -9,8 +9,7 @@ from fastmcp import Client as AsyncMCPClient
 
 
 class MCPClient(AsyncMCPClient):
-    """
-    Behaves exactly like fastmcp.Client (same constructor & async API),
+    """Behaves exactly like fastmcp.Client (same constructor & async API),
     but owns a background event loop and offers:
       - call_async_from_sync(awaitable_or_fn, *args, timeout=None, **kwargs)
       - call_sync_from_async(fn, *args, **kwargs)  # await this from async code
@@ -67,8 +66,7 @@ class MCPClient(AsyncMCPClient):
         timeout: float,
         **kwargs,
     ):
-        """
-        Run a coroutine or async function on this client's loop from sync code.
+        """Run a coroutine or async function on this client's loop from sync code.
 
         Usage:
             mcp.call_async_from_sync(async_fn, arg1, kw=...)
@@ -88,9 +86,7 @@ class MCPClient(AsyncMCPClient):
         return fut.result(timeout)
 
     async def call_sync_from_async(self, fn: Callable[..., Any], *args, **kwargs):
-        """
-        Await running a blocking function in the default threadpool from async code.
-        """
+        """Await running a blocking function in the default threadpool from async code."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: fn(*args, **kwargs))
 

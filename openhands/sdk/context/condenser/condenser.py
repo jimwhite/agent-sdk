@@ -40,6 +40,7 @@ class Condenser(ABC):
         Returns:
             View | Condensation: A condensed view of the events or an event indicating
             the history has been condensed.
+
         """
 
 

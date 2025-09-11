@@ -63,6 +63,7 @@ class Conversation:
             visualize: Whether to enable default visualization. If True, adds
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
+
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
@@ -168,7 +169,6 @@ class Conversation:
 
         Can be paused between steps
         """
-
         with self.state:
             self.state.agent_paused = False
 
@@ -245,7 +245,6 @@ class Conversation:
         Note: If called during an LLM completion, the pause will not take
         effect until the current LLM call completes.
         """
-
         if self.state.agent_paused:
             return
 

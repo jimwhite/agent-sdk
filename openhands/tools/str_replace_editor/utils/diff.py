@@ -23,6 +23,7 @@ def get_edit_groups(
 
     Returns:
         A list of edit groups, where each group contains before/after edits.
+
     """
     if old_content is None or new_content is None:
         return []
@@ -87,6 +88,7 @@ def visualize_diff(
 
     Returns:
         A string containing the formatted diff visualization.
+
     """
     content = Text()
     # Check if there are any changes

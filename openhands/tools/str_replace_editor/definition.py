@@ -94,7 +94,6 @@ class StrReplaceEditorObservation(ObservationBase):
         Shows diff visualization for meaningful changes (file creation, successful
         edits), otherwise falls back to agent observation.
         """
-
         if not self._has_meaningful_diff:
             return super().visualize
 

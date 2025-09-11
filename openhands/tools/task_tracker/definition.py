@@ -143,6 +143,7 @@ class TaskTrackerExecutor(ToolExecutor):
         Args:
             save_dir: Optional directory to save tasks to. If provided, tasks will be
                      persisted to save_dir/TASKS.md
+
         """
         self.save_dir = Path(save_dir) if save_dir else None
         self._task_list: list[TaskItem] = []
@@ -400,6 +401,7 @@ class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
         Args:
             save_dir: Optional directory to save tasks to. If provided, tasks will be
                      persisted to save_dir/TASKS.json
+
         """
         executor = TaskTrackerExecutor(save_dir=save_dir)
 

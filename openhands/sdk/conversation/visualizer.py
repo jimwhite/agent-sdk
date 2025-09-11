@@ -63,6 +63,7 @@ class ConversationVisualizer:
                            "Thought:": "bold green"}
             skip_user_messages: If True, skip displaying user messages. Useful for
                                 scenarios where user input is not relevant to show.
+
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
@@ -83,6 +84,7 @@ class ConversationVisualizer:
 
         Returns:
             A new Text object with highlighting applied
+
         """
         if not self._highlight_patterns:
             return text
@@ -196,7 +198,8 @@ class ConversationVisualizer:
         self, event: ActionEvent | MessageEvent | AgentErrorEvent
     ) -> str | None:
         """Format LLM metrics as a visually appealing subtitle string with icons,
-        colors, and k/m abbreviations (cache hit rate only)."""
+        colors, and k/m abbreviations (cache hit rate only).
+        """
         if not event.metrics or not event.metrics.accumulated_token_usage:
             return None
 
@@ -250,6 +253,7 @@ def create_default_visualizer(
                        for highlighting keywords in the visualizer.
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
+
     """
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX

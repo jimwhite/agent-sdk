@@ -1,6 +1,5 @@
 # simple_logger.py
-"""
-Minimal logger setup that encourages per-module loggers,
+"""Minimal logger setup that encourages per-module loggers,
 with Rich for humans and JSON for machines.
 
 Usage:

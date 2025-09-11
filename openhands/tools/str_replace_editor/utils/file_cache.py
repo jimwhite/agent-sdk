@@ -20,6 +20,7 @@ class FileCache:
         Args:
             directory: Directory to store cached files
             size_limit: Maximum cache size in bytes (None for unlimited)
+
         """
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)

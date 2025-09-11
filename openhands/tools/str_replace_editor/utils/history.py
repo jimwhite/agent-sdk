@@ -27,6 +27,7 @@ class FileHistoryManager:
               memory
             - The file cache is limited to prevent excessive disk usage
             - Older entries are automatically removed when limits are exceeded
+
         """
         self.max_history_per_file = max_history_per_file
         if history_dir is None:

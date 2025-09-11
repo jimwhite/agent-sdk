@@ -25,6 +25,7 @@ class BashExecutor(ToolExecutor):
             terminal_type: Force a specific session type:
                          ('tmux', 'subprocess').
                          If None, auto-detect based on system capabilities
+
         """
         self.session = create_terminal_session(
             work_dir=working_dir,

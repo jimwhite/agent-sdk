@@ -32,7 +32,11 @@ indent-style = "space"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "D"]
-ignore = ["D100", "D104"]
+ignore = [
+  "D100", "D104",  # ignore missing docstring for modules/packages
+  "D203",          # disable blank-line-before-class
+  "D213",          # disable multi-line-summary-second-line
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore *all* docstring rules (D) in tests

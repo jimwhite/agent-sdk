@@ -211,7 +211,8 @@ class ObservationEvent(LLMConvertibleEvent):
 class MessageEvent(LLMConvertibleEvent):
     """Message from either agent or user.
 
-    This is originally the "MessageAction", but it suppose not to be tool call."""
+    This is originally the "MessageAction", but it suppose not to be tool call.
+    """
 
     model_config = ConfigDict(extra="ignore")
 

@@ -97,9 +97,7 @@ class ConversationState(BaseModel):
 
     @staticmethod
     def _scan_events(fs: FileStore) -> list[EventFile]:
-        """
-        Single directory listing for events. Returns (index, path) sorted.
-        """
+        """Single directory listing for events. Returns (index, path) sorted."""
         try:
             paths = fs.list(EVENTS_DIR)
         except Exception:
@@ -119,9 +117,7 @@ class ConversationState(BaseModel):
     def _restore_from_files(
         fs: FileStore, files_sorted: Iterable[EventFile]
     ) -> list[Event]:
-        """
-        One pass: we already have the sorted file list; just read & parse.
-        """
+        """One pass: we already have the sorted file list; just read & parse."""
         out: list[Event] = []
         for _, path in files_sorted:
             txt = fs.read(path)
@@ -135,9 +131,7 @@ class ConversationState(BaseModel):
         return out
 
     def _save_base_state(self, fs: FileStore) -> None:
-        """
-        Persist base state snapshot (excluding events).s
-        """
+        """Persist base state snapshot (excluding events).s"""
         payload = self.model_dump_json(
             exclude_none=True,
             exclude=set(self.EXCLUDE_FROM_BASE_STATE),
@@ -149,9 +143,7 @@ class ConversationState(BaseModel):
     def load(
         cls: type["ConversationState"], file_store: FileStore
     ) -> "ConversationState":
-        """
-        Load base snapshot (if any), then a SINGLE scan of events dir and replay.
-        """
+        """Load base snapshot (if any), then a SINGLE scan of events dir and replay."""
         # base
         base_txt = file_store.read(BASE_STATE)
         assert base_txt is not None
@@ -164,8 +156,7 @@ class ConversationState(BaseModel):
         return state
 
     def save(self, file_store: FileStore) -> None:
-        """
-        Persist current state:
+        """Persist current state:
         - Write base snapshot
         - Perform a SINGLE scan of events dir to find next index
         - Append any new events

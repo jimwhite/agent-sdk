@@ -30,8 +30,7 @@ class RetryMixin:
         retry_multiplier: float = 2.0,
         retry_listener: RetryListener | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        """
-        Create a LLM retry decorator with customizable parameters.
+        """Create a LLM retry decorator with customizable parameters.
         This is used for 429 errors, and a few other exceptions in LLM classes.
         """
 
@@ -81,7 +80,6 @@ class RetryMixin:
 
     def log_retry_attempt(self, retry_state: RetryCallState) -> None:
         """Log retry attempts."""
-
         if retry_state.outcome is None:
             logger.error(
                 "retry_state.outcome is None. "

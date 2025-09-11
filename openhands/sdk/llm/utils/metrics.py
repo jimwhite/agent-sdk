@@ -267,6 +267,7 @@ class Metrics(MetricsSnapshot):
 
         Returns:
             A new Metrics object containing only the differences since the baseline
+
         """
         result = Metrics(model_name=self.model_name)
 

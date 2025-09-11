@@ -25,8 +25,8 @@ def run_shell_cmd(
 
     Returns:
         A tuple containing the return code, stdout, and stderr.
-    """
 
+    """
     start_time = time.time()
 
     process: subprocess.Popen | None = None
