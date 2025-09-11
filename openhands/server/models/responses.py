@@ -1,12 +1,11 @@
 """Response models for the OpenHands Agent SDK API."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
 from openhands.sdk.conversation.conversation import Conversation
-from openhands.sdk.conversation.state import ConversationState
 from openhands.server.models.requests import AgentConfig
 
 
@@ -74,64 +73,6 @@ class ConversationResponse(BaseModel):
                 "max_iteration_per_run": 500,
                 "visualize": True,
                 "created_at": "2024-01-01T12:00:00",
-            }
-        }
-
-
-class ConversationStateResponse(BaseModel):
-    """Response model for conversation state.
-
-    Maps directly to ConversationState properties.
-    """
-
-    id: str = Field(..., description="Conversation state identifier")
-    events: List[Dict[str, Any]] = Field(
-        ..., description="List of all events in the conversation"
-    )
-    agent_finished: bool = Field(
-        ..., description="Whether the agent has finished processing"
-    )
-    confirmation_mode: bool = Field(
-        ..., description="Whether confirmation mode is enabled"
-    )
-    agent_waiting_for_confirmation: bool = Field(
-        ..., description="Whether agent is waiting for user confirmation"
-    )
-    agent_paused: bool = Field(..., description="Whether agent execution is paused")
-    activated_knowledge_microagents: List[str] = Field(
-        ..., description="List of activated knowledge microagents"
-    )
-
-    @classmethod
-    def from_state(cls, state: ConversationState) -> "ConversationStateResponse":
-        """Create response from ConversationState instance."""
-        return cls(
-            id=state.id,
-            events=[event.model_dump() for event in state.events],
-            agent_finished=state.agent_finished,
-            confirmation_mode=state.confirmation_mode,
-            agent_waiting_for_confirmation=state.agent_waiting_for_confirmation,
-            agent_paused=state.agent_paused,
-            activated_knowledge_microagents=state.activated_knowledge_microagents,
-        )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "id": "conv_123e4567-e89b-12d3-a456-426614174000",
-                "events": [
-                    {
-                        "id": "event_1",
-                        "timestamp": "2024-01-01T12:00:00",
-                        "type": "MessageEvent",
-                        "source": "user",
-                    }
-                ],
-                "agent_finished": False,
-                "confirmation_mode": False,
-                "agent_waiting_for_confirmation": False,
-                "agent_paused": False,
-                "activated_knowledge_microagents": [],
             }
         }
 

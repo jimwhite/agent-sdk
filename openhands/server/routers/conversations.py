@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from openhands.sdk.conversation.state import ConversationState
 from openhands.server.models.requests import (
     CreateConversationRequest,
     RejectPendingActionsRequest,
@@ -12,7 +13,6 @@ from openhands.server.models.requests import (
 )
 from openhands.server.models.responses import (
     ConversationResponse,
-    ConversationStateResponse,
     StatusResponse,
 )
 from openhands.server.services.conversation_manager import ConversationManager
@@ -275,11 +275,11 @@ async def get_events(
     return [event.model_dump() for event in conversation.state.events]
 
 
-@router.get("/{conversation_id}/state", response_model=ConversationStateResponse)
+@router.get("/{conversation_id}/state", response_model=ConversationState)
 async def get_state(
     conversation_id: str,
     manager: ConversationManager = Depends(get_conversation_manager),
-) -> ConversationStateResponse:
+) -> ConversationState:
     """Get conversation state.
 
     Maps to: conversation.state
@@ -289,6 +289,6 @@ async def get_state(
         manager: Conversation manager dependency
 
     Returns:
-        ConversationStateResponse with full state
+        ConversationState with full state
     """
     return await manager.get_conversation_state(conversation_id)

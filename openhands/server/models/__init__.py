@@ -9,7 +9,6 @@ from openhands.server.models.requests import (
 )
 from openhands.server.models.responses import (
     ConversationResponse,
-    ConversationStateResponse,
     StatusResponse,
 )
 
@@ -21,6 +20,5 @@ __all__ = [
     "RejectPendingActionsRequest",
     "AgentConfig",
     "ConversationResponse",
-    "ConversationStateResponse",
     "StatusResponse",
 ]

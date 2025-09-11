@@ -9,12 +9,10 @@ from fastapi import HTTPException
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
 from openhands.server.models.requests import AgentConfig, CreateConversationRequest
-from openhands.server.models.responses import (
-    ConversationResponse,
-    ConversationStateResponse,
-)
+from openhands.server.models.responses import ConversationResponse
 from openhands.tools import BashTool, FileEditorTool
 
 
@@ -126,19 +124,17 @@ class ConversationManager:
             conversation, agent_config, created_at
         )
 
-    async def get_conversation_state(
-        self, conversation_id: str
-    ) -> ConversationStateResponse:
+    async def get_conversation_state(self, conversation_id: str) -> ConversationState:
         """Get conversation state.
 
         Args:
             conversation_id: Unique conversation identifier
 
         Returns:
-            ConversationStateResponse with full state
+            ConversationState with full state
         """
         conversation = await self.get_conversation(conversation_id)
-        return ConversationStateResponse.from_state(conversation.state)
+        return conversation.state
 
     async def list_conversations(self) -> List[ConversationResponse]:
         """List all conversations.

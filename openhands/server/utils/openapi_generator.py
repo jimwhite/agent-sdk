@@ -170,7 +170,7 @@ def generate_endpoint_mapping() -> Dict[str, Dict[str, Any]]:
         "summary": "Get conversation state",
         "description": "Get full conversation state",
         "parameters": [],
-        "response_model": "ConversationStateResponse",
+        "response_model": "ConversationState",
     }
 
     # Add management endpoints
