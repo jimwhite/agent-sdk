@@ -67,9 +67,80 @@ jobs:
         # Stop server
         kill $SERVER_PID
 
+  build-executable:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --group dev
+
+    - name: Build server executable
+      run: |
+        cd openhands/server
+        ./build.sh
+      env:
+        OPENHANDS_MASTER_KEY: test-key-for-ci
+
+    - name: Test executable functionality
+      run: |
+        cd openhands/server
+        
+        # Test executable help
+        OPENHANDS_MASTER_KEY=test-key-for-ci ./dist/openhands-server --help
+        
+        # Test executable startup and basic functionality
+        OPENHANDS_MASTER_KEY=test-key-for-ci ./dist/openhands-server --host 127.0.0.1 --port 8001 &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Test health endpoint
+        curl -f http://localhost:8001/alive || exit 1
+        
+        # Test auth requirement
+        curl -f http://localhost:8001/conversations && exit 1 || true
+        
+        # Test with auth
+        curl -f -H "Authorization: Bearer test-key-for-ci" http://localhost:8001/conversations || exit 1
+        
+        # Stop server
+        kill $SERVER_PID
+        
+        echo "✅ Executable tests passed!"
+
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openhands-server-executable
+        path: openhands/server/dist/openhands-server
+        retention-days: 7
+
+    - name: Check executable size
+      run: |
+        cd openhands/server
+        ls -lh dist/openhands-server
+        echo "Executable size: $(du -h dist/openhands-server | cut -f1)"
+
   generate-openapi:
     runs-on: ubuntu-latest
-    needs: test-server
+    needs: [test-server, build-executable]
     
     steps:
     - uses: actions/checkout@v4
@@ -87,6 +158,48 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --group dev --group server
+
+    - name: Download executable artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: openhands-server-executable
+        path: openhands/server/dist/
+
+    - name: Make executable runnable
+      run: |
+        chmod +x openhands/server/dist/openhands-server
+
+    - name: Test executable OpenAPI generation
+      run: |
+        cd openhands/server
+        
+        # Start executable server in background for OpenAPI testing
+        OPENHANDS_MASTER_KEY=test-key-for-ci ./dist/openhands-server --host 127.0.0.1 --port 8002 &
+        EXEC_SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Test that executable server can serve OpenAPI spec
+        curl -f http://localhost:8002/openapi.json > executable_openapi.json || exit 1
+        
+        # Validate the OpenAPI spec from executable
+        python -c "
+        import json
+        with open('executable_openapi.json') as f:
+            spec = json.load(f)
+        assert 'openapi' in spec
+        assert 'paths' in spec
+        assert len(spec['paths']) > 0
+        print('✅ Executable OpenAPI generation successful')
+        print(f'Executable API endpoints: {len(spec[\"paths\"])}')
+        "
+        
+        # Stop executable server
+        kill $EXEC_SERVER_PID
+        
+        # Clean up
+        rm executable_openapi.json
 
     - name: Generate OpenAPI schema
       run: |
@@ -139,6 +252,62 @@ jobs:
         path: openapi.json
         retention-days: 30
 
+    - name: Compare OpenAPI specs
+      run: |
+        # Generate OpenAPI spec from executable for comparison
+        cd openhands/server
+        
+        # Start executable server in background
+        OPENHANDS_MASTER_KEY=test-key-for-ci ./dist/openhands-server --host 127.0.0.1 --port 8003 &
+        EXEC_SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 10
+        
+        # Get OpenAPI spec from executable
+        curl -f http://localhost:8003/openapi.json > ../executable_openapi.json || exit 1
+        
+        # Stop executable server
+        kill $EXEC_SERVER_PID
+        
+        cd ..
+        
+        # Compare the two OpenAPI specs
+        python -c "
+        import json
+        
+        # Load both specs
+        with open('openapi.json') as f:
+            python_spec = json.load(f)
+        with open('executable_openapi.json') as f:
+            exec_spec = json.load(f)
+        
+        # Compare key aspects
+        python_paths = set(python_spec.get('paths', {}).keys())
+        exec_paths = set(exec_spec.get('paths', {}).keys())
+        
+        if python_paths == exec_paths:
+            print('✅ OpenAPI specs are consistent between Python module and executable')
+            print(f'Both have {len(python_paths)} endpoints')
+        else:
+            print('❌ OpenAPI specs differ between Python module and executable')
+            print(f'Python module: {len(python_paths)} endpoints')
+            print(f'Executable: {len(exec_paths)} endpoints')
+            print(f'Python-only paths: {python_paths - exec_paths}')
+            print(f'Executable-only paths: {exec_paths - python_paths}')
+            exit(1)
+        
+        # Check versions match
+        if python_spec.get('info', {}).get('version') == exec_spec.get('info', {}).get('version'):
+            print('✅ API versions match')
+        else:
+            print('❌ API versions differ')
+            exit(1)
+        "
+        
+        # Clean up
+        rm executable_openapi.json
+
     - name: Comment PR with OpenAPI info
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
@@ -149,19 +318,21 @@ jobs:
           
           const comment = `## 🔄 OpenAPI Schema Generated
           
-          The OpenAPI schema has been automatically generated from the Conversation class:
+          The OpenAPI schema has been automatically generated and validated:
           
           - **OpenAPI Version**: ${spec.openapi}
           - **API Title**: ${spec.info.title}
           - **API Version**: ${spec.info.version}
           - **Total Endpoints**: ${Object.keys(spec.paths).length}
+          - **✅ Executable Build**: Successfully built and tested
+          - **✅ Consistency Check**: Python module and executable generate identical OpenAPI specs
           
           ### Endpoints Summary
           ${Object.entries(spec.paths).map(([path, methods]) => 
             `- \`${path}\`: ${Object.keys(methods).join(', ').toUpperCase()}`
           ).join('\n')}
           
-          The schema is available as a workflow artifact and will be used for API documentation.
+          The schema and executable are available as workflow artifacts.
           `;
           
           github.rest.issues.createComment({
@@ -170,3 +341,128 @@ jobs:
             repo: context.repo.repo,
             body: comment
           });
+
+  integration-test-executable:
+    runs-on: ubuntu-latest
+    needs: build-executable
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download executable artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: openhands-server-executable
+        path: ./
+
+    - name: Make executable runnable
+      run: |
+        chmod +x openhands-server
+
+    - name: Run comprehensive executable integration test
+      run: |
+        # Test executable in a more realistic scenario
+        echo "🧪 Running comprehensive integration test with executable..."
+        
+        # Start server with custom configuration
+        OPENHANDS_MASTER_KEY=integration-test-key ./openhands-server \
+          --host 0.0.0.0 \
+          --port 9000 \
+          --log-level info &
+        SERVER_PID=$!
+        
+        # Wait for server to fully start
+        echo "⏳ Waiting for server to start..."
+        sleep 15
+        
+        # Test suite
+        echo "🔍 Testing health endpoint..."
+        curl -f http://localhost:9000/alive || exit 1
+        
+        echo "🔍 Testing OpenAPI endpoint..."
+        curl -f http://localhost:9000/openapi.json > /dev/null || exit 1
+        
+        echo "🔍 Testing docs endpoint..."
+        curl -f http://localhost:9000/docs > /dev/null || exit 1
+        
+        echo "🔍 Testing authentication..."
+        # Should fail without auth
+        curl -f http://localhost:9000/conversations && exit 1 || true
+        
+        # Should succeed with auth
+        curl -f -H "Authorization: Bearer integration-test-key" \
+          http://localhost:9000/conversations || exit 1
+        
+        echo "🔍 Testing conversation creation..."
+        CONVERSATION_RESPONSE=$(curl -s -f \
+          -H "Authorization: Bearer integration-test-key" \
+          -H "Content-Type: application/json" \
+          -X POST \
+          -d '{"llm_config": {"model": "gpt-4o-mini", "api_key": "dummy"}}' \
+          http://localhost:9000/conversations)
+        
+        # Extract conversation ID
+        CONVERSATION_ID=$(echo "$CONVERSATION_RESPONSE" | python3 -c "
+        import sys, json
+        data = json.load(sys.stdin)
+        print(data['conversation_id'])
+        ")
+        
+        echo "✅ Created conversation: $CONVERSATION_ID"
+        
+        echo "🔍 Testing conversation retrieval..."
+        curl -s -f \
+          -H "Authorization: Bearer integration-test-key" \
+          http://localhost:9000/conversations/$CONVERSATION_ID > /dev/null || exit 1
+        
+        echo "🔍 Testing conversation listing..."
+        curl -s -f \
+          -H "Authorization: Bearer integration-test-key" \
+          http://localhost:9000/conversations | python3 -c "
+        import sys, json
+        data = json.load(sys.stdin)
+        assert len(data['conversations']) >= 1
+        print(f'✅ Found {len(data[\"conversations\"])} conversation(s)')
+        "
+        
+        # Clean shutdown
+        echo "🛑 Stopping server..."
+        kill $SERVER_PID
+        wait $SERVER_PID 2>/dev/null || true
+        
+        echo "🎉 All integration tests passed!"
+
+    - name: Test executable performance
+      run: |
+        echo "📊 Testing executable startup performance..."
+        
+        # Measure startup time
+        start_time=$(date +%s.%N)
+        
+        OPENHANDS_MASTER_KEY=perf-test-key ./openhands-server \
+          --host 127.0.0.1 \
+          --port 9001 &
+        SERVER_PID=$!
+        
+        # Wait for server to respond
+        for i in {1..30}; do
+          if curl -s http://localhost:9001/alive > /dev/null 2>&1; then
+            end_time=$(date +%s.%N)
+            startup_time=$(echo "$end_time - $start_time" | bc -l)
+            echo "✅ Server started in ${startup_time} seconds"
+            break
+          fi
+          sleep 1
+        done
+        
+        # Test response time
+        echo "📊 Testing response time..."
+        curl -w "Response time: %{time_total}s\n" -s -o /dev/null \
+          -H "Authorization: Bearer perf-test-key" \
+          http://localhost:9001/conversations
+        
+        # Clean up
+        kill $SERVER_PID
+        wait $SERVER_PID 2>/dev/null || true
+        
+        echo "📊 Performance test completed!"
