@@ -152,10 +152,10 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
             "Expected empty thought for multi-action events after the first one"
         )
 
-    content = cast(list[TextContent | ImageContent], events[0].thought)
-
     return Message(
         role="assistant",
-        content=content,  # Shared thought content only in the first event
+        content=cast(
+            list[TextContent | ImageContent], events[0].thought
+        ),  # Shared thought content only in the first event
         tool_calls=[event.tool_call for event in events],
     )
