@@ -161,24 +161,10 @@ def responses_to_completion_format(
     if reasoning_content:
         message["reasoning_content"] = reasoning_content
 
-    # Build the response structure with robust field coercion
-    def _to_int(val, default: int = 0):
-        try:
-            if isinstance(val, bool):
-                return int(val)
-            if isinstance(val, (int, float)):
-                return int(val)
-            if isinstance(val, str) and val.isdigit():
-                return int(val)
-        except Exception:
-            pass
-        return default
-
-    # created can be either `created` (int) or `created_at` (int). Avoid MagicMock.
-    created_val = getattr(responses_result, "created", None)
-    created = _to_int(created_val, default=-1)
-    if created < 0:
-        created = _to_int(getattr(responses_result, "created_at", None), default=0)
+    # created can be either `created` (int) or `created_at` (int)
+    created = getattr(responses_result, "created", None)
+    if created is None:
+        created = getattr(responses_result, "created_at", 0)
 
     model_val = getattr(responses_result, "model", "")
     model = (
@@ -208,41 +194,19 @@ def responses_to_completion_format(
 
     # Extract usage information if available
     if hasattr(responses_result, "usage") and responses_result.usage is not None:
-        try:
-            usage = responses_result.usage
-            response["usage"]["prompt_tokens"] = _to_int(
-                getattr(usage, "input_tokens", 0), 0
-            )
-            response["usage"]["completion_tokens"] = _to_int(
-                getattr(usage, "output_tokens", 0), 0
-            )
-            response["usage"]["total_tokens"] = _to_int(
-                getattr(usage, "total_tokens", 0), 0
-            )
-            # Map Responses usage.output_tokens_details.reasoning_tokens
-            # to ChatCompletions usage.completion_tokens_details.reasoning_tokens
-            try:
-                details = getattr(usage, "output_tokens_details", None)
-                if details is None and isinstance(usage, dict):
-                    details = usage.get("output_tokens_details")
-                rt = None
-                if details is not None:
-                    try:
-                        rt = getattr(details, "reasoning_tokens", None)
-                    except Exception:
-                        rt = None
-                    if rt is None and isinstance(details, dict):
-                        rt = details.get("reasoning_tokens")
-                if rt is not None:
-                    response["usage"]["completion_tokens_details"] = {
-                        "reasoning_tokens": _to_int(rt, 0)
-                    }
-            except Exception:
-                # Best-effort mapping; ignore if structure is unexpected
-                pass
+        usage = responses_result.usage
+        # Map Responses API usage fields to ChatCompletions format
+        response["usage"]["prompt_tokens"] = getattr(usage, "input_tokens", 0)
+        response["usage"]["completion_tokens"] = getattr(usage, "output_tokens", 0)
+        response["usage"]["total_tokens"] = getattr(usage, "total_tokens", 0)
 
-        except Exception:
-            # Ignore malformed usage
-            pass
+        # Map reasoning tokens if available
+        output_details = getattr(usage, "output_tokens_details", None)
+        if output_details and hasattr(output_details, "reasoning_tokens"):
+            reasoning_tokens = getattr(output_details, "reasoning_tokens", None)
+            if reasoning_tokens is not None and isinstance(reasoning_tokens, int):
+                response["usage"]["completion_tokens_details"] = {
+                    "reasoning_tokens": reasoning_tokens
+                }
 
     return ModelResponse(**response)
