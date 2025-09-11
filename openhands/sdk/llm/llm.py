@@ -556,8 +556,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             out.setdefault("reasoning", {"effort": effort, "summary": "detailed"})
             out.pop("temperature", None)
             out.pop("top_p", None)
-            out.pop("text", None)
-            out.pop("include", None)
         out.pop("stop", None)
         # Tools mapping: accept either our Tool objects or OpenAI-style dicts
         tools_param = out.get("tools")
