@@ -19,23 +19,6 @@ def extract_conversation_methods() -> Dict[str, Dict[str, Any]]:
     """
     methods = {}
 
-    # Check if we have the real Conversation class or a mock
-    if not hasattr(Conversation, "__module__") or "openhands.sdk" not in getattr(
-        Conversation, "__module__", ""
-    ):
-        # Return mock methods for testing
-        return {
-            "__init__": {
-                "name": "__init__",
-                "is_property": False,
-                "docstring": (
-                    "Initialize self.  See help(type(self)) for accurate signature."
-                ),
-                "parameters": [],
-                "return_type": None,
-            }
-        }
-
     # Get all public methods and properties
     for name, method in inspect.getmembers(Conversation):
         # Skip private methods and special methods (except __init__)
