@@ -514,75 +514,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return _one_attempt()
 
-    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
-        with self._litellm_modify_params_ctx(self.modify_params):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", category=DeprecationWarning, module="httpx.*"
-                )
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r".*content=.*upload.*",
-                    category=DeprecationWarning,
-                )
-                return litellm_responses(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    api_base=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    input=input,
-                    **kwargs,
-                )
-
-    def _normalize_responses_kwargs(self, opts: dict) -> dict:
-        out = dict(opts)
-        if self.top_k is not None:
-            out.setdefault("top_k", self.top_k)
-        if self.top_p is not None:
-            out.setdefault("top_p", self.top_p)
-        if self.temperature is not None:
-            out.setdefault("temperature", self.temperature)
-        if self.max_output_tokens is not None:
-            out.setdefault("max_output_tokens", self.max_output_tokens)
-        if get_features(self.model).supports_reasoning_effort:
-            if self.reasoning_effort is not None:
-                out["reasoning_effort"] = self.reasoning_effort
-            effort = (
-                self.reasoning_effort
-                if self.reasoning_effort not in (None, "none")
-                else "low"
-            )
-            out.setdefault("reasoning", {"effort": effort, "summary": "detailed"})
-            out.pop("temperature", None)
-            out.pop("top_p", None)
-        out.pop("stop", None)
-        # Tools mapping: accept either our Tool objects or OpenAI-style dicts
-        tools_param = out.get("tools")
-        if tools_param:
-            converted: list[dict] = []
-            for t in tools_param:
-                if hasattr(t, "to_responses"):
-                    converted.append(t.to_responses())  # type: ignore[attr-defined]
-                else:
-                    fn = t.get("function", {}) if isinstance(t, dict) else {}
-                    name = fn.get("name")
-                    desc = fn.get("description")
-                    params = fn.get("parameters")
-                    td: dict[str, Any] = {"type": "function"}
-                    if name is not None:
-                        td["name"] = name
-                    if desc is not None:
-                        td["description"] = desc
-                    if params is not None:
-                        td["parameters"] = params
-                    converted.append(td)
-            out["tools"] = converted
-        # tool_choice schema is compatible – pass through as-is
-        if "litellm_proxy" not in self.model:
-            out.pop("extra_body", None)
-        return out
-
     # =========================================================================
     # Transport + helpers
     # =========================================================================
@@ -616,6 +547,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     f"Expected ModelResponse, got {type(ret)}"
                 )
                 return ret
+
+    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
+        with self._litellm_modify_params_ctx(self.modify_params):
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="httpx.*"
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r".*content=.*upload.*",
+                    category=DeprecationWarning,
+                )
+                return litellm_responses(
+                    model=self.model,
+                    api_key=self.api_key.get_secret_value() if self.api_key else None,
+                    api_base=self.base_url,
+                    api_version=self.api_version,
+                    timeout=self.timeout,
+                    input=input,
+                    **kwargs,
+                )
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
@@ -684,6 +636,55 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
 
+        return out
+
+    def _normalize_responses_kwargs(self, opts: dict) -> dict:
+        out = dict(opts)
+        if self.top_k is not None:
+            out.setdefault("top_k", self.top_k)
+        if self.max_output_tokens is not None:
+            out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # reasoning
+        if self.reasoning_effort is not None:
+            out["reasoning_effort"] = self.reasoning_effort
+        effort = (
+            self.reasoning_effort
+            if self.reasoning_effort not in (None, "none")
+            else "low"
+        )
+        out.setdefault("reasoning", {"effort": effort, "summary": "detailed"})
+
+        # reasoning models don't like temp/top_p/stop
+        out.pop("temperature", None)
+        out.pop("top_p", None)
+        out.pop("stop", None)
+
+        # Tools mapping: accept either our Tool objects or OpenAI-style dicts
+        tools_param = out.get("tools")
+        if tools_param:
+            converted: list[dict] = []
+            for t in tools_param:
+                if hasattr(t, "to_responses"):
+                    converted.append(t.to_responses())  # type: ignore[attr-defined]
+                else:
+                    fn = t.get("function", {}) if isinstance(t, dict) else {}
+                    name = fn.get("name")
+                    desc = fn.get("description")
+                    params = fn.get("parameters")
+                    td: dict[str, Any] = {"type": "function"}
+                    if name is not None:
+                        td["name"] = name
+                    if desc is not None:
+                        td["description"] = desc
+                    if params is not None:
+                        td["parameters"] = params
+                    converted.append(td)
+            out["tools"] = converted
+        # tool_choice schema is compatible – pass through as-is
+
+        if "litellm_proxy" not in self.model:
+            out.pop("extra_body", None)
         return out
 
     # =========================================================================
