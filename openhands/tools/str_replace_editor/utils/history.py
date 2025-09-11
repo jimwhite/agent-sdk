@@ -36,9 +36,11 @@ class FileHistoryManager:
         self.logger = logging.getLogger(__name__)
 
     def _get_metadata_key(self, file_path: Path) -> str:
+        """Get the cache key for file metadata."""
         return f"{file_path}.metadata"
 
     def _get_history_key(self, file_path: Path, counter: int) -> str:
+        """Get the cache key for a specific history entry."""
         return f"{file_path}.{counter}"
 
     def add_history(self, file_path: Path, content: str):

@@ -123,16 +123,19 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
 
     @field_serializer("action_type")
     def _ser_action_type(self, t: type[ActionBase]) -> str:
+        """Serialize action type."""
         # serialize as a plain kind string
         return kind_of(t)
 
     @field_serializer("observation_type")
     def _ser_observation_type(self, t: type[ObservationBase] | None) -> str | None:
+        """Serialize observation type."""
         return None if t is None else kind_of(t)
 
     @field_validator("action_type", mode="before")
     @classmethod
     def _val_action_type(cls, v):
+        """Validate action type."""
         if isinstance(v, str):
             return resolve_kind(v)
         assert isinstance(v, type) and issubclass(v, ActionBase), (
@@ -143,6 +146,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @field_validator("observation_type", mode="before")
     @classmethod
     def _val_observation_type(cls, v):
+        """Validate observation type."""
         if v is None:
             return None
         if isinstance(v, str):

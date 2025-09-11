@@ -1,3 +1,5 @@
+"""Bash command execution implementation."""
+
 from typing import Literal
 
 from openhands.sdk.tool import ToolExecutor
@@ -9,6 +11,8 @@ from openhands.tools.execute_bash.terminal.factory import create_terminal_sessio
 
 
 class BashExecutor(ToolExecutor):
+    """Executor for bash commands using terminal sessions."""
+
     def __init__(
         self,
         working_dir: str,
@@ -36,6 +40,7 @@ class BashExecutor(ToolExecutor):
         self.session.initialize()
 
     def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
+        """Execute a bash command and return the observation."""
         return self.session.execute(action)
 
     def close(self) -> None:

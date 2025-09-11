@@ -1,3 +1,5 @@
+"""Local file store implementation."""
+
 import os
 import shutil
 
@@ -10,20 +12,25 @@ logger = get_logger(__name__)
 
 
 class LocalFileStore(FileStore):
+    """Local file store implementation using the local filesystem."""
+
     root: str
 
     def __init__(self, root: str):
+        """Initialize the local file store with a root directory."""
         if root.startswith("~"):
             root = os.path.expanduser(root)
         self.root = root
         os.makedirs(self.root, exist_ok=True)
 
     def get_full_path(self, path: str) -> str:
+        """Get the full filesystem path for a given relative path."""
         if path.startswith("/"):
             path = path[1:]
         return os.path.join(self.root, path)
 
     def write(self, path: str, contents: str | bytes) -> None:
+        """Write contents to a file at the given path."""
         full_path = self.get_full_path(path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         if isinstance(contents, str):
@@ -34,11 +41,13 @@ class LocalFileStore(FileStore):
                 f.write(contents)
 
     def read(self, path: str) -> str:
+        """Read contents from a file at the given path."""
         full_path = self.get_full_path(path)
         with open(full_path, "r", encoding="utf-8") as f:
             return f.read()
 
     def list(self, path: str) -> list[str]:
+        """List files and directories at the given path."""
         full_path = self.get_full_path(path)
         if not os.path.exists(full_path):  # to be consistent with S3 API
             return []
@@ -47,6 +56,7 @@ class LocalFileStore(FileStore):
         return files
 
     def delete(self, path: str) -> None:
+        """Delete a file or directory at the given path."""
         try:
             full_path = self.get_full_path(path)
             if not os.path.exists(full_path):

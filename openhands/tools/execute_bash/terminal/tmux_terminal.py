@@ -26,6 +26,7 @@ class TmuxTerminal(TerminalInterface):
         work_dir: str,
         username: str | None = None,
     ):
+        """Initialize the tmux terminal with working directory and username."""
         super().__init__(work_dir, username)
         self.PS1 = CmdOutputMetadata.to_ps1_prompt()
 

@@ -1,3 +1,5 @@
+"""LLM registry for managing LLM instances."""
+
 from typing import Callable
 from uuid import uuid4
 
@@ -11,6 +13,8 @@ logger = get_logger(__name__)
 
 
 class RegistryEvent(BaseModel):
+    """Event representing LLM registration or deregistration."""
+
     llm: LLM
     service_id: str
 

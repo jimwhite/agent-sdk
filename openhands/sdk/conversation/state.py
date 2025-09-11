@@ -17,6 +17,8 @@ logger = get_logger(__name__)
 
 
 class EventFile(NamedTuple):
+    """Represents an event file with its index and path."""
+
     idx: int
     path: str
 
@@ -82,10 +84,12 @@ class ConversationState(BaseModel):
         self._lock.release()
 
     def __enter__(self):
+        """Enter the context manager by acquiring the lock."""
         self.acquire()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """Exit the context manager by releasing the lock."""
         self.release()
 
     def assert_locked(self) -> None:
@@ -131,7 +135,7 @@ class ConversationState(BaseModel):
         return out
 
     def _save_base_state(self, fs: FileStore) -> None:
-        """Persist base state snapshot (excluding events).s"""
+        """Persist base state snapshot (excluding events)."""
         payload = self.model_dump_json(
             exclude_none=True,
             exclude=set(self.EXCLUDE_FROM_BASE_STATE),
@@ -156,7 +160,8 @@ class ConversationState(BaseModel):
         return state
 
     def save(self, file_store: FileStore) -> None:
-        """Persist current state:
+        """Persist current state.
+
         - Write base snapshot
         - Perform a SINGLE scan of events dir to find next index
         - Append any new events

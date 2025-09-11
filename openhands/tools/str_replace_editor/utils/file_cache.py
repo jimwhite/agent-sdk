@@ -1,3 +1,5 @@
+"""File-based cache implementation with size limits and LRU eviction."""
+
 import hashlib
 import json
 import os
@@ -146,16 +148,19 @@ class FileCache:
         logger.debug("Cache cleared")
 
     def __contains__(self, key: str) -> bool:
+        """Check if a key exists in the cache."""
         exists = self._get_file_path(key).exists()
         logger.debug(f"Contains check: {key}, result: {exists}")
         return exists
 
     def __len__(self) -> int:
+        """Return the number of items in the cache."""
         length = sum(1 for _ in self.directory.glob("*.json") if _.is_file())
         logger.debug(f"Cache length: {length}")
         return length
 
     def __iter__(self):
+        """Iterate over all keys in the cache."""
         for file in self.directory.glob("*.json"):
             if file.is_file():
                 with open(file, "r") as f:
@@ -164,7 +169,9 @@ class FileCache:
                     yield data["key"]
 
     def __getitem__(self, key: str) -> Any:
+        """Get an item from the cache using bracket notation."""
         return self.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
+        """Set an item in the cache using bracket notation."""
         self.set(key, value)

@@ -19,6 +19,8 @@ def get_edit_groups(
     """Get the edit groups showing changes between old and new content.
 
     Args:
+        old_content: The original content to compare.
+        new_content: The new content to compare against.
         n_context_lines: Number of context lines to show around each change.
 
     Returns:
@@ -82,6 +84,9 @@ def visualize_diff(
     of changes as a separate entity.
 
     Args:
+        path: The file path being edited.
+        old_content: The original content before changes.
+        new_content: The new content after changes.
         n_context_lines: Number of context lines to show before/after changes.
         change_applied: Whether changes are applied. If false, shows as
             attempted edit.

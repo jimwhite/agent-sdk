@@ -1,3 +1,5 @@
+"""Conversation management and callback composition."""
+
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
@@ -116,7 +118,7 @@ class Conversation:
         return self.state.id
 
     def send_message(self, message: Message) -> None:
-        """Sending messages to the agent."""
+        """Send messages to the agent."""
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
@@ -158,7 +160,7 @@ class Conversation:
             self._on_event(user_msg_event)
 
     def run(self) -> None:
-        """Runs the conversation until the agent finishes.
+        """Run the conversation until the agent finishes.
 
         In confirmation mode:
         - First call: creates actions but doesn't execute them, stops and waits

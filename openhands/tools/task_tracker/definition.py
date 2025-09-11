@@ -1,3 +1,5 @@
+"""Task tracker tool definition and implementation."""
+
 import json
 from pathlib import Path
 from typing import Literal
@@ -64,7 +66,7 @@ class TaskTrackerAction(ActionBase):
 
 
 class TaskTrackerObservation(ObservationBase):
-    """This data class represents the result of a task tracking operation."""
+    """Data class representing the result of a task tracking operation."""
 
     content: str = Field(
         default="", description="The formatted task list or status message"
@@ -76,6 +78,7 @@ class TaskTrackerObservation(ObservationBase):
 
     @property
     def agent_observation(self) -> list[TextContent | ImageContent]:
+        """Return the observation content for the agent."""
         return [TextContent(text=self.content)]
 
     @property

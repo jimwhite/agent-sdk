@@ -1,3 +1,5 @@
+"""Conversation visualization utilities."""
+
 import re
 from typing import Dict
 
@@ -70,7 +72,7 @@ class ConversationVisualizer:
         self._highlight_patterns: Dict[str, str] = highlight_regex or {}
 
     def on_event(self, event: Event) -> None:
-        """Main event handler that displays events with Rich formatting."""
+        """Display events with Rich formatting."""
         panel = self._create_event_panel(event)
         if panel:
             self._console.print(panel)
@@ -197,8 +199,9 @@ class ConversationVisualizer:
     def _format_metrics_subtitle(
         self, event: ActionEvent | MessageEvent | AgentErrorEvent
     ) -> str | None:
-        """Format LLM metrics as a visually appealing subtitle string with icons,
-        colors, and k/m abbreviations (cache hit rate only).
+        """Format LLM metrics as a visually appealing subtitle string.
+
+        Includes icons, colors, and k/m abbreviations (cache hit rate only).
         """
         if not event.metrics or not event.metrics.accumulated_token_usage:
             return None
@@ -253,6 +256,7 @@ def create_default_visualizer(
                        for highlighting keywords in the visualizer.
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
+        **kwargs: Additional keyword arguments passed to ConversationVisualizer.
 
     """
     return ConversationVisualizer(

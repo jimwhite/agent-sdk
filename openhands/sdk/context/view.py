@@ -38,14 +38,10 @@ class View(BaseModel):
     # decorators.
 
     @overload
-    def __getitem__(self, key: slice) -> list[LLMConvertibleEvent]:
-        """Get a slice of events."""
-        ...
+    def __getitem__(self, key: slice) -> list[LLMConvertibleEvent]: ...
 
     @overload
-    def __getitem__(self, key: int) -> LLMConvertibleEvent:
-        """Get a single event by index."""
-        ...
+    def __getitem__(self, key: int) -> LLMConvertibleEvent: ...
 
     def __getitem__(
         self, key: int | slice
@@ -61,8 +57,14 @@ class View(BaseModel):
 
     @staticmethod
     def from_events(events: list[Event]) -> "View":
-        """Create a view from a list of events, respecting the semantics of any
-        condensation events.
+        """Create a view from a list of events, respecting condensation events.
+
+        Args:
+            events: List of events to create the view from.
+
+        Returns:
+            A View instance containing the filtered events.
+
         """
         forgotten_event_ids: set[str] = set()
         for event in events:

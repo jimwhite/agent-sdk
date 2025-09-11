@@ -105,6 +105,7 @@ class Message(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def _coerce_content(cls, v: Any) -> list[TextContent | ImageContent] | Any:
+        """Coerce content to proper format."""
         # Accept None → []
         if v is None:
             return []

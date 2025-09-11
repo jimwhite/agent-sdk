@@ -133,7 +133,7 @@ class ActionEvent(LLMConvertibleEvent):
         return content
 
     def to_llm_message(self) -> Message:
-        """Individual message - may be incomplete for multi-action batches"""
+        """Individual message - may be incomplete for multi-action batches."""
         content: list[TextContent | ImageContent] = cast(
             list[TextContent | ImageContent], self.thought
         )
@@ -238,6 +238,7 @@ class MessageEvent(LLMConvertibleEvent):
 
     @computed_field
     def reasoning_content(self) -> str:
+        """Get the reasoning content from the LLM message."""
         return self.llm_message.reasoning_content or ""
 
     @property

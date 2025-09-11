@@ -83,10 +83,10 @@ class RetryMixin:
         """Create a retry decorator with exponential backoff."""
 
         def decorator(fn: Callable[[], Any]):
-            """Decorator function for retry logic."""
+            """Apply retry logic to the decorated function."""
 
             def wrapped():
-                """Wrapped function with retry logic."""
+                """Execute function with retry logic and exponential backoff."""
                 import random
 
                 attempt = 0
@@ -674,8 +674,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self.caching_prompt and get_features(self.model).supports_prompt_cache
 
     def is_function_calling_active(self) -> bool:
-        """Returns whether function calling is supported
-        and enabled for this LLM instance.
+        """Check whether function calling is supported and enabled for this LLM.
+
+        Returns:
+            True if function calling is active, False otherwise.
+
         """
         return bool(self._function_calling_active)
 
@@ -688,10 +691,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Utilities preserved from previous class
     # =========================================================================
     def _apply_prompt_caching(self, messages: list[Message]) -> None:
-        """Applies caching breakpoints to the messages.
+        """Apply caching breakpoints to the messages.
 
         For new Anthropic API, we only need to mark the last user or
-          tool message as cacheable.
+        tool message as cacheable.
+
+        Args:
+            messages: List of messages to apply caching to.
+
         """
         if len(messages) > 0 and messages[0].role == "system":
             messages[0].content[-1].cache_prompt = True
@@ -704,7 +711,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 break
 
     def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
-        """Formats Message objects for LLM consumption."""
+        """Format Message objects for LLM consumption.
+
+        Args:
+            messages: List of Message objects to format.
+
+        Returns:
+            List of dictionaries formatted for LLM consumption.
+
+        """
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
             self._apply_prompt_caching(messages)

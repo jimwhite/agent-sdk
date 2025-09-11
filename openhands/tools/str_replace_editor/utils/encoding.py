@@ -21,6 +21,7 @@ class EncodingManager:
     DEFAULT_MAX_CACHE_SIZE = 1000  # ~= 300 KB
 
     def __init__(self, max_cache_size=None):
+        """Initialize the encoding detector with optional cache size limit."""
         # Cache detected encodings to avoid repeated detection on the same file
         # Format: {path_str: (encoding, mtime)}
         self._encoding_cache: LRUCache[str, Tuple[str, float]] = LRUCache(
@@ -102,7 +103,8 @@ class EncodingManager:
 
 
 def with_encoding(method):
-    """Decorator to handle file encoding for file operations.
+    """Handle file encoding for file operations.
+
     This decorator automatically detects and applies the correct encoding
     for file operations, ensuring consistency between read and write operations.
 

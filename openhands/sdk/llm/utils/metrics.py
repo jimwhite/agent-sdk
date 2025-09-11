@@ -99,6 +99,7 @@ class MetricsSnapshot(BaseModel):
 
 class Metrics(MetricsSnapshot):
     """Metrics class can record various metrics during running and evaluation.
+
     We track:
       - accumulated_cost and costs
       - max_budget_per_task (budget limit)
@@ -319,5 +320,5 @@ class Metrics(MetricsSnapshot):
         return result
 
     def __repr__(self) -> str:
-        """String representation of metrics."""
+        """Return string representation of metrics."""
         return f"Metrics({self.get()}"

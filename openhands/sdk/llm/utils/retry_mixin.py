@@ -1,3 +1,5 @@
+"""Retry mixin for LLM operations."""
+
 from typing import Any, Callable, Iterable, cast
 
 from tenacity import (
@@ -31,7 +33,20 @@ class RetryMixin:
         retry_listener: RetryListener | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Create a LLM retry decorator with customizable parameters.
+
         This is used for 429 errors, and a few other exceptions in LLM classes.
+
+        Args:
+            num_retries: Maximum number of retry attempts.
+            retry_exceptions: Tuple of exception types to retry on.
+            retry_min_wait: Minimum wait time between retries in seconds.
+            retry_max_wait: Maximum wait time between retries in seconds.
+            retry_multiplier: Multiplier for exponential backoff.
+            retry_listener: Optional callback for retry events.
+
+        Returns:
+            A decorator function that applies retry logic.
+
         """
 
         def before_sleep(retry_state: RetryCallState) -> None:

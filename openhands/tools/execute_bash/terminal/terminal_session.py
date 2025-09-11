@@ -40,6 +40,7 @@ class TerminalCommandStatus(Enum):
 
 
 def _remove_command_prefix(command_output: str, command: str) -> str:
+    """Remove the command prefix from command output."""
     return command_output.lstrip().removeprefix(command.lstrip()).lstrip()
 
 

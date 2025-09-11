@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 
 class Telemetry(BaseModel):
     """Handles latency, token/cost accounting, and optional logging.
+
     All runtime state (like start times) lives in private attrs.
     """
 
@@ -53,7 +54,9 @@ class Telemetry(BaseModel):
     def on_response(
         self, resp: ModelResponse, raw_resp: ModelResponse | None = None
     ) -> Metrics:
-        """Side-effects:
+        """Record response metrics and optionally log to file.
+
+        Side-effects:
         - records latency, tokens, cost into Metrics
         - optionally writes a JSON log file
         """

@@ -5,7 +5,7 @@ from openhands.sdk.event.types import SourceType
 
 
 class Condensation(EventBase):
-    """This action indicates a condensation of the conversation history is happening."""
+    """Action indicating a condensation of the conversation history is happening."""
 
     forgotten_event_ids: list[str] | None = None
     """The IDs of the events that are being forgotten (removed from the `View` given to
@@ -39,7 +39,7 @@ class Condensation(EventBase):
 
 
 class CondensationRequest(EventBase):
-    """This action is used to request a condensation of the conversation history.
+    """Action used to request a condensation of the conversation history.
 
     Attributes:
         action (str): The action type, namely ActionType.CONDENSATION_REQUEST.

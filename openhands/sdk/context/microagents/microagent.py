@@ -160,8 +160,9 @@ class BaseMicroagent(BaseModel):
 
 
 class KnowledgeMicroagent(BaseMicroagent):
-    """Knowledge micro-agents provide specialized expertise that's triggered by keywords
-    in conversations.
+    """Knowledge micro-agents provide specialized expertise.
+
+    Triggered by keywords in conversations.
 
     They help with:
     - Language best practices
