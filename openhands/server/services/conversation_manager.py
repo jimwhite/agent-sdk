@@ -9,9 +9,9 @@ from fastapi import HTTPException
 
 
 try:
-    from openhands.sdk.agent.base import Agent  # type: ignore
-    from openhands.sdk.conversation.conversation import Conversation  # type: ignore
-    from openhands.sdk.llm.llm import LLM  # type: ignore
+    from openhands.sdk.agent import Agent
+    from openhands.sdk.conversation import Conversation
+    from openhands.sdk.llm import LLM
     from openhands.tools import BashTool, FileEditorTool
 
     SDK_AVAILABLE = True
@@ -113,7 +113,7 @@ class ConversationManager:
                         print(f"Warning: Unknown tool '{tool_name}' requested")
 
                 # Create agent
-                agent = Agent(llm=llm, tools=tools)
+                agent = Agent(llm=llm, tools=tools)  # type: ignore
 
                 # Create conversation
                 conversation = Conversation(  # type: ignore
