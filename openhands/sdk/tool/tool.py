@@ -60,6 +60,15 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         """Execute the tool with the given action."""
         raise NotImplementedError
 
+    def close(self) -> None:
+        """Close the executor and clean up resources.
+
+        Default implementation does nothing. Subclasses should override
+        this method to perform cleanup (e.g., closing connections,
+        terminating processes, etc.).
+        """
+        pass
+
 
 class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     """Tool that wraps an executor function with input/output validation and schema.

@@ -18,6 +18,14 @@ class FinishAction(ActionBase):
 
     message: str = Field(description="Final message to send to the user.")
 
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this action."""
+        content = Text()
+        content.append("Finish with message:\n", style="bold blue")
+        content.append(self.message)
+        return content
+
 
 class FinishObservation(ObservationBase):
     """Observation for finish action."""

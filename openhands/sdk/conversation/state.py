@@ -2,7 +2,6 @@
 
 import json
 import re
-import uuid
 from threading import RLock, get_ident
 from typing import Iterable, NamedTuple, Optional
 
@@ -39,7 +38,7 @@ class ConversationState(BaseModel):
     )
 
     # ===== Public, validated fields =====
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(description="Unique conversation ID")
     events: list[Event] = Field(default_factory=list)
 
     agent: AgentType = Field(
