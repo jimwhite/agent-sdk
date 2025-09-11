@@ -18,7 +18,6 @@ dev = [
     "pycodestyle>=2.12.0",
     "pytest-asyncio>=1.1.0",
     "interrogate>=1.7.0",
-    "pdoc>=15.0.4",
 ]
 
 # Ruff configuration
