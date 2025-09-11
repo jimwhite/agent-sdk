@@ -25,7 +25,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             )
         ],
         created=1234567890,
-        model="gpt-4o",
+        model="test-model-non-openai",
         object="chat.completion",
         system_fingerprint="test",
         usage=Usage(
@@ -39,7 +39,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
 @pytest.fixture
 def default_config():
     return LLM(
-        model="gpt-4o",
+        model="test-model-non-openai",
         api_key=SecretStr("test_key"),
         num_retries=2,
         retry_min_wait=1,
@@ -284,7 +284,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create LLM with native_tool_calling explicitly set to False
     # This forces the LLM to use prompt-based tool calling instead of native FC
     llm = LLM(
-        model="gpt-4o",
+        model="test-model-not-responses-api",
         api_key=SecretStr("test_key"),
         native_tool_calling=False,  # This is the key setting for non-function call mode
         num_retries=2,
