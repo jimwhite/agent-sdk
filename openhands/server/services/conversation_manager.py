@@ -7,22 +7,11 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
+from openhands.sdk.agent import Agent
+from openhands.sdk.conversation import Conversation
+from openhands.sdk.llm import LLM
+from openhands.tools import BashTool, FileEditorTool
 
-try:
-    from openhands.sdk.agent import Agent
-    from openhands.sdk.conversation import Conversation
-    from openhands.sdk.llm import LLM
-    from openhands.tools import BashTool, FileEditorTool
-
-    SDK_AVAILABLE = True
-except ImportError:
-    # Mock classes for testing
-    Conversation = type("Conversation", (), {})  # type: ignore
-    Agent = type("Agent", (), {})  # type: ignore
-    LLM = type("LLM", (), {})  # type: ignore
-    BashTool = type("BashTool", (), {})  # type: ignore
-    FileEditorTool = type("FileEditorTool", (), {})  # type: ignore
-    SDK_AVAILABLE = False
 from ..models.requests import AgentConfig, CreateConversationRequest
 from ..models.responses import ConversationResponse, ConversationStateResponse
 
@@ -51,86 +40,46 @@ class ConversationManager:
             HTTPException: If conversation creation fails
         """
         try:
-            # Check if we're using mock classes (for testing)
-            is_mock = (
-                not hasattr(LLM, "__module__")
-                or "openhands.sdk" not in getattr(LLM, "__module__", "")
-                or hasattr(LLM, "_mock_name")
-            )  # Check if it's a unittest.mock object
+            # Create LLM from config
+            llm = LLM(**request.agent_config.llm_config)
 
-            if is_mock:
-                # Use the mocked classes directly (they might be patched in tests)
-                llm = (
-                    LLM(**request.agent_config.llm_config)  # type: ignore
-                    if hasattr(LLM, "_mock_name")
-                    else LLM()  # type: ignore
-                )
-                agent = (
-                    Agent(llm=llm, tools=[])  # type: ignore
-                    if hasattr(Agent, "_mock_name")
-                    else Agent()  # type: ignore
-                )
-                conversation = (
-                    Conversation(  # type: ignore
-                        agent=agent,  # type: ignore
-                        max_iteration_per_run=request.max_iteration_per_run,
-                        visualize=request.visualize,
-                    )
-                    if hasattr(Conversation, "_mock_name")
-                    else Conversation()  # type: ignore
-                )
+            # Set up working directory
+            workdir = request.agent_config.workdir
+            if not workdir:
+                workdir = tempfile.mkdtemp(prefix="openhands_conv_")
+            elif not os.path.exists(workdir):
+                os.makedirs(workdir, exist_ok=True)
 
-                # Set default values if not already set by mocks
-                if not hasattr(conversation, "id") or not conversation.id:  # type: ignore
-                    conversation.id = f"conv_{len(self._conversations) + 1}"  # type: ignore
-                if not hasattr(conversation, "state"):
-                    from unittest.mock import MagicMock
+            # Create tools based on configuration
+            tools = []
+            for tool_name in request.agent_config.tools:
+                if tool_name == "bash":
+                    tools.append(BashTool.create(working_dir=workdir))
+                elif tool_name == "file_editor":
+                    tools.append(FileEditorTool.create())
+                else:
+                    # Log warning for unknown tools but don't fail
+                    print(f"Warning: Unknown tool '{tool_name}' requested")
 
-                    conversation.state = MagicMock()  # type: ignore
-                    conversation.state.events = []  # type: ignore
+            # Create agent
+            agent = Agent(llm=llm, tools=tools)
 
-                workdir = request.agent_config.workdir or "/tmp/mock_workdir"
-            else:
-                # Create LLM from config
-                llm = LLM(**request.agent_config.llm_config)
-
-                # Set up working directory
-                workdir = request.agent_config.workdir
-                if not workdir:
-                    workdir = tempfile.mkdtemp(prefix="openhands_conv_")
-                elif not os.path.exists(workdir):
-                    os.makedirs(workdir, exist_ok=True)
-
-                # Create tools based on configuration
-                tools = []
-                for tool_name in request.agent_config.tools:
-                    if tool_name == "bash":
-                        tools.append(BashTool.create(working_dir=workdir))  # type: ignore
-                    elif tool_name == "file_editor":
-                        tools.append(FileEditorTool.create())  # type: ignore
-                    else:
-                        # Log warning for unknown tools but don't fail
-                        print(f"Warning: Unknown tool '{tool_name}' requested")
-
-                # Create agent
-                agent = Agent(llm=llm, tools=tools)  # type: ignore
-
-                # Create conversation
-                conversation = Conversation(  # type: ignore
-                    agent=agent,  # type: ignore
-                    max_iteration_per_run=request.max_iteration_per_run,
-                    visualize=request.visualize,
-                )
+            # Create conversation
+            conversation = Conversation(
+                agent=agent,
+                max_iteration_per_run=request.max_iteration_per_run,
+                visualize=request.visualize,
+            )
 
             # Store conversation and metadata
             created_at = datetime.now()
-            self._conversations[conversation.id] = conversation  # type: ignore
-            self._agent_configs[conversation.id] = request.agent_config  # type: ignore
-            self._created_at[conversation.id] = created_at  # type: ignore
-            self._workdirs[conversation.id] = workdir  # type: ignore
+            self._conversations[conversation.id] = conversation
+            self._agent_configs[conversation.id] = request.agent_config
+            self._created_at[conversation.id] = created_at
+            self._workdirs[conversation.id] = workdir
 
-            return ConversationResponse.from_conversation(  # type: ignore
-                conversation,  # type: ignore
+            return ConversationResponse.from_conversation(
+                conversation,
                 request.agent_config,
                 created_at,
             )

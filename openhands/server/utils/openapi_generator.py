@@ -3,17 +3,8 @@
 import inspect
 from typing import Any, Dict, get_type_hints
 
-
-try:
-    from openhands.sdk.conversation.conversation import Conversation
-    from openhands.sdk.conversation.state import ConversationState
-    from openhands.sdk.llm.llm import LLM
-except ImportError:
-    # Handle case where SDK is not installed
-    print("Warning: OpenHands SDK not found. Using mock classes for testing.")
-    Conversation = type("Conversation", (), {})
-    ConversationState = type("ConversationState", (), {})
-    LLM = type("LLM", (), {})
+from openhands.sdk.conversation.conversation import Conversation
+from openhands.sdk.conversation.state import ConversationState
 
 
 def extract_conversation_methods() -> Dict[str, Dict[str, Any]]:
