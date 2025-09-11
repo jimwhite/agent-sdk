@@ -2,95 +2,10 @@
 """CLI entry point for OpenHands Agent SDK Server."""
 
 import argparse
-import importlib.util
 import os
 import sys
-import types
-from typing import Any, Dict
 
 import uvicorn
-
-
-# Handle missing litellm modules first (before any imports that might trigger litellm)
-class MockModule(types.ModuleType):
-    """A dynamic mock module that creates submodules and attributes on demand."""
-
-    def __getattr__(self, name: str) -> Any:
-        # Create a new mock module or class on demand
-        if name.endswith("Base") or name[0].isupper():
-            # Looks like a class name
-            mock_class = type(name, (), {"__init__": lambda self, **kwargs: None})
-            setattr(self, name, mock_class)
-            return mock_class
-        else:
-            # Looks like a module name
-            full_name = f"{self.__name__}.{name}" if hasattr(self, "__name__") else name
-            mock_module = MockModule(full_name)
-            setattr(self, name, mock_module)
-            sys.modules[full_name] = mock_module
-            return mock_module
-
-    def __iter__(self):
-        """Make the module iterable (return empty iterator)."""
-        return iter([])
-
-    def __len__(self):
-        """Make the module have a length."""
-        return 0
-
-
-# Create the main integrations module
-litellm_integrations = MockModule("litellm.integrations")
-sys.modules["litellm.integrations"] = litellm_integrations
-
-if importlib.util.find_spec("fastmcp") is None:
-    # Create a Pydantic-compatible mock MCPConfig
-    class MockMCPConfig:
-        """Mock MCPConfig class that's compatible with Pydantic."""
-
-        def __init__(self, **kwargs: Any) -> None:
-            for key, value in kwargs.items():
-                setattr(self, key, value)
-
-        @classmethod
-        def __get_pydantic_core_schema__(
-            cls, source_type: Any, handler: Any
-        ) -> Dict[str, Any]:
-            """Provide a Pydantic core schema for the mock class."""
-            return {
-                "type": "dict",
-                "keys_schema": {"type": "str"},
-                "values_schema": {"type": "any"},
-            }
-
-    class MockLogMessage:
-        """Mock LogMessage class."""
-
-        def __init__(self, **kwargs: Any) -> None:
-            for key, value in kwargs.items():
-                setattr(self, key, value)
-
-    class MockClient:
-        """Mock Client class."""
-
-        def __init__(self, **kwargs: Any) -> None:
-            for key, value in kwargs.items():
-                setattr(self, key, value)
-
-    fastmcp = types.ModuleType("fastmcp")
-    setattr(fastmcp, "Client", MockClient)
-    fastmcp_mcp_config = types.ModuleType("mcp_config")
-    setattr(fastmcp_mcp_config, "MCPConfig", MockMCPConfig)
-    setattr(fastmcp, "mcp_config", fastmcp_mcp_config)
-    fastmcp_client = types.ModuleType("client")
-    fastmcp_client_logging = types.ModuleType("logging")
-    setattr(fastmcp_client_logging, "LogMessage", MockLogMessage)
-    setattr(fastmcp_client, "logging", fastmcp_client_logging)
-    setattr(fastmcp, "client", fastmcp_client)
-    sys.modules["fastmcp"] = fastmcp
-    sys.modules["fastmcp.mcp_config"] = fastmcp_mcp_config
-    sys.modules["fastmcp.client"] = fastmcp_client
-    sys.modules["fastmcp.client.logging"] = fastmcp_client_logging
 
 
 def main() -> None:
