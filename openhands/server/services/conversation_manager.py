@@ -12,7 +12,7 @@ try:
     from openhands.sdk.agent.base import Agent  # type: ignore
     from openhands.sdk.conversation.conversation import Conversation  # type: ignore
     from openhands.sdk.llm.llm import LLM  # type: ignore
-    from openhands.tools import BashTool, FileEditorTool  # type: ignore
+    from openhands.tools import BashTool, FileEditorTool
 
     SDK_AVAILABLE = True
 except ImportError:
@@ -105,9 +105,9 @@ class ConversationManager:
                 tools = []
                 for tool_name in request.agent_config.tools:
                     if tool_name == "bash":
-                        tools.append(BashTool(working_dir=workdir))
+                        tools.append(BashTool.create(working_dir=workdir))  # type: ignore
                     elif tool_name == "file_editor":
-                        tools.append(FileEditorTool())
+                        tools.append(FileEditorTool.create())  # type: ignore
                     else:
                         # Log warning for unknown tools but don't fail
                         print(f"Warning: Unknown tool '{tool_name}' requested")
