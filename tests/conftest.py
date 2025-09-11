@@ -11,19 +11,13 @@ from openhands.sdk.llm import LLM
 @pytest.fixture
 def mock_llm():
     """Create a standard mock LLM instance for testing."""
-    try:
-        return LLM(
-            model="gpt-4o",
-            api_key=SecretStr("test-key"),
-            num_retries=2,
-            retry_min_wait=1,
-            retry_max_wait=2,
-        )
-    except (ImportError, TypeError):
-        # Return simple mock when SDK is not available or LLM can't be instantiated
-        mock_llm = MagicMock()
-        mock_llm.model = "gpt-4o"
-        return mock_llm
+    return LLM(
+        model="gpt-4o",
+        api_key=SecretStr("test-key"),
+        num_retries=2,
+        retry_min_wait=1,
+        retry_max_wait=2,
+    )
 
 
 @pytest.fixture
