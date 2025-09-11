@@ -154,18 +154,6 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
 
     content = cast(list[TextContent | ImageContent], events[0].thought)
 
-    # Ensure assistant messages have non-empty content (required by some providers)
-    # Check if any action is a FinishAction with empty thought
-    from openhands.sdk.tool.builtins import FinishAction
-
-    if any(isinstance(event.action, FinishAction) for event in events) and (
-        not content
-        or all(not c.text.strip() for c in content if isinstance(c, TextContent))
-    ):
-        content = cast(
-            list[TextContent | ImageContent], [TextContent(text="Task completed.")]
-        )
-
     return Message(
         role="assistant",
         content=content,  # Shared thought content only in the first event

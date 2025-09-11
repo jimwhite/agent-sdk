@@ -2,7 +2,6 @@
 
 from litellm.types.utils import ChatCompletionMessageToolCall, Function
 
-from openhands.sdk.event.base import _combine_action_events
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.builtins import FinishAction
@@ -167,88 +166,3 @@ def test_action_event_non_finish_action_unchanged():
     # Should NOT get default content for non-FinishAction
     assert message.role == "assistant"
     assert len(message.content) == 0  # Should remain empty
-
-
-def test_combine_action_events_with_empty_finish_action():
-    """Test that _combine_action_events handles empty FinishAction correctly."""
-    # Create a FinishAction with empty message
-    finish_action = FinishAction(message="")
-
-    # Create tool call for the action
-    tool_call = ChatCompletionMessageToolCall(
-        id="call_123",
-        type="function",
-        function=Function(name="finish", arguments='{"message": ""}'),
-    )
-
-    # Create ActionEvent with empty thought
-    action_event = ActionEvent(
-        thought=[],  # Empty thought
-        action=finish_action,
-        tool_name="finish",
-        tool_call_id="call_123",
-        tool_call=tool_call,
-        llm_response_id="response_123",
-    )
-
-    # Combine events (single event case)
-    message = _combine_action_events([action_event])
-
-    # Should have default content for empty FinishAction
-    assert message.role == "assistant"
-    assert len(message.content) == 1
-    assert isinstance(message.content[0], TextContent)
-    assert message.content[0].text == "Task completed."
-
-
-def test_combine_action_events_multi_action_with_finish():
-    """Test that _combine_action_events handles multi-action batch with FinishAction."""
-    # Create a FinishAction
-    finish_action = FinishAction(message="Done")
-
-    # Create another action (using ThinkAction as example)
-    from openhands.sdk.tool.builtins import ThinkAction
-
-    think_action = ThinkAction(thought="Thinking...")
-
-    # Create tool calls
-    finish_tool_call = ChatCompletionMessageToolCall(
-        id="call_123",
-        type="function",
-        function=Function(name="finish", arguments='{"message": "Done"}'),
-    )
-
-    think_tool_call = ChatCompletionMessageToolCall(
-        id="call_124",
-        type="function",
-        function=Function(name="think", arguments='{"thought": "Thinking..."}'),
-    )
-
-    # Create ActionEvents - first with empty thought, second with empty thought
-    finish_event = ActionEvent(
-        thought=[],  # Empty thought in first event
-        action=finish_action,
-        tool_name="finish",
-        tool_call_id="call_123",
-        tool_call=finish_tool_call,
-        llm_response_id="response_123",
-    )
-
-    think_event = ActionEvent(
-        thought=[],  # Empty thought in second event (as expected for multi-action)
-        action=think_action,
-        tool_name="think",
-        tool_call_id="call_124",
-        tool_call=think_tool_call,
-        llm_response_id="response_123",
-    )
-
-    # Combine events (multi-action case)
-    message = _combine_action_events([finish_event, think_event])
-
-    # Should have default content because one action is FinishAction with empty thought
-    assert message.role == "assistant"
-    assert len(message.content) == 1
-    assert isinstance(message.content[0], TextContent)
-    assert message.content[0].text == "Task completed."
-    assert len(message.tool_calls) == 2  # Should have both tool calls
