@@ -4,16 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
-try:
-    from openhands.sdk.llm.message import Message  # type: ignore
-except ImportError:
-    # Mock Message class for testing
-    class Message(BaseModel):  # type: ignore
-        """Mock Message class for testing."""
-
-        role: str
-        content: List[Dict[str, Any]]
+from openhands.sdk.llm.message import Message
 
 
 class AgentConfig(BaseModel):

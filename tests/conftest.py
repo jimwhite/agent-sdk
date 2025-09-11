@@ -5,12 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import SecretStr
 
-
-try:
-    from openhands.sdk.llm import LLM
-except ImportError:
-    # Mock LLM for testing when SDK is not available
-    LLM = type("LLM", (), {})
+from openhands.sdk.llm import LLM
 
 
 @pytest.fixture
@@ -34,23 +29,17 @@ def mock_llm():
 @pytest.fixture
 def mock_tool():
     """Create a mock tool for testing."""
-    try:
-        from openhands.sdk.tool import ToolExecutor
+    from openhands.sdk.tool import ToolExecutor
 
-        class MockExecutor(ToolExecutor):
-            def __call__(self, action):
-                return MagicMock(output="mock output", metadata=MagicMock(exit_code=0))
+    class MockExecutor(ToolExecutor):
+        def __call__(self, action):
+            return MagicMock(output="mock output", metadata=MagicMock(exit_code=0))
 
-        # Create a simple mock tool without complex dependencies
-        mock_tool = MagicMock()
-        mock_tool.name = "mock_tool"
-        mock_tool.executor = MockExecutor()
-        return mock_tool
-    except ImportError:
-        # Return simple mock when SDK is not available
-        mock_tool = MagicMock()
-        mock_tool.name = "mock_tool"
-        return mock_tool
+    # Create a simple mock tool without complex dependencies
+    mock_tool = MagicMock()
+    mock_tool.name = "mock_tool"
+    mock_tool.executor = MockExecutor()
+    return mock_tool
 
 
 def create_mock_litellm_response(
