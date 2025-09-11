@@ -157,7 +157,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --group dev --group server
+        uv sync --group dev
 
     - name: Download executable artifact
       uses: actions/download-artifact@v4
