@@ -10,10 +10,12 @@ from fastapi import HTTPException
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.llm import LLM
+from openhands.server.models.requests import AgentConfig, CreateConversationRequest
+from openhands.server.models.responses import (
+    ConversationResponse,
+    ConversationStateResponse,
+)
 from openhands.tools import BashTool, FileEditorTool
-
-from ..models.requests import AgentConfig, CreateConversationRequest
-from ..models.responses import ConversationResponse, ConversationStateResponse
 
 
 class ConversationManager:

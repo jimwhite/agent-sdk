@@ -7,8 +7,7 @@ from pydantic import BaseModel, Field
 
 from openhands.sdk.conversation.conversation import Conversation
 from openhands.sdk.conversation.state import ConversationState
-
-from .requests import AgentConfig
+from openhands.server.models.requests import AgentConfig
 
 
 class StatusResponse(BaseModel):

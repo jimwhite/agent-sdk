@@ -4,18 +4,18 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..models.requests import (
+from openhands.server.models.requests import (
     CreateConversationRequest,
     RejectPendingActionsRequest,
     SendMessageRequest,
     SetConfirmationModeRequest,
 )
-from ..models.responses import (
+from openhands.server.models.responses import (
     ConversationResponse,
     ConversationStateResponse,
     StatusResponse,
 )
-from ..services.conversation_manager import ConversationManager
+from openhands.server.services.conversation_manager import ConversationManager
 
 
 router = APIRouter()
