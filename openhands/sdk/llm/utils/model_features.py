@@ -93,9 +93,9 @@ FUNCTION_CALLING_PATTERNS: list[str] = [
     # o-series (keep exact o1 support per existing list)
     "o1-2024-12-17",
     "o3*",
-    "o4-mini*",
+    "o4-mini",
     # Google Gemini
-    "gemini-2.5-pro*",
+    "gemini-2.5-pro",
     # Others
     "kimi-k2-0711-preview",
     "kimi-k2-instruct",
@@ -146,7 +146,7 @@ RESPONSES_API_PATTERNS: list[str] = [
     # OpenAI reasoning models (native Responses API support)
     "o1*",
     "o3*",
-    "o4-mini*",
+    "o4-mini",
     # OpenAI GPT models with native Responses API support
     "gpt-4o*",
     "gpt-4.1*",
