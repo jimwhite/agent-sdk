@@ -1,179 +1,98 @@
-"""Main FastAPI application for the OpenHands Agent SDK server."""
+# openhands/server/main.py
+import argparse
+import importlib
+import sys
 
-import os
-from typing import Any, Dict
+import uvicorn
+from pydantic import BaseModel
 
-from fastapi import FastAPI
-from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse
-
-from openhands.server.middleware.auth import AuthMiddleware
-from openhands.server.models.responses import StatusResponse
-from openhands.server.routers import conversations
-
-
-# Validate master key
-master_key = os.getenv("OPENHANDS_MASTER_KEY")
-if not master_key:
-    raise ValueError(
-        "OPENHANDS_MASTER_KEY environment variable is required. "
-        "Please set it to a secure random string."
-    )
-
-# Create FastAPI app
-app = FastAPI(
-    title="OpenHands Agent SDK API",
-    description=(
-        "REST API with 1-1 mapping to Conversation class methods. "
-        "Automatically generated from the SDK class definitions."
-    ),
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+# --- Import SDK models you want exposed in OpenAPI / wire codec ---
+# Add/remove as your SDK grows.
+from openhands.sdk import (
+    LLM,
+    Agent,
+    Conversation,
+    Message,
+    TextContent,
 )
-
-# Add authentication middleware
-app.add_middleware(AuthMiddleware, master_key=master_key)
-
-# Include conversation router
-app.include_router(
-    conversations.router, prefix="/conversations", tags=["conversations"]
-)
+from openhands.server.app import build_app
 
 
-# Health check endpoint (no auth required)
-@app.get("/alive", response_model=StatusResponse, tags=["health"])
-async def health_check() -> StatusResponse:
-    """Health check endpoint.
-
-    This endpoint does not require authentication and can be used
-    for load balancer health checks.
-
-    Returns:
-        StatusResponse indicating server is alive
-    """
-    return StatusResponse(
-        status="alive", message="OpenHands Agent SDK server is running"
-    )
+# # --- Ensure server-side implementations are imported so @rpc decorators register ---
+# # Import modules with route-decorated implementations.
+# Keep this list small & explicit.
+# # If you add more services, import them here so their decorators run at startup.
+# IMPLEMENTATION_MODULES: list[str] = [
+#     "openhands.server.impl.conversation_impl",
+#     # "openhands.server.impl.agent_impl",
+#     # "openhands.server.impl.llm_impl",
+# ]
 
 
-# Stats endpoint for monitoring
-@app.get("/stats", response_model=Dict[str, Any], tags=["monitoring"])
-async def get_stats() -> Dict[str, Any]:
-    """Get server statistics.
-
-    Returns:
-        Dictionary with server and conversation statistics
-    """
-    from openhands.server.routers.conversations import get_conversation_manager
-
-    manager = get_conversation_manager()
+def create_model_registry() -> dict[str, type[BaseModel]]:
+    """Models that may appear in request/response bodies for (de)serialization."""
     return {
-        "server": {"status": "running", "version": "1.0.0"},
-        "conversations": manager.get_stats(),
+        "Agent": Agent,
+        "Conversation": Conversation,
+        "LLM": LLM,
+        "Message": Message,
+        "TextContent": TextContent,
     }
 
 
-# Custom OpenAPI schema generation
-def custom_openapi():
-    """Generate custom OpenAPI schema with enhanced documentation."""
-    if app.openapi_schema:
-        return app.openapi_schema
+def import_implementations(modules: list[str]) -> None:
+    """Import implementation modules for side-effect decorator registration."""
+    for m in modules:
+        importlib.import_module(m)
 
-    # Generate base schema from FastAPI
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes,
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="openhandsd",
+        description="OpenHands HTTP server",
     )
-
-    # Add authentication scheme
-    openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "description": (
-                "Master key authentication. Set OPENHANDS_MASTER_KEY "
-                "environment variable and use it as Bearer token."
-            ),
-        }
-    }
-
-    # Apply security to all endpoints except excluded ones
-    excluded_paths = {"/alive", "/docs", "/redoc", "/openapi.json"}
-    for path, methods in openapi_schema["paths"].items():
-        if path not in excluded_paths:
-            for method_info in methods.values():
-                if isinstance(method_info, dict):
-                    method_info["security"] = [{"BearerAuth": []}]
-
-    # Add custom tags and descriptions
-    openapi_schema["tags"] = [
-        {
-            "name": "conversations",
-            "description": (
-                "Conversation management with 1-1 mapping to Conversation class methods"
-            ),
-        },
-        {"name": "health", "description": "Health check and monitoring endpoints"},
-        {"name": "monitoring", "description": "Server statistics and monitoring"},
-    ]
-
-    # Add server information
-    openapi_schema["servers"] = [
-        {"url": "http://localhost:9000", "description": "Development server"}
-    ]
-
-    # Add additional info
-    openapi_schema["info"]["contact"] = {
-        "name": "OpenHands Team",
-        "url": "https://github.com/All-Hands-AI/agent-sdk",
-    }
-
-    openapi_schema["info"]["license"] = {
-        "name": "MIT",
-        "url": "https://opensource.org/licenses/MIT",
-    }
-
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
+    )
+    parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload (dev only)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of Uvicorn workers (ignored if --reload)",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="info",
+        choices=["critical", "error", "warning", "info", "debug", "trace"],
+        help="Log level",
+    )
+    return parser.parse_args(argv)
 
 
-app.openapi = custom_openapi
+def run(argv: list[str] | None = None) -> None:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
 
+    # Import implementations so @rpc.service/@rpc.method are registered
+    # import_implementations(IMPLEMENTATION_MODULES)
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Global exception handler for unhandled errors."""
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "InternalServerError",
-            "message": "An unexpected error occurred",
-            "details": {"type": type(exc).__name__},
-        },
+    # Build FastAPI app from registered routes & models
+    app = build_app(model_registry=create_model_registry(), instances={})
+
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        log_level=args.log_level,
+        reload=args.reload,
+        workers=None if args.reload else args.workers,
     )
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    # Configuration from environment variables
-    host = os.getenv("OPENHANDS_SERVER_HOST", "0.0.0.0")
-    port = int(os.getenv("OPENHANDS_SERVER_PORT", "9000"))
-    log_level = os.getenv("OPENHANDS_LOG_LEVEL", "info").lower()
-
-    print(f"Starting OpenHands Agent SDK server on {host}:{port}")
-    print(f"Log level: {log_level}")
-    print("Make sure OPENHANDS_MASTER_KEY environment variable is set!")
-
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level=log_level,
-        reload=False,  # Set to True for development
-    )
+    run()

@@ -1,6 +1,8 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
+from openhands.sdk.llm import Message
+
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
@@ -17,7 +19,7 @@ from openhands.sdk.event import (
 )
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 

@@ -34,4 +34,4 @@ where = ["../.."]
 include = ["openhands*"]
 
 [project.scripts]
-openhands-server = "openhands.server.cli:main"
+openhandsd = "openhands.server.main:run"
