@@ -359,19 +359,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
-        # 1) serialize messages
+        # Route to Responses API first, before any message formatting
+        if (
+            get_features(self.model).supports_responses_api
+            and not kwargs.pop("force_chat_completions", False)
+            and self.is_function_calling_active()
+        ):
+            return self._responses_request(messages=messages, tools=tools, **kwargs)
+
+        # 1) serialize messages for Chat Completions path
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
         else:
             messages = cast(list[dict[str, Any]], messages)
-
-        if get_features(self.model).supports_responses_api and not kwargs.pop(
-            "force_chat_completions", False
-        ):
-            # Avoid Responses API when we'd mock tools
-            # (i.e., native FC disabled with tools)
-            if not (bool(tools) and not self.is_function_calling_active()):
-                return self._responses_request(messages=messages, tools=tools, **kwargs)
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
@@ -401,7 +401,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "messages": messages[:],  # already simple dicts
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": (self.max_input_tokens or 0),
             }
             if tools and not use_native_fc:
                 log_ctx["raw_messages"] = original_fncall_msgs
@@ -421,10 +421,20 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
-                )
+                # If provider already returned tool_calls, keep as-is.
+                has_tc = False
+                try:
+                    ch0 = resp.choices[0] if resp.choices else None
+                    msg0 = getattr(ch0, "message", None)
+                    if msg0 is not None and getattr(msg0, "tool_calls", None):  # type: ignore[attr-defined]
+                        has_tc = True
+                except Exception:
+                    has_tc = False
+                if not has_tc:
+                    raw_resp = copy.deepcopy(resp)
+                    resp = self.post_response_prompt_mock(
+                        resp, nonfncall_msgs=messages, tools=tools or []
+                    )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
             # Ensure at least one choice
@@ -521,18 +531,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             raise ValueError("Either 'messages' or 'input' parameter must be provided")
 
-        # Ensure default store=False for Responses API
+        # Normalize kwargs for Responses API
         if tools is not None:
             kwargs = {**kwargs, "tools": tools}
         call_kwargs = self._normalize_responses_kwargs(kwargs)
-        call_kwargs.setdefault("store", False)
 
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
                 "input": input_payload,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
+                "context_window": (self.max_input_tokens or 0),
             }
         self._telemetry.on_request(log_ctx=log_ctx)
 
