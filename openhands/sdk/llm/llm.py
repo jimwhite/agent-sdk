@@ -368,7 +368,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if get_features(self.model).supports_responses_api and not kwargs.pop(
             "force_chat_completions", False
         ):
-            return self._responses_request(messages=messages, tools=tools, **kwargs)
+            # Avoid Responses API when we'd mock tools
+            # (i.e., native FC disabled with tools)
+            if not (bool(tools) and not self.is_function_calling_active()):
+                return self._responses_request(messages=messages, tools=tools, **kwargs)
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
@@ -418,10 +421,20 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             resp = self._transport_call(messages=messages, **call_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
-                )
+                # If provider already returned tool_calls, keep as-is.
+                try:
+                    has_tc = False
+                    ch0 = resp.choices[0] if resp.choices else None
+                    msg0 = getattr(ch0, "message", None)
+                    if msg0 is not None and getattr(msg0, "tool_calls", None):  # type: ignore[attr-defined]
+                        has_tc = True
+                except Exception:
+                    has_tc = False
+                if not has_tc:
+                    raw_resp = copy.deepcopy(resp)
+                    resp = self.post_response_prompt_mock(
+                        resp, nonfncall_msgs=messages, tools=tools or []
+                    )
             # 6) telemetry
             self._telemetry.on_response(resp, raw_resp=raw_resp)
             # Ensure at least one choice
@@ -783,10 +796,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             except Exception as e:
                 logger.info(f"Error fetching model info from proxy: {e}")
 
-    def is_responses_api_supported(self) -> bool:
-        """Returns whether Responses API is supported for this model."""
-        return get_features(self.model).supports_responses_api
-
         # Fallbacks: try base name variants
         if not self._model_info:
             try:
@@ -826,6 +835,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if self.native_tool_calling is not None
             else feats.supports_function_calling
         )
+
+    def is_responses_api_supported(self) -> bool:
+        """Returns whether Responses API is supported for this model."""
+        return get_features(self.model).supports_responses_api
 
     def vision_is_active(self) -> bool:
         with warnings.catch_warnings():
