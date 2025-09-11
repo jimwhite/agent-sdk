@@ -4,6 +4,7 @@ import uuid
 from typing import Any, get_type_hints
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, create_model
 
 from openhands.sdk.rpc import rpc
@@ -39,8 +40,9 @@ def _response_model(fn) -> Any | None:
 
 
 class ConversationCreate(BaseModel):
-    """Generic creation DTO with arbitrary 'spec' payload."""
+    """Create a Conversation instance on the server and return its id."""
 
+    id: str | None = None
     spec: dict[str, Any] | None = None
 
 
@@ -70,6 +72,11 @@ def _ensure_instance(
         kwargs = (
             WireCodec.from_wire(spec, model_registry) if isinstance(spec, dict) else {}
         )
+        # Map incoming 'id' to the constructor parameter if needed
+        if isinstance(kwargs, dict):
+            _id = kwargs.pop("id", None)
+            if _id and "conversation_id" not in kwargs:
+                kwargs["conversation_id"] = conv_id
         inst = cls(**kwargs)
         set_instance(conv_id, inst)
 
@@ -102,6 +109,25 @@ def build_app(
             for s in rpc.routes.values()
         ]
 
+    # Minimal explicit creation endpoint for discoverability
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.post("/conversation/create")
+    def conversation_create(body: ConversationCreate):
+        conv_id, _inst = _ensure_instance(
+            "Conversation",
+            {"id": body.id, **(body.spec or {})} if (body.id or body.spec) else None,
+            None,
+            model_registry,
+        )
+        return {"id": conv_id}
+
     @app.get("/alive")
     def alive():
         return {"ok": True}
@@ -123,12 +149,7 @@ def build_app(
             *WireCodec.from_wire(payload.args, model_registry),
             **WireCodec.from_wire(payload.kwargs, model_registry),
         )
-        return {
-            "result": WireCodec.to_wire(result),
-            "instance": WireCodec.to_wire(
-                inst.model_dump() if hasattr(inst, "model_dump") else payload.instance
-            ),
-        }
+        return WireCodec.to_wire(result)
 
     # Explicit decorated endpoints with OpenAPI models
     for spec in rpc.routes.values():
@@ -143,7 +164,7 @@ def build_app(
             )
 
             async def endpoint(
-                body: BodyModel = Body(...),  # type: ignore[name-defined]
+                body: BodyModel | None = Body(default=None),  # type: ignore[name-defined]
                 id: str | None = Query(default=None),
                 _class_name=spec.class_name,
                 _fn=fn,
@@ -160,7 +181,16 @@ def build_app(
                 )
                 # If we used spec for creation, remove
                 # non-method args before calling the method:
-                kwargs = body.model_dump()
+                if body is None:
+                    kwargs = {}
+                else:
+                    try:
+                        field_names = list(
+                            getattr(body.__class__, "model_fields").keys()
+                        )
+                    except Exception:  # pragma: no cover - fallback
+                        field_names = [k for k in dir(body) if not k.startswith("_")]
+                    kwargs = {name: getattr(body, name) for name in field_names}
                 # Remove 'id' from kwargs if present; method likely doesn't want it
                 kwargs.pop("id", None)
                 result = _fn(inst, **kwargs)

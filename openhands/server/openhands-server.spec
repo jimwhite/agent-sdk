@@ -20,7 +20,7 @@ from PyInstaller.utils.hooks import (
 project_root = Path.cwd()
 
 a = Analysis(
-    ['cli.py'],
+    ['openhands/server/main.py'],
     pathex=[str(project_root)],
     binaries=[],
     datas=[
@@ -116,15 +116,15 @@ exe = EXE(
     name='openhands-server',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,  # Strip debug symbols to reduce size
-    upx=True,    # Use UPX compression if available
+    strip=True,
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # Server application needs console
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon path here if you have one
+    icon=None,
 )

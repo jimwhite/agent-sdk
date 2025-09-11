@@ -28,9 +28,12 @@ class RemoteHandle:
                 "kwargs": WireCodec.to_wire(kwargs),
             }
             resp = self._call(self._class_name, name, payload)
-            if isinstance(resp, dict) and "instance" in resp:
-                self._state = resp["instance"]
-            result = resp.get("result", resp)
+            # Explicit endpoints return the raw result. Generic /rpc may return an
+            # envelope. Support both without special casing on the client side.
+            if isinstance(resp, dict) and "result" in resp:
+                result = resp["result"]
+            else:
+                result = resp
             return WireCodec.from_wire(result, self._call.registry)
 
         return _method

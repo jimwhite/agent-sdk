@@ -3,38 +3,43 @@ import argparse
 import importlib
 import sys
 
-import uvicorn
 from pydantic import BaseModel
 
 # --- Import SDK models you want exposed in OpenAPI / wire codec ---
 # Add/remove as your SDK grows.
-from openhands.sdk import (
-    LLM,
-    Agent,
-    Conversation,
-    Message,
-    TextContent,
-)
+from openhands.sdk import Message, TextContent
 from openhands.server.app import build_app
+
+
+# Avoid importing heavy models at import time; load lazily in create_model_registry
+LLM = None  # type: ignore[assignment]
+Agent = None  # type: ignore[assignment]
+Conversation = None  # type: ignore[assignment]
 
 
 # # --- Ensure server-side implementations are imported so @rpc decorators register ---
 # # Import modules with route-decorated implementations.
 # Keep this list small & explicit.
 # # If you add more services, import them here so their decorators run at startup.
-# IMPLEMENTATION_MODULES: list[str] = [
-#     "openhands.server.impl.conversation_impl",
-#     # "openhands.server.impl.agent_impl",
-#     # "openhands.server.impl.llm_impl",
-# ]
+IMPLEMENTATION_MODULES: list[str] = []
 
 
 def create_model_registry() -> dict[str, type[BaseModel]]:
     """Models that may appear in request/response bodies for (de)serialization."""
+    global LLM, Agent, Conversation
+    if LLM is None or Agent is None or Conversation is None:
+        from openhands.sdk import (
+            LLM as _LLM,
+            Agent as _Agent,
+            Conversation as _Conversation,
+        )
+
+        LLM, Agent, Conversation = _LLM, _Agent, _Conversation
+
     return {
-        "Agent": Agent,
-        "Conversation": Conversation,
-        "LLM": LLM,
+        "Agent": Agent,  # type: ignore[arg-type]
+        "Conversation": Conversation,  # type: ignore[arg-type]
+        "LLM": LLM,  # type: ignore[arg-type]
         "Message": Message,
         "TextContent": TextContent,
     }
@@ -79,10 +84,13 @@ def run(argv: list[str] | None = None) -> None:
     args = parse_args(sys.argv[1:] if argv is None else argv)
 
     # Import implementations so @rpc.service/@rpc.method are registered
-    # import_implementations(IMPLEMENTATION_MODULES)
+    import_implementations(IMPLEMENTATION_MODULES)
 
     # Build FastAPI app from registered routes & models
     app = build_app(model_registry=create_model_registry(), instances={})
+
+    # Lazy import to avoid import-time dependency during testing
+    import uvicorn  # type: ignore
 
     uvicorn.run(
         app,

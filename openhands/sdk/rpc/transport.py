@@ -18,14 +18,18 @@ class HTTPTransport:
         )
 
     def request(
-        self, method: str, endpoint: str, json: Optional[dict[str, Any]] = None
+        self,
+        method: str,
+        endpoint: str,
+        json: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ) -> Any:
         url = f"{self.base_url}{endpoint}"
         try:
             if method == "GET":
-                r = self.client.get(url)
+                r = self.client.get(url, params=params)
             elif method == "POST":
-                r = self.client.post(url, json=json)
+                r = self.client.post(url, json=json, params=params)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
             r.raise_for_status()

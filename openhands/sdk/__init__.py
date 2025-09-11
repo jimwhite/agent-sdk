@@ -1,7 +1,6 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase
-from openhands.sdk.client import Proxy
 from openhands.sdk.context import AgentContext
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import Event, EventBase, LLMConvertibleEvent
@@ -48,6 +47,5 @@ __all__ = [
     "AgentContext",
     "FileStore",
     "LocalFileStore",
-    "Proxy",
     "__version__",
 ]

@@ -32,9 +32,39 @@ class RuntimeGateway:
 
         def _gateway_call(_class: str, method: str, payload: dict[str, Any]) -> Any:
             http_method, path = self._resolve_route(_class, method)
-            return self.transport.request(
-                http_method, path, payload if http_method == "POST" else None
-            )
+            if http_method == "POST":
+                params = None
+                inst = payload.get("instance")
+                if isinstance(inst, dict):
+                    if "id" in inst:
+                        params = {"id": inst["id"]}
+                    elif "conversation_id" in inst:
+                        params = {"id": inst["conversation_id"]}
+
+                def _to_plain(obj: Any) -> Any:
+                    if isinstance(obj, BaseModel):
+                        return obj.model_dump()
+                    if isinstance(obj, dict):
+                        # unwrap WireCodec model envelope if present
+                        if (
+                            "__model__" in obj
+                            and "data" in obj
+                            and isinstance(obj["data"], dict)
+                        ):
+                            return _to_plain(obj["data"])
+                        return {k: _to_plain(v) for k, v in obj.items()}
+                    if isinstance(obj, (list, tuple)):
+                        return [_to_plain(i) for i in obj]
+                    return obj
+
+                if path == "/rpc":
+                    body = payload  # keep WireCodec envelope for generic endpoint
+                    params = None
+                else:
+                    body = _to_plain(payload.get("kwargs", {}))
+                return self.transport.request(http_method, path, body, params=params)
+            else:
+                return self.transport.request(http_method, path, None)
 
         _gateway_call.registry = self.model_registry  # type: ignore[attr-defined]
 

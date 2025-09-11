@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
 from openhands.sdk.llm import Message
+from openhands.sdk.rpc import rpc
 
 
 if TYPE_CHECKING:
@@ -38,6 +41,7 @@ def compose_callbacks(
     return composed
 
 
+@rpc.service(name="Conversation")
 class Conversation:
     def __init__(
         self,
@@ -112,6 +116,7 @@ class Conversation:
         """Get the unique ID of the conversation."""
         return self.state.id
 
+    @rpc.method(path="/conversation/send_message", http="POST")
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
         assert message.role == "user", (
@@ -154,6 +159,7 @@ class Conversation:
             )
             self._on_event(user_msg_event)
 
+    @rpc.method(path="/conversation/run", http="POST")
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 

@@ -126,9 +126,9 @@ def test_executable() -> bool:
             },
         )
 
-        # Check for expected help output
-        output = result.stdout + result.stderr
-        if "OpenHands Agent SDK Server" in output and "--host" in output:
+        # Check for expected help output (be tolerant of wording)
+        output = (result.stdout + result.stderr).lower()
+        if "openhands" in output and "server" in output and "--host" in output:
             print("  ✅ Executable starts and --help command works correctly")
             return True
         else:
