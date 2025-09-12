@@ -11,6 +11,7 @@ from openhands.server.routers.conversations import (
     active_conversations,
     router as conversations_router,
 )
+from openhands.server.routers.server import router as server_router
 
 
 logger = get_logger(__name__)
@@ -80,6 +81,7 @@ app.add_middleware(
 
 # --- Include Routers ---
 app.include_router(conversations_router)
+app.include_router(server_router)
 
 
 # Redirect / to /docs

@@ -29,15 +29,20 @@
         ],
         "summary": "Start Conversation",
         "operationId": "start_conversation",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/StartConversationRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -60,12 +65,68 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "List Conversations",
+        "description": "Lists active conversations with pagination.\nResults are returned in insertion order.",
+        "operationId": "list_conversations",
         "security": [
           {
             "APIKeyHeader": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Start"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ListConversationsItem"
+                  },
+                  "title": "Response List Conversations"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/conversations/{conversation_id}": {
@@ -471,6 +532,147 @@
           }
         }
       }
+    },
+    "/server/exec": {
+      "post": {
+        "summary": "Execute a bash command via subprocess.",
+        "operationId": "server_exec_server_exec_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CmdExecRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CmdExecResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/server/fs/upload": {
+      "post": {
+        "summary": "Upload a file to the server filesystem.",
+        "operationId": "fs_upload_server_fs_upload_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dest_path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Destination file path under FS_ROOT (default \"/\"). If exists, will overwrite.Intermediate directories will be created as needed.",
+              "title": "Dest Path"
+            },
+            "description": "Destination file path under FS_ROOT (default \"/\"). If exists, will overwrite.Intermediate directories will be created as needed."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_fs_upload_server_fs_upload_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/server/fs/download": {
+      "get": {
+        "summary": "Fs Download",
+        "operationId": "fs_download_server_fs_download_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "File path under FS_ROOT.",
+              "title": "Path"
+            },
+            "description": "File path under FS_ROOT."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -829,6 +1031,20 @@
         "title": "BaseMicroagent",
         "description": "Base class for all microagents."
       },
+      "Body_fs_upload_server_fs_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_fs_upload_server_fs_upload_post"
+      },
       "ChatCompletionCachedContent": {
         "properties": {
           "type": {
@@ -902,6 +1118,96 @@
           "name"
         ],
         "title": "ChatCompletionToolParamFunctionChunk"
+      },
+      "CmdExecRequest": {
+        "properties": {
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Command",
+            "description": "Executable and args; no shell."
+          },
+          "timeout": {
+            "type": "integer",
+            "maximum": 600.0,
+            "minimum": 1.0,
+            "title": "Timeout",
+            "default": 30
+          },
+          "cwd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cwd",
+            "description": "Working directory under FS_ROOT."
+          },
+          "env": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Env"
+          },
+          "max_output_bytes": {
+            "type": "integer",
+            "maximum": 10000000.0,
+            "minimum": 1.0,
+            "title": "Max Output Bytes",
+            "default": 1000000
+          }
+        },
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "title": "CmdExecRequest"
+      },
+      "CmdExecResponse": {
+        "properties": {
+          "stdout": {
+            "type": "string",
+            "title": "Stdout"
+          },
+          "stderr": {
+            "type": "string",
+            "title": "Stderr"
+          },
+          "return_code": {
+            "type": "integer",
+            "title": "Return Code"
+          },
+          "timed_out": {
+            "type": "boolean",
+            "title": "Timed Out"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stdout",
+          "stderr",
+          "return_code",
+          "timed_out",
+          "duration_ms"
+        ],
+        "title": "CmdExecResponse"
       },
       "Condensation": {
         "properties": {
@@ -1642,6 +1948,23 @@
         ],
         "title": "LLMConvertibleEvent",
         "description": "Base class for events that can be converted to LLM messages."
+      },
+      "ListConversationsItem": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "title": "Conversation Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ConversationState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "state"
+        ],
+        "title": "ListConversationsItem"
       },
       "MCPActionBase": {
         "properties": {

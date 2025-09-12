@@ -11,11 +11,15 @@ from .annotations import Annotations
 from .annotations_audience_type_0_item import AnnotationsAudienceType0Item
 from .base_microagent import BaseMicroagent
 from .base_microagent_type import BaseMicroagentType
+from .body_fs_upload_server_fs_upload_post import BodyFsUploadServerFsUploadPost
 from .chat_completion_cached_content import ChatCompletionCachedContent
 from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
 from .chat_completion_tool_param import ChatCompletionToolParam
 from .chat_completion_tool_param_function_chunk import ChatCompletionToolParamFunctionChunk
 from .chat_completion_tool_param_function_chunk_parameters import ChatCompletionToolParamFunctionChunkParameters
+from .cmd_exec_request import CmdExecRequest
+from .cmd_exec_request_env_type_0 import CmdExecRequestEnvType0
+from .cmd_exec_response import CmdExecResponse
 from .condensation import Condensation
 from .condensation_request import CondensationRequest
 from .condensation_request_source import CondensationRequestSource
@@ -28,6 +32,7 @@ from .finish_observation import FinishObservation
 from .http_validation_error import HTTPValidationError
 from .image_content import ImageContent
 from .image_content_meta_type_0 import ImageContentMetaType0
+from .list_conversations_item import ListConversationsItem
 from .llm import LLM
 from .llm_convertible_event import LLMConvertibleEvent
 from .llm_convertible_event_source import LLMConvertibleEventSource
@@ -80,11 +85,15 @@ __all__ = (
     "AnnotationsAudienceType0Item",
     "BaseMicroagent",
     "BaseMicroagentType",
+    "BodyFsUploadServerFsUploadPost",
     "ChatCompletionCachedContent",
     "ChatCompletionMessageToolCall",
     "ChatCompletionToolParam",
     "ChatCompletionToolParamFunctionChunk",
     "ChatCompletionToolParamFunctionChunkParameters",
+    "CmdExecRequest",
+    "CmdExecRequestEnvType0",
+    "CmdExecResponse",
     "Condensation",
     "CondensationRequest",
     "CondensationRequestSource",
@@ -97,6 +106,7 @@ __all__ = (
     "HTTPValidationError",
     "ImageContent",
     "ImageContentMetaType0",
+    "ListConversationsItem",
     "LLM",
     "LLMConvertibleEvent",
     "LLMConvertibleEventSource",
