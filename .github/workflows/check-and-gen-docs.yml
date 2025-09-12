@@ -1,4 +1,4 @@
-name: Markdown Docs & Docstrings
+name: Check Docstrings & Generate Markdown Docs
 
 on:
   pull_request:
@@ -10,6 +10,9 @@ on:
   push:
     branches: ["main"]
 
+permissions:
+  contents: write
+
 jobs:
   check-docs:
     runs-on: ubuntu-latest
@@ -17,14 +20,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11"
+          enable-cache: true
 
       - name: Sync deps
         run: uv sync --dev
@@ -35,21 +37,24 @@ jobs:
       - name: Regenerate Markdown API docs
         run: bash ./docs/scripts/gen_api_docs.sh
 
-      - name: Commit and push updated docs
+      - name: Commit and push updated docs (push events only)
+        if: github.event_name == 'push'
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if ! git diff --quiet docs/reference; then
-            git add docs/reference
-            git commit -m "chore(docs): auto-regenerate API docs"
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
-          else
+          # Only stage docs/reference; adjust if your script writes elsewhere
+          if git diff --quiet -- docs/reference; then
             echo "Docs are up to date, nothing to commit."
+            exit 0
           fi
 
-      - name: Upload generated docs (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-mdx
-          path: docs/reference
+          git add docs/reference
+          git commit -m "chore(docs): auto-regenerate API docs"
+
+          # On push events, GITHUB_REF is refs/heads/<branch>
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Pushing to ${BRANCH}"
+          git push origin "HEAD:${BRANCH}"
