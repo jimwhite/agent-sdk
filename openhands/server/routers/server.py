@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field
 from openhands.server.auth import get_master_key
 
 
-router = APIRouter(prefix="/server", dependencies=[Depends(get_master_key)])
+router = APIRouter(
+    prefix="/server", tags=["server"], dependencies=[Depends(get_master_key)]
+)
 
 # ---------- Config ----------
 FS_ROOT = Path(os.getenv("FS_ROOT", "/")).resolve()
