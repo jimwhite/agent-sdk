@@ -133,6 +133,11 @@ class ConfirmationResponseRequest(BaseModel):
     reason: str = "User rejected the action."
 
 
+class ListConversationsItem(BaseModel):
+    conversation_id: str
+    state: ConversationState
+
+
 # --- In-memory store for active conversations ---
 active_conversations: Dict[str, Conversation] = {}
 
@@ -176,6 +181,27 @@ def start_conversation(request: StartConversationRequest) -> StartConversationRe
     return StartConversationResponse(
         conversation_id=conversation_id, state=conversation.state
     )
+
+
+@router.get(
+    "/",
+    response_model=list[ListConversationsItem],
+    operation_id="list_conversations",
+)
+def list_conversations(start: int = 0, limit: int = 100):
+    """
+    Lists active conversations with pagination.
+    Results are returned in insertion order.
+    """
+    ids = list(active_conversations.keys())
+    selected = ids[start : start + limit]
+    return [
+        ListConversationsItem(
+            conversation_id=cid,
+            state=active_conversations[cid].state,
+        )
+        for cid in selected
+    ]
 
 
 @router.get(
