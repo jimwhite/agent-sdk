@@ -20,7 +20,7 @@ def responses_to_completion_format(
         ModelResponse in ChatCompletions format
     """
     # Extract the main content, tool calls, and reasoning content if available
-    output_items = getattr(responses_result, "output", [])
+    output_items = responses_result.output
 
     content = ""
     reasoning_content = ""
