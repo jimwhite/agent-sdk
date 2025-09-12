@@ -9,23 +9,22 @@ from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message
 
 
-def test_is_responses_api_supported():
-    """Test the is_responses_api_supported method."""
+def test_responses_api_support_and_error():
+    """Support flag should align with error behavior for unsupported models."""
     # Test with a model that supports Responses API
     llm = LLM(model="o1-preview")
     assert llm.is_responses_api_supported()
 
-    # Test with a model that doesn't support Responses API
+    # Unsupported: flag false and calling responses() raises
     llm = LLM(model="gpt-3.5-turbo")
     assert not llm.is_responses_api_supported()
-
-
-def test_responses_method_unsupported_model():
-    """Test that responses method raises error for unsupported models."""
-    llm = LLM(model="gpt-3.5-turbo")
-
     with pytest.raises(ValueError, match="does not support the Responses API"):
         llm.responses(input="Hello")
+
+
+def _removed_duplicate_responses_method_unsupported_model():
+    """Deprecated duplicate: covered by test_responses_api_support_and_error."""
+    pass
 
 
 def test_responses_method_streaming_not_supported():
@@ -53,7 +52,7 @@ def test_responses_method_with_input_string(mock_litellm_responses):
     mock_response = Mock()
     mock_response.id = "resp_123"
     mock_response.model = "o1-preview"
-    mock_response.created = 1234567890
+    mock_response.created_at = 1234567890
     mock_response.output = []
     # Add usage mock
     mock_usage = Mock()
@@ -88,7 +87,7 @@ def test_responses_method_with_messages_dict(mock_litellm_responses):
     mock_response = Mock()
     mock_response.id = "resp_456"
     mock_response.model = "o1-preview"
-    mock_response.created = 1234567891
+    mock_response.created_at = 1234567891
     mock_response.output = []
     # Add usage mock
     mock_usage = Mock()
@@ -129,7 +128,7 @@ def test_responses_method_with_message_objects(mock_litellm_responses):
     mock_response = Mock()
     mock_response.id = "resp_789"
     mock_response.model = "o1-preview"
-    mock_response.created = 1234567892
+    mock_response.created_at = 1234567892
     mock_response.output = []
     # Add usage mock
     mock_usage = Mock()
@@ -170,7 +169,7 @@ def test_responses_method_with_string_messages(mock_litellm_responses):
     mock_response = Mock()
     mock_response.id = "resp_string"
     mock_response.model = "o1-preview"
-    mock_response.created = 1234567893
+    mock_response.created_at = 1234567893
     mock_response.output = []
     # Add usage mock
     mock_usage = Mock()
@@ -201,7 +200,7 @@ def test_responses_method_input_takes_precedence():
         mock_response = Mock()
         mock_response.id = "resp_precedence"
         mock_response.model = "o1-preview"
-        mock_response.created = 1234567894
+        mock_response.created_at = 1234567894
         mock_response.output = []
         # Add usage mock
         mock_usage = Mock()
@@ -227,7 +226,7 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
     mock_response = Mock()
     mock_response.id = "resp_normalization"
     mock_response.model = "o1-preview"
-    mock_response.created = 1234567895
+    mock_response.created_at = 1234567895
     mock_response.output = []
     # Add usage mock
     mock_usage = Mock()
@@ -287,7 +286,7 @@ def test_responses_method_parameter_normalization_with_tool_object(
     mock_response = Mock()
     mock_response.id = "resp_toolobj"
     mock_response.model = "o1-preview"
-    mock_response.created = 1234567896
+    mock_response.created_at = 1234567896
     mock_response.output = []
     mock_usage = Mock()
     mock_usage.input_tokens = 7
