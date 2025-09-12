@@ -1,12 +1,18 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
-from typing import Any, cast
+from typing import Any
 
 from litellm.types.utils import ModelResponse
+from openai.types.responses.response import Response
+from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
+from openai.types.responses.response_output_message import ResponseOutputMessage
+from openai.types.responses.response_output_refusal import ResponseOutputRefusal
+from openai.types.responses.response_output_text import ResponseOutputText
+from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 
 
 def responses_to_completion_format(
-    responses_result: Any,
+    responses_result: Response,
 ) -> ModelResponse:
     """Convert Responses API result to ChatCompletions format.
 
@@ -27,70 +33,42 @@ def responses_to_completion_format(
     tool_calls: list[dict[str, Any]] = []
 
     for item in output_items:
-        if hasattr(item, "type"):
-            if item.type == "message":
-                # response.output.message.content can be list or object
-                # depending on SDK version
-                try:
-                    c = cast(Any, item.content)
-                    # Newer SDKs: content may be a list of segments
-                    if isinstance(c, list) and c:
-                        # Find output_text item
-                        for seg in c:
-                            seg_any = cast(Any, seg)
-                            if seg_any.type == "output_text":
-                                content = seg_any.text or content
-                    # Older / simplified: content has `.text`
-                    elif not isinstance(c, list) and hasattr(c, "text"):
-                        content = cast(Any, c).text or content
-                except Exception:
-                    pass
-            elif item.type == "function_call":
-                # Map Responses function call to Chat Completions tool_call
-                try:
-                    name = getattr(item, "name", None)
-                    arguments = getattr(item, "arguments", None)
-                    call_id = getattr(item, "call_id", None)
-                    tool_calls.append(
-                        {
-                            "id": call_id or "",
-                            "type": "function",
-                            "function": {
-                                "name": name or "",
-                                "arguments": arguments or "{}",
-                            },
-                        }
-                    )
-                except Exception:
-                    pass
-            elif item.type == "reasoning":
-                # Surface reasoning content first, then fallback to summary
-                try:
-                    content_field = getattr(item, "content", None)
-                    if isinstance(content_field, str) and content_field:
-                        reasoning_content = content_field
-                    elif hasattr(content_field, "text"):
-                        rc = getattr(content_field, "text", None)
-                        if rc:
-                            reasoning_content = str(rc)
-                    else:
-                        summary = getattr(item, "summary", None)
-                        if summary is not None:
-                            try:
-                                parts = []
-                                for seg in summary:
-                                    t = getattr(seg, "text", None)
-                                    if t:
-                                        parts.append(str(t))
-                                if parts:
-                                    reasoning_content = "\n\n".join(parts)
-                            except Exception:
-                                reasoning_content = str(summary)
-                except Exception:
-                    pass
+        if isinstance(item, ResponseOutputMessage):
+            c = item.content
+            if isinstance(c, list) and c:
+                for seg in c:
+                    if isinstance(seg, ResponseOutputText):
+                        content = seg.text or content
+                    elif isinstance(seg, ResponseOutputRefusal):
+                        pass
+            else:
+                # Legacy fallback: older SDKs had content with `.text`
+                if not isinstance(c, list) and hasattr(c, "text"):
+                    content = c.text or content
+        elif isinstance(item, ResponseFunctionToolCall):
+            tool_calls.append(
+                {
+                    "id": item.call_id or "",
+                    "type": "function",
+                    "function": {
+                        "name": item.name,
+                        "arguments": item.arguments,
+                    },
+                }
+            )
+        elif isinstance(item, ResponseReasoningItem):
+            # Prefer explicit content; fallback to summary
+            if item.content:
+                parts = [seg.text for seg in item.content if seg.text]
+                if parts:
+                    reasoning_content = "\n\n".join(parts)
+            elif item.summary:
+                parts = [s.text for s in item.summary if s.text]
+                if parts:
+                    reasoning_content = "\n\n".join(parts)
 
     # Create a ChatCompletions-compatible response
-    message = {
+    message: dict[str, Any] = {
         "role": "assistant",
         "content": content,
     }
@@ -102,14 +80,14 @@ def responses_to_completion_format(
         message["reasoning_content"] = reasoning_content
 
     # model string
-    model = getattr(responses_result, "model", "")
+    model = responses_result.model
 
     finish_reason = "tool_calls" if tool_calls else "stop"
 
     response = {
-        "id": getattr(responses_result, "id", ""),
+        "id": responses_result.id,
         "object": "chat.completion",
-        "created": int(getattr(responses_result, "created_at")),
+        "created": int(responses_result.created_at),
         "model": model,
         "choices": [
             {
