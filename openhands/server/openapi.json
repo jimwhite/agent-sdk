@@ -535,6 +535,9 @@
     },
     "/server/exec": {
       "post": {
+        "tags": [
+          "server"
+        ],
         "summary": "Execute a bash command via subprocess.",
         "operationId": "server_exec_server_exec_post",
         "requestBody": {
@@ -578,6 +581,9 @@
     },
     "/server/fs/upload": {
       "post": {
+        "tags": [
+          "server"
+        ],
         "summary": "Upload a file to the server filesystem.",
         "operationId": "fs_upload_server_fs_upload_post",
         "security": [
@@ -592,10 +598,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Destination file path under FS_ROOT (default \"/\"). If exists, will overwrite.Intermediate directories will be created as needed.",
+              "description": "Destination file path under FS_ROOT (default \"/\"). If exists, will overwrite. Intermediate directories will be created as needed.",
               "title": "Dest Path"
             },
-            "description": "Destination file path under FS_ROOT (default \"/\"). If exists, will overwrite.Intermediate directories will be created as needed."
+            "description": "Destination file path under FS_ROOT (default \"/\"). If exists, will overwrite. Intermediate directories will be created as needed."
           }
         ],
         "requestBody": {
@@ -632,6 +638,9 @@
     },
     "/server/fs/download": {
       "get": {
+        "tags": [
+          "server"
+        ],
         "summary": "Fs Download",
         "operationId": "fs_download_server_fs_download_get",
         "security": [
