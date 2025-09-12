@@ -21,7 +21,12 @@ Conversation = None  # type: ignore[assignment]
 # # Import modules with route-decorated implementations.
 # Keep this list small & explicit.
 # # If you add more services, import them here so their decorators run at startup.
-IMPLEMENTATION_MODULES: list[str] = []
+IMPLEMENTATION_MODULES: list[str] = [
+    # Import all standard tools to register their Action/Observation models
+    "openhands.tools",
+    # Also import built-in tools for the same reason
+    "openhands.sdk.tool.builtins",
+]
 
 
 def create_model_registry() -> dict[str, type[BaseModel]]:
