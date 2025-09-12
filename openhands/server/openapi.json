@@ -6,8 +6,11 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/conversations": {
+    "/conversations/": {
       "post": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Start Conversation",
         "operationId": "start_conversation",
         "requestBody": {
@@ -46,6 +49,9 @@
     },
     "/conversations/{conversation_id}": {
       "get": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Get Conversation State",
         "operationId": "get_conversation_state",
         "parameters": [
@@ -83,6 +89,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Close Conversation",
         "operationId": "close_conversation",
         "parameters": [
@@ -115,6 +124,9 @@
     },
     "/conversations/{conversation_id}/events": {
       "get": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Get Events",
         "description": "Retrieves the event history for a conversation with pagination.",
         "operationId": "get_conversation_events",
@@ -225,6 +237,9 @@
     },
     "/conversations/{conversation_id}/messages": {
       "post": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Send Message",
         "operationId": "send_message_to_conversation",
         "parameters": [
@@ -272,6 +287,9 @@
     },
     "/conversations/{conversation_id}/run": {
       "post": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Run Conversation",
         "description": "Starts or resumes the agent run for a conversation in the background.",
         "operationId": "run_conversation",
@@ -310,6 +328,9 @@
     },
     "/conversations/{conversation_id}/pause": {
       "post": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Pause Conversation",
         "operationId": "pause_conversation",
         "parameters": [
@@ -347,6 +368,9 @@
     },
     "/conversations/{conversation_id}/respond_to_confirmation": {
       "post": {
+        "tags": [
+          "conversations"
+        ],
         "summary": "Respond To Confirmation",
         "operationId": "respond_to_confirmation",
         "parameters": [
@@ -2047,12 +2071,6 @@
                 "user_message_prefix": "The first character of your response should be 'I'"
               }
             ]
-          },
-          "working_dir": {
-            "type": "string",
-            "title": "Working Dir",
-            "description": "Working directory for the agent to work in. Will be created if it doesn't exist.",
-            "default": "."
           },
           "confirmation_mode": {
             "type": "boolean",
