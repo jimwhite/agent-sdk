@@ -23,7 +23,6 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.conversation import ConversationState
-from openhands.sdk.llm.llm import LLMSpec
 from openhands.sdk.tool import ToolSpec
 
 
@@ -55,7 +54,7 @@ app = FastAPI(
 class StartConversationRequest(BaseModel):
     """Payload to create a new conversation."""
 
-    llm: LLMSpec = Field(
+    llm: LLM = Field(
         ...,
         description="LLM configuration for the agent.",
         examples=[

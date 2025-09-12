@@ -109,12 +109,8 @@ class RetryMixin:
         return decorator
 
 
-class LLMSpec(BaseModel):
-    """LLM configuration spec.
-
-    The fields represents the configuration needed to instantiate an LLM.
-    This is only used in agent-sdk for type schema for server use.
-    """
+class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
+    """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
     model: str = Field(default="claude-sonnet-4-20250514", description="Model name.")
     api_key: SecretStr | None = Field(default=None, description="API key.")
@@ -213,22 +209,16 @@ class LLMSpec(BaseModel):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
-
-
-class LLM(LLMSpec, RetryMixin, NonNativeToolCallingMixin):
-    """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
-
-    # =========================================================================
-    # Internal fields (excluded from dumps)
-    # =========================================================================
     service_id: str = Field(
         default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
-    metrics: Metrics | None = Field(default=None)
-    retry_listener: Callable[[int, int], None] | None = Field(
-        default=None, exclude=True
-    )
+
+    # =========================================================================
+    # Internal fields (excluded from dumps)
+    # =========================================================================
+    _metrics: Metrics | None = PrivateAttr(default=None)
+    _retry_listener: Callable[[int, int], None] | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
@@ -318,14 +308,14 @@ class LLM(LLMSpec, RetryMixin, NonNativeToolCallingMixin):
             os.environ["AWS_REGION_NAME"] = self.aws_region_name
 
         # Metrics + Telemetry wiring
-        if self.metrics is None:
-            self.metrics = Metrics(model_name=self.model)
+        if self._metrics is None:
+            self._metrics = Metrics(model_name=self.model)
 
         self._telemetry = Telemetry(
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
-            metrics=self.metrics,
+            metrics=self._metrics,
         )
 
         # Tokenizer
@@ -344,6 +334,10 @@ class LLM(LLMSpec, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Public API
     # =========================================================================
+    @property
+    def metrics(self) -> Metrics | None:
+        return self._metrics
+
     def completion(
         self,
         messages: list[dict[str, Any]] | list[Message],
@@ -406,7 +400,7 @@ class LLM(LLMSpec, RetryMixin, NonNativeToolCallingMixin):
             retry_min_wait=self.retry_min_wait,
             retry_max_wait=self.retry_max_wait,
             retry_multiplier=self.retry_multiplier,
-            retry_listener=self.retry_listener,
+            retry_listener=self._retry_listener,
         )
         def _one_attempt() -> ModelResponse:
             assert self._telemetry is not None
