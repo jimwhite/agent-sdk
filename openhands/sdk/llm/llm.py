@@ -933,15 +933,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     try:
                         # Expect Chat Completions tool call shape
                         fn = tc["function"]
-                        name = fn["name"]
-                        arguments = fn["arguments"]
-                        call_id = tc.get("id") or tc.get("call_id")
                         out.append(
                             {
                                 "type": "function_call",
-                                "call_id": str(call_id),
-                                "name": str(name),
-                                "arguments": str(arguments),
+                                "call_id": str(tc["id"]),
+                                "name": str(fn["name"]),
+                                "arguments": str(fn["arguments"]),
                             }
                         )
                     except Exception as e:
