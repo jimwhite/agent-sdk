@@ -853,3 +853,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"Diff: {pretty_pydantic_diff(self, reconciled)}"
             )
         return reconciled
+
+    def model_dump_with_secrets(self) -> dict[str, Any]:
+        """Dump the model including secrets (normally excluded)."""
+        data = self.model_dump()
+        for field in self.OVERRIDE_ON_SERIALIZE:
+            attr = getattr(self, field)
+            assert attr is not None and isinstance(attr, SecretStr)
+            data[field] = attr.get_secret_value()
+        return data

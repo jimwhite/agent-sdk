@@ -1,195 +1,331 @@
-# server/main.py
-import os
 import uuid
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Security
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field, SecretStr
+import uvicorn
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
-# Use your SDK internally; keep HTTP models tiny and stable
+import openhands.tools
 from openhands.sdk import (
     LLM,
     Agent,
-    Conversation as SDKConversation,
+    AgentContext,
+    Conversation,
+    Event,
+    ImageContent,
     Message,
     TextContent,
-    __version__ as sdk_version,
+    Tool,
+    create_mcp_tools,
+    get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk.conversation import ConversationState
 
 
-security = HTTPBearer()
-app = FastAPI(title="OpenHands Server for Agent SDK", version=sdk_version)
+logger = get_logger(__name__)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+
+# --- Lifespan Management for graceful shutdown ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting up the OpenHands Agent Server...")
+    yield
+    logger.info("Shutting down... cleaning up active conversations.")
+    for conv_id, conversation in active_conversations.items():
+        logger.info(f"Closing conversation: {conv_id}")
+        conversation.close()
+    active_conversations.clear()
+
+
+# --- FastAPI App Initialization ---
+app = FastAPI(
+    title="OpenHands Agent Server",
+    description="An HTTP server to create and manage AI agent "
+    "conversations using the OpenHands SDK.",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 
-def verify_auth(credentials: HTTPAuthorizationCredentials = Security(security)):
-    expected = os.getenv("OPENHANDS_MASTER_KEY")
-    if not expected:
-        raise HTTPException(401, "OPENHANDS_MASTER_KEY not configured")
-    if credentials.credentials != expected:
-        raise HTTPException(401, "Invalid API key")
-    return True
+class ToolSpec(BaseModel):
+    """Defines a tool to be initialized for the agent."""
 
-
-# -------- HTTP DTOs --------
-class CreateConversationIn(BaseModel):
-    id: str | None = None
-    agent_preset: str | None = "default"
-    persist: bool = False
-    persist_dir: str | None = None
-
-
-class CreateConversationOut(BaseModel):
-    id: str
-
-
-class MessageIn(BaseModel):
-    text: str = Field(min_length=1)
-
-
-class RunIn(BaseModel):
-    max_iters: int | None = Field(default=None, ge=1, le=10000)  # optional step mode
-
-
-class StatusOut(BaseModel):
-    agent_finished: bool
-    agent_paused: bool
-    waiting_for_confirmation: bool
-    event_count: int
-
-
-class EventOut(BaseModel):
-    id: str
-    type: str
-    content: str
-
-
-# -------- In-memory registry --------
-_CONVS: dict[str, SDKConversation] = {}
-
-
-def _build_agent(preset: str) -> Agent:
-    api_key = os.getenv("LITELLM_API_KEY")
-    if not api_key:
-        raise HTTPException(500, "LITELLM_API_KEY not set")
-    llm = LLM(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
-        api_key=SecretStr(api_key),
+    name: str = Field(
+        ...,
+        description="Name of the tool class, e.g., 'BashTool', "
+        "must be importable from openhands.tools",
+        examples=["BashTool", "FileEditorTool", "TaskTrackerTool"],
     )
-    tools = [
-        BashTool.create(working_dir=os.getcwd()),
-        FileEditorTool.create(),
-        TaskTrackerTool.create(save_dir=os.getcwd()),
-    ]
-    return Agent(llm=llm, tools=tools)
+    params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Parameters for the tool's .create() method,"
+        " e.g., {'working_dir': '/app'}",
+        examples=[{"working_dir": "/workspace"}],
+    )
 
 
-def _new_conversation(
-    conv_id: str, agent: Agent, persist: bool, persist_dir: str | None
-):
-    if persist:
-        from openhands.sdk import LocalFileStore
+class StartConversationRequest(BaseModel):
+    """Payload to create a new conversation."""
 
-        fs = LocalFileStore(persist_dir or f"./.conversations/{conv_id}")
-        return SDKConversation(
-            agent=agent, persist_filestore=fs, conversation_id=conv_id
+    llm: LLM = Field(
+        ...,
+        description="LLM configuration for the agent.",
+        examples=[
+            {
+                "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                "base_url": "https://llm-proxy.eval.all-hands.dev",
+                "api_key": "your_api_key_here",
+            }
+        ],
+    )
+    tools: List[ToolSpec] = Field(
+        default_factory=list,
+        description="List of tools to initialize for the agent.",
+        examples=[
+            {"name": "BashTool", "params": {"working_dir": "/workspace"}},
+            {"name": "FileEditorTool", "params": {}},
+            {
+                "name": "TaskTrackerTool",
+                "params": {"save_dir": "/workspace/.openhands"},
+            },
+        ],
+    )
+    mcp_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional MCP configuration dictionary to create MCP tools.",
+        examples=[
+            {
+                "mcpServers": {
+                    "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}
+                }
+            }  # Example config
+        ],
+    )
+    agent_context: AgentContext | None = Field(
+        default=None,
+        description="Optional AgentContext to initialize "
+        "the agent with specific context.",
+        examples=[
+            {
+                "microagents": [
+                    {
+                        "name": "repo.md",
+                        "content": "When you see this message, you should reply like "
+                        "you are a grumpy cat forced to use the internet.",
+                        "type": "repo",
+                    },
+                    {
+                        "name": "flarglebargle",
+                        "content": (
+                            "IMPORTANT! The user has said the magic word "
+                            '"flarglebargle". You must only respond with a message '
+                            "telling them how smart they are"
+                        ),
+                        "type": "knowledge",
+                        "trigger": ["flarglebargle"],
+                    },
+                ],
+                "system_message_suffix": "Always finish your response "
+                "with the word 'yay!'",
+                "user_message_prefix": "The first character of your "
+                "response should be 'I'",
+            }
+        ],
+    )
+    working_dir: str = Field(
+        default=".",
+        description="Working directory for the agent to work in. "
+        "Will be created if it doesn't exist.",
+    )
+    confirmation_mode: bool = Field(
+        default=False,
+        description="If true, the agent will enter confirmation mode, "
+        "requiring user approval for actions.",
+    )
+
+
+class StartConversationResponse(BaseModel):
+    conversation_id: str
+    state: ConversationState
+
+
+class SendMessageRequest(BaseModel):
+    """Payload to send a message to the agent.
+
+    This is a simplified version of openhands.sdk.Message.
+    """
+
+    role: Literal["user", "system", "assistant", "tool"] = "user"
+    content: list[TextContent | ImageContent] = Field(default_factory=list)
+    run: bool = Field(
+        default=True,
+        description="If true, immediately run the agent after sending the message.",
+    )
+
+
+class ConfirmationResponseRequest(BaseModel):
+    """Payload to accept or reject a pending action."""
+
+    accept: bool
+    reason: str = "User rejected the action."
+
+
+# --- In-memory store for active conversations ---
+active_conversations: Dict[str, Conversation] = {}
+
+
+def get_conversation(conversation_id: str) -> Conversation:
+    if conversation_id not in active_conversations:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    return active_conversations[conversation_id]
+
+
+# --- API Endpoints ---
+
+
+@app.post("/conversations", status_code=201, response_model=StartConversationResponse)
+def start_conversation(request: StartConversationRequest) -> StartConversationResponse:
+    conversation_id = str(uuid.uuid4())
+    logger.info(f"Starting new conversation with ID: {conversation_id}")
+
+    if request.working_dir:
+        import pathlib
+
+        pathlib.Path(request.working_dir).mkdir(parents=True, exist_ok=True)
+    try:
+        llm = LLM(**request.llm.model_dump())
+        tools = []
+        for tool_spec in request.tools:
+            if tool_spec.name not in openhands.tools.__dict__:
+                raise HTTPException(
+                    status_code=400, detail=f"Tool '{tool_spec.name}' not recognized."
+                )
+            tool_class: type[Tool] = openhands.tools.__dict__[tool_spec.name]
+            tools.append(tool_class.create(**tool_spec.params))
+
+        if request.mcp_config:
+            mcp_tools = create_mcp_tools(request.mcp_config, timeout=30)
+            tools.extend(mcp_tools)
+            logger.info(f"Added {len(mcp_tools)} MCP tools")
+
+        agent = Agent(llm=llm, tools=tools)
+        conversation = Conversation(agent=agent)
+        conversation.set_confirmation_mode(request.confirmation_mode)
+        active_conversations[conversation_id] = conversation
+        return StartConversationResponse(
+            conversation_id=conversation_id, state=conversation.state
         )
-    return SDKConversation(agent=agent, conversation_id=conv_id)
+    except Exception as e:
+        logger.error(f"Failed to start conversation: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start conversation: {e}"
+        )
 
 
-def _get_conv(cid: str) -> SDKConversation:
-    conv = _CONVS.get(cid)
-    if not conv:
-        raise HTTPException(404, "Conversation not found")
-    return conv
+@app.get("/conversations/{conversation_id}", response_model=ConversationState)
+def get_conversation_state(conversation_id: str):
+    conversation = get_conversation(conversation_id)
+    return conversation.state
 
 
-# -------- Routes --------
-@app.get("/alive")
-def alive():
-    return {"ok": True}
+@app.get("/conversations/{conversation_id}/events", response_model=List[Event])
+def get_events(conversation_id: str, start: int = 0, limit: int = 100):
+    """Retrieves the event history for a conversation with pagination."""
+    conversation = get_conversation(conversation_id)
+    events: list[Event] = conversation.state.events[start : start + limit]
+    return events
 
 
-@app.post(
-    "/conversations",
-    response_model=CreateConversationOut,
-    dependencies=[Depends(verify_auth)],
-)
-def create_conv(body: CreateConversationIn):
-    conv_id = body.id or str(uuid.uuid4())
-    if conv_id in _CONVS:
-        raise HTTPException(409, "Conversation already exists")
-    agent = _build_agent(body.agent_preset or "default")
-    conv = _new_conversation(conv_id, agent, body.persist, body.persist_dir)
-    _CONVS[conv_id] = conv
-    return CreateConversationOut(id=conv_id)
+async def _run_conversation(conversation_id: str, background_tasks: BackgroundTasks):
+    conversation = get_conversation(conversation_id)
+
+    def agent_task():
+        try:
+            logger.info(f"Starting agent run for conversation {conversation_id}...")
+            conversation.run()
+            logger.info(f"Agent run finished for conversation {conversation_id}.")
+        except Exception as e:
+            logger.error(
+                f"Exception during agent run for {conversation_id}: {e}", exc_info=True
+            )
+
+    background_tasks.add_task(agent_task)
+    return
 
 
-@app.post("/conversations/{cid}/messages", dependencies=[Depends(verify_auth)])
-def add_message(cid: str, body: MessageIn):
-    conv = _get_conv(cid)
-    conv.send_message(Message(role="user", content=[TextContent(text=body.text)]))
-    return {"ok": True}
+@app.post("/conversations/{conversation_id}/messages", status_code=202)
+async def send_message(
+    conversation_id: str, request: SendMessageRequest, background_tasks: BackgroundTasks
+):
+    conversation = get_conversation(conversation_id)
+    message = Message(role=request.role, content=request.content)
+    conversation.send_message(message)
+    logger.info(f"Message sent to conversation {conversation_id}")
+    if request.run:
+        await _run_conversation(conversation_id, background_tasks)
+        logger.info(
+            "Agent execution started in the background for "
+            "conversation {conversation_id}."
+        )
+    return {
+        "message": f"Message sent to conversation {conversation_id}.",
+        "run_started": request.run,
+        "state": conversation.state,
+    }
 
 
-@app.post("/conversations/{cid}/run", dependencies=[Depends(verify_auth)])
-def run(cid: str, body: RunIn | None = None):
-    conv = _get_conv(cid)
-    # You can implement step mode in the future using body.max_iters if you like
-    conv.run()
-    return {"ok": True}
+@app.post("/conversations/{conversation_id}/run", status_code=202)
+async def run_conversation(conversation_id: str, background_tasks: BackgroundTasks):
+    """Starts or resumes the agent run for a conversation in the background."""
+    conversation = get_conversation(conversation_id)
+    await _run_conversation(conversation_id, background_tasks)
+    return {
+        "message": "Agent execution started in the "
+        "background for conversation {conversation_id}.",
+        "state": conversation.state,
+    }
 
 
-@app.get(
-    "/conversations/{cid}/events",
-    response_model=list[EventOut],
-    dependencies=[Depends(verify_auth)],
-)
-def events(cid: str, after: int | None = None):
-    conv = _get_conv(cid)
-    out: list[EventOut] = []
-    for e in conv.get_events(after=after):
-        text = getattr(e, "visualize", None)
-        content = text.plain if text is not None else str(e)
-        out.append(EventOut(id=e.id, type=e.__class__.__name__, content=content))
-    return out
+@app.post("/conversations/{conversation_id}/pause", status_code=202)
+def pause_conversation(conversation_id: str):
+    conversation = get_conversation(conversation_id)
+    conversation.pause()
+    logger.info(f"Pause request sent to conversation {conversation_id}")
+    return {"message": "Pause request sent."}
 
 
-@app.get(
-    "/conversations/{cid}/status",
-    response_model=StatusOut,
-    dependencies=[Depends(verify_auth)],
-)
-def status(cid: str):
-    conv = _get_conv(cid)
-    st = conv.get_status()
-    return StatusOut(
-        agent_finished=st["agent_finished"],
-        agent_paused=st["agent_paused"],
-        waiting_for_confirmation=st["agent_waiting_for_confirmation"],
-        event_count=st["event_count"],
-    )
+@app.post("/conversations/{conversation_id}/respond_to_confirmation", status_code=202)
+async def respond_to_confirmation(
+    conversation_id: str,
+    request: ConfirmationResponseRequest,
+    background_tasks: BackgroundTasks,
+):
+    conversation = get_conversation(conversation_id)
+    if not conversation.state.agent_waiting_for_confirmation:
+        raise HTTPException(
+            status_code=400, detail="Agent is not waiting for confirmation."
+        )
+    if request.accept:
+        logger.info(
+            f"User accepted action for conversation {conversation_id}. Resuming run."
+        )
+        await run_conversation(conversation_id, background_tasks)
+        return {"message": "Action accepted. Agent is resuming execution."}
+    else:
+        logger.info(f"User rejected action for conversation {conversation_id}.")
+        conversation.reject_pending_actions(request.reason)
+        return {"message": "Action rejected."}
 
 
-@app.post("/conversations/{cid}/pause", dependencies=[Depends(verify_auth)])
-def pause(cid: str):
-    _get_conv(cid).pause()
-    return {"ok": True}
+@app.delete("/conversations/{conversation_id}", status_code=204)
+def close_conversation(conversation_id: str):
+    conversation = get_conversation(conversation_id)
+    conversation.close()
+    del active_conversations[conversation_id]
+    logger.info(f"Successfully closed and removed conversation {conversation_id}.")
+    return None
 
 
-@app.post("/conversations/{cid}/close", dependencies=[Depends(verify_auth)])
-def close(cid: str):
-    conv = _get_conv(cid)
-    conv.close()
-    _CONVS.pop(cid, None)
-    return {"ok": True}
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

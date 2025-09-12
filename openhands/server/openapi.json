@@ -1,0 +1,2547 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenHands Agent Server",
+    "description": "An HTTP server to create and manage AI agent conversations using the OpenHands SDK.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/conversations": {
+      "post": {
+        "summary": "Start Conversation",
+        "operationId": "start_conversation_conversations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/openhands__server__main__StartConversationRequest-Input__1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartConversationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}": {
+      "get": {
+        "summary": "Get Conversation State",
+        "operationId": "get_conversation_state_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Close Conversation",
+        "operationId": "close_conversation_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/events": {
+      "get": {
+        "summary": "Get Events",
+        "description": "Retrieves the event history for a conversation with pagination.",
+        "operationId": "get_events_conversations__conversation_id__events_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Start"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/LLMConvertibleEvent"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Condensation"
+                      },
+                      {
+                        "$ref": "#/components/schemas/CondensationRequest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/PauseEvent"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SystemPromptEvent"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ActionEvent"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ObservationEvent"
+                      },
+                      {
+                        "$ref": "#/components/schemas/MessageEvent"
+                      },
+                      {
+                        "$ref": "#/components/schemas/UserRejectObservation"
+                      },
+                      {
+                        "$ref": "#/components/schemas/AgentErrorEvent"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "kind",
+                      "mapping": {
+                        "openhands.sdk.event.base.LLMConvertibleEvent": "#/components/schemas/LLMConvertibleEvent",
+                        "openhands.sdk.event.condenser.Condensation": "#/components/schemas/Condensation",
+                        "openhands.sdk.event.condenser.CondensationRequest": "#/components/schemas/CondensationRequest",
+                        "openhands.sdk.event.user_action.PauseEvent": "#/components/schemas/PauseEvent",
+                        "openhands.sdk.event.llm_convertible.SystemPromptEvent": "#/components/schemas/SystemPromptEvent",
+                        "openhands.sdk.event.llm_convertible.ActionEvent": "#/components/schemas/ActionEvent",
+                        "openhands.sdk.event.llm_convertible.ObservationEvent": "#/components/schemas/ObservationEvent",
+                        "openhands.sdk.event.llm_convertible.MessageEvent": "#/components/schemas/MessageEvent",
+                        "openhands.sdk.event.llm_convertible.UserRejectObservation": "#/components/schemas/UserRejectObservation",
+                        "openhands.sdk.event.llm_convertible.AgentErrorEvent": "#/components/schemas/AgentErrorEvent"
+                      }
+                    }
+                  },
+                  "title": "Response Get Events Conversations  Conversation Id  Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/messages": {
+      "post": {
+        "summary": "Send Message",
+        "operationId": "send_message_conversations__conversation_id__messages_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/run": {
+      "post": {
+        "summary": "Run Conversation",
+        "description": "Starts or resumes the agent run for a conversation in the background.",
+        "operationId": "run_conversation_conversations__conversation_id__run_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/pause": {
+      "post": {
+        "summary": "Pause Conversation",
+        "operationId": "pause_conversation_conversations__conversation_id__pause_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}/respond_to_confirmation": {
+      "post": {
+        "summary": "Respond To Confirmation",
+        "operationId": "respond_to_confirmation_conversations__conversation_id__respond_to_confirmation_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmationResponseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActionEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "agent"
+          },
+          "thought": {
+            "items": {
+              "$ref": "#/components/schemas/TextContent"
+            },
+            "type": "array",
+            "title": "Thought",
+            "description": "The thought process of the agent before taking this action"
+          },
+          "reasoning_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Content",
+            "description": "Intermediate reasoning/thinking content from reasoning models"
+          },
+          "action": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MCPActionBase"
+              },
+              {
+                "$ref": "#/components/schemas/FinishAction"
+              },
+              {
+                "$ref": "#/components/schemas/ThinkAction"
+              }
+            ],
+            "title": "Action",
+            "description": "Single action (tool call) returned by LLM",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "openhands.sdk.tool.builtins.finish.FinishAction": "#/components/schemas/FinishAction",
+                "openhands.sdk.tool.builtins.think.ThinkAction": "#/components/schemas/ThinkAction",
+                "openhands.sdk.tool.schema.MCPActionBase": "#/components/schemas/MCPActionBase"
+              }
+            }
+          },
+          "tool_name": {
+            "type": "string",
+            "title": "Tool Name",
+            "description": "The name of the tool being called"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "title": "Tool Call Id",
+            "description": "The unique id returned by LLM API for this tool call"
+          },
+          "tool_call": {
+            "$ref": "#/components/schemas/ChatCompletionMessageToolCall",
+            "description": "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"
+          },
+          "llm_response_id": {
+            "type": "string",
+            "title": "Llm Response Id",
+            "description": "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response."
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricsSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "thought",
+          "action",
+          "tool_name",
+          "tool_call_id",
+          "tool_call",
+          "llm_response_id",
+          "kind"
+        ],
+        "title": "ActionEvent"
+      },
+      "AgentBase": {
+        "properties": {
+          "llm": {
+            "$ref": "#/components/schemas/LLM"
+          },
+          "agent_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Tool"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "openhands.sdk.tool.tool.Tool": "#/components/schemas/Tool"
+                    }
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Tool"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "openhands.sdk.tool.tool.Tool": "#/components/schemas/Tool"
+                    }
+                  }
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Tools",
+            "description": "Mapping of tool name to Tool instance that the agent can use. If a list is provided, it should be converted to a mapping by tool name. We need to define this as ToolType for discriminated union."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "llm",
+          "kind"
+        ],
+        "title": "AgentBase"
+      },
+      "AgentContext": {
+        "properties": {
+          "microagents": {
+            "items": {
+              "$ref": "#/components/schemas/BaseMicroagent"
+            },
+            "type": "array",
+            "title": "Microagents",
+            "description": "List of available microagents that can extend the user's input."
+          },
+          "system_message_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Message Suffix",
+            "description": "Optional suffix to append to the system prompt."
+          },
+          "user_message_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Message Suffix",
+            "description": "Optional suffix to append to the user's message."
+          }
+        },
+        "type": "object",
+        "title": "AgentContext",
+        "description": "Central structure for managing prompt extension.\n\nAgentContext unifies all the contextual inputs that shape how the system\nextends and interprets user prompts. It combines both static environment\ndetails and dynamic, user-activated extensions from microagents.\n\nSpecifically, it provides:\n- **Repository context / Repo Microagents**: Information about the active codebase,\n  branches, and repo-specific instructions contributed by repo microagents.\n- **Runtime context**: Current execution environment (hosts, working\n  directory, secrets, date, etc.).\n- **Conversation instructions**: Optional task- or channel-specific rules\n  that constrain or guide the agent\u2019s behavior across the session.\n- **Knowledge Microagents**: Extensible components that can be triggered by user input\n  to inject knowledge or domain-specific guidance.\n\nTogether, these elements make AgentContext the primary container responsible\nfor assembling, formatting, and injecting all prompt-relevant context into\nLLM interactions."
+      },
+      "AgentErrorEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "agent"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "The error message from the scaffold"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricsSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "error",
+          "kind"
+        ],
+        "title": "AgentErrorEvent",
+        "description": "Error triggered by the agent.\n\nNote: This event should not contain model \"thought\" or \"reasoning_content\". It\nrepresents an error produced by the agent/scaffold, not model output."
+      },
+      "Annotations": {
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "Annotations"
+      },
+      "BaseMicroagent": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "The source path or identifier of the microagent. When it is None, it is treated as a programmatically defined microagent."
+          },
+          "type": {
+            "$ref": "#/components/schemas/MicroagentType",
+            "description": "The type of the microagent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "content",
+          "type"
+        ],
+        "title": "BaseMicroagent",
+        "description": "Base class for all microagents."
+      },
+      "ChatCompletionCachedContent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "ephemeral",
+            "title": "Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "ChatCompletionCachedContent"
+      },
+      "ChatCompletionMessageToolCall": {
+        "properties": {},
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ChatCompletionMessageToolCall"
+      },
+      "ChatCompletionToolParam": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "function"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Type"
+          },
+          "function": {
+            "$ref": "#/components/schemas/ChatCompletionToolParamFunctionChunk"
+          },
+          "cache_control": {
+            "$ref": "#/components/schemas/ChatCompletionCachedContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "function"
+        ],
+        "title": "ChatCompletionToolParam"
+      },
+      "ChatCompletionToolParamFunctionChunk": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "strict": {
+            "type": "boolean",
+            "title": "Strict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ChatCompletionToolParamFunctionChunk"
+      },
+      "Condensation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "environment"
+          },
+          "forgotten_event_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forgotten Event Ids"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "summary_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Offset"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "Condensation",
+        "description": "This action indicates a condensation of the conversation history is happening."
+      },
+      "CondensationRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "environment"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "CondensationRequest",
+        "description": "This action is used to request a condensation of the conversation history.\n\nAttributes:\n    action (str): The action type, namely ActionType.CONDENSATION_REQUEST."
+      },
+      "ConfirmationResponseRequest": {
+        "properties": {
+          "accept": {
+            "type": "boolean",
+            "title": "Accept"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": "User rejected the action."
+          }
+        },
+        "type": "object",
+        "required": [
+          "accept"
+        ],
+        "title": "ConfirmationResponseRequest",
+        "description": "Payload to accept or reject a pending action."
+      },
+      "ConversationState": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique conversation ID"
+          },
+          "agent": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AgentBase"
+              }
+            ],
+            "title": "Agent",
+            "description": "The agent running in the conversation. This is persisted to allow resuming conversations and check agent configuration to handle e.g., tool changes, LLM changes, etc.",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "openhands.sdk.agent.base.AgentBase": "#/components/schemas/AgentBase"
+              }
+            }
+          },
+          "agent_finished": {
+            "type": "boolean",
+            "title": "Agent Finished",
+            "default": false
+          },
+          "confirmation_mode": {
+            "type": "boolean",
+            "title": "Confirmation Mode",
+            "default": false
+          },
+          "agent_waiting_for_confirmation": {
+            "type": "boolean",
+            "title": "Agent Waiting For Confirmation",
+            "default": false
+          },
+          "agent_paused": {
+            "type": "boolean",
+            "title": "Agent Paused",
+            "default": false
+          },
+          "activated_knowledge_microagents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Activated Knowledge Microagents",
+            "description": "List of activated knowledge microagents name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "agent"
+        ],
+        "title": "ConversationState"
+      },
+      "Cost": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "cost": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Cost",
+            "description": "Cost must be non-negative"
+          },
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "cost"
+        ],
+        "title": "Cost"
+      },
+      "FinishAction": {
+        "properties": {
+          "security_risk": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "UNKNOWN"
+            ],
+            "title": "Security Risk",
+            "description": "The LLM's assessment of the safety risk of this action.",
+            "default": "UNKNOWN"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Final message to send to the user."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "message",
+          "kind"
+        ],
+        "title": "FinishAction"
+      },
+      "FinishObservation": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Final message sent to the user."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "message",
+          "kind"
+        ],
+        "title": "FinishObservation"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImageContent": {
+        "properties": {
+          "cache_prompt": {
+            "type": "boolean",
+            "title": "Cache Prompt",
+            "default": false
+          },
+          "type": {
+            "type": "string",
+            "const": "image",
+            "title": "Type",
+            "default": "image"
+          },
+          "data": {
+            "type": "string",
+            "title": "Data"
+          },
+          "mimeType": {
+            "type": "string",
+            "title": "Mimetype"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Annotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "_meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          },
+          "image_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Image Urls"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data",
+          "mimeType",
+          "image_urls"
+        ],
+        "title": "ImageContent"
+      },
+      "LLM": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "Model name.",
+            "default": "claude-sonnet-4-20250514"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "API key."
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "Custom base URL."
+          },
+          "api_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Version",
+            "description": "API version (e.g., Azure)."
+          },
+          "aws_access_key_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Access Key Id"
+          },
+          "aws_secret_access_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Secret Access Key"
+          },
+          "aws_region_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Region Name"
+          },
+          "openrouter_site_url": {
+            "type": "string",
+            "title": "Openrouter Site Url",
+            "default": "https://docs.all-hands.dev/"
+          },
+          "openrouter_app_name": {
+            "type": "string",
+            "title": "Openrouter App Name",
+            "default": "OpenHands"
+          },
+          "num_retries": {
+            "type": "integer",
+            "title": "Num Retries",
+            "default": 5
+          },
+          "retry_multiplier": {
+            "type": "number",
+            "title": "Retry Multiplier",
+            "default": 8
+          },
+          "retry_min_wait": {
+            "type": "integer",
+            "title": "Retry Min Wait",
+            "default": 8
+          },
+          "retry_max_wait": {
+            "type": "integer",
+            "title": "Retry Max Wait",
+            "default": 64
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout",
+            "description": "HTTP timeout (s)."
+          },
+          "max_message_chars": {
+            "type": "integer",
+            "title": "Max Message Chars",
+            "description": "Approx max chars in each event/content sent to the LLM.",
+            "default": 30000
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature",
+            "default": 0.0
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P",
+            "default": 1.0
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "custom_llm_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Llm Provider"
+          },
+          "max_input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Input Tokens",
+            "description": "The maximum number of input tokens. Note that this is currently unused, and the value at runtime is actually the total tokens in OpenAI (e.g. 128,000 tokens for GPT-4)."
+          },
+          "max_output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Output Tokens",
+            "description": "The maximum number of output tokens. This is sent to the LLM."
+          },
+          "input_cost_per_token": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Cost Per Token",
+            "description": "The cost per input token. This will available in logs for user."
+          },
+          "output_cost_per_token": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Cost Per Token",
+            "description": "The cost per output token. This will available in logs for user."
+          },
+          "ollama_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ollama Base Url"
+          },
+          "drop_params": {
+            "type": "boolean",
+            "title": "Drop Params",
+            "default": true
+          },
+          "modify_params": {
+            "type": "boolean",
+            "title": "Modify Params",
+            "description": "Modify params allows litellm to do transformations like adding a default message, when a message is empty.",
+            "default": true
+          },
+          "disable_vision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disable Vision",
+            "description": "If model is vision capable, this option allows to disable image processing (useful for cost reduction)."
+          },
+          "disable_stop_word": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disable Stop Word",
+            "description": "Disable using of stop word.",
+            "default": false
+          },
+          "caching_prompt": {
+            "type": "boolean",
+            "title": "Caching Prompt",
+            "description": "Enable caching of prompts.",
+            "default": true
+          },
+          "log_completions": {
+            "type": "boolean",
+            "title": "Log Completions",
+            "description": "Enable logging of completions.",
+            "default": false
+          },
+          "log_completions_folder": {
+            "type": "string",
+            "title": "Log Completions Folder",
+            "description": "The folder to log LLM completions to. Required if log_completions is True.",
+            "default": "logs/completions"
+          },
+          "custom_tokenizer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Tokenizer",
+            "description": "A custom tokenizer to use for token counting."
+          },
+          "native_tool_calling": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Tool Calling",
+            "description": "Whether to use native tool calling if supported by the model. Can be True, False, or not set."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "none"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort",
+            "description": "The effort to put into reasoning. This is a string that can be one of 'low', 'medium', 'high', or 'none'. Can apply to all reasoning models."
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed",
+            "description": "The seed to use for random number generation."
+          },
+          "safety_settings": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safety Settings",
+            "description": "Safety settings for models that support them (like Mistral AI and Gemini)"
+          },
+          "OVERRIDE_ON_SERIALIZE": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Override On Serialize",
+            "default": [
+              "api_key",
+              "aws_access_key_id",
+              "aws_secret_access_key"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LLM",
+        "description": "Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."
+      },
+      "LLMConvertibleEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "description": "The source of this event"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "kind"
+        ],
+        "title": "LLMConvertibleEvent",
+        "description": "Base class for events that can be converted to LLM messages."
+      },
+      "MCPActionBase": {
+        "properties": {
+          "security_risk": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "UNKNOWN"
+            ],
+            "title": "Security Risk",
+            "description": "The LLM's assessment of the safety risk of this action.",
+            "default": "UNKNOWN"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "MCPActionBase",
+        "description": "Base schema for MCP input action."
+      },
+      "Message": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "system",
+              "assistant",
+              "tool"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TextContent"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageContent"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Content"
+          },
+          "cache_enabled": {
+            "type": "boolean",
+            "title": "Cache Enabled",
+            "default": false
+          },
+          "vision_enabled": {
+            "type": "boolean",
+            "title": "Vision Enabled",
+            "default": false
+          },
+          "function_calling_enabled": {
+            "type": "boolean",
+            "title": "Function Calling Enabled",
+            "default": false
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatCompletionMessageToolCall"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "force_string_serializer": {
+            "type": "boolean",
+            "title": "Force String Serializer",
+            "default": false
+          },
+          "reasoning_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Content",
+            "description": "Intermediate reasoning/thinking content from reasoning models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "Message"
+      },
+      "MessageEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source"
+          },
+          "llm_message": {
+            "$ref": "#/components/schemas/Message",
+            "description": "The exact LLM message for this message event"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricsSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snapshot of LLM metrics (token counts and costs) for this message. Only attached to messages from agent."
+          },
+          "activated_microagents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Activated Microagents",
+            "description": "List of activated microagent name"
+          },
+          "extended_content": {
+            "items": {
+              "$ref": "#/components/schemas/TextContent"
+            },
+            "type": "array",
+            "title": "Extended Content",
+            "description": "List of content added by agent context"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          },
+          "reasoning_content": {
+            "type": "string",
+            "title": "Reasoning Content",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "llm_message",
+          "kind",
+          "reasoning_content"
+        ],
+        "title": "MessageEvent",
+        "description": "Message from either agent or user.\n\nThis is originally the \"MessageAction\", but it suppose not to be tool call."
+      },
+      "Metrics": {
+        "properties": {
+          "model_name": {
+            "type": "string",
+            "title": "Model Name",
+            "description": "Name of the model",
+            "default": "default"
+          },
+          "accumulated_cost": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Accumulated Cost",
+            "description": "Total accumulated cost, must be non-negative",
+            "default": 0.0
+          },
+          "max_budget_per_task": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Budget Per Task",
+            "description": "Maximum budget per task"
+          },
+          "accumulated_token_usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Accumulated token usage across all calls"
+          },
+          "costs": {
+            "items": {
+              "$ref": "#/components/schemas/Cost"
+            },
+            "type": "array",
+            "title": "Costs",
+            "description": "List of individual costs"
+          },
+          "response_latencies": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseLatency"
+            },
+            "type": "array",
+            "title": "Response Latencies",
+            "description": "List of response latencies"
+          },
+          "token_usages": {
+            "items": {
+              "$ref": "#/components/schemas/TokenUsage"
+            },
+            "type": "array",
+            "title": "Token Usages",
+            "description": "List of token usage records"
+          }
+        },
+        "type": "object",
+        "title": "Metrics",
+        "description": "Metrics class can record various metrics during running and evaluation.\nWe track:\n  - accumulated_cost and costs\n  - max_budget_per_task (budget limit)\n  - A list of ResponseLatency\n  - A list of TokenUsage (one per call)."
+      },
+      "MetricsSnapshot": {
+        "properties": {
+          "model_name": {
+            "type": "string",
+            "title": "Model Name",
+            "description": "Name of the model",
+            "default": "default"
+          },
+          "accumulated_cost": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Accumulated Cost",
+            "description": "Total accumulated cost, must be non-negative",
+            "default": 0.0
+          },
+          "max_budget_per_task": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Budget Per Task",
+            "description": "Maximum budget per task"
+          },
+          "accumulated_token_usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Accumulated token usage across all calls"
+          }
+        },
+        "type": "object",
+        "title": "MetricsSnapshot",
+        "description": "A snapshot of metrics at a point in time.\n\nDoes not include lists of individual costs, latencies, or token usages."
+      },
+      "MicroagentType": {
+        "type": "string",
+        "enum": [
+          "knowledge",
+          "repo",
+          "task"
+        ],
+        "title": "MicroagentType",
+        "description": "Type of microagent."
+      },
+      "ObservationEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "environment"
+          },
+          "observation": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FinishObservation"
+              },
+              {
+                "$ref": "#/components/schemas/ThinkObservation"
+              }
+            ],
+            "title": "Observation",
+            "description": "The observation (tool call) sent to LLM",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "openhands.sdk.tool.builtins.finish.FinishObservation": "#/components/schemas/FinishObservation",
+                "openhands.sdk.tool.builtins.think.ThinkObservation": "#/components/schemas/ThinkObservation"
+              }
+            }
+          },
+          "action_id": {
+            "type": "string",
+            "title": "Action Id",
+            "description": "The action id that this observation is responding to"
+          },
+          "tool_name": {
+            "type": "string",
+            "title": "Tool Name",
+            "description": "The tool name that this observation is responding to"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "title": "Tool Call Id",
+            "description": "The tool call id that this observation is responding to"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "observation",
+          "action_id",
+          "tool_name",
+          "tool_call_id",
+          "kind"
+        ],
+        "title": "ObservationEvent"
+      },
+      "PauseEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "user"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "PauseEvent",
+        "description": "Event indicating that the agent execution was paused by user request."
+      },
+      "ResponseLatency": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "latency": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Latency",
+            "description": "Latency must be non-negative"
+          },
+          "response_id": {
+            "type": "string",
+            "title": "Response Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "latency",
+          "response_id"
+        ],
+        "title": "ResponseLatency",
+        "description": "Metric tracking the round-trip time per completion call."
+      },
+      "SendMessageRequest": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "system",
+              "assistant",
+              "tool"
+            ],
+            "title": "Role",
+            "default": "user"
+          },
+          "content": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TextContent"
+                },
+                {
+                  "$ref": "#/components/schemas/ImageContent"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Content"
+          },
+          "run": {
+            "type": "boolean",
+            "title": "Run",
+            "description": "If true, immediately run the agent after sending the message.",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "SendMessageRequest",
+        "description": "Payload to send a message to the agent.\n\nThis is a simplified version of openhands.sdk.Message."
+      },
+      "StartConversationResponse": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "title": "Conversation Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ConversationState"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "state"
+        ],
+        "title": "StartConversationResponse"
+      },
+      "SystemPromptEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "agent"
+          },
+          "system_prompt": {
+            "$ref": "#/components/schemas/TextContent",
+            "description": "The system prompt text"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ChatCompletionToolParam"
+            },
+            "type": "array",
+            "title": "Tools",
+            "description": "List of tools in OpenAI tool format"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "system_prompt",
+          "tools",
+          "kind"
+        ],
+        "title": "SystemPromptEvent",
+        "description": "System prompt added by the agent."
+      },
+      "TextContent": {
+        "properties": {
+          "cache_prompt": {
+            "type": "boolean",
+            "title": "Cache Prompt",
+            "default": false
+          },
+          "type": {
+            "type": "string",
+            "const": "text",
+            "title": "Type",
+            "default": "text"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Annotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "_meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TextContent"
+      },
+      "ThinkAction": {
+        "properties": {
+          "security_risk": {
+            "type": "string",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "UNKNOWN"
+            ],
+            "title": "Security Risk",
+            "description": "The LLM's assessment of the safety risk of this action.",
+            "default": "UNKNOWN"
+          },
+          "thought": {
+            "type": "string",
+            "title": "Thought",
+            "description": "The thought to log."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "thought",
+          "kind"
+        ],
+        "title": "ThinkAction",
+        "description": "Action for logging a thought without making any changes."
+      },
+      "ThinkObservation": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "Confirmation message.",
+            "default": "Your thought has been logged."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ThinkObservation",
+        "description": "Observation returned after logging a thought."
+      },
+      "TokenUsage": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": ""
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Prompt Tokens",
+            "description": "Prompt tokens must be non-negative",
+            "default": 0
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Completion Tokens",
+            "description": "Completion tokens must be non-negative",
+            "default": 0
+          },
+          "cache_read_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Cache Read Tokens",
+            "description": "Cache read tokens must be non-negative",
+            "default": 0
+          },
+          "cache_write_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Cache Write Tokens",
+            "description": "Cache write tokens must be non-negative",
+            "default": 0
+          },
+          "reasoning_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reasoning Tokens",
+            "description": "Reasoning tokens must be non-negative",
+            "default": 0
+          },
+          "context_window": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Context Window",
+            "description": "Context window must be non-negative",
+            "default": 0
+          },
+          "per_turn_token": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Per Turn Token",
+            "description": "Per turn tokens must be non-negative",
+            "default": 0
+          },
+          "response_id": {
+            "type": "string",
+            "title": "Response Id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "TokenUsage",
+        "description": "Metric tracking detailed token usage per completion call."
+      },
+      "Tool": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "action_type": {
+            "type": "string",
+            "title": "Action Type"
+          },
+          "observation_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Type"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ToolAnnotations"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Input Schema",
+            "readOnly": true
+          },
+          "output_schema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Schema",
+            "readOnly": true
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "action_type",
+          "kind",
+          "input_schema",
+          "output_schema",
+          "title"
+        ],
+        "title": "Tool",
+        "description": "Tool that wraps an executor function with input/output validation and schema.\n\n- Normalize input/output schemas (class or dict) into both model+schema.\n- Validate inputs before execute.\n- Coerce outputs only if an output model is defined; else return vanilla JSON.\n- Export MCP tool description."
+      },
+      "ToolAnnotations": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "A human-readable title for the tool."
+          },
+          "readOnlyHint": {
+            "type": "boolean",
+            "title": "Readonlyhint",
+            "description": "If true, the tool does not modify its environment. Default: false",
+            "default": false
+          },
+          "destructiveHint": {
+            "type": "boolean",
+            "title": "Destructivehint",
+            "description": "If true, the tool may perform destructive updates to its environment. If false, the tool performs only additive updates. (This property is meaningful only when `readOnlyHint == false`) Default: true",
+            "default": true
+          },
+          "idempotentHint": {
+            "type": "boolean",
+            "title": "Idempotenthint",
+            "description": "If true, calling the tool repeatedly with the same arguments will have no additional effect on the its environment. (This property is meaningful only when `readOnlyHint == false`) Default: false",
+            "default": false
+          },
+          "openWorldHint": {
+            "type": "boolean",
+            "title": "Openworldhint",
+            "description": "If true, this tool may interact with an 'open world' of external entities. If false, the tool's domain of interaction is closed. For example, the world of a web search tool is open, whereas that of a memory tool is not. Default: true",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "ToolAnnotations",
+        "description": "Annotations to provide hints about the tool's behavior.\n\nBased on Model Context Protocol (MCP) spec:\nhttps://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838"
+      },
+      "UserRejectObservation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "user"
+          },
+          "action_id": {
+            "type": "string",
+            "title": "Action Id",
+            "description": "The action id that this rejection is responding to"
+          },
+          "tool_name": {
+            "type": "string",
+            "title": "Tool Name",
+            "description": "The tool name that this rejection is responding to"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "title": "Tool Call Id",
+            "description": "The tool call id that this rejection is responding to"
+          },
+          "rejection_reason": {
+            "type": "string",
+            "title": "Rejection Reason",
+            "description": "Reason for rejecting the action",
+            "default": "User rejected the action"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action_id",
+          "tool_name",
+          "tool_call_id",
+          "kind"
+        ],
+        "title": "UserRejectObservation",
+        "description": "Observation when user rejects an action in confirmation mode."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

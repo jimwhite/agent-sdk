@@ -63,7 +63,7 @@ from __future__ import annotations
 
 from typing import Any, Generic, TypeVar, cast
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, GetCoreSchemaHandler, computed_field
 from pydantic_core import core_schema
 
 
@@ -194,24 +194,46 @@ class DiscriminatedUnionType(Generic[T]):
         self.__origin__ = cls
         self.__args__ = ()
 
-    def __get_pydantic_core_schema__(self, source_type, handler):
-        """Define custom Pydantic core schema for this type.
+    def __get_pydantic_core_schema__(self, source_type, handler: GetCoreSchemaHandler):
+        # Collect all imported subclasses of the base class
+        def iter_subclasses(cls: type) -> list[type]:
+            seen: set[type] = set()
+            stack: list[type] = [cls]
+            out: list[type] = []
+            while stack:
+                cur = stack.pop()
+                for sub in cur.__subclasses__():
+                    if sub in seen:
+                        continue
+                    seen.add(sub)
+                    if issubclass(sub, BaseModel):
+                        out.append(sub)
+                    stack.append(sub)
+            return out
 
-        This schema uses a custom validator function to handle discriminated union
-        deserialization based on the 'kind' field.
-        """
+        subs = iter_subclasses(self.base_class)
 
-        # Importantly, this validation function calls the base class model validation
-        # _at validation time_, meaning that even if new subclasses are registered after
-        # the fact they will still be recognized.
-        def validate(v):
-            if isinstance(v, self.base_class):
-                return v
-            if isinstance(v, dict) and "kind" in v:
-                return self.base_class.model_validate(v)
-            return self.base_class(**v)
+        # If none are imported yet, at least include the base class so OpenAPI builds
+        if not subs:
+            subs = [self.base_class]
 
-        return core_schema.no_info_plain_validator_function(validate)
+        # Build the tagged union over subclasses
+        choices: dict[str, core_schema.CoreSchema] = {
+            kind_of(sub): handler.generate_schema(sub) for sub in subs
+        }
+
+        tagged = core_schema.tagged_union_schema(
+            discriminator="kind",
+            choices=choices,
+        )
+
+        # Accept already-constructed instances too (fast path)
+        instance_pass_through = core_schema.is_instance_schema(self.base_class)
+
+        # Union: instances OR tagged JSON
+        return core_schema.union_schema(
+            [instance_pass_through, tagged],
+        )
 
     def __repr__(self):
         return f"DiscriminatedUnion[{self.base_class.__name__}]"
