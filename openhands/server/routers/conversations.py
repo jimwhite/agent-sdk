@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Dict, List, Literal
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 import openhands.tools
@@ -20,11 +20,16 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation import ConversationState
 from openhands.sdk.tool import ToolSpec
+from openhands.server.auth import get_master_key
 
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/conversations", tags=["conversations"])
+router = APIRouter(
+    prefix="/conversations",
+    tags=["conversations"],
+    dependencies=[Depends(get_master_key)],
+)
 
 
 class StartConversationRequest(BaseModel):
