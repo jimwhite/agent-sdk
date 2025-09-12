@@ -1,111 +1,195 @@
-# openhands/server/main.py
-import argparse
-import importlib
-import sys
+# server/main.py
+import os
+import uuid
 
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field, SecretStr
 
-# --- Import SDK models you want exposed in OpenAPI / wire codec ---
-# Add/remove as your SDK grows.
-from openhands.sdk import Message, TextContent
-from openhands.server.app import build_app
-
-
-# Avoid importing heavy models at import time; load lazily in create_model_registry
-LLM = None  # type: ignore[assignment]
-Agent = None  # type: ignore[assignment]
-Conversation = None  # type: ignore[assignment]
-
-
-# # --- Ensure server-side implementations are imported so @rpc decorators register ---
-# # Import modules with route-decorated implementations.
-# Keep this list small & explicit.
-# # If you add more services, import them here so their decorators run at startup.
-IMPLEMENTATION_MODULES: list[str] = [
-    # Import all standard tools to register their Action/Observation models
-    "openhands.tools",
-    # Also import built-in tools for the same reason
-    "openhands.sdk.tool.builtins",
-]
+# Use your SDK internally; keep HTTP models tiny and stable
+from openhands.sdk import (
+    LLM,
+    Agent,
+    Conversation as SDKConversation,
+    Message,
+    TextContent,
+    __version__ as sdk_version,
+)
+from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 
-def create_model_registry() -> dict[str, type[BaseModel]]:
-    """Models that may appear in request/response bodies for (de)serialization."""
-    global LLM, Agent, Conversation
-    if LLM is None or Agent is None or Conversation is None:
-        from openhands.sdk import (
-            LLM as _LLM,
-            Agent as _Agent,
-            Conversation as _Conversation,
+security = HTTPBearer()
+app = FastAPI(title="OpenHands Server for Agent SDK", version=sdk_version)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def verify_auth(credentials: HTTPAuthorizationCredentials = Security(security)):
+    expected = os.getenv("OPENHANDS_MASTER_KEY")
+    if not expected:
+        raise HTTPException(401, "OPENHANDS_MASTER_KEY not configured")
+    if credentials.credentials != expected:
+        raise HTTPException(401, "Invalid API key")
+    return True
+
+
+# -------- HTTP DTOs --------
+class CreateConversationIn(BaseModel):
+    id: str | None = None
+    agent_preset: str | None = "default"
+    persist: bool = False
+    persist_dir: str | None = None
+
+
+class CreateConversationOut(BaseModel):
+    id: str
+
+
+class MessageIn(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class RunIn(BaseModel):
+    max_iters: int | None = Field(default=None, ge=1, le=10000)  # optional step mode
+
+
+class StatusOut(BaseModel):
+    agent_finished: bool
+    agent_paused: bool
+    waiting_for_confirmation: bool
+    event_count: int
+
+
+class EventOut(BaseModel):
+    id: str
+    type: str
+    content: str
+
+
+# -------- In-memory registry --------
+_CONVS: dict[str, SDKConversation] = {}
+
+
+def _build_agent(preset: str) -> Agent:
+    api_key = os.getenv("LITELLM_API_KEY")
+    if not api_key:
+        raise HTTPException(500, "LITELLM_API_KEY not set")
+    llm = LLM(
+        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+        base_url="https://llm-proxy.eval.all-hands.dev",
+        api_key=SecretStr(api_key),
+    )
+    tools = [
+        BashTool.create(working_dir=os.getcwd()),
+        FileEditorTool.create(),
+        TaskTrackerTool.create(save_dir=os.getcwd()),
+    ]
+    return Agent(llm=llm, tools=tools)
+
+
+def _new_conversation(
+    conv_id: str, agent: Agent, persist: bool, persist_dir: str | None
+):
+    if persist:
+        from openhands.sdk import LocalFileStore
+
+        fs = LocalFileStore(persist_dir or f"./.conversations/{conv_id}")
+        return SDKConversation(
+            agent=agent, persist_filestore=fs, conversation_id=conv_id
         )
-
-        LLM, Agent, Conversation = _LLM, _Agent, _Conversation
-
-    return {
-        "Agent": Agent,  # type: ignore[arg-type]
-        "Conversation": Conversation,  # type: ignore[arg-type]
-        "LLM": LLM,  # type: ignore[arg-type]
-        "Message": Message,
-        "TextContent": TextContent,
-    }
+    return SDKConversation(agent=agent, conversation_id=conv_id)
 
 
-def import_implementations(modules: list[str]) -> None:
-    """Import implementation modules for side-effect decorator registration."""
-    for m in modules:
-        importlib.import_module(m)
+def _get_conv(cid: str) -> SDKConversation:
+    conv = _CONVS.get(cid)
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    return conv
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="openhandsd",
-        description="OpenHands HTTP server",
+# -------- Routes --------
+@app.get("/alive")
+def alive():
+    return {"ok": True}
+
+
+@app.post(
+    "/conversations",
+    response_model=CreateConversationOut,
+    dependencies=[Depends(verify_auth)],
+)
+def create_conv(body: CreateConversationIn):
+    conv_id = body.id or str(uuid.uuid4())
+    if conv_id in _CONVS:
+        raise HTTPException(409, "Conversation already exists")
+    agent = _build_agent(body.agent_preset or "default")
+    conv = _new_conversation(conv_id, agent, body.persist, body.persist_dir)
+    _CONVS[conv_id] = conv
+    return CreateConversationOut(id=conv_id)
+
+
+@app.post("/conversations/{cid}/messages", dependencies=[Depends(verify_auth)])
+def add_message(cid: str, body: MessageIn):
+    conv = _get_conv(cid)
+    conv.send_message(Message(role="user", content=[TextContent(text=body.text)]))
+    return {"ok": True}
+
+
+@app.post("/conversations/{cid}/run", dependencies=[Depends(verify_auth)])
+def run(cid: str, body: RunIn | None = None):
+    conv = _get_conv(cid)
+    # You can implement step mode in the future using body.max_iters if you like
+    conv.run()
+    return {"ok": True}
+
+
+@app.get(
+    "/conversations/{cid}/events",
+    response_model=list[EventOut],
+    dependencies=[Depends(verify_auth)],
+)
+def events(cid: str, after: int | None = None):
+    conv = _get_conv(cid)
+    out: list[EventOut] = []
+    for e in conv.get_events(after=after):
+        text = getattr(e, "visualize", None)
+        content = text.plain if text is not None else str(e)
+        out.append(EventOut(id=e.id, type=e.__class__.__name__, content=content))
+    return out
+
+
+@app.get(
+    "/conversations/{cid}/status",
+    response_model=StatusOut,
+    dependencies=[Depends(verify_auth)],
+)
+def status(cid: str):
+    conv = _get_conv(cid)
+    st = conv.get_status()
+    return StatusOut(
+        agent_finished=st["agent_finished"],
+        agent_paused=st["agent_paused"],
+        waiting_for_confirmation=st["agent_waiting_for_confirmation"],
+        event_count=st["event_count"],
     )
-    parser.add_argument(
-        "--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)"
-    )
-    parser.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
-    parser.add_argument(
-        "--reload",
-        action="store_true",
-        help="Enable auto-reload (dev only)",
-    )
-    parser.add_argument(
-        "--workers",
-        type=int,
-        default=1,
-        help="Number of Uvicorn workers (ignored if --reload)",
-    )
-    parser.add_argument(
-        "--log-level",
-        default="info",
-        choices=["critical", "error", "warning", "info", "debug", "trace"],
-        help="Log level",
-    )
-    return parser.parse_args(argv)
 
 
-def run(argv: list[str] | None = None) -> None:
-    args = parse_args(sys.argv[1:] if argv is None else argv)
-
-    # Import implementations so @rpc.service/@rpc.method are registered
-    import_implementations(IMPLEMENTATION_MODULES)
-
-    # Build FastAPI app from registered routes & models
-    app = build_app(model_registry=create_model_registry(), instances={})
-
-    # Lazy import to avoid import-time dependency during testing
-    import uvicorn  # type: ignore
-
-    uvicorn.run(
-        app,
-        host=args.host,
-        port=args.port,
-        log_level=args.log_level,
-        reload=args.reload,
-        workers=None if args.reload else args.workers,
-    )
+@app.post("/conversations/{cid}/pause", dependencies=[Depends(verify_auth)])
+def pause(cid: str):
+    _get_conv(cid).pause()
+    return {"ok": True}
 
 
-if __name__ == "__main__":
-    run()
+@app.post("/conversations/{cid}/close", dependencies=[Depends(verify_auth)])
+def close(cid: str):
+    conv = _get_conv(cid)
+    conv.close()
+    _CONVS.pop(cid, None)
+    return {"ok": True}

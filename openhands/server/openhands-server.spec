@@ -20,7 +20,7 @@ from PyInstaller.utils.hooks import (
 project_root = Path.cwd()
 
 a = Analysis(
-    ['openhands/server/main.py'],
+    ['main.py'],
     pathex=[str(project_root)],
     binaries=[],
     datas=[
@@ -32,7 +32,7 @@ a = Analysis(
         *collect_data_files('fastmcp'),
         *collect_data_files('mcp'),
         # Include Jinja prompt templates required by the agent SDK
-        *collect_data_files('openhands.sdk.agent.agent', includes=['prompts/*.j2']),
+        *collect_data_files('openhands.sdk.agent', includes=['prompts/*.j2']),
         # Include FastAPI static files and templates
         *collect_data_files('fastapi'),
         *collect_data_files('uvicorn'),
@@ -95,6 +95,8 @@ a = Analysis(
         # Exclude mcp CLI parts that cause issues
         'mcp.cli',
         'mcp.cli.cli',
+        # Exclude litellm proxy UI parts not needed for server
+        'litellm.proxy.ui_crud_endpoints',
         # Exclude test modules
         'pytest',
         'unittest',
