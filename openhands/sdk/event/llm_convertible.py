@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import cast
+from typing import Any, cast
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
 from pydantic import ConfigDict, Field, computed_field
@@ -76,6 +76,10 @@ class ActionEvent(LLMConvertibleEvent):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
+    provider_specific_fields: dict[str, Any] | None = Field(
+        default=None,
+        description="Provider-specific fields (e.g., Anthropic thinking blocks)",
+    )
     action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: str = Field(
@@ -137,6 +141,7 @@ class ActionEvent(LLMConvertibleEvent):
             content=content,
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
+            provider_specific_fields=self.provider_specific_fields,
         )
 
     def __str__(self) -> str:
