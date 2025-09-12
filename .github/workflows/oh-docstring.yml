@@ -19,9 +19,6 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch || github.ref_name }}
 
       - name: Improve Docstrings with OpenHands
         uses: All-Hands-AI/openhands-github-action@v1
