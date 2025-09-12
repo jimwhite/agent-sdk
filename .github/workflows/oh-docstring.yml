@@ -24,7 +24,7 @@ jobs:
         uses: All-Hands-AI/openhands-github-action@v1
         with:
           repository: ${{ github.repository }}
-          selected-branch: ${{ github.event.inputs.branch || github.ref_name || 'main' }}
+          selected-branch: ${{ github.event.inputs.branch || github.head_ref || 'main' }}
           base-url: https://app.all-hands.dev
           poll: "true"
           timeout-seconds: 3600
