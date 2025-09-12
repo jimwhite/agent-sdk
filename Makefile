@@ -76,7 +76,10 @@ build-server: check-uv-version
 	uv run openapi-python-client generate \
 		--path openhands/server/openapi.json \
 		--output-path openhands/client \
+		--config openhands/server/client_gen_config.yaml \
+		--meta uv \
 		--overwrite
+	@echo "$(GREEN)OpenAPI client generated successfully at openhands/client.$(RESET)"
 
 run-server: build-server
 	@echo "$(YELLOW)Starting OpenHands server...$(RESET)"
