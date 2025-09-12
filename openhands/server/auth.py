@@ -11,13 +11,11 @@ from starlette.requests import Request
 
 api_key_header = APIKeyHeader(name="X-Master-Key", auto_error=False)
 
-
-def _keys() -> list[str]:
-    return [k.strip() for k in os.getenv("MASTER_KEY", "test").split(",") if k.strip()]
+MASTER_KEY = os.getenv("MASTER_KEY", "test")
 
 
 def get_master_key(api_key: str | None = Security(api_key_header)) -> str:
-    keys = _keys()
+    keys = _load_master_keys()
     if not keys:
         # Show as 500 to indicate misconfig, not an auth failure.
         raise HTTPException(status_code=500, detail="MASTER_KEY not configured")
@@ -29,8 +27,7 @@ def get_master_key(api_key: str | None = Security(api_key_header)) -> str:
 
 
 def _load_master_keys() -> list[str]:
-    raw = os.getenv("MASTER_KEY", "")
-    return [k.strip() for k in raw.split(",") if k.strip()]
+    return [k.strip() for k in MASTER_KEY.split(",") if k.strip()]
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
