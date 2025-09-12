@@ -2,8 +2,13 @@
 
 from typing import Any
 
+from litellm.types.llms.openai import ResponsesAPIResponse
+from litellm.types.responses.main import (
+    GenericResponseOutputItem,
+    OutputFunctionToolCall,
+    OutputText,
+)
 from litellm.types.utils import ModelResponse
-from openai.types.responses.response import Response
 from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_output_refusal import ResponseOutputRefusal
@@ -98,7 +103,7 @@ def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str
 
 
 def responses_to_completion_format(
-    responses_result: Response,
+    responses_result: ResponsesAPIResponse,
 ) -> ModelResponse:
     """Convert Responses API result to ChatCompletions format.
 
@@ -119,25 +124,38 @@ def responses_to_completion_format(
     tool_calls: list[dict[str, Any]] = []
 
     for item in output_items:
-        if isinstance(item, ResponseOutputMessage):
+        # Strict typed mapping based on LiteLLM/OpenAI response classes
+        if isinstance(item, ResponseOutputMessage) and item.type == "message":
             for seg in item.content:
-                if isinstance(seg, ResponseOutputText):
-                    content = seg.text or content
+                if isinstance(seg, ResponseOutputText) and seg.text:
+                    content = seg.text
                 elif isinstance(seg, ResponseOutputRefusal):
                     pass
-        elif isinstance(item, ResponseFunctionToolCall):
+            continue
+        if isinstance(item, ResponseFunctionToolCall) and item.type == "function_call":
             tool_calls.append(
                 {
-                    "id": item.call_id or "",
+                    "id": (item.call_id or item.id or ""),
                     "type": "function",
-                    "function": {
-                        "name": item.name,
-                        "arguments": item.arguments,
-                    },
+                    "function": {"name": item.name, "arguments": item.arguments},
                 }
             )
-        elif isinstance(item, ResponseReasoningItem):
-            # Prefer explicit content; fallback to summary
+            continue
+        if isinstance(item, GenericResponseOutputItem) and item.type == "message":
+            for seg in item.content:
+                if isinstance(seg, OutputText) and seg.text:
+                    content = seg.text
+            continue
+        if isinstance(item, OutputFunctionToolCall) and item.type == "function_call":
+            tool_calls.append(
+                {
+                    "id": (item.call_id or item.id or ""),
+                    "type": "function",
+                    "function": {"name": item.name, "arguments": item.arguments},
+                }
+            )
+            continue
+        if isinstance(item, ResponseReasoningItem) and item.type == "reasoning":
             if item.content:
                 parts = [seg.text for seg in item.content if seg.text]
                 if parts:
