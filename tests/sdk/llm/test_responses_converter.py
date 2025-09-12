@@ -2,32 +2,69 @@
 
 from typing import cast
 
+from litellm.types.llms.openai import ResponsesAPIResponse as Response
 from litellm.types.utils import ModelResponse
-from openai.types.responses.response import Response
 
 from openhands.sdk.llm.utils.responses_converter import (
+    messages_to_responses_items,
     responses_to_completion_format,
 )
 
 
 def test_messages_to_responses_input_empty():
-    # messages_to_responses_input removed; no-op test
-    assert True
+    assert messages_to_responses_items([]) == []
 
 
 def test_messages_to_responses_input_dict_messages():
-    """Test conversion with dict messages."""
-    assert True
+    msgs = [
+        {"role": "system", "content": "S"},
+        {"role": "user", "content": "U"},
+        {"role": "assistant", "content": "A"},
+    ]
+    assert messages_to_responses_items(msgs) == [
+        {"role": "system", "content": "S"},
+        {"role": "user", "content": "U"},
+        {"role": "assistant", "content": "A"},
+    ]
 
 
 def test_messages_to_responses_input_with_tool_message():
-    """Test conversion with tool messages."""
-    assert True
+    msgs = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "function": {"name": "f", "arguments": '{"a":1}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "out"},
+    ]
+    items = messages_to_responses_items(msgs)
+    assert {
+        "type": "function_call",
+        "call_id": "call_1",
+        "name": "f",
+        "arguments": '{"a":1}',
+    } in items
+    assert {
+        "type": "function_call_output",
+        "call_id": "call_1",
+        "output": "out",
+    } in items
 
 
 def test_messages_to_responses_input_message_objects():
-    """Test conversion with Message objects."""
-    assert True
+    msgs = [
+        {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
+        {"role": "assistant", "content": [{"type": "text", "text": "Hi"}]},
+    ]
+    assert messages_to_responses_items(msgs) == [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+    ]
 
 
 def test_responses_to_completion_format_basic():

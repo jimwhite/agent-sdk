@@ -444,7 +444,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def responses(
         self,
-        messages: list[dict[str, Any]] | list[Message] | None = None,
+        messages: list[dict[str, Any]] | list[Message] | str | None = None,
         input: str | None = None,
         **kwargs,
     ) -> ModelResponse:
