@@ -9,7 +9,10 @@ class WireCodec:
     @staticmethod
     def to_wire(x: Any) -> Any:
         if isinstance(x, BaseModel):
-            return {"__model__": x.__class__.__name__, "data": x.model_dump()}
+            return {
+                "__model__": x.__class__.__name__,
+                "data": x.model_dump(mode="json"),
+            }
         if isinstance(x, (list, tuple)):
             return [WireCodec.to_wire(i) for i in x]
         if isinstance(x, dict):

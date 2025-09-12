@@ -1,11 +1,11 @@
 """
-Example 11: Call OpenHands remotely via RPC.
+Example 11: Call OpenHands remotely via REST API.
 
 This example mirrors 01_hello_world.py but runs the conversation against a
 server via HTTP. It will:
   1) start the OpenHands server (from source, using uv if available)
   2) verify /docs and OpenAPI JSON
-  3) construct LLM/Agent/Conversation on the server through RPC
+  3) construct LLM/Agent/Conversation on the server through REST API
   4) run the hello-world flow remotely
 
 Notes:
@@ -127,7 +127,8 @@ def main() -> int:
         check_docs(base_url)
 
         # 3) client: register models
-        with RuntimeGateway(base_url) as gw:
+        api_key = os.environ.get("OPENHANDS_MASTER_KEY", "local-dev")
+        with RuntimeGateway(base_url, api_key=api_key) as gw:
             # register models used by RPC wire codec
             from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
 
@@ -158,28 +159,13 @@ def main() -> int:
             ]
             agent = Agent(llm=llm, tools=tools)
 
-            # 3a) Create the remote Conversation instance explicitly
-            from openhands.sdk.rpc.wire import WireCodec
-
-            conv_id = "conv-remote-hello"
-            create_body = {
-                "id": conv_id,
-                "spec": WireCodec.to_wire(
-                    {
-                        "agent": agent,
-                        "max_iteration_per_run": 200,
-                        "visualize": False,
-                    }
-                ),
-            }
-            gw.transport.request("POST", "/conversation/create", json=create_body)
-
-            # 3b) Bind client-side proxy to call methods on that instance
+            # 3a) Create the remote Conversation instance using the new REST API
             RemoteConversation = gw.bind(Conversation)
             conv = RemoteConversation(
-                conversation_id=conv_id,  # remote id propagated as query param
-                agent=agent,  # kept locally for completeness; not re-sent on each call
+                agent=agent,
+                visualize=False,
             )
+            print("Created remote conversation successfully")
 
             # send messages + run (remotely)
             conv.send_message(

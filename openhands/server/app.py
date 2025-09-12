@@ -1,15 +1,36 @@
 # app.py
 import inspect
+import os
 import uuid
 from typing import Any, get_type_hints
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, create_model
 
-from openhands.sdk.rpc import rpc
+# Import Agent and tools to ensure they're registered in the discriminated union
+from openhands.sdk.rpc import api
 from openhands.sdk.rpc.wire import WireCodec
 from openhands.server.state import get_instance, set_instance
+
+
+# Import tool action/observation classes for discriminated union registration
+
+
+# ---- authentication --------------------------------------------------------
+
+security = HTTPBearer()
+
+
+def verify_auth(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Verify the OPENHANDS_MASTER_KEY."""
+    expected_key = os.environ.get("OPENHANDS_MASTER_KEY")
+    if not expected_key:
+        raise HTTPException(401, "OPENHANDS_MASTER_KEY not configured")
+    if credentials.credentials != expected_key:
+        raise HTTPException(401, "Invalid API key")
+    return credentials
 
 
 # ---- helpers to build request/response models from annotated methods --------
@@ -19,7 +40,18 @@ def _make_model_from_params(
     cls_name: str, method_name: str, fn, *, mode: str
 ) -> type[BaseModel]:
     sig = inspect.signature(fn)
-    hints = get_type_hints(fn)
+    try:
+        hints = get_type_hints(fn)
+    except NameError:
+        # Handle forward references that can't be resolved
+        hints = {}
+        for param_name, param in sig.parameters.items():
+            if param.annotation != inspect.Parameter.empty:
+                if isinstance(param.annotation, str):
+                    # Forward reference - use Any for now
+                    hints[param_name] = Any
+                else:
+                    hints[param_name] = param.annotation
     fields: dict[str, tuple[Any, Any]] = {}
     for name, param in sig.parameters.items():
         if name == "self":
@@ -52,7 +84,7 @@ def _ensure_instance(
     id_: str | None,
     model_registry: dict[str, type[BaseModel]],
 ):
-    cls = rpc.get_impl_class(class_name)
+    cls = api.get_impl_class(class_name)
 
     if id_:
         inst = get_instance(id_)
@@ -94,22 +126,9 @@ def build_app(
     Build a FastAPI app using routes discovered from decorators on SDK classes.
     """
     app = FastAPI(title="OpenHands Server", version="0.1.0")
-    rpc.collect()
+    api.collect()
 
-    # Discovery for clients
-    @app.get("/rpc/schema")
-    def schema():
-        return [
-            {
-                "class": s.class_name,
-                "method": s.method_name,
-                "http": s.http,
-                "path": s.path,
-            }
-            for s in rpc.routes.values()
-        ]
-
-    # Minimal explicit creation endpoint for discoverability
+    # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -118,115 +137,196 @@ def build_app(
         allow_headers=["*"],
     )
 
-    @app.post("/conversation/create")
-    def conversation_create(body: ConversationCreate):
-        conv_id, _inst = _ensure_instance(
-            "Conversation",
-            {"id": body.id, **(body.spec or {})} if (body.id or body.spec) else None,
-            None,
-            model_registry,
-        )
-        return {"id": conv_id}
+    # Discovery for clients (renamed from /rpc/schema to /api/schema)
+    @app.get("/api/schema")
+    def schema():
+        return [
+            {
+                "class": s.class_name,
+                "method": s.method_name,
+                "http": s.http,
+                "path": s.path,
+                "instance_scoped": s.instance_scoped,
+                "request_in": s.request_in,
+                "auth_required": s.auth_required,
+            }
+            for s in api.routes.values()
+        ]
 
+    # Health check endpoint (no auth required)
     @app.get("/alive")
     def alive():
         return {"ok": True}
 
-    # Generic fallback
-    class RPCPayload(BaseModel):
-        class_: str
-        method: str
-        instance: dict[str, Any] = {}
-        args: list[Any] = []
-        kwargs: dict[str, Any] = {}
+    # Auto-generate constructor routes for services
+    for cls_name, cls in api._impls.items():
+        if cls_name == "Conversation":  # Only handle Conversation for now
+            # Create constructor route POST /conversation
+            ConstructorModel = _make_model_from_params(
+                cls_name, "__init__", cls.__init__, mode="body"
+            )
 
-    @app.post("/rpc")
-    def rpc_generic(payload: RPCPayload):
-        cls = rpc.get_impl_class(payload.class_)
-        inst = cls(**WireCodec.from_wire(payload.instance, model_registry))
-        fn = getattr(inst, payload.method)
-        result = fn(
-            *WireCodec.from_wire(payload.args, model_registry),
-            **WireCodec.from_wire(payload.kwargs, model_registry),
-        )
-        return WireCodec.to_wire(result)
+            async def constructor_endpoint(
+                body: ConstructorModel = Body(...),  # type: ignore[name-defined]
+                _cls=cls,
+                _cls_name=cls_name,
+            ):
+                # Generate ID if not provided
+                kwargs = body.model_dump()
 
-    # Explicit decorated endpoints with OpenAPI models
-    for spec in rpc.routes.values():
-        cls = rpc.get_impl_class(spec.class_name)
+                # Manually deserialize the agent if it's a dict
+                if "agent" in kwargs and isinstance(kwargs["agent"], dict):
+                    try:
+                        from openhands.sdk.agent import Agent
+                        from openhands.sdk.llm import LLM
+
+                        agent_data = kwargs["agent"]
+                        print(f"DEBUG: Agent data: {agent_data}")
+
+                        # If it's WireCodec format, extract the data
+                        if "__model__" in agent_data:
+                            agent_data = agent_data["data"]
+
+                        # Deserialize the LLM if it's nested
+                        if "llm" in agent_data and isinstance(agent_data["llm"], dict):
+                            llm_data = agent_data["llm"]
+                            if "__model__" in llm_data:
+                                llm_data = llm_data["data"]
+                            agent_data["llm"] = LLM.model_validate(llm_data)
+
+                        # Create the Agent instance
+                        kwargs["agent"] = Agent.model_validate(agent_data)
+                        print("DEBUG: Successfully created Agent instance")
+
+                    except Exception as e:
+                        print(f"DEBUG: Agent deserialization error: {e}")
+                        # Fall back to raw dict if deserialization fails
+                        pass
+
+                conv_id = kwargs.pop("conversation_id", None) or str(uuid.uuid4())
+
+                # Map id to conversation_id if needed
+                if "id" in kwargs:
+                    kwargs["conversation_id"] = kwargs.pop("id")
+
+                # Create instance
+                inst = _cls(**kwargs)
+                set_instance(conv_id, inst)
+                return {"id": conv_id}
+
+            app.add_api_route(
+                "/conversation",
+                constructor_endpoint,
+                methods=["POST"],
+                dependencies=[Depends(verify_auth)],
+                name=f"{cls_name}.create",
+            )
+
+    # Generate method routes from @api.method decorators
+    for spec in api.routes.values():
+        cls = api.get_impl_class(spec.class_name)
         fn = getattr(cls, spec.method_name)
         resp_model = _response_model(fn)
         http = spec.http.upper()
 
+        # Prepare dependencies
+        dependencies = []
+        if spec.auth_required:
+            dependencies.append(Depends(verify_auth))
+
         if http == "POST":
-            BodyModel = _make_model_from_params(
-                spec.class_name, spec.method_name, fn, mode="body"
-            )
-
-            async def endpoint(
-                body: BodyModel | None = Body(default=None),  # type: ignore[name-defined]
-                id: str | None = Query(default=None),
-                _class_name=spec.class_name,
-                _fn=fn,
-            ):
-                # If this class represents a long-lived instance (like Conversation),
-                # allow 'id' or 'spec' creation. We detect presence
-                # of 'id' or a field named 'id'.
-                spec_payload = body.model_dump() if hasattr(body, "model_dump") else {}
-                obj_id, inst = _ensure_instance(
-                    _class_name,
-                    spec_payload if "id" in spec_payload else None,
-                    id,
-                    model_registry,
+            if spec.instance_scoped and "{id}" in spec.path:
+                # Instance-scoped POST method
+                BodyModel = _make_model_from_params(
+                    spec.class_name, spec.method_name, fn, mode="body"
                 )
-                # If we used spec for creation, remove
-                # non-method args before calling the method:
-                if body is None:
-                    kwargs = {}
-                else:
-                    try:
-                        field_names = list(
-                            getattr(body.__class__, "model_fields").keys()
-                        )
-                    except Exception:  # pragma: no cover - fallback
-                        field_names = [k for k in dir(body) if not k.startswith("_")]
-                    kwargs = {name: getattr(body, name) for name in field_names}
-                # Remove 'id' from kwargs if present; method likely doesn't want it
-                kwargs.pop("id", None)
-                result = _fn(inst, **kwargs)
-                return WireCodec.to_wire(result)
 
-            app.add_api_route(
-                spec.path,
-                endpoint,
-                methods=["POST"],
-                response_model=resp_model if isinstance(resp_model, type) else None,
-                name=f"{spec.class_name}.{spec.method_name}",
-            )
+                async def post_endpoint(
+                    id: str,
+                    body: BodyModel | None = Body(default=None),  # type: ignore[name-defined]
+                    _fn=fn,
+                ):
+                    inst = get_instance(id)
+                    if inst is None:
+                        raise HTTPException(404, f"Instance {id} not found")
+
+                    kwargs = body.model_dump() if body else {}
+
+                    # Deserialize any SDK models in the kwargs
+                    try:
+                        from openhands.sdk.agent import Agent
+                        from openhands.sdk.llm import LLM, Message
+
+                        # Handle common SDK models
+                        for key, value in kwargs.items():
+                            if isinstance(value, dict):
+                                # Try to deserialize Message objects
+                                if key == "message" and "role" in value:
+                                    kwargs[key] = Message.model_validate(value)
+                                # Handle WireCodec format
+                                elif "__model__" in value:
+                                    model_name = value["__model__"]
+                                    if model_name == "Message":
+                                        kwargs[key] = Message.model_validate(
+                                            value["data"]
+                                        )
+                                    elif model_name == "Agent":
+                                        kwargs[key] = Agent.model_validate(
+                                            value["data"]
+                                        )
+                                    elif model_name == "LLM":
+                                        kwargs[key] = LLM.model_validate(value["data"])
+                    except Exception as e:
+                        print(f"DEBUG: Method deserialization error: {e}")
+                        # Fall back to raw dict if deserialization fails
+                        pass
+
+                    result = _fn(inst, **kwargs)
+                    return WireCodec.to_wire(result) if result is not None else None
+
+                app.add_api_route(
+                    spec.path,
+                    post_endpoint,
+                    methods=["POST"],
+                    response_model=resp_model if isinstance(resp_model, type) else None,
+                    dependencies=dependencies,
+                    name=f"{spec.class_name}.{spec.method_name}",
+                )
+            else:
+                # Non-instance-scoped POST method (not implemented yet)
+                pass
 
         elif http == "GET":
-            QueryModel = _make_model_from_params(
-                spec.class_name, spec.method_name, fn, mode="query"
-            )
+            if spec.instance_scoped and "{id}" in spec.path:
+                # Instance-scoped GET method
+                QueryModel = _make_model_from_params(
+                    spec.class_name, spec.method_name, fn, mode="query"
+                )
 
-            async def endpoint(
-                q: QueryModel = Depends(),  # type: ignore[name-defined]
-                id: str | None = Query(default=None),
-                _class_name=spec.class_name,
-                _fn=fn,
-            ):
-                obj_id, inst = _ensure_instance(_class_name, None, id, model_registry)
-                kwargs = q.model_dump()
-                result = _fn(inst, **kwargs)
-                return WireCodec.to_wire(result)
+                async def get_endpoint(
+                    id: str,
+                    q: QueryModel = Depends(),  # type: ignore[name-defined]
+                    _fn=fn,
+                ):
+                    inst = get_instance(id)
+                    if inst is None:
+                        raise HTTPException(404, f"Instance {id} not found")
 
-            app.add_api_route(
-                spec.path,
-                endpoint,
-                methods=["GET"],
-                response_model=resp_model if isinstance(resp_model, type) else None,
-                name=f"{spec.class_name}.{spec.method_name}",
-            )
+                    kwargs = q.model_dump()
+                    result = _fn(inst, **kwargs)
+                    return WireCodec.to_wire(result) if result is not None else None
+
+                app.add_api_route(
+                    spec.path,
+                    get_endpoint,
+                    methods=["GET"],
+                    response_model=resp_model if isinstance(resp_model, type) else None,
+                    dependencies=dependencies,
+                    name=f"{spec.class_name}.{spec.method_name}",
+                )
+            else:
+                # Non-instance-scoped GET method (not implemented yet)
+                pass
 
         else:
             # Extend for PUT/PATCH/DELETE if needed

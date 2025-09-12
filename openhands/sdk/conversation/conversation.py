@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING, Iterable
 
 from openhands.sdk.llm import Message
-from openhands.sdk.rpc import rpc
+from openhands.sdk.rpc import api
 
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ def compose_callbacks(
     return composed
 
 
-@rpc.service(name="Conversation")
+@api.service(name="Conversation")
 class Conversation:
     def __init__(
         self,
@@ -116,7 +116,7 @@ class Conversation:
         """Get the unique ID of the conversation."""
         return self.state.id
 
-    @rpc.method(path="/conversation/send_message", http="POST")
+    @api.method(path="/conversation/{id}/send", http="POST")
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
         assert message.role == "user", (
@@ -159,7 +159,7 @@ class Conversation:
             )
             self._on_event(user_msg_event)
 
-    @rpc.method(path="/conversation/run", http="POST")
+    @api.method(path="/conversation/{id}/run", http="POST")
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 
@@ -206,6 +206,60 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
+    @api.method(path="/conversation/{id}/events", http="GET", request_in="query")
+    def get_events(self, after: int | None = None) -> list:
+        """Get conversation events, optionally after a specific index."""
+        events = self.state.events
+        if after is not None:
+            events = events[after:]
+        return events
+
+    @api.method(path="/conversation/{id}/status", http="GET", request_in="query")
+    def get_status(self) -> dict:
+        """Get the current status of the conversation."""
+        return {
+            "agent_finished": self.state.agent_finished,
+            "agent_paused": self.state.agent_paused,
+            "agent_waiting_for_confirmation": self.state.agent_waiting_for_confirmation,
+            "confirmation_mode": getattr(self.state, "confirmation_mode", False),
+            "event_count": len(self.state.events),
+        }
+
+    @api.method(path="/conversation/{id}/pause", http="POST")
+    def pause(self) -> None:
+        """Pause agent execution.
+
+        This method can be called from any thread to request that the agent
+        pause execution. The pause will take effect at the next iteration
+        of the run loop (between agent steps).
+
+        Note: If called during an LLM completion, the pause will not take
+        effect until the current LLM call completes.
+        """
+
+        if self.state.agent_paused:
+            return
+
+        with self.state:
+            self.state.agent_paused = True
+            pause_event = PauseEvent()
+            self._on_event(pause_event)
+        logger.info("Agent execution pause requested")
+
+    @api.method(path="/conversation/{id}/close", http="POST")
+    def close(self) -> None:
+        """Close the conversation and clean up all tool executors."""
+        logger.debug("Closing conversation and cleaning up tool executors")
+        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
+        for tool in self.agent.tools.values():
+            if tool.executor is not None:
+                try:
+                    tool.executor.close()
+                except Exception as e:
+                    logger.warning(
+                        f"Error closing executor for tool '{tool.name}': {e}"
+                    )
+
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
         with self.state:
@@ -238,39 +292,6 @@ class Conversation:
                 )
                 self._on_event(rejection_event)
                 logger.info(f"Rejected pending action: {action_event} - {reason}")
-
-    def pause(self) -> None:
-        """Pause agent execution.
-
-        This method can be called from any thread to request that the agent
-        pause execution. The pause will take effect at the next iteration
-        of the run loop (between agent steps).
-
-        Note: If called during an LLM completion, the pause will not take
-        effect until the current LLM call completes.
-        """
-
-        if self.state.agent_paused:
-            return
-
-        with self.state:
-            self.state.agent_paused = True
-            pause_event = PauseEvent()
-            self._on_event(pause_event)
-        logger.info("Agent execution pause requested")
-
-    def close(self) -> None:
-        """Close the conversation and clean up all tool executors."""
-        logger.debug("Closing conversation and cleaning up tool executors")
-        assert isinstance(self.agent.tools, dict), "Agent tools should be a dict"
-        for tool in self.agent.tools.values():
-            if tool.executor is not None:
-                try:
-                    tool.executor.close()
-                except Exception as e:
-                    logger.warning(
-                        f"Error closing executor for tool '{tool.name}': {e}"
-                    )
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""
