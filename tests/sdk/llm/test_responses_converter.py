@@ -105,7 +105,7 @@ def test_responses_to_completion_format_no_reasoning():
     class MockResponse:
         def __init__(self):
             self.id = "resp_456"
-            self.created = 1234567891
+            self.created_at = 1234567891
             self.model = "gpt-4o"
             self.output = [
                 MockOutput("message", "Just a regular response."),
@@ -125,7 +125,7 @@ def test_responses_to_completion_format_empty_output():
     class MockResponse:
         def __init__(self):
             self.id = "resp_789"
-            self.created = 1234567892
+            self.created_at = 1234567892
             self.model = "o1-mini"
             self.output = []
 
