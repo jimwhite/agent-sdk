@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.requests import Request
 
 from openhands.sdk.logger import get_logger
@@ -75,11 +75,17 @@ async def health_check():
 
 app.add_middleware(
     AuthMiddleware,
-    allowlist=["/health", "/docs", "/openapi.json"],
+    allowlist=["/health", "/", "/docs", "/openapi.json"],
 )
 
 # --- Include Routers ---
 app.include_router(conversations_router)
+
+
+# Redirect / to /docs
+@app.get("/", include_in_schema=False)
+async def redirect_to_docs():
+    return RedirectResponse(url="/docs")
 
 
 if __name__ == "__main__":
