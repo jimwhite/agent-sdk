@@ -25,7 +25,7 @@ from pathlib import Path
 import httpx
 from pydantic import SecretStr
 
-from openhands.sdk.rpc import RuntimeGateway
+from openhands.sdk.client import RuntimeGateway
 from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 
 

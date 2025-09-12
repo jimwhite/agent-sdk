@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
+from openhands.sdk.client import api
 from openhands.sdk.llm import Message
-from openhands.sdk.rpc import api
 
 
 if TYPE_CHECKING:

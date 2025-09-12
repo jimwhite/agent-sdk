@@ -10,8 +10,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, create_model
 
 # Import Agent and tools to ensure they're registered in the discriminated union
-from openhands.sdk.rpc import api
-from openhands.sdk.rpc.wire import WireCodec
+from openhands.sdk.client import api
+from openhands.sdk.client.wire import WireCodec
 from openhands.server.state import get_instance, set_instance
 
 
