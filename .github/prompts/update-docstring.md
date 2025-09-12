@@ -25,4 +25,5 @@ You are updating this repository to achieve 100% Python docstring coverage.
 - Docstrings adhere to the style guide.
 - No functional changes; CI/tests continue to pass.
 
-Please push directly to the current branch when you are done.
+Please push directly to the current branch AND comment on the PR corresponds to the current branch when you are done.
+Please starts your comment with "Hi, I'm OpenHands."
