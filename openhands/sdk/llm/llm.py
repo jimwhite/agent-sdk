@@ -365,7 +365,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Route to Responses API first, before any message formatting
         if (
             get_features(self.model).supports_responses_api
-            and get_features(self.model).supports_reasoning_effort
             and not kwargs.pop("force_chat_completions", False)
             and self.is_function_calling_active()
         ):
