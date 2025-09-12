@@ -36,6 +36,18 @@ def verify_auth(credentials: HTTPAuthorizationCredentials = Security(security)):
 # ---- helpers to build request/response models from annotated methods --------
 
 
+def deserialize_request_body(data: dict, model_registry: dict) -> dict:
+    """
+    Recursively deserializes a request body using the WireCodec.
+    This replaces manual if/isinstance checks in endpoints.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    # Use WireCodec.from_wire to handle the deserialization logic
+    return WireCodec.from_wire(data, model_registry)
+
+
 def _make_model_from_params(
     cls_name: str, method_name: str, fn, *, mode: str
 ) -> type[BaseModel]:
@@ -170,38 +182,10 @@ def build_app(
                 body: ConstructorModel = Body(...),  # type: ignore[name-defined]
                 _cls=cls,
                 _cls_name=cls_name,
+                _model_registry=model_registry,
             ):
                 # Generate ID if not provided
-                kwargs = body.model_dump()
-
-                # Manually deserialize the agent if it's a dict
-                if "agent" in kwargs and isinstance(kwargs["agent"], dict):
-                    try:
-                        from openhands.sdk.agent import Agent
-                        from openhands.sdk.llm import LLM
-
-                        agent_data = kwargs["agent"]
-                        print(f"DEBUG: Agent data: {agent_data}")
-
-                        # If it's WireCodec format, extract the data
-                        if "__model__" in agent_data:
-                            agent_data = agent_data["data"]
-
-                        # Deserialize the LLM if it's nested
-                        if "llm" in agent_data and isinstance(agent_data["llm"], dict):
-                            llm_data = agent_data["llm"]
-                            if "__model__" in llm_data:
-                                llm_data = llm_data["data"]
-                            agent_data["llm"] = LLM.model_validate(llm_data)
-
-                        # Create the Agent instance
-                        kwargs["agent"] = Agent.model_validate(agent_data)
-                        print("DEBUG: Successfully created Agent instance")
-
-                    except Exception as e:
-                        print(f"DEBUG: Agent deserialization error: {e}")
-                        # Fall back to raw dict if deserialization fails
-                        pass
+                kwargs = deserialize_request_body(body.model_dump(), _model_registry)
 
                 conv_id = kwargs.pop("conversation_id", None) or str(uuid.uuid4())
 
@@ -245,41 +229,15 @@ def build_app(
                     id: str,
                     body: BodyModel | None = Body(default=None),  # type: ignore[name-defined]
                     _fn=fn,
+                    _model_registry=model_registry,
                 ):
                     inst = get_instance(id)
                     if inst is None:
                         raise HTTPException(404, f"Instance {id} not found")
 
-                    kwargs = body.model_dump() if body else {}
-
-                    # Deserialize any SDK models in the kwargs
-                    try:
-                        from openhands.sdk.agent import Agent
-                        from openhands.sdk.llm import LLM, Message
-
-                        # Handle common SDK models
-                        for key, value in kwargs.items():
-                            if isinstance(value, dict):
-                                # Try to deserialize Message objects
-                                if key == "message" and "role" in value:
-                                    kwargs[key] = Message.model_validate(value)
-                                # Handle WireCodec format
-                                elif "__model__" in value:
-                                    model_name = value["__model__"]
-                                    if model_name == "Message":
-                                        kwargs[key] = Message.model_validate(
-                                            value["data"]
-                                        )
-                                    elif model_name == "Agent":
-                                        kwargs[key] = Agent.model_validate(
-                                            value["data"]
-                                        )
-                                    elif model_name == "LLM":
-                                        kwargs[key] = LLM.model_validate(value["data"])
-                    except Exception as e:
-                        print(f"DEBUG: Method deserialization error: {e}")
-                        # Fall back to raw dict if deserialization fails
-                        pass
+                    body_data = body.model_dump() if body else {}
+                    # One-liner to deserialize the entire request body!
+                    kwargs = deserialize_request_body(body_data, _model_registry)
 
                     result = _fn(inst, **kwargs)
                     return WireCodec.to_wire(result) if result is not None else None

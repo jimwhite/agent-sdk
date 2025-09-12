@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
@@ -210,6 +208,39 @@ class Conversation:
             "event_count": len(self.state.events),
         }
 
+    def set_confirmation_mode(self, enabled: bool) -> None:
+        """Enable or disable confirmation mode and store it in conversation state."""
+        with self.state:
+            self.state.confirmation_mode = enabled
+        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
+
+    def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
+        """Reject all pending actions from the agent.
+
+        This is a non-invasive method to reject actions between run() calls.
+        Also clears the agent_waiting_for_confirmation flag.
+        """
+        pending_actions = get_unmatched_actions(self.state.events)
+
+        with self.state:
+            # Always clear the agent_waiting_for_confirmation flag
+            self.state.agent_waiting_for_confirmation = False
+
+            if not pending_actions:
+                logger.warning("No pending actions to reject")
+                return
+
+            for action_event in pending_actions:
+                # Create rejection observation
+                rejection_event = UserRejectObservation(
+                    action_id=action_event.id,
+                    tool_name=action_event.tool_name,
+                    tool_call_id=action_event.tool_call_id,
+                    rejection_reason=reason,
+                )
+                self._on_event(rejection_event)
+                logger.info(f"Rejected pending action: {action_event} - {reason}")
+
     @api.method(path="/conversation/{id}/pause", http="POST")
     def pause(self) -> None:
         """Pause agent execution.
@@ -244,39 +275,6 @@ class Conversation:
                     logger.warning(
                         f"Error closing executor for tool '{tool.name}': {e}"
                     )
-
-    def set_confirmation_mode(self, enabled: bool) -> None:
-        """Enable or disable confirmation mode and store it in conversation state."""
-        with self.state:
-            self.state.confirmation_mode = enabled
-        logger.info(f"Confirmation mode {'enabled' if enabled else 'disabled'}")
-
-    def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
-        """Reject all pending actions from the agent.
-
-        This is a non-invasive method to reject actions between run() calls.
-        Also clears the agent_waiting_for_confirmation flag.
-        """
-        pending_actions = get_unmatched_actions(self.state.events)
-
-        with self.state:
-            # Always clear the agent_waiting_for_confirmation flag
-            self.state.agent_waiting_for_confirmation = False
-
-            if not pending_actions:
-                logger.warning("No pending actions to reject")
-                return
-
-            for action_event in pending_actions:
-                # Create rejection observation
-                rejection_event = UserRejectObservation(
-                    action_id=action_event.id,
-                    tool_name=action_event.tool_name,
-                    tool_call_id=action_event.tool_call_id,
-                    rejection_reason=reason,
-                )
-                self._on_event(rejection_event)
-                logger.info(f"Rejected pending action: {action_event} - {reason}")
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""
