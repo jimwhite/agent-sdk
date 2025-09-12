@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -32,18 +31,7 @@ from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _has_cmd(cmd: str) -> bool:
-    try:
-        subprocess.run([cmd, "--version"], capture_output=True, check=False)
-        return True
-    except FileNotFoundError:
-        return False
-
-
 def build_executable() -> bool:
-    if not _has_cmd("uv"):
-        print("[build] uv not found, skipping executable build")
-        return False
     script = ROOT / "openhands" / "server" / "build.py"
     print(f"[build] Running: uv run python {script}")
     r = subprocess.run(["uv", "run", "python", str(script), "--no-test"], text=True)
@@ -65,31 +53,16 @@ def start_server() -> subprocess.Popen:
     if exe.exists():
         cmd = [str(exe), "--host", "0.0.0.0", "--port", "55848"]
     else:
-        module = "openhands.server.main:run"
-        if _has_cmd("uv"):
-            cmd = [
-                "uv",
-                "run",
-                "python",
-                "-m",
-                "uvicorn",
-                module,
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "55848",
-            ]
-        else:
-            cmd = [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                module,
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "55848",
-            ]
+        cmd = [
+            "uv",
+            "run",
+            "openhandsd",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "55848",
+        ]
+
     print("[server]", " ".join(cmd))
     return subprocess.Popen(cmd, env=env, cwd=str(ROOT))
 
