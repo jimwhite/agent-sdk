@@ -72,6 +72,10 @@ def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str
 
         # 2) Assistant with tool_calls -> function_call items (and optional text)
         if role == "assistant" and isinstance(msg.get("tool_calls"), list):
+            # Put assistant text before tool_calls to satisfy ordering
+            text = _to_text(msg.get("content", ""))
+            if text:
+                out.append({"role": "assistant", "content": text})
             tool_calls = msg.get("tool_calls") or []
             for tc in tool_calls:
                 try:
@@ -87,9 +91,6 @@ def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str
                 except Exception as e:
                     logger.debug(f"Skipping malformed tool_call: {tc!r}; error: {e}")
                     pass
-            text = _to_text(msg.get("content", ""))
-            if text:
-                out.append({"role": "assistant", "content": text})
             continue
 
         # 3) Plain text messages

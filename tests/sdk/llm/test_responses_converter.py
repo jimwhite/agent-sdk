@@ -15,6 +15,50 @@ def test_messages_to_responses_input_empty():
     assert messages_to_responses_items([]) == []
 
 
+def test_messages_to_responses_order_assistant_text_before_function_call():
+    msgs = [
+        {
+            "role": "assistant",
+            "content": "thinking...",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "function": {"name": "echo", "arguments": '{"s":"hi"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "hi"},
+    ]
+    items = messages_to_responses_items(msgs)
+    # Expect ordering: assistant text, then function_call, then function_call_output
+    assert items[0] == {"role": "assistant", "content": "thinking..."}
+    assert items[1]["type"] == "function_call" and items[1]["call_id"] == "call_1"
+    assert (
+        items[2]["type"] == "function_call_output" and items[2]["call_id"] == "call_1"
+    )
+
+    msgs = [
+        {
+            "role": "assistant",
+            "content": "thinking...",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "function": {"name": "echo", "arguments": '{"s":"hi"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "hi"},
+    ]
+    items = messages_to_responses_items(msgs)
+    # Expect ordering: assistant text, then function_call, then function_call_output
+    assert items[0] == {"role": "assistant", "content": "thinking..."}
+    assert items[1]["type"] == "function_call" and items[1]["call_id"] == "call_1"
+    assert (
+        items[2]["type"] == "function_call_output" and items[2]["call_id"] == "call_1"
+    )
+
+
 def test_messages_to_responses_input_dict_messages():
     msgs = [
         {"role": "system", "content": "S"},

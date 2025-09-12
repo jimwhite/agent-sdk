@@ -701,6 +701,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             out["tools"] = converted
         # tool_choice schema is compatible – pass through as-is
 
+        # Default to storing Responses for better retrieval/debugging
+        out.setdefault("store", True)
+
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
         return out
