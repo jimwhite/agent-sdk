@@ -365,6 +365,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Route to Responses API first, before any message formatting
         if (
             get_features(self.model).supports_responses_api
+            and get_features(self.model).supports_reasoning_effort
             and not kwargs.pop("force_chat_completions", False)
             and self.is_function_calling_active()
         ):
@@ -873,6 +874,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _messages_to_responses_items(
         self, messages: list[dict[str, Any]] | list[Message]
     ) -> list[dict[str, Any]]:
+        """Convert Chat Completions-style messages into Responses API input items.
+
+        Mapping rules:
+        - user/system/assistant text -> {type: 'message', role, content}
+        - assistant tool_calls -> for each call ->
+          {type: 'function_call', call_id, name, arguments}
+        - tool messages -> {type: 'function_call_output', call_id: tool_call_id, output}
+        """
         if not messages:
             return []
         if isinstance(messages[0], Message):
@@ -895,9 +904,62 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         out: list[dict[str, Any]] = []
         for msg in dict_messages:
-            role = msg.get("role", "")
-            content = msg.get("content", "")
-            out.append({"role": str(role), "content": _to_text(content)})
+            role = str(msg.get("role", ""))
+            # 1) Tool outputs -> function_call_output items
+            if role == "tool":
+                call_id = msg.get("tool_call_id") or msg.get("call_id") or msg.get("id")
+                output_text = _to_text(msg.get("content", ""))
+                if call_id and output_text is not None:
+                    out.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": str(call_id),
+                            "output": output_text,
+                        }
+                    )
+                continue
+
+            # 2) Assistant with tool_calls -> function_call items
+            #    (and optional assistant text)
+            if role == "assistant" and isinstance(msg.get("tool_calls"), list):
+                tool_calls = msg.get("tool_calls") or []
+                for tc in tool_calls:
+                    try:
+                        if isinstance(tc, dict) and tc.get("type") == "function":
+                            fn = (
+                                tc.get("function", {})
+                                if isinstance(tc.get("function"), dict)
+                                else {}
+                            )
+                            name = fn.get("name")
+                            arguments = fn.get("arguments")
+                            call_id = tc.get("id") or tc.get("call_id")
+                            if call_id and name is not None and arguments is not None:
+                                out.append(
+                                    {
+                                        "type": "function_call",
+                                        "call_id": str(call_id),
+                                        "name": str(name),
+                                        "arguments": str(arguments),
+                                    }
+                                )
+                    except Exception:
+                        # Be permissive; skip malformed entries
+                        pass
+                # If assistant also had text, keep it as a message item
+                text = _to_text(msg.get("content", ""))
+                if text:
+                    out.append({"role": "assistant", "content": text})
+                continue
+
+            # 3) Plain text messages
+            text = _to_text(msg.get("content", ""))
+            if role in {"user", "system", "assistant", "developer"} and text:
+                out.append({"role": role, "content": text})
+            else:
+                # Fallback: if role unrecognized, treat as user text to preserve context
+                if text:
+                    out.append({"role": "user", "content": text})
         return out
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:

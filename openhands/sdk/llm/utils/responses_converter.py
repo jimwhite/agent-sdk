@@ -1,5 +1,6 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
+import time
 from typing import Any
 
 from litellm.types.utils import ModelResponse
@@ -55,7 +56,7 @@ def responses_to_completion_format(
                     call_id = getattr(item, "call_id", None)
                     tool_calls.append(
                         {
-                            "id": getattr(item, "id", call_id) or call_id or "",
+                            "id": call_id or "",
                             "type": "function",
                             "function": {
                                 "name": name or "",
@@ -103,17 +104,24 @@ def responses_to_completion_format(
     if reasoning_content:
         message["reasoning_content"] = reasoning_content
 
-    # created can be either `created` (int) or `created_at` (int)
-    created = getattr(responses_result, "created", None)
-    if created is None:
-        created = getattr(responses_result, "created_at", 0)
+    # created can be either `created_at` (int) or `created` (int)
+    created_obj = getattr(responses_result, "created_at", None)
+    if created_obj is None:
+        created_obj = getattr(responses_result, "created", None)
+    try:
+        created = int(created_obj) if created_obj is not None else int(time.time())
+    except Exception:
+        created = int(time.time())
 
+    # model can be a string or another type; normalize to string
     model_val = getattr(responses_result, "model", "")
     model = (
         model_val
         if isinstance(model_val, str)
         else (str(model_val) if model_val is not None else "")
     )
+
+    finish_reason = "tool_calls" if tool_calls else "stop"
 
     response = {
         "id": getattr(responses_result, "id", ""),
@@ -124,7 +132,7 @@ def responses_to_completion_format(
             {
                 "index": 0,
                 "message": message,
-                "finish_reason": "stop",
+                "finish_reason": finish_reason,
             }
         ],
         "usage": {
