@@ -906,15 +906,22 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             role = str(msg.get("role", ""))
             # 1) Tool outputs -> function_call_output items
             if role == "tool":
-                call_id = msg.get("tool_call_id") or msg.get("call_id") or msg.get("id")
-                output_text = _to_text(msg.get("content", ""))
-                if call_id and output_text is not None:
-                    out.append(
-                        {
-                            "type": "function_call_output",
-                            "call_id": str(call_id),
-                            "output": output_text,
-                        }
+                try:
+                    call_id = str(
+                        msg["tool_call_id"]
+                    )  # Chat Completions tool message key
+                    output_text = _to_text(msg.get("content", ""))
+                    if output_text is not None:
+                        out.append(
+                            {
+                                "type": "function_call_output",
+                                "call_id": call_id,
+                                "output": output_text,
+                            }
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Skipping malformed tool output message: {msg!r}; error: {e}"
                     )
                 continue
 
