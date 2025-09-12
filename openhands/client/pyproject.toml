@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [tool.uv.build-backend]
-module-name = "openhands-client"
+module-name = "openhands_client"
 module-root = ""
 data = [
     "CHANGELOG.md",
