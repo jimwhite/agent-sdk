@@ -6,17 +6,27 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.http_validation_error import HTTPValidationError
+from ...models.send_message_request import SendMessageRequest
 from ...types import Response
 
 
 def _get_kwargs(
     conversation_id: str,
+    *,
+    body: SendMessageRequest,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": f"/conversations/{conversation_id}/pause",
+        "url": f"/conversations/{conversation_id}/messages",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -52,12 +62,16 @@ def _build_response(
 def sync_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: SendMessageRequest,
 ) -> Response[Union[Any, HTTPValidationError]]:
-    """Pause Conversation
+    """Send Message
 
     Args:
         conversation_id (str):
+        body (SendMessageRequest): Payload to send a message to the agent.
+
+            This is a simplified version of openhands.sdk.Message.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -69,6 +83,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -81,12 +96,16 @@ def sync_detailed(
 def sync(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: SendMessageRequest,
 ) -> Optional[Union[Any, HTTPValidationError]]:
-    """Pause Conversation
+    """Send Message
 
     Args:
         conversation_id (str):
+        body (SendMessageRequest): Payload to send a message to the agent.
+
+            This is a simplified version of openhands.sdk.Message.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -99,18 +118,23 @@ def sync(
     return sync_detailed(
         conversation_id=conversation_id,
         client=client,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: SendMessageRequest,
 ) -> Response[Union[Any, HTTPValidationError]]:
-    """Pause Conversation
+    """Send Message
 
     Args:
         conversation_id (str):
+        body (SendMessageRequest): Payload to send a message to the agent.
+
+            This is a simplified version of openhands.sdk.Message.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,6 +146,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -132,12 +157,16 @@ async def asyncio_detailed(
 async def asyncio(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: SendMessageRequest,
 ) -> Optional[Union[Any, HTTPValidationError]]:
-    """Pause Conversation
+    """Send Message
 
     Args:
         conversation_id (str):
+        body (SendMessageRequest): Payload to send a message to the agent.
+
+            This is a simplified version of openhands.sdk.Message.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -151,5 +180,6 @@ async def asyncio(
         await asyncio_detailed(
             conversation_id=conversation_id,
             client=client,
+            body=body,
         )
     ).parsed

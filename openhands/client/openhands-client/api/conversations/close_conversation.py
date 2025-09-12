@@ -52,7 +52,7 @@ def _build_response(
 def sync_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
 ) -> Response[Union[Any, HTTPValidationError]]:
     """Close Conversation
 
@@ -81,7 +81,7 @@ def sync_detailed(
 def sync(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
 ) -> Optional[Union[Any, HTTPValidationError]]:
     """Close Conversation
 
@@ -105,7 +105,7 @@ def sync(
 async def asyncio_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
 ) -> Response[Union[Any, HTTPValidationError]]:
     """Close Conversation
 
@@ -132,7 +132,7 @@ async def asyncio_detailed(
 async def asyncio(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
 ) -> Optional[Union[Any, HTTPValidationError]]:
     """Close Conversation
 

@@ -27,8 +27,6 @@ class StartConversationRequest:
             MCP tools.
         agent_context (Union['AgentContext', None, Unset]): Optional AgentContext to initialize the agent with specific
             context.
-        working_dir (Union[Unset, str]): Working directory for the agent to work in. Will be created if it doesn't
-            exist. Default: '.'.
         confirmation_mode (Union[Unset, bool]): If true, the agent will enter confirmation mode, requiring user approval
             for actions. Default: False.
     """
@@ -37,7 +35,6 @@ class StartConversationRequest:
     tools: Union[Unset, list["ToolSpec"]] = UNSET
     mcp_config: Union[Unset, "StartConversationRequestMcpConfig"] = UNSET
     agent_context: Union["AgentContext", None, Unset] = UNSET
-    working_dir: Union[Unset, str] = "."
     confirmation_mode: Union[Unset, bool] = False
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -65,8 +62,6 @@ class StartConversationRequest:
         else:
             agent_context = self.agent_context
 
-        working_dir = self.working_dir
-
         confirmation_mode = self.confirmation_mode
 
         field_dict: dict[str, Any] = {}
@@ -82,8 +77,6 @@ class StartConversationRequest:
             field_dict["mcp_config"] = mcp_config
         if agent_context is not UNSET:
             field_dict["agent_context"] = agent_context
-        if working_dir is not UNSET:
-            field_dict["working_dir"] = working_dir
         if confirmation_mode is not UNSET:
             field_dict["confirmation_mode"] = confirmation_mode
 
@@ -130,8 +123,6 @@ class StartConversationRequest:
 
         agent_context = _parse_agent_context(d.pop("agent_context", UNSET))
 
-        working_dir = d.pop("working_dir", UNSET)
-
         confirmation_mode = d.pop("confirmation_mode", UNSET)
 
         start_conversation_request = cls(
@@ -139,7 +130,6 @@ class StartConversationRequest:
             tools=tools,
             mcp_config=mcp_config,
             agent_context=agent_context,
-            working_dir=working_dir,
             confirmation_mode=confirmation_mode,
         )
 

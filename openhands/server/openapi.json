@@ -60,7 +60,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/conversations/{conversation_id}": {
@@ -70,6 +75,11 @@
         ],
         "summary": "Get Conversation State",
         "operationId": "get_conversation_state",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -110,6 +120,11 @@
         ],
         "summary": "Close Conversation",
         "operationId": "close_conversation",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -146,6 +161,11 @@
         "summary": "Get Events",
         "description": "Retrieves the event history for a conversation with pagination.",
         "operationId": "get_conversation_events",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -258,6 +278,11 @@
         ],
         "summary": "Send Message",
         "operationId": "send_message_to_conversation",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -309,6 +334,11 @@
         "summary": "Run Conversation",
         "description": "Starts or resumes the agent run for a conversation in the background.",
         "operationId": "run_conversation",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -349,6 +379,11 @@
         ],
         "summary": "Pause Conversation",
         "operationId": "pause_conversation",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -389,6 +424,11 @@
         ],
         "summary": "Respond To Confirmation",
         "operationId": "respond_to_confirmation",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "conversation_id",
@@ -2599,6 +2639,13 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Master-Key"
       }
     }
   }

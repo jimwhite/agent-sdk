@@ -5,18 +5,28 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.confirmation_response_request import ConfirmationResponseRequest
 from ...models.http_validation_error import HTTPValidationError
 from ...types import Response
 
 
 def _get_kwargs(
     conversation_id: str,
+    *,
+    body: ConfirmationResponseRequest,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": f"/conversations/{conversation_id}/run",
+        "url": f"/conversations/{conversation_id}/respond_to_confirmation",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -52,14 +62,14 @@ def _build_response(
 def sync_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: ConfirmationResponseRequest,
 ) -> Response[Union[Any, HTTPValidationError]]:
-    """Run Conversation
-
-     Starts or resumes the agent run for a conversation in the background.
+    """Respond To Confirmation
 
     Args:
         conversation_id (str):
+        body (ConfirmationResponseRequest): Payload to accept or reject a pending action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,6 +81,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -83,14 +94,14 @@ def sync_detailed(
 def sync(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: ConfirmationResponseRequest,
 ) -> Optional[Union[Any, HTTPValidationError]]:
-    """Run Conversation
-
-     Starts or resumes the agent run for a conversation in the background.
+    """Respond To Confirmation
 
     Args:
         conversation_id (str):
+        body (ConfirmationResponseRequest): Payload to accept or reject a pending action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,20 +114,21 @@ def sync(
     return sync_detailed(
         conversation_id=conversation_id,
         client=client,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: ConfirmationResponseRequest,
 ) -> Response[Union[Any, HTTPValidationError]]:
-    """Run Conversation
-
-     Starts or resumes the agent run for a conversation in the background.
+    """Respond To Confirmation
 
     Args:
         conversation_id (str):
+        body (ConfirmationResponseRequest): Payload to accept or reject a pending action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -128,6 +140,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -138,14 +151,14 @@ async def asyncio_detailed(
 async def asyncio(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
+    body: ConfirmationResponseRequest,
 ) -> Optional[Union[Any, HTTPValidationError]]:
-    """Run Conversation
-
-     Starts or resumes the agent run for a conversation in the background.
+    """Respond To Confirmation
 
     Args:
         conversation_id (str):
+        body (ConfirmationResponseRequest): Payload to accept or reject a pending action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -159,5 +172,6 @@ async def asyncio(
         await asyncio_detailed(
             conversation_id=conversation_id,
             client=client,
+            body=body,
         )
     ).parsed

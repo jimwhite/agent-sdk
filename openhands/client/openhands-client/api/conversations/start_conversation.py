@@ -19,7 +19,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/conversations",
+        "url": "/conversations/",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -62,7 +62,7 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     body: StartConversationRequest,
 ) -> Response[Union[HTTPValidationError, StartConversationResponse]]:
     """Start Conversation
@@ -91,7 +91,7 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     body: StartConversationRequest,
 ) -> Optional[Union[HTTPValidationError, StartConversationResponse]]:
     """Start Conversation
@@ -115,7 +115,7 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     body: StartConversationRequest,
 ) -> Response[Union[HTTPValidationError, StartConversationResponse]]:
     """Start Conversation
@@ -142,7 +142,7 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     body: StartConversationRequest,
 ) -> Optional[Union[HTTPValidationError, StartConversationResponse]]:
     """Start Conversation

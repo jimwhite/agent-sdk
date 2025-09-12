@@ -209,7 +209,7 @@ def _build_response(
 def sync_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     start: Union[Unset, int] = 0,
     limit: Union[Unset, int] = 100,
 ) -> Response[
@@ -264,7 +264,7 @@ def sync_detailed(
 def sync(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     start: Union[Unset, int] = 0,
     limit: Union[Unset, int] = 100,
 ) -> Optional[
@@ -314,7 +314,7 @@ def sync(
 async def asyncio_detailed(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     start: Union[Unset, int] = 0,
     limit: Union[Unset, int] = 100,
 ) -> Response[
@@ -367,7 +367,7 @@ async def asyncio_detailed(
 async def asyncio(
     conversation_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient,
     start: Union[Unset, int] = 0,
     limit: Union[Unset, int] = 100,
 ) -> Optional[
