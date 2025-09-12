@@ -10,9 +10,9 @@ rm -rf docs/reference/sdk docs/reference/tools
 mkdir -p docs/reference/sdk docs/reference/tools
 
 # Generate SDK docs
-uv run griffe2md openhands.sdk -o docs/reference/sdk.mdx
+PYTHONPATH="$REPO_ROOT" uv run griffe2md openhands.sdk -o docs/reference/sdk.mdx
 
 # Generate Tools docs
-uv run griffe2md openhands.tools -o docs/reference/tools.mdx
+PYTHONPATH="$REPO_ROOT" uv run griffe2md openhands.tools -o docs/reference/tools.mdx
 
 echo "✅ Docs regenerated under docs/reference/"
