@@ -50,6 +50,7 @@ from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.responses_converter import (
+    messages_to_responses_items,
     responses_to_completion_format,
 )
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -365,7 +366,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             and not kwargs.pop("force_chat_completions", False)
             and self.is_function_calling_active()
         ):
-            return self._responses_request(messages=messages, tools=tools, **kwargs)
+            return self.responses(messages=messages, tools=tools, **kwargs)
 
         # 1) serialize messages for Chat Completions path
         if messages and isinstance(messages[0], Message):
@@ -443,10 +444,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def responses(
         self,
-        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        messages: list[dict[str, Any]] | list[Message] | None = None,
         input: str | None = None,
         **kwargs,
     ) -> ModelResponse:
+        """Use the Responses API path if supported by the model.
+
+        Note: only one of `messages` or `input` should be provided.
+        """
         if not get_features(self.model).supports_responses_api:
             raise ValueError(
                 f"Model {self.model} does not support the Responses API. "
@@ -456,18 +461,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Streaming is not supported in responses() method")
 
         # Serialize messages for Responses API path (convert Message objects to dicts)
-        if isinstance(messages, list):
-            if messages and isinstance(messages[0], Message):
-                messages = self.format_messages_for_llm(cast(list[Message], messages))
-            else:
-                messages = cast(list[dict[str, Any]], messages)
+        if messages and isinstance(messages, list) and isinstance(messages[0], Message):
+            messages = self.format_messages_for_llm(cast(list[Message], messages))
+        else:
+            messages = cast(list[dict[str, Any]], messages)
 
         return self._responses_request(messages=messages, input=input, **kwargs)
 
     def _responses_request(
         self,
         *,
-        messages: list[dict[str, Any]] | list[Message] | str | None = None,
+        messages: list[dict[str, Any]] | None = None,
         input: str | None = None,
         tools: list[Any] | None = None,
         **kwargs,
@@ -479,12 +483,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if isinstance(messages, str):
                 input_payload = messages
             else:
-                from openhands.sdk.llm.utils.responses_converter import (
-                    messages_to_responses_items,
-                )
-
                 # messages here are already plain dicts via format_messages_for_llm
-                input_payload = messages_to_responses_items(messages)  # type: ignore[arg-type]
+                input_payload = messages_to_responses_items(messages)
         else:
             raise ValueError("Either 'messages' or 'input' parameter must be provided")
 
@@ -558,6 +558,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     messages=messages,
                     **kwargs,
                 )
+                logger.debug("Raw completion response: %s", ret)
                 assert isinstance(ret, ModelResponse), (
                     f"Expected ModelResponse, got {type(ret)}"
                 )
@@ -574,7 +575,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r".*content=.*upload.*",
                     category=DeprecationWarning,
                 )
-                return litellm_responses(
+                ret = litellm_responses(
                     model=self.model,
                     api_key=self.api_key.get_secret_value() if self.api_key else None,
                     api_base=self.base_url,
@@ -583,6 +584,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     input=input,
                     **kwargs,
                 )
+                logger.debug("Raw responses result: %s", ret)
+                return ret
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
