@@ -56,9 +56,6 @@ from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
-# OpenHands utilities
-
-
 logger = get_logger(__name__)
 
 
