@@ -4,7 +4,9 @@ from typing import Any, Dict, List, Literal
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.requests import Request
 
 import openhands.tools
 from openhands.sdk import (
@@ -21,6 +23,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.conversation import ConversationState
+from openhands.sdk.tool import ToolSpec
 
 
 logger = get_logger(__name__)
@@ -46,23 +49,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-
-
-class ToolSpec(BaseModel):
-    """Defines a tool to be initialized for the agent."""
-
-    name: str = Field(
-        ...,
-        description="Name of the tool class, e.g., 'BashTool', "
-        "must be importable from openhands.tools",
-        examples=["BashTool", "FileEditorTool", "TaskTrackerTool"],
-    )
-    params: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Parameters for the tool's .create() method,"
-        " e.g., {'working_dir': '/app'}",
-        examples=[{"working_dir": "/workspace"}],
-    )
 
 
 class StartConversationRequest(BaseModel):
@@ -182,6 +168,33 @@ def get_conversation(conversation_id: str) -> Conversation:
 
 
 # --- API Endpoints ---
+# --- Centralized exception handling ---
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    # Log expected/client errors at warning level (no stack trace noise)
+    logger.warning(
+        "HTTPException: %s %s -> %s (%s)",
+        request.method,
+        request.url.path,
+        exc.detail,
+        exc.status_code,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Log unexpected server errors with stack trace
+    logger.exception(
+        "Unhandled exception during %s %s", request.method, request.url.path
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
 
 
 @app.post("/conversations", status_code=201, response_model=StartConversationResponse)
@@ -193,34 +206,30 @@ def start_conversation(request: StartConversationRequest) -> StartConversationRe
         import pathlib
 
         pathlib.Path(request.working_dir).mkdir(parents=True, exist_ok=True)
-    try:
-        llm = LLM(**request.llm.model_dump())
-        tools = []
-        for tool_spec in request.tools:
-            if tool_spec.name not in openhands.tools.__dict__:
-                raise HTTPException(
-                    status_code=400, detail=f"Tool '{tool_spec.name}' not recognized."
-                )
-            tool_class: type[Tool] = openhands.tools.__dict__[tool_spec.name]
-            tools.append(tool_class.create(**tool_spec.params))
 
-        if request.mcp_config:
-            mcp_tools = create_mcp_tools(request.mcp_config, timeout=30)
-            tools.extend(mcp_tools)
-            logger.info(f"Added {len(mcp_tools)} MCP tools")
+    llm = LLM(**request.llm.model_dump())
 
-        agent = Agent(llm=llm, tools=tools)
-        conversation = Conversation(agent=agent)
-        conversation.set_confirmation_mode(request.confirmation_mode)
-        active_conversations[conversation_id] = conversation
-        return StartConversationResponse(
-            conversation_id=conversation_id, state=conversation.state
-        )
-    except Exception as e:
-        logger.error(f"Failed to start conversation: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to start conversation: {e}"
-        )
+    tools = []
+    for tool_spec in request.tools:
+        if tool_spec.name not in openhands.tools.__dict__:
+            raise HTTPException(
+                status_code=400, detail=f"Tool '{tool_spec.name}' not recognized."
+            )
+        tool_class: type[Tool] = openhands.tools.__dict__[tool_spec.name]
+        tools.append(tool_class.create(**tool_spec.params))
+
+    if request.mcp_config:
+        mcp_tools = create_mcp_tools(request.mcp_config, timeout=30)
+        tools.extend(mcp_tools)
+        logger.info(f"Added {len(mcp_tools)} MCP tools")
+
+    agent = Agent(llm=llm, tools=tools)
+    conversation = Conversation(agent=agent)
+    conversation.set_confirmation_mode(request.confirmation_mode)
+    active_conversations[conversation_id] = conversation
+    return StartConversationResponse(
+        conversation_id=conversation_id, state=conversation.state
+    )
 
 
 @app.get("/conversations/{conversation_id}", response_model=ConversationState)
@@ -279,6 +288,12 @@ async def send_message(
 async def run_conversation(conversation_id: str, background_tasks: BackgroundTasks):
     """Starts or resumes the agent run for a conversation in the background."""
     conversation = get_conversation(conversation_id)
+    if not conversation.state.agent_finished:
+        # should be no-op
+        return {
+            "message": "Agent is already running or waiting for confirmation.",
+            "state": conversation.state,
+        }
     await _run_conversation(conversation_id, background_tasks)
     return {
         "message": "Agent execution started in the "
