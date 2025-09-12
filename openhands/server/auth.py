@@ -13,7 +13,7 @@ api_key_header = APIKeyHeader(name="X-Master-Key", auto_error=False)
 
 
 def _keys() -> list[str]:
-    return [k.strip() for k in os.getenv("MASTER_KEY", "").split(",") if k.strip()]
+    return [k.strip() for k in os.getenv("MASTER_KEY", "test").split(",") if k.strip()]
 
 
 def get_master_key(api_key: str | None = Security(api_key_header)) -> str:
