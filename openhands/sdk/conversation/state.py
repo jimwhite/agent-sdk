@@ -3,7 +3,7 @@ import json
 from threading import RLock, get_ident
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 
 from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
@@ -18,8 +18,6 @@ logger = get_logger(__name__)
 
 
 class ConversationState(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     # ===== Public, validated fields =====
     id: str = Field(description="Unique conversation ID")
 

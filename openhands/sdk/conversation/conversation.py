@@ -1,9 +1,6 @@
 import uuid
 from typing import TYPE_CHECKING, Iterable
 
-from openhands.sdk.client import api
-from openhands.sdk.llm import Message
-
 
 if TYPE_CHECKING:
     from openhands.sdk.agent import AgentType
@@ -14,14 +11,13 @@ from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
 )
 from openhands.sdk.event import (
-    Event,
     MessageEvent,
     PauseEvent,
     UserRejectObservation,
 )
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
-from openhands.sdk.llm import TextContent
+from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 
 
@@ -39,7 +35,6 @@ def compose_callbacks(
     return composed
 
 
-@api.service(name="Conversation")
 class Conversation:
     def __init__(
         self,
@@ -99,7 +94,6 @@ class Conversation:
         """Get the unique ID of the conversation."""
         return self.state.id
 
-    @api.method(path="/conversation/{id}/send", http="POST")
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
         assert message.role == "user", (
@@ -142,7 +136,6 @@ class Conversation:
             )
             self._on_event(user_msg_event)
 
-    @api.method(path="/conversation/{id}/run", http="POST")
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
 
@@ -189,25 +182,6 @@ class Conversation:
             if iteration >= self.max_iteration_per_run:
                 break
 
-    @api.method(path="/conversation/{id}/events", http="GET", request_in="query")
-    def get_events(self, after: int | None = None) -> list[Event]:
-        """Get conversation events, optionally after a specific index."""
-        events = self.state.events
-        if after is not None:
-            events = events[after:]
-        return list(events)
-
-    @api.method(path="/conversation/{id}/status", http="GET", request_in="query")
-    def get_status(self) -> dict:
-        """Get the current status of the conversation."""
-        return {
-            "agent_finished": self.state.agent_finished,
-            "agent_paused": self.state.agent_paused,
-            "agent_waiting_for_confirmation": self.state.agent_waiting_for_confirmation,
-            "confirmation_mode": getattr(self.state, "confirmation_mode", False),
-            "event_count": len(self.state.events),
-        }
-
     def set_confirmation_mode(self, enabled: bool) -> None:
         """Enable or disable confirmation mode and store it in conversation state."""
         with self.state:
@@ -241,7 +215,6 @@ class Conversation:
                 self._on_event(rejection_event)
                 logger.info(f"Rejected pending action: {action_event} - {reason}")
 
-    @api.method(path="/conversation/{id}/pause", http="POST")
     def pause(self) -> None:
         """Pause agent execution.
 
@@ -262,7 +235,6 @@ class Conversation:
             self._on_event(pause_event)
         logger.info("Agent execution pause requested")
 
-    @api.method(path="/conversation/{id}/close", http="POST")
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
