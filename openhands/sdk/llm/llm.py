@@ -454,6 +454,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported in responses() method")
+
+        # Serialize messages for Responses API path (convert Message objects to dicts)
+        if isinstance(messages, list):
+            if messages and isinstance(messages[0], Message):
+                messages = self.format_messages_for_llm(cast(list[Message], messages))
+            else:
+                messages = cast(list[dict[str, Any]], messages)
+
         return self._responses_request(messages=messages, input=input, **kwargs)
 
     def _responses_request(
@@ -471,7 +479,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if isinstance(messages, str):
                 input_payload = messages
             else:
-                input_payload = self._messages_to_responses_items(messages)  # type: ignore[arg-type]
+                from openhands.sdk.llm.utils.responses_converter import (
+                    messages_to_responses_items,
+                )
+
+                # messages here are already plain dicts via format_messages_for_llm
+                input_payload = messages_to_responses_items(messages)  # type: ignore[arg-type]
         else:
             raise ValueError("Either 'messages' or 'input' parameter must be provided")
 
@@ -865,99 +878,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return [message.to_llm_dict() for message in messages]
 
     # =========================================================================
-    # Responses input conversion helpers
+    # Responses input conversion helpers (moved to utils.responses_converter)
     # =========================================================================
-    def _messages_to_responses_items(
-        self, messages: list[dict[str, Any]] | list[Message]
-    ) -> list[dict[str, Any]]:
-        """Convert Chat Completions-style messages into Responses API input items.
-
-        Mapping rules:
-        - user/system/assistant text -> {type: 'message', role, content}
-        - assistant tool_calls -> for each call ->
-          {type: 'function_call', call_id, name, arguments}
-        - tool messages -> {type: 'function_call_output', call_id: tool_call_id, output}
-        """
-        if not messages:
-            return []
-        if isinstance(messages[0], Message):
-            dict_messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            dict_messages = cast(list[dict[str, Any]], messages)
-
-        def _to_text(content: Any) -> str:
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                parts: list[str] = []
-                for seg in content:
-                    if isinstance(seg, dict):
-                        t = seg.get("text")
-                        if isinstance(t, str) and t:
-                            parts.append(t)
-                return "".join(parts)
-            return str(content) if content is not None else ""
-
-        out: list[dict[str, Any]] = []
-        for msg in dict_messages:
-            role = str(msg.get("role", ""))
-            # 1) Tool outputs -> function_call_output items
-            if role == "tool":
-                try:
-                    call_id = str(
-                        msg["tool_call_id"]
-                    )  # Chat Completions tool message key
-                    output_text = _to_text(msg.get("content", ""))
-                    if output_text is not None:
-                        out.append(
-                            {
-                                "type": "function_call_output",
-                                "call_id": call_id,
-                                "output": output_text,
-                            }
-                        )
-                except Exception as e:
-                    logger.debug(
-                        f"Skipping malformed tool output message: {msg!r}; error: {e}"
-                    )
-                continue
-
-            # 2) Assistant with tool_calls -> function_call items
-            #    (and optional assistant text)
-            if role == "assistant" and isinstance(msg.get("tool_calls"), list):
-                tool_calls = msg.get("tool_calls") or []
-                for tc in tool_calls:
-                    try:
-                        # Expect Chat Completions tool call shape
-                        fn = tc.get("function")
-                        out.append(
-                            {
-                                "type": "function_call",
-                                "call_id": str(tc.get("id")),
-                                "name": str(fn.get("name")),
-                                "arguments": str(fn.get("arguments")),
-                            }
-                        )
-                    except Exception as e:
-                        logger.debug(
-                            f"Skipping malformed tool_call: {tc!r}; error: {e}"
-                        )
-                        pass
-                # If assistant also had text, keep it as a message item
-                text = _to_text(msg.get("content", ""))
-                if text:
-                    out.append({"role": "assistant", "content": text})
-                continue
-
-            # 3) Plain text messages
-            text = _to_text(msg.get("content", ""))
-            if role in {"user", "system", "assistant", "developer"} and text:
-                out.append({"role": role, "content": text})
-            else:
-                # Fallback: if role unrecognized, treat as user text to preserve context
-                if text:
-                    out.append({"role": "user", "content": text})
-        return out
 
     def get_token_count(self, messages: list[dict] | list[Message]) -> int:
         if isinstance(messages, list) and messages and isinstance(messages[0], Message):

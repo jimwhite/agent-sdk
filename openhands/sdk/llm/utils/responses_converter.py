@@ -10,6 +10,92 @@ from openai.types.responses.response_output_refusal import ResponseOutputRefusal
 from openai.types.responses.response_output_text import ResponseOutputText
 from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 
+from openhands.sdk.logger import get_logger
+
+
+logger = get_logger(__name__)
+
+
+def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert Chat Completions-style messages into Responses API input items.
+
+    Mapping rules:
+    - user/system/assistant text -> {type: 'message', role, content}
+    - assistant tool_calls -> for each call ->
+      {type: 'function_call', call_id, name, arguments}
+    - tool messages -> {type: 'function_call_output', call_id: tool_call_id, output}
+    """
+    if not messages:
+        return []
+
+    dict_messages = messages
+
+    def _to_text(content: Any) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for seg in content:
+                if isinstance(seg, dict):
+                    t = seg.get("text")
+                    if isinstance(t, str) and t:
+                        parts.append(t)
+            return "".join(parts)
+        return str(content) if content is not None else ""
+
+    out: list[dict[str, Any]] = []
+    for msg in dict_messages:
+        role = str(msg.get("role", ""))
+        # 1) Tool outputs -> function_call_output items
+        if role == "tool":
+            try:
+                call_id = str(msg["tool_call_id"])  # Chat Completions tool message key
+                output_text = _to_text(msg.get("content", ""))
+                if output_text is not None:
+                    out.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": call_id,
+                            "output": output_text,
+                        }
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"Skipping malformed tool output message: {msg!r}; error: {e}"
+                )
+            continue
+
+        # 2) Assistant with tool_calls -> function_call items (and optional text)
+        if role == "assistant" and isinstance(msg.get("tool_calls"), list):
+            tool_calls = msg.get("tool_calls") or []
+            for tc in tool_calls:
+                try:
+                    fn = tc.get("function")
+                    out.append(
+                        {
+                            "type": "function_call",
+                            "call_id": str(tc.get("id")),
+                            "name": str(fn.get("name")),
+                            "arguments": str(fn.get("arguments")),
+                        }
+                    )
+                except Exception as e:
+                    logger.debug(f"Skipping malformed tool_call: {tc!r}; error: {e}")
+                    pass
+            text = _to_text(msg.get("content", ""))
+            if text:
+                out.append({"role": "assistant", "content": text})
+            continue
+
+        # 3) Plain text messages
+        text = _to_text(msg.get("content", ""))
+        if role in {"user", "system", "assistant", "developer"} and text:
+            out.append({"role": role, "content": text})
+        else:
+            if text:
+                out.append({"role": "user", "content": text})
+    return out
+
 
 def responses_to_completion_format(
     responses_result: Response,
