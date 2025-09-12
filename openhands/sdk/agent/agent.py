@@ -252,14 +252,12 @@ class Agent(AgentBase):
                 )
                 if action_event is None:
                     continue
-                # Only the first ActionEvent carries provider-specific fields
-                if i == 0 and hasattr(action_event, "provider_specific_fields"):
-                    try:
-                        action_event.provider_specific_fields = (
-                            message.provider_specific_fields
-                        )
-                    except Exception:
-                        pass
+                # First ActionEvent carries provider-specific and thinking fields
+                if i == 0:
+                    action_event.provider_specific_fields = (
+                        message.provider_specific_fields
+                    )
+                    action_event.thinking_blocks = message.thinking_blocks
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation

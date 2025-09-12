@@ -159,5 +159,6 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
         ),  # Shared thought content only in the first event
         tool_calls=[event.tool_call for event in events],
         reasoning_content=events[0].reasoning_content,
-        provider_specific_fields=getattr(events[0], "provider_specific_fields", None),
+        thinking_blocks=events[0].thinking_blocks,
+        provider_specific_fields=events[0].provider_specific_fields,
     )
