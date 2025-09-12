@@ -389,7 +389,9 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # Call both and verify different behavior
     mock_completion.reset_mock()
-    response_native = llm_native.completion(messages=messages, tools=tools)
+    response_native = llm_native.completion(
+        messages=messages, tools=tools, force_chat_completions=True
+    )
     native_call_kwargs = mock_completion.call_args[1]
 
     mock_completion.reset_mock()

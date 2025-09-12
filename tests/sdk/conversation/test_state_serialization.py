@@ -296,7 +296,7 @@ def test_conversation_persistence_lifecycle(mock_completion, mock_responses):
     mock_responses.return_value = SimpleNamespace(
         id="resp_mock",
         model="o1-preview",
-        created=123,
+        created_at=123,
         output=[],
         usage=SimpleNamespace(input_tokens=0, output_tokens=0, total_tokens=0),
     )
