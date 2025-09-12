@@ -16,6 +16,7 @@ from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
 )
 from openhands.sdk.event import (
+    Event,
     MessageEvent,
     PauseEvent,
     UserRejectObservation,
@@ -24,7 +25,6 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.io import FileStore
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 logger = get_logger(__name__)
@@ -68,33 +68,18 @@ class Conversation:
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
-        if self._persist_filestore is not None and self._persist_filestore.list("."):
-            self.state = ConversationState.load(self._persist_filestore)
-            self.state.agent = agent.resolve_diff_from_deserialized(self.state.agent)
-            if agent.model_dump(exclude_none=True) != self.state.agent.model_dump(
-                exclude_none=True
-            ):
-                raise ValueError(
-                    "The agent provided is different from the one in persisted state. "
-                    "Please use the same agent instance to resume the conversation. \n"
-                    f"Diff: {pretty_pydantic_diff(agent, self.state.agent)}"
-                )
-            if conversation_id is not None and conversation_id != self.state.id:
-                raise ValueError(
-                    f"Conversation ID mismatch: provided {conversation_id}, "
-                    f"but persisted state has {self.state.id}"
-                )
-        else:
-            # Use the provided conversation_id or generate a new one
-            self.state = ConversationState(
-                agent=agent, id=conversation_id or str(uuid.uuid4())
-            )
+
+        # Create-or-resume: factory inspects BASE_STATE to decide
+        desired_id = conversation_id or str(uuid.uuid4())
+        self.state = ConversationState.create(
+            id=desired_id,
+            agent=agent,
+            file_store=self._persist_filestore,
+        )
 
         # Default callback: persist every event to state
         def _default_callback(e):
             self.state.events.append(e)
-            if self._persist_filestore is not None:
-                self.state.save(self._persist_filestore)
 
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
@@ -207,12 +192,12 @@ class Conversation:
                 break
 
     @api.method(path="/conversation/{id}/events", http="GET", request_in="query")
-    def get_events(self, after: int | None = None) -> list:
+    def get_events(self, after: int | None = None) -> list[Event]:
         """Get conversation events, optionally after a specific index."""
         events = self.state.events
         if after is not None:
             events = events[after:]
-        return events
+        return list(events)
 
     @api.method(path="/conversation/{id}/status", http="GET", request_in="query")
     def get_status(self) -> dict:
