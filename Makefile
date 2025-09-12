@@ -72,6 +72,11 @@ help:
 build-server: check-uv-version
 	@echo "$(YELLOW)Building OpenAPI client...$(RESET)"
 	uv run openhands/server/export_openapi.py
+	@echo "$(GREEN)OpenAPI client build complete.$(RESET)"
+	uv run openapi-python-client generate \
+		--path openhands/server/openapi.json \
+		--output-path openhands/client \
+		--overwrite
 
 run-server: build-server
 	@echo "$(YELLOW)Starting OpenHands server...$(RESET)"

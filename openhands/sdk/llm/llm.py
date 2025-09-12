@@ -109,12 +109,13 @@ class RetryMixin:
         return decorator
 
 
-class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
-    """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
+class LLMSpec(BaseModel):
+    """LLM configuration spec.
 
-    # =========================================================================
-    # Config fields
-    # =========================================================================
+    The fields represents the configuration needed to instantiate an LLM.
+    This is only used in agent-sdk for type schema for server use.
+    """
+
     model: str = Field(default="claude-sonnet-4-20250514", description="Model name.")
     api_key: SecretStr | None = Field(default=None, description="API key.")
     base_url: str | None = Field(default=None, description="Custom base URL.")
@@ -213,11 +214,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ),
     )
 
+
+class LLM(LLMSpec, RetryMixin, NonNativeToolCallingMixin):
+    """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
+
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
-    service_id: str = Field(default="default", exclude=True)
-    metrics: Metrics | None = Field(default=None, exclude=True)
+    service_id: str = Field(
+        default="default",
+        description="Unique identifier for LLM. Typically used by LLM registry.",
+    )
+    metrics: Metrics | None = Field(default=None)
     retry_listener: Callable[[int, int], None] | None = Field(
         default=None, exclude=True
     )

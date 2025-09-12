@@ -23,6 +23,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.conversation import ConversationState
+from openhands.sdk.llm.llm import LLMSpec
 from openhands.sdk.tool import ToolSpec
 
 
@@ -54,7 +55,7 @@ app = FastAPI(
 class StartConversationRequest(BaseModel):
     """Payload to create a new conversation."""
 
-    llm: LLM = Field(
+    llm: LLMSpec = Field(
         ...,
         description="LLM configuration for the agent.",
         examples=[
@@ -65,7 +66,7 @@ class StartConversationRequest(BaseModel):
             }
         ],
     )
-    tools: List[ToolSpec] = Field(
+    tools: list[ToolSpec] = Field(
         default_factory=list,
         description="List of tools to initialize for the agent.",
         examples=[
@@ -77,7 +78,7 @@ class StartConversationRequest(BaseModel):
             },
         ],
     )
-    mcp_config: Dict[str, Any] = Field(
+    mcp_config: dict[str, Any] = Field(
         default_factory=dict,
         description="Optional MCP configuration dictionary to create MCP tools.",
         examples=[
@@ -197,7 +198,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-@app.post("/conversations", status_code=201, response_model=StartConversationResponse)
+@app.post(
+    "/conversations",
+    status_code=201,
+    response_model=StartConversationResponse,
+    operation_id="start_conversation",
+)
 def start_conversation(request: StartConversationRequest) -> StartConversationResponse:
     conversation_id = str(uuid.uuid4())
     logger.info(f"Starting new conversation with ID: {conversation_id}")
@@ -232,13 +238,21 @@ def start_conversation(request: StartConversationRequest) -> StartConversationRe
     )
 
 
-@app.get("/conversations/{conversation_id}", response_model=ConversationState)
+@app.get(
+    "/conversations/{conversation_id}",
+    response_model=ConversationState,
+    operation_id="get_conversation_state",
+)
 def get_conversation_state(conversation_id: str):
     conversation = get_conversation(conversation_id)
     return conversation.state
 
 
-@app.get("/conversations/{conversation_id}/events", response_model=List[Event])
+@app.get(
+    "/conversations/{conversation_id}/events",
+    response_model=List[Event],
+    operation_id="get_conversation_events",
+)
 def get_events(conversation_id: str, start: int = 0, limit: int = 100):
     """Retrieves the event history for a conversation with pagination."""
     conversation = get_conversation(conversation_id)
@@ -263,7 +277,11 @@ async def _run_conversation(conversation_id: str, background_tasks: BackgroundTa
     return
 
 
-@app.post("/conversations/{conversation_id}/messages", status_code=202)
+@app.post(
+    "/conversations/{conversation_id}/messages",
+    status_code=202,
+    operation_id="send_message_to_conversation",
+)
 async def send_message(
     conversation_id: str, request: SendMessageRequest, background_tasks: BackgroundTasks
 ):
@@ -284,7 +302,11 @@ async def send_message(
     }
 
 
-@app.post("/conversations/{conversation_id}/run", status_code=202)
+@app.post(
+    "/conversations/{conversation_id}/run",
+    status_code=202,
+    operation_id="run_conversation",
+)
 async def run_conversation(conversation_id: str, background_tasks: BackgroundTasks):
     """Starts or resumes the agent run for a conversation in the background."""
     conversation = get_conversation(conversation_id)
@@ -302,7 +324,11 @@ async def run_conversation(conversation_id: str, background_tasks: BackgroundTas
     }
 
 
-@app.post("/conversations/{conversation_id}/pause", status_code=202)
+@app.post(
+    "/conversations/{conversation_id}/pause",
+    status_code=202,
+    operation_id="pause_conversation",
+)
 def pause_conversation(conversation_id: str):
     conversation = get_conversation(conversation_id)
     conversation.pause()
@@ -310,7 +336,11 @@ def pause_conversation(conversation_id: str):
     return {"message": "Pause request sent."}
 
 
-@app.post("/conversations/{conversation_id}/respond_to_confirmation", status_code=202)
+@app.post(
+    "/conversations/{conversation_id}/respond_to_confirmation",
+    status_code=202,
+    operation_id="respond_to_confirmation",
+)
 async def respond_to_confirmation(
     conversation_id: str,
     request: ConfirmationResponseRequest,
@@ -333,7 +363,11 @@ async def respond_to_confirmation(
         return {"message": "Action rejected."}
 
 
-@app.delete("/conversations/{conversation_id}", status_code=204)
+@app.delete(
+    "/conversations/{conversation_id}",
+    status_code=204,
+    operation_id="close_conversation",
+)
 def close_conversation(conversation_id: str):
     conversation = get_conversation(conversation_id)
     conversation.close()

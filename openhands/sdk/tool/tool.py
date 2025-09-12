@@ -209,7 +209,10 @@ ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]
 
 
 class ToolSpec(BaseModel):
-    """Defines a tool to be initialized for the agent."""
+    """Defines a tool to be initialized for the agent.
+
+    This is only used in agent-sdk for type schema for server use.
+    """
 
     name: str = Field(
         ...,
