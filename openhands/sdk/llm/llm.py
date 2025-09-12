@@ -924,26 +924,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 tool_calls = msg.get("tool_calls") or []
                 for tc in tool_calls:
                     try:
-                        if isinstance(tc, dict) and tc.get("type") == "function":
-                            fn = (
-                                tc.get("function", {})
-                                if isinstance(tc.get("function"), dict)
-                                else {}
-                            )
-                            name = fn.get("name")
-                            arguments = fn.get("arguments")
-                            call_id = tc.get("id") or tc.get("call_id")
-                            if call_id and name is not None and arguments is not None:
-                                out.append(
-                                    {
-                                        "type": "function_call",
-                                        "call_id": str(call_id),
-                                        "name": str(name),
-                                        "arguments": str(arguments),
-                                    }
-                                )
-                    except Exception:
-                        # Be permissive; skip malformed entries
+                        # Expect Chat Completions tool call shape
+                        fn = tc["function"]
+                        name = fn["name"]
+                        arguments = fn["arguments"]
+                        call_id = tc.get("id") or tc.get("call_id")
+                        out.append(
+                            {
+                                "type": "function_call",
+                                "call_id": str(call_id),
+                                "name": str(name),
+                                "arguments": str(arguments),
+                            }
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            f"Skipping malformed tool_call: {tc!r}; error: {e}"
+                        )
                         pass
                 # If assistant also had text, keep it as a message item
                 text = _to_text(msg.get("content", ""))
