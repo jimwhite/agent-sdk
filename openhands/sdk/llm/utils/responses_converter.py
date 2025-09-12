@@ -34,17 +34,11 @@ def responses_to_completion_format(
 
     for item in output_items:
         if isinstance(item, ResponseOutputMessage):
-            c = item.content
-            if isinstance(c, list) and c:
-                for seg in c:
-                    if isinstance(seg, ResponseOutputText):
-                        content = seg.text or content
-                    elif isinstance(seg, ResponseOutputRefusal):
-                        pass
-            else:
-                # Legacy fallback: older SDKs had content with `.text`
-                if not isinstance(c, list) and hasattr(c, "text"):
-                    content = c.text or content
+            for seg in item.content:
+                if isinstance(seg, ResponseOutputText):
+                    content = seg.text or content
+                elif isinstance(seg, ResponseOutputRefusal):
+                    pass
         elif isinstance(item, ResponseFunctionToolCall):
             tool_calls.append(
                 {

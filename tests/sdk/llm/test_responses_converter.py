@@ -1,6 +1,9 @@
 """Tests for responses converter utilities."""
 
+from typing import cast
+
 from litellm.types.utils import ModelResponse
+from openai.types.responses.response import Response
 
 from openhands.sdk.llm.utils.responses_converter import (
     responses_to_completion_format,
@@ -28,21 +31,19 @@ def test_messages_to_responses_input_message_objects():
 
 
 def test_responses_to_completion_format_basic():
-    """Test basic conversion from responses format to completion format."""
+    """Test basic conversion from responses format to completion format.
 
-    # Mock responses result
-    class MockOutput:
-        def __init__(self, type_name, content_text=None, content=None):
-            self.type = type_name
-            if content_text:
-                self.content = MockContent(content_text)
-            elif content:
-                self.content = content
+    Use real OpenAI Responses item types for message and reasoning.
+    """
 
-    class MockContent:
-        def __init__(self, text):
-            self.text = text
+    from openai.types.responses.response_output_message import ResponseOutputMessage
+    from openai.types.responses.response_output_text import ResponseOutputText
+    from openai.types.responses.response_reasoning_item import (
+        Content,
+        ResponseReasoningItem,
+    )
 
+    # Minimal usage mock (we only read token counts)
     class MockUsage:
         def __init__(self, input_tokens=10, output_tokens=20, total_tokens=30):
             self.input_tokens = input_tokens
@@ -52,21 +53,41 @@ def test_responses_to_completion_format_basic():
     class MockResponse:
         def __init__(self):
             self.id = "resp_123"
-            self.created_at = (
-                1234567890  # Fixed: ResponsesAPIResponse uses created_at, not created
-            )
+            self.created_at = 1234567890
             self.model = "o1-preview"
-            self.output = [
-                MockOutput("message", content_text="Hello, how can I help you?"),
-                MockOutput(
-                    "reasoning",
-                    content="The user is greeting me, I should respond politely.",
-                ),
+            # Message with a single text segment
+            seg = ResponseOutputText(
+                type="output_text",
+                text="Hello, how can I help you?",
+                annotations=[],
+                logprobs=None,
+            )
+            msg = ResponseOutputMessage(
+                id="msg_1",
+                role="assistant",
+                status="completed",
+                type="message",
+                content=[seg],
+            )
+            # Reasoning content as explicit content segments
+            r_content = [
+                Content(
+                    text="The user is greeting me, I should respond politely.",
+                    type="reasoning_text",
+                )
             ]
+            reasoning = ResponseReasoningItem(
+                id="r_1",
+                type="reasoning",
+                status="completed",
+                summary=[],
+                content=r_content,
+            )
+            self.output = [msg, reasoning]
             self.usage = MockUsage()
 
     mock_response = MockResponse()
-    result = responses_to_completion_format(mock_response)
+    result = responses_to_completion_format(cast(Response, mock_response))
 
     assert isinstance(result, ModelResponse)
     assert result.id == "resp_123"
@@ -91,28 +112,33 @@ def test_responses_to_completion_format_basic():
 
 
 def test_responses_to_completion_format_no_reasoning():
-    """Test conversion without reasoning content."""
+    """Test conversion without reasoning content using real message segment types."""
 
-    class MockOutput:
-        def __init__(self, type_name, content_text):
-            self.type = type_name
-            self.content = MockContent(content_text)
-
-    class MockContent:
-        def __init__(self, text):
-            self.text = text
+    from openai.types.responses.response_output_message import ResponseOutputMessage
+    from openai.types.responses.response_output_text import ResponseOutputText
 
     class MockResponse:
         def __init__(self):
             self.id = "resp_456"
             self.created_at = 1234567891
             self.model = "gpt-4o"
-            self.output = [
-                MockOutput("message", "Just a regular response."),
-            ]
+            seg = ResponseOutputText(
+                type="output_text",
+                text="Just a regular response.",
+                annotations=[],
+                logprobs=None,
+            )
+            msg = ResponseOutputMessage(
+                id="msg_2",
+                role="assistant",
+                status="completed",
+                type="message",
+                content=[seg],
+            )
+            self.output = [msg]
 
     mock_response = MockResponse()
-    result = responses_to_completion_format(mock_response)
+    result = responses_to_completion_format(cast(Response, mock_response))
 
     assert isinstance(result, ModelResponse)
     assert result.choices[0].message.content == "Just a regular response."  # type: ignore[attr-defined]
@@ -130,7 +156,7 @@ def test_responses_to_completion_format_empty_output():
             self.output = []
 
     mock_response = MockResponse()
-    result = responses_to_completion_format(mock_response)
+    result = responses_to_completion_format(cast(Response, mock_response))
 
     assert isinstance(result, ModelResponse)
     assert result.choices[0].message.content == ""  # type: ignore[attr-defined]
