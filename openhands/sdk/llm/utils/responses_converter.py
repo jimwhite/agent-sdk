@@ -1,6 +1,6 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
-from typing import Any
+from typing import Any, cast
 
 from litellm.types.utils import ModelResponse
 
@@ -32,19 +32,17 @@ def responses_to_completion_format(
                 # response.output.message.content can be list or object
                 # depending on SDK version
                 try:
-                    if hasattr(item, "content"):
-                        c = item.content
-                        # Newer SDKs: content may be a list of segments
-                        if isinstance(c, list) and c:
-                            # Find output_text item
-                            for seg in c:
-                                if getattr(
-                                    seg, "type", None
-                                ) == "output_text" and hasattr(seg, "text"):
-                                    content = getattr(seg, "text", "") or content
-                        # Older / simplified: content has `.text`
-                        elif hasattr(c, "text"):
-                            content = getattr(c, "text", "") or content
+                    c = cast(Any, item.content)
+                    # Newer SDKs: content may be a list of segments
+                    if isinstance(c, list) and c:
+                        # Find output_text item
+                        for seg in c:
+                            seg_any = cast(Any, seg)
+                            if seg_any.type == "output_text":
+                                content = seg_any.text or content
+                    # Older / simplified: content has `.text`
+                    elif not isinstance(c, list) and hasattr(c, "text"):
+                        content = cast(Any, c).text or content
                 except Exception:
                     pass
             elif item.type == "function_call":
