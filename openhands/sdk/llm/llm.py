@@ -702,7 +702,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # tool_choice schema is compatible – pass through as-is
 
         # Default to storing Responses for better retrieval/debugging
-        out.setdefault("store", True)
+        # out.setdefault("store", True)
 
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
