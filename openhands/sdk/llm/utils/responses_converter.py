@@ -1,5 +1,6 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
+import time
 from typing import Any
 
 from litellm.types.utils import ModelResponse
@@ -103,23 +104,15 @@ def responses_to_completion_format(
     if reasoning_content:
         message["reasoning_content"] = reasoning_content
 
-    # created timestamp from Responses API (created_at)
-    created = int(getattr(responses_result, "created_at"))
-
     # model can be a string or another type; normalize to string
-    model_val = getattr(responses_result, "model", "")
-    model = (
-        model_val
-        if isinstance(model_val, str)
-        else (str(model_val) if model_val is not None else "")
-    )
+    model = responses_result.get("model", "")
 
     finish_reason = "tool_calls" if tool_calls else "stop"
 
     response = {
-        "id": getattr(responses_result, "id", ""),
+        "id": responses_result.get("id", ""),
         "object": "chat.completion",
-        "created": created,
+        "created": responses_result.get("created_at") or int(time.time()),
         "model": model,
         "choices": [
             {
