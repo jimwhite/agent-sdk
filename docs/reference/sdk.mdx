@@ -776,6 +776,8 @@ Subclasses should override this method to provide specific visualization.
 
 ### `openhands.sdk.FileStore`
 
+Bases: <code>[ABC](#abc.ABC)</code>
+
 Abstract base class for file storage operations.
 
 **Functions:**
@@ -911,7 +913,7 @@ type: Literal['image'] = 'image'
 
 ### `openhands.sdk.LLM`
 
-Bases: <code>[BaseModel](#pydantic.BaseModel)</code>, <code>[RetryMixin](#openhands.sdk.llm.llm.RetryMixin)</code>, <code>[NonNativeToolCallingMixin](#openhands.sdk.llm.mixins.non_native_fc.NonNativeToolCallingMixin)</code>
+Bases: <code>[BaseModel](#pydantic.BaseModel)</code>, <code>[RetryMixin](#openhands.sdk.llm.utils.retry_mixin.RetryMixin)</code>, <code>[NonNativeToolCallingMixin](#openhands.sdk.llm.mixins.non_native_fc.NonNativeToolCallingMixin)</code>
 
 Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 
@@ -927,7 +929,6 @@ Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 - [**load_from_json**](#openhands.sdk.LLM.load_from_json) – Load LLM from JSON file.
 - [**load_from_toml**](#openhands.sdk.LLM.load_from_toml) – Load LLM from TOML file.
 - [**resolve_diff_from_deserialized**](#openhands.sdk.LLM.resolve_diff_from_deserialized) – Resolve differences between a deserialized LLM and the current instance.
-- [**retry_decorator**](#openhands.sdk.LLM.retry_decorator) – Create a retry decorator with exponential backoff.
 - [**serialize**](#openhands.sdk.LLM.serialize) – Serialize LLM to dictionary.
 - [**vision_is_active**](#openhands.sdk.LLM.vision_is_active) – Check if vision capabilities are active.
 
@@ -1269,14 +1270,6 @@ runtime-provided api_key in the self instance.
 
 Return a new LLM instance equivalent to `persisted` but with
 explicitly whitelisted fields (e.g. api_key) taken from `self`.
-
-#### `openhands.sdk.LLM.retry_decorator`
-
-```python
-retry_decorator(*, num_retries, retry_exceptions, retry_min_wait, retry_max_wait, retry_multiplier, retry_listener=None)
-```
-
-Create a retry decorator with exponential backoff.
 
 #### `openhands.sdk.LLM.retry_listener`
 
@@ -3157,8 +3150,6 @@ Context management module - Agent context and microagents.
 - [**BaseMicroagent**](#openhands.sdk.context.BaseMicroagent) – Base class for all microagents.
 - [**KnowledgeMicroagent**](#openhands.sdk.context.KnowledgeMicroagent) – Knowledge micro-agents provide specialized expertise.
 - [**MicroagentKnowledge**](#openhands.sdk.context.MicroagentKnowledge) – Represents knowledge from a triggered microagent.
-- [**MicroagentMetadata**](#openhands.sdk.context.MicroagentMetadata) – Metadata for all microagents.
-- [**MicroagentType**](#openhands.sdk.context.MicroagentType) – Type of microagent.
 - [**MicroagentValidationError**](#openhands.sdk.context.MicroagentValidationError) – Raised when there's a validation error in microagent metadata.
 - [**RepoMicroagent**](#openhands.sdk.context.RepoMicroagent) – Microagent specialized for repository-specific knowledge and guidelines.
 
@@ -3166,6 +3157,10 @@ Context management module - Agent context and microagents.
 
 - [**load_microagents_from_dir**](#openhands.sdk.context.load_microagents_from_dir) – Load all microagents from the given directory.
 - [**render_template**](#openhands.sdk.context.render_template) – Render a Jinja2 template with context and apply platform refinements.
+
+**Attributes:**
+
+- [**MicroagentType**](#openhands.sdk.context.MicroagentType) –
 
 #### `openhands.sdk.context.AgentContext`
 
@@ -3305,7 +3300,7 @@ source: str | None = Field(default=None, description='The source path or identif
 ##### `openhands.sdk.context.BaseMicroagent.type`
 
 ```python
-type: MicroagentType = Field(..., description='The type of the microagent')
+type: MicroagentType = 'repo'
 ```
 
 #### `openhands.sdk.context.KnowledgeMicroagent`
@@ -3396,7 +3391,7 @@ triggers: list[str] = Field(default_factory=list, description='List of triggers 
 ##### `openhands.sdk.context.KnowledgeMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.KNOWLEDGE
+type: MicroagentType = 'knowledge'
 ```
 
 #### `openhands.sdk.context.MicroagentKnowledge`
@@ -3429,78 +3424,10 @@ name: str = Field(description='The name of the microagent that was triggered')
 trigger: str = Field(description='The word that triggered this microagent')
 ```
 
-#### `openhands.sdk.context.MicroagentMetadata`
-
-Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
-
-Metadata for all microagents.
-
-**Attributes:**
-
-- [**inputs**](#openhands.sdk.context.MicroagentMetadata.inputs) (<code>[list](#list)\[[InputMetadata](#openhands.sdk.context.microagents.types.InputMetadata)\]</code>) –
-- [**mcp_tools**](#openhands.sdk.context.MicroagentMetadata.mcp_tools) (<code>[MCPConfig](#fastmcp.mcp_config.MCPConfig) | None</code>) –
-- [**name**](#openhands.sdk.context.MicroagentMetadata.name) (<code>[str](#str)</code>) –
-- [**triggers**](#openhands.sdk.context.MicroagentMetadata.triggers) (<code>[list](#list)\[[str](#str)\]</code>) –
-- [**type**](#openhands.sdk.context.MicroagentMetadata.type) (<code>[MicroagentType](#openhands.sdk.context.microagents.types.MicroagentType)</code>) –
-
-##### `openhands.sdk.context.MicroagentMetadata.inputs`
-
-```python
-inputs: list[InputMetadata] = []
-```
-
-##### `openhands.sdk.context.MicroagentMetadata.mcp_tools`
-
-```python
-mcp_tools: MCPConfig | None = None
-```
-
-##### `openhands.sdk.context.MicroagentMetadata.name`
-
-```python
-name: str = Field('default', description='Unique name of the microagent')
-```
-
-##### `openhands.sdk.context.MicroagentMetadata.triggers`
-
-```python
-triggers: list[str] = []
-```
-
-##### `openhands.sdk.context.MicroagentMetadata.type`
-
-```python
-type: MicroagentType = Field(default=(MicroagentType.REPO_KNOWLEDGE))
-```
-
 #### `openhands.sdk.context.MicroagentType`
 
-Bases: <code>[str](#str)</code>, <code>[Enum](#enum.Enum)</code>
-
-Type of microagent.
-
-**Attributes:**
-
-- [**KNOWLEDGE**](#openhands.sdk.context.MicroagentType.KNOWLEDGE) –
-- [**REPO_KNOWLEDGE**](#openhands.sdk.context.MicroagentType.REPO_KNOWLEDGE) –
-- [**TASK**](#openhands.sdk.context.MicroagentType.TASK) –
-
-##### `openhands.sdk.context.MicroagentType.KNOWLEDGE`
-
 ```python
-KNOWLEDGE = 'knowledge'
-```
-
-##### `openhands.sdk.context.MicroagentType.REPO_KNOWLEDGE`
-
-```python
-REPO_KNOWLEDGE = 'repo'
-```
-
-##### `openhands.sdk.context.MicroagentType.TASK`
-
-```python
-TASK = 'task'
+MicroagentType = Literal['knowledge', 'repo', 'task']
 ```
 
 #### `openhands.sdk.context.MicroagentValidationError`
@@ -3586,7 +3513,7 @@ source: str | None = Field(default=None, description='The source path or identif
 ##### `openhands.sdk.context.RepoMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.REPO_KNOWLEDGE
+type: MicroagentType = 'repo'
 ```
 
 #### `openhands.sdk.context.agent_context`
@@ -3990,8 +3917,6 @@ Microagents - Specialized agents for specific tasks and knowledge domains.
 - [**BaseMicroagent**](#openhands.sdk.context.microagents.BaseMicroagent) – Base class for all microagents.
 - [**KnowledgeMicroagent**](#openhands.sdk.context.microagents.KnowledgeMicroagent) – Knowledge micro-agents provide specialized expertise.
 - [**MicroagentKnowledge**](#openhands.sdk.context.microagents.MicroagentKnowledge) – Represents knowledge from a triggered microagent.
-- [**MicroagentMetadata**](#openhands.sdk.context.microagents.MicroagentMetadata) – Metadata for all microagents.
-- [**MicroagentType**](#openhands.sdk.context.microagents.MicroagentType) – Type of microagent.
 - [**MicroagentValidationError**](#openhands.sdk.context.microagents.MicroagentValidationError) – Raised when there's a validation error in microagent metadata.
 - [**RepoMicroagent**](#openhands.sdk.context.microagents.RepoMicroagent) – Microagent specialized for repository-specific knowledge and guidelines.
 - [**TaskMicroagent**](#openhands.sdk.context.microagents.TaskMicroagent) – TaskMicroagent is a special type of KnowledgeMicroagent that requires user input.
@@ -3999,6 +3924,10 @@ Microagents - Specialized agents for specific tasks and knowledge domains.
 **Functions:**
 
 - [**load_microagents_from_dir**](#openhands.sdk.context.microagents.load_microagents_from_dir) – Load all microagents from the given directory.
+
+**Attributes:**
+
+- [**MicroagentType**](#openhands.sdk.context.microagents.MicroagentType) –
 
 ##### `openhands.sdk.context.microagents.BaseMicroagent`
 
@@ -4055,7 +3984,7 @@ source: str | None = Field(default=None, description='The source path or identif
 ###### `openhands.sdk.context.microagents.BaseMicroagent.type`
 
 ```python
-type: MicroagentType = Field(..., description='The type of the microagent')
+type: MicroagentType = 'repo'
 ```
 
 ##### `openhands.sdk.context.microagents.KnowledgeMicroagent`
@@ -4146,7 +4075,7 @@ triggers: list[str] = Field(default_factory=list, description='List of triggers 
 ###### `openhands.sdk.context.microagents.KnowledgeMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.KNOWLEDGE
+type: MicroagentType = 'knowledge'
 ```
 
 ##### `openhands.sdk.context.microagents.MicroagentKnowledge`
@@ -4179,78 +4108,10 @@ name: str = Field(description='The name of the microagent that was triggered')
 trigger: str = Field(description='The word that triggered this microagent')
 ```
 
-##### `openhands.sdk.context.microagents.MicroagentMetadata`
-
-Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
-
-Metadata for all microagents.
-
-**Attributes:**
-
-- [**inputs**](#openhands.sdk.context.microagents.MicroagentMetadata.inputs) (<code>[list](#list)\[[InputMetadata](#openhands.sdk.context.microagents.types.InputMetadata)\]</code>) –
-- [**mcp_tools**](#openhands.sdk.context.microagents.MicroagentMetadata.mcp_tools) (<code>[MCPConfig](#fastmcp.mcp_config.MCPConfig) | None</code>) –
-- [**name**](#openhands.sdk.context.microagents.MicroagentMetadata.name) (<code>[str](#str)</code>) –
-- [**triggers**](#openhands.sdk.context.microagents.MicroagentMetadata.triggers) (<code>[list](#list)\[[str](#str)\]</code>) –
-- [**type**](#openhands.sdk.context.microagents.MicroagentMetadata.type) (<code>[MicroagentType](#openhands.sdk.context.microagents.types.MicroagentType)</code>) –
-
-###### `openhands.sdk.context.microagents.MicroagentMetadata.inputs`
-
-```python
-inputs: list[InputMetadata] = []
-```
-
-###### `openhands.sdk.context.microagents.MicroagentMetadata.mcp_tools`
-
-```python
-mcp_tools: MCPConfig | None = None
-```
-
-###### `openhands.sdk.context.microagents.MicroagentMetadata.name`
-
-```python
-name: str = Field('default', description='Unique name of the microagent')
-```
-
-###### `openhands.sdk.context.microagents.MicroagentMetadata.triggers`
-
-```python
-triggers: list[str] = []
-```
-
-###### `openhands.sdk.context.microagents.MicroagentMetadata.type`
-
-```python
-type: MicroagentType = Field(default=(MicroagentType.REPO_KNOWLEDGE))
-```
-
 ##### `openhands.sdk.context.microagents.MicroagentType`
 
-Bases: <code>[str](#str)</code>, <code>[Enum](#enum.Enum)</code>
-
-Type of microagent.
-
-**Attributes:**
-
-- [**KNOWLEDGE**](#openhands.sdk.context.microagents.MicroagentType.KNOWLEDGE) –
-- [**REPO_KNOWLEDGE**](#openhands.sdk.context.microagents.MicroagentType.REPO_KNOWLEDGE) –
-- [**TASK**](#openhands.sdk.context.microagents.MicroagentType.TASK) –
-
-###### `openhands.sdk.context.microagents.MicroagentType.KNOWLEDGE`
-
 ```python
-KNOWLEDGE = 'knowledge'
-```
-
-###### `openhands.sdk.context.microagents.MicroagentType.REPO_KNOWLEDGE`
-
-```python
-REPO_KNOWLEDGE = 'repo'
-```
-
-###### `openhands.sdk.context.microagents.MicroagentType.TASK`
-
-```python
-TASK = 'task'
+MicroagentType = Literal['knowledge', 'repo', 'task']
 ```
 
 ##### `openhands.sdk.context.microagents.MicroagentValidationError`
@@ -4336,7 +4197,7 @@ source: str | None = Field(default=None, description='The source path or identif
 ###### `openhands.sdk.context.microagents.RepoMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.REPO_KNOWLEDGE
+type: MicroagentType = 'repo'
 ```
 
 ##### `openhands.sdk.context.microagents.TaskMicroagent`
@@ -4450,7 +4311,7 @@ triggers: list[str] = Field(default_factory=list, description='List of triggers 
 ###### `openhands.sdk.context.microagents.TaskMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.TASK
+type: MicroagentType = 'task'
 ```
 
 ##### `openhands.sdk.context.microagents.exceptions`
@@ -4572,7 +4433,7 @@ source: str | None = Field(default=None, description='The source path or identif
 ####### `openhands.sdk.context.microagents.microagent.BaseMicroagent.type`
 
 ```python
-type: MicroagentType = Field(..., description='The type of the microagent')
+type: MicroagentType = 'repo'
 ```
 
 ###### `openhands.sdk.context.microagents.microagent.KnowledgeMicroagent`
@@ -4663,7 +4524,7 @@ triggers: list[str] = Field(default_factory=list, description='List of triggers 
 ####### `openhands.sdk.context.microagents.microagent.KnowledgeMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.KNOWLEDGE
+type: MicroagentType = 'knowledge'
 ```
 
 ###### `openhands.sdk.context.microagents.microagent.RepoMicroagent`
@@ -4737,7 +4598,7 @@ source: str | None = Field(default=None, description='The source path or identif
 ####### `openhands.sdk.context.microagents.microagent.RepoMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.REPO_KNOWLEDGE
+type: MicroagentType = 'repo'
 ```
 
 ###### `openhands.sdk.context.microagents.microagent.TaskMicroagent`
@@ -4851,7 +4712,7 @@ triggers: list[str] = Field(default_factory=list, description='List of triggers 
 ####### `openhands.sdk.context.microagents.microagent.TaskMicroagent.type`
 
 ```python
-type: MicroagentType = MicroagentType.TASK
+type: MicroagentType = 'task'
 ```
 
 ###### `openhands.sdk.context.microagents.microagent.load_microagents_from_dir`
@@ -4887,9 +4748,12 @@ Types and models for microagents.
 - [**InputMetadata**](#openhands.sdk.context.microagents.types.InputMetadata) – Metadata for task microagent inputs.
 - [**MicroagentContentResponse**](#openhands.sdk.context.microagents.types.MicroagentContentResponse) – Response model for individual microagent content endpoint.
 - [**MicroagentKnowledge**](#openhands.sdk.context.microagents.types.MicroagentKnowledge) – Represents knowledge from a triggered microagent.
-- [**MicroagentMetadata**](#openhands.sdk.context.microagents.types.MicroagentMetadata) – Metadata for all microagents.
 - [**MicroagentResponse**](#openhands.sdk.context.microagents.types.MicroagentResponse) – Response model for microagents endpoint.
-- [**MicroagentType**](#openhands.sdk.context.microagents.types.MicroagentType) – Type of microagent.
+
+**Attributes:**
+
+- [**MicroagentType**](#openhands.sdk.context.microagents.types.MicroagentType) –
+- [**VALID_MICROAGENT_TYPES**](#openhands.sdk.context.microagents.types.VALID_MICROAGENT_TYPES) –
 
 ###### `openhands.sdk.context.microagents.types.InputMetadata`
 
@@ -4981,50 +4845,6 @@ name: str = Field(description='The name of the microagent that was triggered')
 trigger: str = Field(description='The word that triggered this microagent')
 ```
 
-###### `openhands.sdk.context.microagents.types.MicroagentMetadata`
-
-Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
-
-Metadata for all microagents.
-
-**Attributes:**
-
-- [**inputs**](#openhands.sdk.context.microagents.types.MicroagentMetadata.inputs) (<code>[list](#list)\[[InputMetadata](#openhands.sdk.context.microagents.types.InputMetadata)\]</code>) –
-- [**mcp_tools**](#openhands.sdk.context.microagents.types.MicroagentMetadata.mcp_tools) (<code>[MCPConfig](#fastmcp.mcp_config.MCPConfig) | None</code>) –
-- [**name**](#openhands.sdk.context.microagents.types.MicroagentMetadata.name) (<code>[str](#str)</code>) –
-- [**triggers**](#openhands.sdk.context.microagents.types.MicroagentMetadata.triggers) (<code>[list](#list)\[[str](#str)\]</code>) –
-- [**type**](#openhands.sdk.context.microagents.types.MicroagentMetadata.type) (<code>[MicroagentType](#openhands.sdk.context.microagents.types.MicroagentType)</code>) –
-
-####### `openhands.sdk.context.microagents.types.MicroagentMetadata.inputs`
-
-```python
-inputs: list[InputMetadata] = []
-```
-
-####### `openhands.sdk.context.microagents.types.MicroagentMetadata.mcp_tools`
-
-```python
-mcp_tools: MCPConfig | None = None
-```
-
-####### `openhands.sdk.context.microagents.types.MicroagentMetadata.name`
-
-```python
-name: str = Field('default', description='Unique name of the microagent')
-```
-
-####### `openhands.sdk.context.microagents.types.MicroagentMetadata.triggers`
-
-```python
-triggers: list[str] = []
-```
-
-####### `openhands.sdk.context.microagents.types.MicroagentMetadata.type`
-
-```python
-type: MicroagentType = Field(default=(MicroagentType.REPO_KNOWLEDGE))
-```
-
 ###### `openhands.sdk.context.microagents.types.MicroagentResponse`
 
 Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
@@ -5061,32 +4881,14 @@ path: str = Field(description='The path or identifier of the microagent')
 
 ###### `openhands.sdk.context.microagents.types.MicroagentType`
 
-Bases: <code>[str](#str)</code>, <code>[Enum](#enum.Enum)</code>
-
-Type of microagent.
-
-**Attributes:**
-
-- [**KNOWLEDGE**](#openhands.sdk.context.microagents.types.MicroagentType.KNOWLEDGE) –
-- [**REPO_KNOWLEDGE**](#openhands.sdk.context.microagents.types.MicroagentType.REPO_KNOWLEDGE) –
-- [**TASK**](#openhands.sdk.context.microagents.types.MicroagentType.TASK) –
-
-####### `openhands.sdk.context.microagents.types.MicroagentType.KNOWLEDGE`
-
 ```python
-KNOWLEDGE = 'knowledge'
+MicroagentType = Literal['knowledge', 'repo', 'task']
 ```
 
-####### `openhands.sdk.context.microagents.types.MicroagentType.REPO_KNOWLEDGE`
+###### `openhands.sdk.context.microagents.types.VALID_MICROAGENT_TYPES`
 
 ```python
-REPO_KNOWLEDGE = 'repo'
-```
-
-####### `openhands.sdk.context.microagents.types.MicroagentType.TASK`
-
-```python
-TASK = 'task'
+VALID_MICROAGENT_TYPES = ['knowledge', 'repo', 'task']
 ```
 
 #### `openhands.sdk.context.prompts`
@@ -8842,6 +8644,8 @@ File storage interfaces and implementations.
 
 #### `openhands.sdk.io.FileStore`
 
+Bases: <code>[ABC](#abc.ABC)</code>
+
 Abstract base class for file storage operations.
 
 **Functions:**
@@ -9121,6 +8925,8 @@ Base file storage interface.
 - [**FileStore**](#openhands.sdk.io.base.FileStore) – Abstract base class for file storage operations.
 
 ##### `openhands.sdk.io.base.FileStore`
+
+Bases: <code>[ABC](#abc.ABC)</code>
 
 Abstract base class for file storage operations.
 
@@ -9503,7 +9309,7 @@ type: Literal['image'] = 'image'
 
 #### `openhands.sdk.llm.LLM`
 
-Bases: <code>[BaseModel](#pydantic.BaseModel)</code>, <code>[RetryMixin](#openhands.sdk.llm.llm.RetryMixin)</code>, <code>[NonNativeToolCallingMixin](#openhands.sdk.llm.mixins.non_native_fc.NonNativeToolCallingMixin)</code>
+Bases: <code>[BaseModel](#pydantic.BaseModel)</code>, <code>[RetryMixin](#openhands.sdk.llm.utils.retry_mixin.RetryMixin)</code>, <code>[NonNativeToolCallingMixin](#openhands.sdk.llm.mixins.non_native_fc.NonNativeToolCallingMixin)</code>
 
 Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 
@@ -9519,7 +9325,6 @@ Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 - [**load_from_json**](#openhands.sdk.llm.LLM.load_from_json) – Load LLM from JSON file.
 - [**load_from_toml**](#openhands.sdk.llm.LLM.load_from_toml) – Load LLM from TOML file.
 - [**resolve_diff_from_deserialized**](#openhands.sdk.llm.LLM.resolve_diff_from_deserialized) – Resolve differences between a deserialized LLM and the current instance.
-- [**retry_decorator**](#openhands.sdk.llm.LLM.retry_decorator) – Create a retry decorator with exponential backoff.
 - [**serialize**](#openhands.sdk.llm.LLM.serialize) – Serialize LLM to dictionary.
 - [**vision_is_active**](#openhands.sdk.llm.LLM.vision_is_active) – Check if vision capabilities are active.
 
@@ -9861,14 +9666,6 @@ runtime-provided api_key in the self instance.
 
 Return a new LLM instance equivalent to `persisted` but with
 explicitly whitelisted fields (e.g. api_key) taken from `self`.
-
-##### `openhands.sdk.llm.LLM.retry_decorator`
-
-```python
-retry_decorator(*, num_retries, retry_exceptions, retry_min_wait, retry_max_wait, retry_multiplier, retry_listener=None)
-```
-
-Create a retry decorator with exponential backoff.
 
 ##### `openhands.sdk.llm.LLM.retry_listener`
 
@@ -10562,7 +10359,7 @@ LLM interface and implementation using LiteLLM.
 
 ##### `openhands.sdk.llm.llm.LLM`
 
-Bases: <code>[BaseModel](#pydantic.BaseModel)</code>, <code>[RetryMixin](#openhands.sdk.llm.llm.RetryMixin)</code>, <code>[NonNativeToolCallingMixin](#openhands.sdk.llm.mixins.non_native_fc.NonNativeToolCallingMixin)</code>
+Bases: <code>[BaseModel](#pydantic.BaseModel)</code>, <code>[RetryMixin](#openhands.sdk.llm.utils.retry_mixin.RetryMixin)</code>, <code>[NonNativeToolCallingMixin](#openhands.sdk.llm.mixins.non_native_fc.NonNativeToolCallingMixin)</code>
 
 Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 
@@ -10578,7 +10375,6 @@ Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers.
 - [**load_from_json**](#openhands.sdk.llm.llm.LLM.load_from_json) – Load LLM from JSON file.
 - [**load_from_toml**](#openhands.sdk.llm.llm.LLM.load_from_toml) – Load LLM from TOML file.
 - [**resolve_diff_from_deserialized**](#openhands.sdk.llm.llm.LLM.resolve_diff_from_deserialized) – Resolve differences between a deserialized LLM and the current instance.
-- [**retry_decorator**](#openhands.sdk.llm.llm.LLM.retry_decorator) – Create a retry decorator with exponential backoff.
 - [**serialize**](#openhands.sdk.llm.llm.LLM.serialize) – Serialize LLM to dictionary.
 - [**vision_is_active**](#openhands.sdk.llm.llm.LLM.vision_is_active) – Check if vision capabilities are active.
 
@@ -10920,14 +10716,6 @@ runtime-provided api_key in the self instance.
 
 Return a new LLM instance equivalent to `persisted` but with
 explicitly whitelisted fields (e.g. api_key) taken from `self`.
-
-###### `openhands.sdk.llm.llm.LLM.retry_decorator`
-
-```python
-retry_decorator(*, num_retries, retry_exceptions, retry_min_wait, retry_max_wait, retry_multiplier, retry_listener=None)
-```
-
-Create a retry decorator with exponential backoff.
 
 ###### `openhands.sdk.llm.llm.LLM.retry_listener`
 
@@ -14939,6 +14727,7 @@ Utility functions for the OpenHands SDK.
 
 **Modules:**
 
+- [**async_utils**](#openhands.sdk.utils.async_utils) – Async utilities for OpenHands SDK.
 - [**discriminated_union**](#openhands.sdk.utils.discriminated_union) – Utility for creating and managing discriminated unions of Pydantic models.
 - [**json**](#openhands.sdk.utils.json) – JSON utilities with custom encoding for OpenHands objects.
 - [**protocol**](#openhands.sdk.utils.protocol) –
@@ -14982,6 +14771,57 @@ Bases: <code>[Protocol](#typing.Protocol)\[[T](#openhands.sdk.utils.protocol.T)\
 
 ```python
 append(__object)
+```
+
+#### `openhands.sdk.utils.async_utils`
+
+Async utilities for OpenHands SDK.
+
+This module provides utilities for working with async callbacks in the context
+of synchronous conversation handling.
+
+**Classes:**
+
+- [**AsyncCallbackWrapper**](#openhands.sdk.utils.async_utils.AsyncCallbackWrapper) – Wrapper that executes async callbacks in a different thread's event loop.
+
+**Attributes:**
+
+- [**AsyncConversationCallback**](#openhands.sdk.utils.async_utils.AsyncConversationCallback) –
+
+##### `openhands.sdk.utils.async_utils.AsyncCallbackWrapper`
+
+```python
+AsyncCallbackWrapper(async_callback, loop)
+```
+
+Wrapper that executes async callbacks in a different thread's event loop.
+
+This class implements the ConversationCallbackType interface (synchronous)
+but internally executes an async callback in an event loop running in a
+different thread. This allows async callbacks to be used in synchronous
+conversation contexts.
+
+**Attributes:**
+
+- [**async_callback**](#openhands.sdk.utils.async_utils.AsyncCallbackWrapper.async_callback) –
+- [**loop**](#openhands.sdk.utils.async_utils.AsyncCallbackWrapper.loop) –
+
+###### `openhands.sdk.utils.async_utils.AsyncCallbackWrapper.async_callback`
+
+```python
+async_callback = async_callback
+```
+
+###### `openhands.sdk.utils.async_utils.AsyncCallbackWrapper.loop`
+
+```python
+loop = loop
+```
+
+##### `openhands.sdk.utils.async_utils.AsyncConversationCallback`
+
+```python
+AsyncConversationCallback = Callable[[Event], Coroutine[Any, Any, None]]
 ```
 
 #### `openhands.sdk.utils.discriminated_union`
