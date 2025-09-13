@@ -23,7 +23,9 @@ agent-sdk/
 │   ├── 07_mcp_integration.py           # MCP integration
 │   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
 │   ├── 09_pause_example.py             # Pause and resume agent execution
-│   └── 10_persistence.py               # Conversation persistence
+│   ├── 10_persistence.py               # Conversation persistence
+│   └── 12_anthropic_thinking_litellm.py # Anthropic thinking via LiteLLM (prints reasoning_content and thinking_blocks)
+
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
@@ -105,6 +107,15 @@ conversation.run()
 ```
 
 ## Core Concepts
+
+### Reasoning and Thinking Visualization
+
+The SDK preserves and can display two forms of intermediate reasoning for providers that support it:
+- reasoning_content: a single normalized string for intermediate thoughts
+- thinking_blocks: provider-typed blocks via LiteLLM (e.g., Anthropic thinking/redacted_thinking)
+
+These render in the Conversation visualizer as "Reasoning:" and "Thinking:" sections (with safe truncation). See examples/12_anthropic_thinking_litellm.py for a runnable example.
+
 
 ### Agents
 
