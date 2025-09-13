@@ -1,9 +1,9 @@
 """Base file storage interface."""
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 
-class FileStore:
+class FileStore(ABC):
     """Abstract base class for file storage operations."""
 
     @abstractmethod

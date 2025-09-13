@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from openhands.sdk.context.microagents.exceptions import MicroagentValidationError
 from openhands.sdk.context.microagents.types import (
+    VALID_MICROAGENT_TYPES,
     InputMetadata,
     MicroagentType,
 )
@@ -33,7 +34,7 @@ class BaseMicroagent(BaseModel):
             "When it is None, it is treated as a programmatically defined microagent."
         ),
     )
-    type: MicroagentType = Field(..., description="The type of the microagent")
+    type: MicroagentType = "repo"
 
     PATH_TO_THIRD_PARTY_MICROAGENT_NAME: ClassVar[dict[str, str]] = {
         ".cursorrules": "cursorrules",
@@ -55,7 +56,7 @@ class BaseMicroagent(BaseModel):
                 name=microagent_name,
                 content=file_content,
                 source=str(path),
-                type=MicroagentType.REPO_KNOWLEDGE,
+                type="repo",
             )
 
         return None
@@ -94,7 +95,7 @@ class BaseMicroagent(BaseModel):
                 name="repo_legacy",
                 content=file_content,
                 source=str(path),
-                type=MicroagentType.REPO_KNOWLEDGE,
+                type="repo",
             )
 
         # Handle third-party agent instruction files
@@ -115,7 +116,7 @@ class BaseMicroagent(BaseModel):
         # Validate type field if provided in frontmatter
         if "type" in metadata_dict:
             type_value = metadata_dict["type"]
-            valid_types = [t.value for t in MicroagentType]
+            valid_types = VALID_MICROAGENT_TYPES
             if type_value not in valid_types:
                 valid_types_str = ", ".join(f'"{t}"' for t in valid_types)
                 raise MicroagentValidationError(
@@ -171,7 +172,7 @@ class KnowledgeMicroagent(BaseMicroagent):
     - Tool usage
     """
 
-    type: MicroagentType = MicroagentType.KNOWLEDGE
+    type: MicroagentType = "knowledge"
     triggers: list[str] = Field(
         default_factory=list, description="List of triggers for the microagent"
     )
@@ -206,7 +207,7 @@ class RepoMicroagent(BaseMicroagent):
         - Custom documentation references
     """
 
-    type: MicroagentType = MicroagentType.REPO_KNOWLEDGE
+    type: MicroagentType = "repo"
     mcp_tools: MCPConfig | dict | None = Field(
         default=None,
         description="MCP tools configuration for the microagent",
@@ -231,7 +232,7 @@ class RepoMicroagent(BaseMicroagent):
     @model_validator(mode="after")
     def _enforce_repo_type(self):
         """Enforce that this is a repo knowledge type microagent."""
-        if self.type != MicroagentType.REPO_KNOWLEDGE:
+        if self.type != "repo":
             raise MicroagentValidationError(
                 f"RepoMicroagent initialized with incorrect type: {self.type}"
             )
@@ -245,7 +246,7 @@ class TaskMicroagent(KnowledgeMicroagent):
     and will prompt the user for any required inputs before proceeding.
     """
 
-    type: MicroagentType = MicroagentType.TASK
+    type: MicroagentType = "task"
     inputs: list[InputMetadata] = Field(
         default_factory=list,
         description=(
