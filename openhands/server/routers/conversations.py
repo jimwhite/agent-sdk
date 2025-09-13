@@ -175,7 +175,7 @@ def start_conversation(request: StartConversationRequest) -> StartConversationRe
         logger.info(f"Added {len(mcp_tools)} MCP tools")
 
     agent = Agent(llm=llm, tools=tools)
-    conversation = Conversation(agent=agent)
+    conversation = Conversation(agent=agent, conversation_id=conversation_id)
     conversation.set_confirmation_mode(request.confirmation_mode)
     active_conversations[conversation_id] = conversation
     return StartConversationResponse(
