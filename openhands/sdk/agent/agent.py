@@ -195,7 +195,7 @@ class Agent(AgentBase):
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
         assert isinstance(self.tools, dict)
-        tools = [tool.to_openai_tool() for tool in self.tools.values()]
+        tools = list(self.tools.values())
         response = self.llm.completion(
             messages=_messages,
             tools=tools,
