@@ -70,16 +70,9 @@ help:
 	@echo "  $(GREEN)help$(RESET)         - Show this help message"
 
 build-server: check-uv-version
-	@echo "$(YELLOW)Building OpenAPI client...$(RESET)"
+	@echo "$(YELLOW)Building openapi.json...$(RESET)"
 	uv run openhands/server/export_openapi.py
-	@echo "$(GREEN)OpenAPI client build complete.$(RESET)"
-	uv run openapi-python-client generate \
-		--path openhands/server/openapi.json \
-		--output-path openhands/client \
-		--config openhands/server/client_gen_config.yaml \
-		--meta uv \
-		--overwrite
-	@echo "$(GREEN)OpenAPI client generated successfully at openhands/client.$(RESET)"
+	@echo "$(GREEN)openapi.json build complete.$(RESET)"
 
 run-server: build-server
 	@echo "$(YELLOW)Starting OpenHands server...$(RESET)"
