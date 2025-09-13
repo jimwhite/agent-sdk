@@ -8,6 +8,9 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/server.yml'
       - 'Makefile'
+    # Publish artifacts to a GitHub Release whenever you tag (e.g. v0.7.0)
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -17,13 +20,18 @@ on:
       - 'Makefile'
 
 permissions:
-  contents: write        # needed for auto-commit on PRs
-  pull-requests: write   # allows commenting/updating if needed in the future
+  contents: write
+  pull-requests: write
 
 jobs:
   build-executable:
-    name: Build server executable with PyInstaller
-    runs-on: ubuntu-latest
+    name: Build server executable (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-14 => Apple Silicon; macos-13 => Intel
+        os: [ubuntu-22.04, windows-2022, macos-14, macos-13]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -33,23 +41,82 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install dependencies
-        run: |
-          uv sync --frozen --group dev
+      - name: Sync deps
+        run: uv sync --frozen --group dev
 
       - name: Build executable (PyInstaller)
+        shell: bash
         run: |
-          # Build using the spec file
+          set -euxo pipefail
           uv run pyinstaller openhands/server/openhands-server.spec
-          # Show what was produced
           ls -lah dist || true
+
+      - name: Package executable
+        shell: bash
+        run: |
+          set -euxo pipefail
+          BIN_NAME="openhands-server"
+          mkdir -p build_release
+
+          # Locate built binary
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            SRC="dist/${BIN_NAME}/${BIN_NAME}.exe"
+          else
+            SRC="dist/${BIN_NAME}/${BIN_NAME}"
+            chmod +x "$SRC"
+          fi
+
+          # Normalize OS/ARCH labels used in file names
+          case "${{ runner.os }}" in
+            Linux)   OS="linux"   ;;
+            macOS)   OS="darwin"  ;;
+            Windows) OS="windows" ;;
+          esac
+
+          ARCH="$(uname -m 2>/dev/null || echo $PROCESSOR_ARCHITECTURE)"
+          case "$ARCH" in
+            x86_64|amd64|AMD64) ARCH="x64" ;;
+            arm64|aarch64|ARM64) ARCH="arm64" ;;
+            *) echo "Unsupported arch: $ARCH"; exit 1 ;;
+          esac
+
+          # Compress per-OS
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            PKG="${BIN_NAME}-${OS}-${ARCH}.zip"
+            powershell -NoProfile -Command "Compress-Archive -Path \"$SRC\" -DestinationPath \"build_release/$PKG\""
+          else
+            PKG="${BIN_NAME}-${OS}-${ARCH}.tar.gz"
+            tar -C "$(dirname "$SRC")" -czf "build_release/$PKG" "$(basename "$SRC")"
+          fi
+
+          echo "PKG_NAME=$PKG" >> $GITHUB_ENV
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openhands-server-executable
-          path: dist/**
+          name: ${{ env.PKG_NAME }}
+          path: build_release/${{ env.PKG_NAME }}
           retention-days: 7
+
+  release:
+    name: Publish GitHub Release assets
+    needs: build-executable
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/**
+          # Autogenerate release notes is handy; you can also supply a body file.
+          generate_release_notes: true
+          
 
   generate-and-commit-openapi-client:
     name: Generate OpenAPI client and push to PR branch
