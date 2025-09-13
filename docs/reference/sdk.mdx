@@ -864,7 +864,7 @@ create them automatically.
 
 ### `openhands.sdk.ImageContent`
 
-Bases: <code>[ImageContent](#mcp.types.ImageContent)</code>, <code>[BaseContent](#openhands.sdk.llm.message.BaseContent)</code>
+Bases: <code>[BaseContent](#openhands.sdk.llm.message.BaseContent)</code>
 
 Image content for messages.
 
@@ -876,7 +876,6 @@ Image content for messages.
 
 - [**cache_prompt**](#openhands.sdk.ImageContent.cache_prompt) (<code>[bool](#bool)</code>) –
 - [**image_urls**](#openhands.sdk.ImageContent.image_urls) (<code>[list](#list)\[[str](#str)\]</code>) –
-- [**model_config**](#openhands.sdk.ImageContent.model_config) –
 - [**type**](#openhands.sdk.ImageContent.type) (<code>[Literal](#typing.Literal)['image']</code>) –
 
 #### `openhands.sdk.ImageContent.cache_prompt`
@@ -889,12 +888,6 @@ cache_prompt: bool = False
 
 ```python
 image_urls: list[str]
-```
-
-#### `openhands.sdk.ImageContent.model_config`
-
-```python
-model_config = ConfigDict(extra='forbid', populate_by_name=True)
 ```
 
 #### `openhands.sdk.ImageContent.to_llm_dict`
@@ -1980,7 +1973,7 @@ Message for LLM communication.
 
 - [**cache_enabled**](#openhands.sdk.Message.cache_enabled) (<code>[bool](#bool)</code>) –
 - [**contains_image**](#openhands.sdk.Message.contains_image) (<code>[bool](#bool)</code>) – Check if message contains image content.
-- [**content**](#openhands.sdk.Message.content) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) –
+- [**content**](#openhands.sdk.Message.content) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) –
 - [**force_string_serializer**](#openhands.sdk.Message.force_string_serializer) (<code>[bool](#bool)</code>) –
 - [**function_calling_enabled**](#openhands.sdk.Message.function_calling_enabled) (<code>[bool](#bool)</code>) –
 - [**name**](#openhands.sdk.Message.name) (<code>[str](#str) | None</code>) –
@@ -2007,7 +2000,7 @@ Check if message contains image content.
 #### `openhands.sdk.Message.content`
 
 ```python
-content: list[TextContent | ImageContent] = Field(default_factory=list)
+content: Sequence[TextContent | ImageContent] = Field(default_factory=list)
 ```
 
 #### `openhands.sdk.Message.force_string_serializer`
@@ -2100,7 +2093,7 @@ Base schema for output observation.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.ObservationBase.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the observation string to show to the agent.
+- [**agent_observation**](#openhands.sdk.ObservationBase.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the observation string to show to the agent.
 - [**kind**](#openhands.sdk.ObservationBase.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**model_config**](#openhands.sdk.ObservationBase.model_config) –
 - [**visualize**](#openhands.sdk.ObservationBase.visualize) (<code>[Text](#rich.text.Text)</code>) – Return Rich Text representation of this action.
@@ -2108,7 +2101,7 @@ Base schema for output observation.
 #### `openhands.sdk.ObservationBase.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the observation string to show to the agent.
@@ -5910,7 +5903,7 @@ Event representing an action taken by the agent.
 - [**model_config**](#openhands.sdk.event.ActionEvent.model_config) –
 - [**reasoning_content**](#openhands.sdk.event.ActionEvent.reasoning_content) (<code>[str](#str) | None</code>) –
 - [**source**](#openhands.sdk.event.ActionEvent.source) (<code>[SourceType](#openhands.sdk.event.types.SourceType)</code>) –
-- [**thought**](#openhands.sdk.event.ActionEvent.thought) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent)\]</code>) –
+- [**thought**](#openhands.sdk.event.ActionEvent.thought) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent)\]</code>) –
 - [**timestamp**](#openhands.sdk.event.ActionEvent.timestamp) (<code>[str](#str)</code>) –
 - [**tool_call**](#openhands.sdk.event.ActionEvent.tool_call) (<code>[ChatCompletionMessageToolCall](#litellm.ChatCompletionMessageToolCall)</code>) –
 - [**tool_call_id**](#openhands.sdk.event.ActionEvent.tool_call_id) (<code>[str](#str)</code>) –
@@ -6002,7 +5995,7 @@ Get the subclass corresponding to a given kind name.
 ##### `openhands.sdk.event.ActionEvent.thought`
 
 ```python
-thought: list[TextContent] = Field(..., description='The thought process of the agent before taking this action')
+thought: Sequence[TextContent] = Field(..., description='The thought process of the agent before taking this action')
 ```
 
 ##### `openhands.sdk.event.ActionEvent.timestamp`
@@ -7701,7 +7694,7 @@ Event representing an action taken by the agent.
 - [**model_config**](#openhands.sdk.event.llm_convertible.ActionEvent.model_config) –
 - [**reasoning_content**](#openhands.sdk.event.llm_convertible.ActionEvent.reasoning_content) (<code>[str](#str) | None</code>) –
 - [**source**](#openhands.sdk.event.llm_convertible.ActionEvent.source) (<code>[SourceType](#openhands.sdk.event.types.SourceType)</code>) –
-- [**thought**](#openhands.sdk.event.llm_convertible.ActionEvent.thought) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent)\]</code>) –
+- [**thought**](#openhands.sdk.event.llm_convertible.ActionEvent.thought) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent)\]</code>) –
 - [**timestamp**](#openhands.sdk.event.llm_convertible.ActionEvent.timestamp) (<code>[str](#str)</code>) –
 - [**tool_call**](#openhands.sdk.event.llm_convertible.ActionEvent.tool_call) (<code>[ChatCompletionMessageToolCall](#litellm.ChatCompletionMessageToolCall)</code>) –
 - [**tool_call_id**](#openhands.sdk.event.llm_convertible.ActionEvent.tool_call_id) (<code>[str](#str)</code>) –
@@ -7793,7 +7786,7 @@ Get the subclass corresponding to a given kind name.
 ###### `openhands.sdk.event.llm_convertible.ActionEvent.thought`
 
 ```python
-thought: list[TextContent] = Field(..., description='The thought process of the agent before taking this action')
+thought: Sequence[TextContent] = Field(..., description='The thought process of the agent before taking this action')
 ```
 
 ###### `openhands.sdk.event.llm_convertible.ActionEvent.timestamp`
@@ -9260,7 +9253,7 @@ LLM integration module - Language model interfaces and utilities.
 
 #### `openhands.sdk.llm.ImageContent`
 
-Bases: <code>[ImageContent](#mcp.types.ImageContent)</code>, <code>[BaseContent](#openhands.sdk.llm.message.BaseContent)</code>
+Bases: <code>[BaseContent](#openhands.sdk.llm.message.BaseContent)</code>
 
 Image content for messages.
 
@@ -9272,7 +9265,6 @@ Image content for messages.
 
 - [**cache_prompt**](#openhands.sdk.llm.ImageContent.cache_prompt) (<code>[bool](#bool)</code>) –
 - [**image_urls**](#openhands.sdk.llm.ImageContent.image_urls) (<code>[list](#list)\[[str](#str)\]</code>) –
-- [**model_config**](#openhands.sdk.llm.ImageContent.model_config) –
 - [**type**](#openhands.sdk.llm.ImageContent.type) (<code>[Literal](#typing.Literal)['image']</code>) –
 
 ##### `openhands.sdk.llm.ImageContent.cache_prompt`
@@ -9285,12 +9277,6 @@ cache_prompt: bool = False
 
 ```python
 image_urls: list[str]
-```
-
-##### `openhands.sdk.llm.ImageContent.model_config`
-
-```python
-model_config = ConfigDict(extra='forbid', populate_by_name=True)
 ```
 
 ##### `openhands.sdk.llm.ImageContent.to_llm_dict`
@@ -9893,7 +9879,7 @@ Message for LLM communication.
 
 - [**cache_enabled**](#openhands.sdk.llm.Message.cache_enabled) (<code>[bool](#bool)</code>) –
 - [**contains_image**](#openhands.sdk.llm.Message.contains_image) (<code>[bool](#bool)</code>) – Check if message contains image content.
-- [**content**](#openhands.sdk.llm.Message.content) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) –
+- [**content**](#openhands.sdk.llm.Message.content) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) –
 - [**force_string_serializer**](#openhands.sdk.llm.Message.force_string_serializer) (<code>[bool](#bool)</code>) –
 - [**function_calling_enabled**](#openhands.sdk.llm.Message.function_calling_enabled) (<code>[bool](#bool)</code>) –
 - [**name**](#openhands.sdk.llm.Message.name) (<code>[str](#str) | None</code>) –
@@ -9920,7 +9906,7 @@ Check if message contains image content.
 ##### `openhands.sdk.llm.Message.content`
 
 ```python
-content: list[TextContent | ImageContent] = Field(default_factory=list)
+content: Sequence[TextContent | ImageContent] = Field(default_factory=list)
 ```
 
 ##### `openhands.sdk.llm.Message.force_string_serializer`
@@ -11026,7 +11012,7 @@ Convert to LLM API format. Subclasses should implement this method.
 
 ##### `openhands.sdk.llm.message.ImageContent`
 
-Bases: <code>[ImageContent](#mcp.types.ImageContent)</code>, <code>[BaseContent](#openhands.sdk.llm.message.BaseContent)</code>
+Bases: <code>[BaseContent](#openhands.sdk.llm.message.BaseContent)</code>
 
 Image content for messages.
 
@@ -11038,7 +11024,6 @@ Image content for messages.
 
 - [**cache_prompt**](#openhands.sdk.llm.message.ImageContent.cache_prompt) (<code>[bool](#bool)</code>) –
 - [**image_urls**](#openhands.sdk.llm.message.ImageContent.image_urls) (<code>[list](#list)\[[str](#str)\]</code>) –
-- [**model_config**](#openhands.sdk.llm.message.ImageContent.model_config) –
 - [**type**](#openhands.sdk.llm.message.ImageContent.type) (<code>[Literal](#typing.Literal)['image']</code>) –
 
 ###### `openhands.sdk.llm.message.ImageContent.cache_prompt`
@@ -11051,12 +11036,6 @@ cache_prompt: bool = False
 
 ```python
 image_urls: list[str]
-```
-
-###### `openhands.sdk.llm.message.ImageContent.model_config`
-
-```python
-model_config = ConfigDict(extra='forbid', populate_by_name=True)
 ```
 
 ###### `openhands.sdk.llm.message.ImageContent.to_llm_dict`
@@ -11088,7 +11067,7 @@ Message for LLM communication.
 
 - [**cache_enabled**](#openhands.sdk.llm.message.Message.cache_enabled) (<code>[bool](#bool)</code>) –
 - [**contains_image**](#openhands.sdk.llm.message.Message.contains_image) (<code>[bool](#bool)</code>) – Check if message contains image content.
-- [**content**](#openhands.sdk.llm.message.Message.content) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) –
+- [**content**](#openhands.sdk.llm.message.Message.content) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) –
 - [**force_string_serializer**](#openhands.sdk.llm.message.Message.force_string_serializer) (<code>[bool](#bool)</code>) –
 - [**function_calling_enabled**](#openhands.sdk.llm.message.Message.function_calling_enabled) (<code>[bool](#bool)</code>) –
 - [**name**](#openhands.sdk.llm.message.Message.name) (<code>[str](#str) | None</code>) –
@@ -11115,7 +11094,7 @@ Check if message contains image content.
 ###### `openhands.sdk.llm.message.Message.content`
 
 ```python
-content: list[TextContent | ImageContent] = Field(default_factory=list)
+content: Sequence[TextContent | ImageContent] = Field(default_factory=list)
 ```
 
 ###### `openhands.sdk.llm.message.Message.force_string_serializer`
@@ -11750,7 +11729,7 @@ Observation from MCP tool execution.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.mcp.MCPToolObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Format the observation for agent display.
+- [**agent_observation**](#openhands.sdk.mcp.MCPToolObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Format the observation for agent display.
 - [**content**](#openhands.sdk.mcp.MCPToolObservation.content) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) –
 - [**is_error**](#openhands.sdk.mcp.MCPToolObservation.is_error) (<code>[bool](#bool)</code>) –
 - [**kind**](#openhands.sdk.mcp.MCPToolObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -11761,7 +11740,7 @@ Observation from MCP tool execution.
 ##### `openhands.sdk.mcp.MCPToolObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Format the observation for agent display.
@@ -11959,7 +11938,7 @@ Observation from MCP tool execution.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.mcp.definition.MCPToolObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Format the observation for agent display.
+- [**agent_observation**](#openhands.sdk.mcp.definition.MCPToolObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Format the observation for agent display.
 - [**content**](#openhands.sdk.mcp.definition.MCPToolObservation.content) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) –
 - [**is_error**](#openhands.sdk.mcp.definition.MCPToolObservation.is_error) (<code>[bool](#bool)</code>) –
 - [**kind**](#openhands.sdk.mcp.definition.MCPToolObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -11970,7 +11949,7 @@ Observation from MCP tool execution.
 ###### `openhands.sdk.mcp.definition.MCPToolObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Format the observation for agent display.
@@ -12674,7 +12653,7 @@ Base schema for output observation.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.tool.ObservationBase.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the observation string to show to the agent.
+- [**agent_observation**](#openhands.sdk.tool.ObservationBase.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the observation string to show to the agent.
 - [**kind**](#openhands.sdk.tool.ObservationBase.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**model_config**](#openhands.sdk.tool.ObservationBase.model_config) –
 - [**visualize**](#openhands.sdk.tool.ObservationBase.visualize) (<code>[Text](#rich.text.Text)</code>) – Return Rich Text representation of this action.
@@ -12682,7 +12661,7 @@ Base schema for output observation.
 ##### `openhands.sdk.tool.ObservationBase.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the observation string to show to the agent.
@@ -13194,7 +13173,7 @@ Observation for finish action.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.tool.builtins.FinishObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return agent observation content.
+- [**agent_observation**](#openhands.sdk.tool.builtins.FinishObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return agent observation content.
 - [**kind**](#openhands.sdk.tool.builtins.FinishObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**message**](#openhands.sdk.tool.builtins.FinishObservation.message) (<code>[str](#str)</code>) –
 - [**model_config**](#openhands.sdk.tool.builtins.FinishObservation.model_config) –
@@ -13203,7 +13182,7 @@ Observation for finish action.
 ###### `openhands.sdk.tool.builtins.FinishObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return agent observation content.
@@ -13422,7 +13401,7 @@ Observation returned after logging a thought.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.tool.builtins.ThinkObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return the observation content for the agent.
+- [**agent_observation**](#openhands.sdk.tool.builtins.ThinkObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return the observation content for the agent.
 - [**content**](#openhands.sdk.tool.builtins.ThinkObservation.content) (<code>[str](#str)</code>) –
 - [**kind**](#openhands.sdk.tool.builtins.ThinkObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**model_config**](#openhands.sdk.tool.builtins.ThinkObservation.model_config) –
@@ -13431,7 +13410,7 @@ Observation returned after logging a thought.
 ###### `openhands.sdk.tool.builtins.ThinkObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return the observation content for the agent.
@@ -13665,7 +13644,7 @@ Observation for finish action.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.tool.builtins.finish.FinishObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return agent observation content.
+- [**agent_observation**](#openhands.sdk.tool.builtins.finish.FinishObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return agent observation content.
 - [**kind**](#openhands.sdk.tool.builtins.finish.FinishObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**message**](#openhands.sdk.tool.builtins.finish.FinishObservation.message) (<code>[str](#str)</code>) –
 - [**model_config**](#openhands.sdk.tool.builtins.finish.FinishObservation.model_config) –
@@ -13674,7 +13653,7 @@ Observation for finish action.
 ####### `openhands.sdk.tool.builtins.finish.FinishObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return agent observation content.
@@ -13920,7 +13899,7 @@ Observation returned after logging a thought.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.tool.builtins.think.ThinkObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return the observation content for the agent.
+- [**agent_observation**](#openhands.sdk.tool.builtins.think.ThinkObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.message.TextContent) | [ImageContent](#openhands.sdk.llm.message.ImageContent)\]</code>) – Return the observation content for the agent.
 - [**content**](#openhands.sdk.tool.builtins.think.ThinkObservation.content) (<code>[str](#str)</code>) –
 - [**kind**](#openhands.sdk.tool.builtins.think.ThinkObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**model_config**](#openhands.sdk.tool.builtins.think.ThinkObservation.model_config) –
@@ -13929,7 +13908,7 @@ Observation returned after logging a thought.
 ####### `openhands.sdk.tool.builtins.think.ThinkObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return the observation content for the agent.
@@ -14275,7 +14254,7 @@ Base schema for output observation.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.sdk.tool.schema.ObservationBase.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the observation string to show to the agent.
+- [**agent_observation**](#openhands.sdk.tool.schema.ObservationBase.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the observation string to show to the agent.
 - [**kind**](#openhands.sdk.tool.schema.ObservationBase.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
 - [**model_config**](#openhands.sdk.tool.schema.ObservationBase.model_config) –
 - [**visualize**](#openhands.sdk.tool.schema.ObservationBase.visualize) (<code>[Text](#rich.text.Text)</code>) – Return Rich Text representation of this action.
@@ -14283,7 +14262,7 @@ Base schema for output observation.
 ###### `openhands.sdk.tool.schema.ObservationBase.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the observation string to show to the agent.

@@ -392,7 +392,7 @@ A ToolResult that can be rendered as a CLI output.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.ExecuteBashObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with formatted output and metadata.
+- [**agent_observation**](#openhands.tools.ExecuteBashObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with formatted output and metadata.
 - [**command**](#openhands.tools.ExecuteBashObservation.command) (<code>[str](#str) | None</code>) –
 - [**command_id**](#openhands.tools.ExecuteBashObservation.command_id) (<code>[int](#int) | None</code>) – Get the command ID from metadata.
 - [**error**](#openhands.tools.ExecuteBashObservation.error) (<code>[bool](#bool)</code>) –
@@ -407,7 +407,7 @@ A ToolResult that can be rendered as a CLI output.
 #### `openhands.tools.ExecuteBashObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the agent observation with formatted output and metadata.
@@ -898,7 +898,7 @@ A ToolResult that can be rendered as a CLI output.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.StrReplaceEditorObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with output or error message.
+- [**agent_observation**](#openhands.tools.StrReplaceEditorObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with output or error message.
 - [**command**](#openhands.tools.StrReplaceEditorObservation.command) (<code>[CommandLiteral](#openhands.tools.str_replace_editor.definition.CommandLiteral)</code>) –
 - [**error**](#openhands.tools.StrReplaceEditorObservation.error) (<code>[str](#str) | None</code>) –
 - [**kind**](#openhands.tools.StrReplaceEditorObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -913,7 +913,7 @@ A ToolResult that can be rendered as a CLI output.
 #### `openhands.tools.StrReplaceEditorObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the agent observation with output or error message.
@@ -1193,7 +1193,7 @@ Data class representing the result of a task tracking operation.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.TaskTrackerObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.TextContent) | [ImageContent](#openhands.sdk.ImageContent)\]</code>) – Return the observation content for the agent.
+- [**agent_observation**](#openhands.tools.TaskTrackerObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.TextContent) | [ImageContent](#openhands.sdk.ImageContent)\]</code>) – Return the observation content for the agent.
 - [**command**](#openhands.tools.TaskTrackerObservation.command) (<code>[str](#str)</code>) –
 - [**content**](#openhands.tools.TaskTrackerObservation.content) (<code>[str](#str)</code>) –
 - [**kind**](#openhands.tools.TaskTrackerObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -1204,7 +1204,7 @@ Data class representing the result of a task tracking operation.
 #### `openhands.tools.TaskTrackerObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return the observation content for the agent.
@@ -1867,7 +1867,7 @@ A ToolResult that can be rendered as a CLI output.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.execute_bash.ExecuteBashObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with formatted output and metadata.
+- [**agent_observation**](#openhands.tools.execute_bash.ExecuteBashObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with formatted output and metadata.
 - [**command**](#openhands.tools.execute_bash.ExecuteBashObservation.command) (<code>[str](#str) | None</code>) –
 - [**command_id**](#openhands.tools.execute_bash.ExecuteBashObservation.command_id) (<code>[int](#int) | None</code>) – Get the command ID from metadata.
 - [**error**](#openhands.tools.execute_bash.ExecuteBashObservation.error) (<code>[bool](#bool)</code>) –
@@ -1882,7 +1882,7 @@ A ToolResult that can be rendered as a CLI output.
 ##### `openhands.tools.execute_bash.ExecuteBashObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the agent observation with formatted output and metadata.
@@ -2583,7 +2583,7 @@ A ToolResult that can be rendered as a CLI output.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.execute_bash.definition.ExecuteBashObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with formatted output and metadata.
+- [**agent_observation**](#openhands.tools.execute_bash.definition.ExecuteBashObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with formatted output and metadata.
 - [**command**](#openhands.tools.execute_bash.definition.ExecuteBashObservation.command) (<code>[str](#str) | None</code>) –
 - [**command_id**](#openhands.tools.execute_bash.definition.ExecuteBashObservation.command_id) (<code>[int](#int) | None</code>) – Get the command ID from metadata.
 - [**error**](#openhands.tools.execute_bash.definition.ExecuteBashObservation.error) (<code>[bool](#bool)</code>) –
@@ -2598,7 +2598,7 @@ A ToolResult that can be rendered as a CLI output.
 ###### `openhands.tools.execute_bash.definition.ExecuteBashObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the agent observation with formatted output and metadata.
@@ -5012,7 +5012,7 @@ A ToolResult that can be rendered as a CLI output.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.str_replace_editor.StrReplaceEditorObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with output or error message.
+- [**agent_observation**](#openhands.tools.str_replace_editor.StrReplaceEditorObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with output or error message.
 - [**command**](#openhands.tools.str_replace_editor.StrReplaceEditorObservation.command) (<code>[CommandLiteral](#openhands.tools.str_replace_editor.definition.CommandLiteral)</code>) –
 - [**error**](#openhands.tools.str_replace_editor.StrReplaceEditorObservation.error) (<code>[str](#str) | None</code>) –
 - [**kind**](#openhands.tools.str_replace_editor.StrReplaceEditorObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -5027,7 +5027,7 @@ A ToolResult that can be rendered as a CLI output.
 ##### `openhands.tools.str_replace_editor.StrReplaceEditorObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the agent observation with output or error message.
@@ -5510,7 +5510,7 @@ A ToolResult that can be rendered as a CLI output.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.str_replace_editor.definition.StrReplaceEditorObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with output or error message.
+- [**agent_observation**](#openhands.tools.str_replace_editor.definition.StrReplaceEditorObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.llm.TextContent) | [ImageContent](#openhands.sdk.llm.ImageContent)\]</code>) – Get the agent observation with output or error message.
 - [**command**](#openhands.tools.str_replace_editor.definition.StrReplaceEditorObservation.command) (<code>[CommandLiteral](#openhands.tools.str_replace_editor.definition.CommandLiteral)</code>) –
 - [**error**](#openhands.tools.str_replace_editor.definition.StrReplaceEditorObservation.error) (<code>[str](#str) | None</code>) –
 - [**kind**](#openhands.tools.str_replace_editor.definition.StrReplaceEditorObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -5525,7 +5525,7 @@ A ToolResult that can be rendered as a CLI output.
 ###### `openhands.tools.str_replace_editor.definition.StrReplaceEditorObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Get the agent observation with output or error message.
@@ -6671,7 +6671,7 @@ Data class representing the result of a task tracking operation.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.task_tracker.TaskTrackerObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.TextContent) | [ImageContent](#openhands.sdk.ImageContent)\]</code>) – Return the observation content for the agent.
+- [**agent_observation**](#openhands.tools.task_tracker.TaskTrackerObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.TextContent) | [ImageContent](#openhands.sdk.ImageContent)\]</code>) – Return the observation content for the agent.
 - [**command**](#openhands.tools.task_tracker.TaskTrackerObservation.command) (<code>[str](#str)</code>) –
 - [**content**](#openhands.tools.task_tracker.TaskTrackerObservation.content) (<code>[str](#str)</code>) –
 - [**kind**](#openhands.tools.task_tracker.TaskTrackerObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -6682,7 +6682,7 @@ Data class representing the result of a task tracking operation.
 ##### `openhands.tools.task_tracker.TaskTrackerObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return the observation content for the agent.
@@ -7173,7 +7173,7 @@ Data class representing the result of a task tracking operation.
 
 **Attributes:**
 
-- [**agent_observation**](#openhands.tools.task_tracker.definition.TaskTrackerObservation.agent_observation) (<code>[list](#list)\[[TextContent](#openhands.sdk.TextContent) | [ImageContent](#openhands.sdk.ImageContent)\]</code>) – Return the observation content for the agent.
+- [**agent_observation**](#openhands.tools.task_tracker.definition.TaskTrackerObservation.agent_observation) (<code>[Sequence](#collections.abc.Sequence)\[[TextContent](#openhands.sdk.TextContent) | [ImageContent](#openhands.sdk.ImageContent)\]</code>) – Return the observation content for the agent.
 - [**command**](#openhands.tools.task_tracker.definition.TaskTrackerObservation.command) (<code>[str](#str)</code>) –
 - [**content**](#openhands.tools.task_tracker.definition.TaskTrackerObservation.content) (<code>[str](#str)</code>) –
 - [**kind**](#openhands.tools.task_tracker.definition.TaskTrackerObservation.kind) (<code>[str](#str)</code>) – Property to create kind field from class name when serializing.
@@ -7184,7 +7184,7 @@ Data class representing the result of a task tracking operation.
 ###### `openhands.tools.task_tracker.definition.TaskTrackerObservation.agent_observation`
 
 ```python
-agent_observation: list[TextContent | ImageContent]
+agent_observation: Sequence[TextContent | ImageContent]
 ```
 
 Return the observation content for the agent.
