@@ -295,11 +295,26 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
                           "source",
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "LLMConvertibleEvent",
                         "description": "Base class for events that can be converted to LLM messages.",
@@ -369,10 +384,25 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "Condensation",
                         "description": "This action indicates a condensation of the conversation history is happening.",
@@ -406,10 +436,25 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "CondensationRequest",
                         "description": "This action is used to request a condensation of the conversation history.\n\nAttributes:\n    action (str): The action type, namely ActionType.CONDENSATION_REQUEST.",
@@ -485,11 +530,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "message",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "FinishAction",
                                 "additionalProperties": false
@@ -519,11 +579,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "thought",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "ThinkAction",
                                 "description": "Action for logging a thought without making any changes.",
@@ -549,10 +624,25 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "MCPActionBase",
                                 "description": "Base schema for MCP input action.",
@@ -601,11 +691,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "command",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "ExecuteBashAction",
                                 "description": "Schema for bash command execution.",
@@ -711,12 +816,27 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "command",
                                   "path",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "StrReplaceEditorAction",
                                 "description": "Schema for string replace editor operations.",
@@ -760,10 +880,25 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "TaskTrackerAction",
                                 "description": "An action where the agent writes or updates a task list for task management.",
@@ -811,6 +946,20 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
@@ -820,7 +969,8 @@
                           "tool_call_id",
                           "tool_call",
                           "llm_response_id",
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "ActionEvent",
                         "additionalProperties": false
@@ -869,11 +1019,26 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
                           "error",
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "AgentErrorEvent",
                         "description": "Error triggered by the agent.\n\nNote: This event should not contain model \"thought\" or \"reasoning_content\". It\nrepresents an error produced by the agent/scaffold, not model output.",
@@ -938,6 +1103,20 @@
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
                           },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
+                          },
                           "reasoning_content": {
                             "type": "string",
                             "readOnly": true,
@@ -948,6 +1127,7 @@
                           "source",
                           "llm_message",
                           "kind",
+                          "_du_spec",
                           "reasoning_content"
                         ],
                         "title": "MessageEvent",
@@ -1012,11 +1192,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "tool_name",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "MCPToolObservation",
                                 "description": "Observation from MCP tool execution.",
@@ -1035,11 +1230,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "message",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "FinishObservation",
                                 "additionalProperties": true
@@ -1058,10 +1268,25 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "ThinkObservation",
                                 "description": "Observation returned after logging a thought.",
@@ -1120,11 +1345,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "output",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "ExecuteBashObservation",
                                 "description": "A ToolResult that can be rendered as a CLI output.",
@@ -1210,11 +1450,26 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
                                   "command",
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "StrReplaceEditorObservation",
                                 "description": "A ToolResult that can be rendered as a CLI output.",
@@ -1248,10 +1503,25 @@
                                     "readOnly": true,
                                     "description": "Property to create kind field from class name when serializing.",
                                     "title": "Kind"
+                                  },
+                                  "_du_spec": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "additionalProperties": true
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "readOnly": true,
+                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                    "title": "Du Spec"
                                   }
                                 },
                                 "required": [
-                                  "kind"
+                                  "kind",
+                                  "_du_spec"
                                 ],
                                 "title": "TaskTrackerObservation",
                                 "description": "This data class represents the result of a task tracking operation.",
@@ -1284,6 +1554,20 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
@@ -1291,7 +1575,8 @@
                           "action_id",
                           "tool_name",
                           "tool_call_id",
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "ObservationEvent",
                         "additionalProperties": false
@@ -1336,12 +1621,27 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
                           "system_prompt",
                           "tools",
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "SystemPromptEvent",
                         "description": "System prompt added by the agent.",
@@ -1396,13 +1696,28 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
                           "action_id",
                           "tool_name",
                           "tool_call_id",
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "UserRejectObservation",
                         "description": "Observation when user rejects an action in confirmation mode.",
@@ -1436,10 +1751,25 @@
                             "readOnly": true,
                             "description": "Property to create kind field from class name when serializing.",
                             "title": "Kind"
+                          },
+                          "_du_spec": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "readOnly": true,
+                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                            "title": "Du Spec"
                           }
                         },
                         "required": [
-                          "kind"
+                          "kind",
+                          "_du_spec"
                         ],
                         "title": "PauseEvent",
                         "description": "Event indicating that the agent execution was paused by user request.",
@@ -2302,6 +2632,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2334,6 +2678,7 @@
                                 "action_type",
                                 "mcp_tool",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2394,6 +2739,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2425,6 +2784,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2484,6 +2844,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2515,6 +2889,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2574,6 +2949,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2605,6 +2994,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2664,6 +3054,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2695,6 +3099,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2754,6 +3159,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2785,6 +3204,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2845,6 +3265,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2876,6 +3310,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -2936,6 +3371,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -2967,6 +3416,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3041,6 +3491,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3073,6 +3537,7 @@
                                 "action_type",
                                 "mcp_tool",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3133,6 +3598,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3164,6 +3643,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3223,6 +3703,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3254,6 +3748,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3313,6 +3808,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3344,6 +3853,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3403,6 +3913,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3434,6 +3958,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3493,6 +4018,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3524,6 +4063,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3584,6 +4124,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3615,6 +4169,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3675,6 +4230,20 @@
                                   "description": "Property to create kind field from class name when serializing.",
                                   "readOnly": true
                                 },
+                                "_du_spec": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Du Spec",
+                                  "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                                  "readOnly": true
+                                },
                                 "input_schema": {
                                   "additionalProperties": true,
                                   "type": "object",
@@ -3706,6 +4275,7 @@
                                 "description",
                                 "action_type",
                                 "kind",
+                                "_du_spec",
                                 "input_schema",
                                 "output_schema",
                                 "title"
@@ -3739,12 +4309,27 @@
                     "title": "Kind",
                     "description": "Property to create kind field from class name when serializing.",
                     "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
                   }
                 },
                 "type": "object",
                 "required": [
                   "llm",
-                  "kind"
+                  "kind",
+                  "_du_spec"
                 ],
                 "title": "Agent"
               }
