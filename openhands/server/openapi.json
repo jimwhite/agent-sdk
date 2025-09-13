@@ -4402,36 +4402,6 @@
             "title": "Type",
             "default": "image"
           },
-          "data": {
-            "type": "string",
-            "title": "Data"
-          },
-          "mimeType": {
-            "type": "string",
-            "title": "Mimetype"
-          },
-          "annotations": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Annotations"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "_meta": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Meta"
-          },
           "image_urls": {
             "items": {
               "type": "string"
@@ -4440,11 +4410,8 @@
             "title": "Image Urls"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "required": [
-          "data",
-          "mimeType",
           "image_urls"
         ],
         "title": "ImageContent"
