@@ -861,6 +861,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         data = self.model_dump()
         for field in self.OVERRIDE_ON_SERIALIZE:
             attr = getattr(self, field)
-            assert attr is not None and isinstance(attr, SecretStr)
-            data[field] = attr.get_secret_value()
+            if attr is not None and isinstance(attr, SecretStr):
+                data[field] = attr.get_secret_value()
         return data
