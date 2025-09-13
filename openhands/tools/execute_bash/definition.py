@@ -1,6 +1,7 @@
 """Execute bash tool implementation."""
 
 import os
+from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import Field
@@ -87,7 +88,7 @@ class ExecuteBashObservation(ObservationBase):
         return self.metadata.pid
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
