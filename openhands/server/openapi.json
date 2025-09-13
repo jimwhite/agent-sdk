@@ -268,50 +268,1186 @@
                   "items": {
                     "oneOf": [
                       {
-                        "$ref": "#/components/schemas/LLMConvertibleEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "description": "The source of this event",
+                            "title": "Source"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "kind"
+                        ],
+                        "title": "LLMConvertibleEvent",
+                        "description": "Base class for events that can be converted to LLM messages.",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/Condensation"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "environment",
+                            "title": "Source"
+                          },
+                          "forgotten_event_ids": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Forgotten Event Ids"
+                          },
+                          "summary": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Summary"
+                          },
+                          "summary_offset": {
+                            "anyOf": [
+                              {
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Summary Offset"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "title": "Condensation",
+                        "description": "This action indicates a condensation of the conversation history is happening.",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/CondensationRequest"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "environment",
+                            "title": "Source"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "title": "CondensationRequest",
+                        "description": "This action is used to request a condensation of the conversation history.\n\nAttributes:\n    action (str): The action type, namely ActionType.CONDENSATION_REQUEST.",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/PauseEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "agent",
+                            "title": "Source"
+                          },
+                          "thought": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/TextContent"
+                            },
+                            "description": "The thought process of the agent before taking this action",
+                            "title": "Thought"
+                          },
+                          "reasoning_content": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Intermediate reasoning/thinking content from reasoning models",
+                            "title": "Reasoning Content"
+                          },
+                          "action": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "security_risk": {
+                                    "enum": [
+                                      "LOW",
+                                      "MEDIUM",
+                                      "HIGH",
+                                      "UNKNOWN"
+                                    ],
+                                    "type": "string",
+                                    "default": "UNKNOWN",
+                                    "description": "The LLM's assessment of the safety risk of this action.",
+                                    "title": "Security Risk"
+                                  },
+                                  "message": {
+                                    "type": "string",
+                                    "description": "Final message to send to the user.",
+                                    "title": "Message"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "message",
+                                  "kind"
+                                ],
+                                "title": "FinishAction",
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "security_risk": {
+                                    "enum": [
+                                      "LOW",
+                                      "MEDIUM",
+                                      "HIGH",
+                                      "UNKNOWN"
+                                    ],
+                                    "type": "string",
+                                    "default": "UNKNOWN",
+                                    "description": "The LLM's assessment of the safety risk of this action.",
+                                    "title": "Security Risk"
+                                  },
+                                  "thought": {
+                                    "type": "string",
+                                    "description": "The thought to log.",
+                                    "title": "Thought"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "thought",
+                                  "kind"
+                                ],
+                                "title": "ThinkAction",
+                                "description": "Action for logging a thought without making any changes.",
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "security_risk": {
+                                    "enum": [
+                                      "LOW",
+                                      "MEDIUM",
+                                      "HIGH",
+                                      "UNKNOWN"
+                                    ],
+                                    "type": "string",
+                                    "default": "UNKNOWN",
+                                    "description": "The LLM's assessment of the safety risk of this action.",
+                                    "title": "Security Risk"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "title": "MCPActionBase",
+                                "description": "Base schema for MCP input action.",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "security_risk": {
+                                    "enum": [
+                                      "LOW",
+                                      "MEDIUM",
+                                      "HIGH",
+                                      "UNKNOWN"
+                                    ],
+                                    "type": "string",
+                                    "default": "UNKNOWN",
+                                    "description": "The LLM's assessment of the safety risk of this action.",
+                                    "title": "Security Risk"
+                                  },
+                                  "command": {
+                                    "type": "string",
+                                    "description": "The bash command to execute. Can be empty string to view additional logs when previous exit code is `-1`. Can be `C-c` (Ctrl+C) to interrupt the currently running process. Note: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together.",
+                                    "title": "Command"
+                                  },
+                                  "is_input": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "If True, the command is an input to the running process. If False, the command is a bash command to be executed in the terminal. Default is False.",
+                                    "title": "Is Input"
+                                  },
+                                  "timeout": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you\u2019ll be asked whether to continue or stop it. If you don\u2019t set a value, the command will instead pause and ask for confirmation when it produces no new output for 30 seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",
+                                    "title": "Timeout"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "command",
+                                  "kind"
+                                ],
+                                "title": "ExecuteBashAction",
+                                "description": "Schema for bash command execution.",
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "security_risk": {
+                                    "enum": [
+                                      "LOW",
+                                      "MEDIUM",
+                                      "HIGH",
+                                      "UNKNOWN"
+                                    ],
+                                    "type": "string",
+                                    "default": "UNKNOWN",
+                                    "description": "The LLM's assessment of the safety risk of this action.",
+                                    "title": "Security Risk"
+                                  },
+                                  "command": {
+                                    "enum": [
+                                      "view",
+                                      "create",
+                                      "str_replace",
+                                      "insert",
+                                      "undo_edit"
+                                    ],
+                                    "type": "string",
+                                    "description": "The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                                    "title": "Command"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "description": "Absolute path to file or directory, e.g. `/workspace/file.py` or `/workspace`.",
+                                    "title": "Path"
+                                  },
+                                  "file_text": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Required parameter of `create` command, with the content of the file to be created.",
+                                    "title": "File Text"
+                                  },
+                                  "old_str": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Required parameter of `str_replace` command containing the string in `path` to replace.",
+                                    "title": "Old Str"
+                                  },
+                                  "new_str": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert.",
+                                    "title": "New Str"
+                                  },
+                                  "insert_line": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.",
+                                    "title": "Insert Line"
+                                  },
+                                  "view_range": {
+                                    "anyOf": [
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.",
+                                    "title": "View Range"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "command",
+                                  "path",
+                                  "kind"
+                                ],
+                                "title": "StrReplaceEditorAction",
+                                "description": "Schema for string replace editor operations.",
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "security_risk": {
+                                    "enum": [
+                                      "LOW",
+                                      "MEDIUM",
+                                      "HIGH",
+                                      "UNKNOWN"
+                                    ],
+                                    "type": "string",
+                                    "default": "UNKNOWN",
+                                    "description": "The LLM's assessment of the safety risk of this action.",
+                                    "title": "Security Risk"
+                                  },
+                                  "command": {
+                                    "enum": [
+                                      "view",
+                                      "plan"
+                                    ],
+                                    "type": "string",
+                                    "default": "view",
+                                    "description": "The command to execute. `view` shows the current task list. `plan` creates or updates the task list based on provided requirements and progress. Always `view` the current list before making changes.",
+                                    "title": "Command"
+                                  },
+                                  "task_list": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/components/schemas/TaskItem"
+                                    },
+                                    "description": "The full task list. Required parameter of `plan` command.",
+                                    "title": "Task List"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "title": "TaskTrackerAction",
+                                "description": "An action where the agent writes or updates a task list for task management.",
+                                "additionalProperties": false
+                              }
+                            ],
+                            "discriminator": {
+                              "propertyName": "kind"
+                            },
+                            "description": "Single action (tool call) returned by LLM",
+                            "title": "Action"
+                          },
+                          "tool_name": {
+                            "type": "string",
+                            "description": "The name of the tool being called",
+                            "title": "Tool Name"
+                          },
+                          "tool_call_id": {
+                            "type": "string",
+                            "description": "The unique id returned by LLM API for this tool call",
+                            "title": "Tool Call Id"
+                          },
+                          "tool_call": {
+                            "$ref": "#/components/schemas/ChatCompletionMessageToolCall",
+                            "description": "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"
+                          },
+                          "llm_response_id": {
+                            "type": "string",
+                            "description": "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response.",
+                            "title": "Llm Response Id"
+                          },
+                          "metrics": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/components/schemas/MetricsSnapshot"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "thought",
+                          "action",
+                          "tool_name",
+                          "tool_call_id",
+                          "tool_call",
+                          "llm_response_id",
+                          "kind"
+                        ],
+                        "title": "ActionEvent",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/SystemPromptEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "agent",
+                            "title": "Source"
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "The error message from the scaffold",
+                            "title": "Error"
+                          },
+                          "metrics": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/components/schemas/MetricsSnapshot"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "error",
+                          "kind"
+                        ],
+                        "title": "AgentErrorEvent",
+                        "description": "Error triggered by the agent.\n\nNote: This event should not contain model \"thought\" or \"reasoning_content\". It\nrepresents an error produced by the agent/scaffold, not model output.",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/ActionEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "title": "Source"
+                          },
+                          "llm_message": {
+                            "$ref": "#/components/schemas/Message",
+                            "description": "The exact LLM message for this message event"
+                          },
+                          "metrics": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/components/schemas/MetricsSnapshot"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Snapshot of LLM metrics (token counts and costs) for this message. Only attached to messages from agent."
+                          },
+                          "activated_microagents": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "List of activated microagent name",
+                            "title": "Activated Microagents"
+                          },
+                          "extended_content": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/TextContent"
+                            },
+                            "description": "List of content added by agent context",
+                            "title": "Extended Content"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          },
+                          "reasoning_content": {
+                            "type": "string",
+                            "readOnly": true,
+                            "title": "Reasoning Content"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "llm_message",
+                          "kind",
+                          "reasoning_content"
+                        ],
+                        "title": "MessageEvent",
+                        "description": "Message from either agent or user.\n\nThis is originally the \"MessageAction\", but it suppose not to be tool call."
                       },
                       {
-                        "$ref": "#/components/schemas/ObservationEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "environment",
+                            "title": "Source"
+                          },
+                          "observation": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "content": {
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "$ref": "#/components/schemas/TextContent"
+                                        },
+                                        {
+                                          "$ref": "#/components/schemas/ImageContent"
+                                        }
+                                      ]
+                                    },
+                                    "description": "Content returned from the MCP tool converted to LLM Ready TextContent or ImageContent",
+                                    "title": "Content"
+                                  },
+                                  "is_error": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Whether the call resulted in an error",
+                                    "title": "Is Error"
+                                  },
+                                  "tool_name": {
+                                    "type": "string",
+                                    "description": "Name of the tool that was called",
+                                    "title": "Tool Name"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "tool_name",
+                                  "kind"
+                                ],
+                                "title": "MCPToolObservation",
+                                "description": "Observation from MCP tool execution.",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "message": {
+                                    "type": "string",
+                                    "description": "Final message sent to the user.",
+                                    "title": "Message"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "message",
+                                  "kind"
+                                ],
+                                "title": "FinishObservation",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "content": {
+                                    "type": "string",
+                                    "default": "Your thought has been logged.",
+                                    "description": "Confirmation message.",
+                                    "title": "Content"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "title": "ThinkObservation",
+                                "description": "Observation returned after logging a thought.",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "output": {
+                                    "type": "string",
+                                    "description": "The raw output from the tool.",
+                                    "title": "Output"
+                                  },
+                                  "command": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "The bash command that was executed. Can be empty string if the observation is from a previous command that hit soft timeout and is not yet finished.",
+                                    "title": "Command"
+                                  },
+                                  "exit_code": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",
+                                    "title": "Exit Code"
+                                  },
+                                  "error": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Whether there was an error during command execution.",
+                                    "title": "Error"
+                                  },
+                                  "timeout": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Whether the command execution timed out.",
+                                    "title": "Timeout"
+                                  },
+                                  "metadata": {
+                                    "$ref": "#/components/schemas/CmdOutputMetadata",
+                                    "description": "Additional metadata captured from PS1 after command execution."
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "output",
+                                  "kind"
+                                ],
+                                "title": "ExecuteBashObservation",
+                                "description": "A ToolResult that can be rendered as a CLI output.",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "command": {
+                                    "enum": [
+                                      "view",
+                                      "create",
+                                      "str_replace",
+                                      "insert",
+                                      "undo_edit"
+                                    ],
+                                    "type": "string",
+                                    "description": "The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                                    "title": "Command"
+                                  },
+                                  "output": {
+                                    "type": "string",
+                                    "default": "",
+                                    "description": "The output message from the tool for the LLM to see.",
+                                    "title": "Output"
+                                  },
+                                  "path": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "The file path that was edited.",
+                                    "title": "Path"
+                                  },
+                                  "prev_exist": {
+                                    "type": "boolean",
+                                    "default": true,
+                                    "description": "Indicates if the file previously existed. If not, it was created.",
+                                    "title": "Prev Exist"
+                                  },
+                                  "old_content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "The content of the file before the edit.",
+                                    "title": "Old Content"
+                                  },
+                                  "new_content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "The content of the file after the edit.",
+                                    "title": "New Content"
+                                  },
+                                  "error": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Error message if any.",
+                                    "title": "Error"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "command",
+                                  "kind"
+                                ],
+                                "title": "StrReplaceEditorObservation",
+                                "description": "A ToolResult that can be rendered as a CLI output.",
+                                "additionalProperties": true
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "content": {
+                                    "type": "string",
+                                    "default": "",
+                                    "description": "The formatted task list or status message",
+                                    "title": "Content"
+                                  },
+                                  "command": {
+                                    "type": "string",
+                                    "default": "",
+                                    "description": "The command that was executed",
+                                    "title": "Command"
+                                  },
+                                  "task_list": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "#/components/schemas/TaskItem"
+                                    },
+                                    "description": "The current task list",
+                                    "title": "Task List"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "readOnly": true,
+                                    "description": "Property to create kind field from class name when serializing.",
+                                    "title": "Kind"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "title": "TaskTrackerObservation",
+                                "description": "This data class represents the result of a task tracking operation.",
+                                "additionalProperties": true
+                              }
+                            ],
+                            "discriminator": {
+                              "propertyName": "kind"
+                            },
+                            "description": "The observation (tool call) sent to LLM",
+                            "title": "Observation"
+                          },
+                          "action_id": {
+                            "type": "string",
+                            "description": "The action id that this observation is responding to",
+                            "title": "Action Id"
+                          },
+                          "tool_name": {
+                            "type": "string",
+                            "description": "The tool name that this observation is responding to",
+                            "title": "Tool Name"
+                          },
+                          "tool_call_id": {
+                            "type": "string",
+                            "description": "The tool call id that this observation is responding to",
+                            "title": "Tool Call Id"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "observation",
+                          "action_id",
+                          "tool_name",
+                          "tool_call_id",
+                          "kind"
+                        ],
+                        "title": "ObservationEvent",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/MessageEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "agent",
+                            "title": "Source"
+                          },
+                          "system_prompt": {
+                            "$ref": "#/components/schemas/TextContent",
+                            "description": "The system prompt text"
+                          },
+                          "tools": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/ChatCompletionToolParam"
+                            },
+                            "description": "List of tools in OpenAI tool format",
+                            "title": "Tools"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "system_prompt",
+                          "tools",
+                          "kind"
+                        ],
+                        "title": "SystemPromptEvent",
+                        "description": "System prompt added by the agent.",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/UserRejectObservation"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "user",
+                            "title": "Source"
+                          },
+                          "action_id": {
+                            "type": "string",
+                            "description": "The action id that this rejection is responding to",
+                            "title": "Action Id"
+                          },
+                          "tool_name": {
+                            "type": "string",
+                            "description": "The tool name that this rejection is responding to",
+                            "title": "Tool Name"
+                          },
+                          "tool_call_id": {
+                            "type": "string",
+                            "description": "The tool call id that this rejection is responding to",
+                            "title": "Tool Call Id"
+                          },
+                          "rejection_reason": {
+                            "type": "string",
+                            "default": "User rejected the action",
+                            "description": "Reason for rejecting the action",
+                            "title": "Rejection Reason"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "action_id",
+                          "tool_name",
+                          "tool_call_id",
+                          "kind"
+                        ],
+                        "title": "UserRejectObservation",
+                        "description": "Observation when user rejects an action in confirmation mode.",
+                        "additionalProperties": false
                       },
                       {
-                        "$ref": "#/components/schemas/AgentErrorEvent"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique event id (ULID/UUID)",
+                            "title": "Id"
+                          },
+                          "timestamp": {
+                            "type": "string",
+                            "description": "Event timestamp",
+                            "title": "Timestamp"
+                          },
+                          "source": {
+                            "enum": [
+                              "agent",
+                              "user",
+                              "environment"
+                            ],
+                            "type": "string",
+                            "default": "user",
+                            "title": "Source"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "readOnly": true,
+                            "description": "Property to create kind field from class name when serializing.",
+                            "title": "Kind"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ],
+                        "title": "PauseEvent",
+                        "description": "Event indicating that the agent execution was paused by user request.",
+                        "additionalProperties": false
                       }
                     ],
                     "discriminator": {
-                      "propertyName": "kind",
-                      "mapping": {
-                        "openhands.sdk.event.base.LLMConvertibleEvent": "#/components/schemas/LLMConvertibleEvent",
-                        "openhands.sdk.event.condenser.Condensation": "#/components/schemas/Condensation",
-                        "openhands.sdk.event.condenser.CondensationRequest": "#/components/schemas/CondensationRequest",
-                        "openhands.sdk.event.user_action.PauseEvent": "#/components/schemas/PauseEvent",
-                        "openhands.sdk.event.llm_convertible.SystemPromptEvent": "#/components/schemas/SystemPromptEvent",
-                        "openhands.sdk.event.llm_convertible.ActionEvent": "#/components/schemas/ActionEvent",
-                        "openhands.sdk.event.llm_convertible.ObservationEvent": "#/components/schemas/ObservationEvent",
-                        "openhands.sdk.event.llm_convertible.MessageEvent": "#/components/schemas/MessageEvent",
-                        "openhands.sdk.event.llm_convertible.UserRejectObservation": "#/components/schemas/UserRejectObservation",
-                        "openhands.sdk.event.llm_convertible.AgentErrorEvent": "#/components/schemas/AgentErrorEvent"
-                      }
+                      "propertyName": "kind"
                     }
                   },
                   "title": "Response Get Conversation Events"
@@ -686,188 +1822,6 @@
   },
   "components": {
     "schemas": {
-      "ActionEvent": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "default": "agent"
-          },
-          "thought": {
-            "items": {
-              "$ref": "#/components/schemas/TextContent"
-            },
-            "type": "array",
-            "title": "Thought",
-            "description": "The thought process of the agent before taking this action"
-          },
-          "reasoning_content": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reasoning Content",
-            "description": "Intermediate reasoning/thinking content from reasoning models"
-          },
-          "action": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/MCPActionBase"
-              },
-              {
-                "$ref": "#/components/schemas/FinishAction"
-              },
-              {
-                "$ref": "#/components/schemas/ThinkAction"
-              }
-            ],
-            "title": "Action",
-            "description": "Single action (tool call) returned by LLM",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "openhands.sdk.tool.builtins.finish.FinishAction": "#/components/schemas/FinishAction",
-                "openhands.sdk.tool.builtins.think.ThinkAction": "#/components/schemas/ThinkAction",
-                "openhands.sdk.tool.schema.MCPActionBase": "#/components/schemas/MCPActionBase"
-              }
-            }
-          },
-          "tool_name": {
-            "type": "string",
-            "title": "Tool Name",
-            "description": "The name of the tool being called"
-          },
-          "tool_call_id": {
-            "type": "string",
-            "title": "Tool Call Id",
-            "description": "The unique id returned by LLM API for this tool call"
-          },
-          "tool_call": {
-            "$ref": "#/components/schemas/ChatCompletionMessageToolCall",
-            "description": "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"
-          },
-          "llm_response_id": {
-            "type": "string",
-            "title": "Llm Response Id",
-            "description": "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response."
-          },
-          "metrics": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MetricsSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "thought",
-          "action",
-          "tool_name",
-          "tool_call_id",
-          "tool_call",
-          "llm_response_id",
-          "kind"
-        ],
-        "title": "ActionEvent"
-      },
-      "AgentBase": {
-        "properties": {
-          "llm": {
-            "$ref": "#/components/schemas/LLM"
-          },
-          "agent_context": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AgentContext"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "tools": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Tool"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "openhands.sdk.tool.tool.Tool": "#/components/schemas/Tool"
-                    }
-                  }
-                },
-                "type": "object"
-              },
-              {
-                "items": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Tool"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "kind",
-                    "mapping": {
-                      "openhands.sdk.tool.tool.Tool": "#/components/schemas/Tool"
-                    }
-                  }
-                },
-                "type": "array"
-              }
-            ],
-            "title": "Tools",
-            "description": "Mapping of tool name to Tool instance that the agent can use. If a list is provided, it should be converted to a mapping by tool name. We need to define this as ToolType for discriminated union."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "llm",
-          "kind"
-        ],
-        "title": "AgentBase"
-      },
       "AgentContext": {
         "properties": {
           "microagents": {
@@ -906,60 +1860,6 @@
         "type": "object",
         "title": "AgentContext",
         "description": "Central structure for managing prompt extension.\n\nAgentContext unifies all the contextual inputs that shape how the system\nextends and interprets user prompts. It combines both static environment\ndetails and dynamic, user-activated extensions from microagents.\n\nSpecifically, it provides:\n- **Repository context / Repo Microagents**: Information about the active codebase,\n  branches, and repo-specific instructions contributed by repo microagents.\n- **Runtime context**: Current execution environment (hosts, working\n  directory, secrets, date, etc.).\n- **Conversation instructions**: Optional task- or channel-specific rules\n  that constrain or guide the agent\u2019s behavior across the session.\n- **Knowledge Microagents**: Extensible components that can be triggered by user input\n  to inject knowledge or domain-specific guidance.\n\nTogether, these elements make AgentContext the primary container responsible\nfor assembling, formatting, and injecting all prompt-relevant context into\nLLM interactions."
-      },
-      "AgentErrorEvent": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "default": "agent"
-          },
-          "error": {
-            "type": "string",
-            "title": "Error",
-            "description": "The error message from the scaffold"
-          },
-          "metrics": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MetricsSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "error",
-          "kind"
-        ],
-        "title": "AgentErrorEvent",
-        "description": "Error triggered by the agent.\n\nNote: This event should not contain model \"thought\" or \"reasoning_content\". It\nrepresents an error produced by the agent/scaffold, not model output."
       },
       "Annotations": {
         "properties": {
@@ -1218,43 +2118,21 @@
         ],
         "title": "CmdExecResponse"
       },
-      "Condensation": {
+      "CmdOutputMetadata": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
+          "exit_code": {
+            "type": "integer",
+            "title": "Exit Code",
+            "description": "The exit code of the last executed command.",
+            "default": -1
           },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
+          "pid": {
+            "type": "integer",
+            "title": "Pid",
+            "description": "The process ID of the last executed command.",
+            "default": -1
           },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "default": "environment"
-          },
-          "forgotten_event_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Forgotten Event Ids"
-          },
-          "summary": {
+          "username": {
             "anyOf": [
               {
                 "type": "string"
@@ -1263,70 +2141,61 @@
                 "type": "null"
               }
             ],
-            "title": "Summary"
+            "title": "Username",
+            "description": "The username of the current user."
           },
-          "summary_offset": {
+          "hostname": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Summary Offset"
+            "title": "Hostname",
+            "description": "The hostname of the machine."
           },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "Condensation",
-        "description": "This action indicates a condensation of the conversation history is happening."
-      },
-      "CondensationRequest": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
+          "working_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Source",
-            "default": "environment"
+            "title": "Working Dir",
+            "description": "The current working directory."
           },
-          "kind": {
+          "py_interpreter_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Py Interpreter Path",
+            "description": "The path to the current Python interpreter, if any."
+          },
+          "prefix": {
             "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
+            "title": "Prefix",
+            "description": "Prefix to add to command output",
+            "default": ""
+          },
+          "suffix": {
+            "type": "string",
+            "title": "Suffix",
+            "description": "Suffix to add to command output",
+            "default": ""
           }
         },
-        "additionalProperties": false,
         "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "CondensationRequest",
-        "description": "This action is used to request a condensation of the conversation history.\n\nAttributes:\n    action (str): The action type, namely ActionType.CONDENSATION_REQUEST."
+        "title": "CmdOutputMetadata",
+        "description": "Additional metadata captured from PS1"
       },
       "ConfirmationResponseRequest": {
         "properties": {
@@ -1357,16 +2226,1533 @@
           "agent": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/AgentBase"
+                "properties": {
+                  "llm": {
+                    "$ref": "#/components/schemas/LLM"
+                  },
+                  "agent_context": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/AgentContext"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tools": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": {
+                          "oneOf": [
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "mcp_tool": {
+                                  "$ref": "#/components/schemas/Tool",
+                                  "description": "The MCP tool definition."
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "mcp_tool",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "MCPTool",
+                              "description": "MCP Tool that wraps an MCP client and provides tool functionality."
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[ExecuteBashAction, ExecuteBashObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[MCPActionBase, MCPToolObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[StrReplaceEditorAction, StrReplaceEditorObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[TaskTrackerAction, TaskTrackerObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "BashTool",
+                              "description": "A Tool subclass that automatically initializes a BashExecutor with auto-detection."
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "FileEditorTool",
+                              "description": "A Tool subclass that automatically initializes a FileEditorExecutor."
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "TaskTrackerTool",
+                              "description": "A Tool subclass that automatically initializes a TaskTrackerExecutor."
+                            }
+                          ],
+                          "discriminator": {
+                            "propertyName": "kind"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      {
+                        "items": {
+                          "oneOf": [
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "mcp_tool": {
+                                  "$ref": "#/components/schemas/Tool",
+                                  "description": "The MCP tool definition."
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "mcp_tool",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "MCPTool",
+                              "description": "MCP Tool that wraps an MCP client and provides tool functionality."
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[ExecuteBashAction, ExecuteBashObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[MCPActionBase, MCPToolObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[StrReplaceEditorAction, StrReplaceEditorObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "Tool[TaskTrackerAction, TaskTrackerObservation]"
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "BashTool",
+                              "description": "A Tool subclass that automatically initializes a BashExecutor with auto-detection."
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "FileEditorTool",
+                              "description": "A Tool subclass that automatically initializes a FileEditorExecutor."
+                            },
+                            {
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "title": "Name"
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "title": "Description"
+                                },
+                                "action_type": {
+                                  "type": "string",
+                                  "title": "Action Type"
+                                },
+                                "observation_type": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Observation Type"
+                                },
+                                "annotations": {
+                                  "anyOf": [
+                                    {
+                                      "$ref": "#/components/schemas/openhands__sdk__tool__tool__ToolAnnotations"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "meta": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Meta"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "title": "Kind",
+                                  "description": "Property to create kind field from class name when serializing.",
+                                  "readOnly": true
+                                },
+                                "input_schema": {
+                                  "additionalProperties": true,
+                                  "type": "object",
+                                  "title": "Input Schema",
+                                  "readOnly": true
+                                },
+                                "output_schema": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": true,
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "title": "Output Schema",
+                                  "readOnly": true
+                                },
+                                "title": {
+                                  "type": "string",
+                                  "title": "Title",
+                                  "readOnly": true
+                                }
+                              },
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "action_type",
+                                "kind",
+                                "input_schema",
+                                "output_schema",
+                                "title"
+                              ],
+                              "title": "TaskTrackerTool",
+                              "description": "A Tool subclass that automatically initializes a TaskTrackerExecutor."
+                            }
+                          ],
+                          "discriminator": {
+                            "propertyName": "kind"
+                          }
+                        },
+                        "type": "array"
+                      }
+                    ],
+                    "title": "Tools",
+                    "description": "Mapping of tool name to Tool instance that the agent can use. If a list is provided, it should be converted to a mapping by tool name. We need to define this as ToolType for discriminated union."
+                  },
+                  "system_prompt_filename": {
+                    "type": "string",
+                    "title": "System Prompt Filename",
+                    "default": "system_prompt.j2"
+                  },
+                  "cli_mode": {
+                    "type": "boolean",
+                    "title": "Cli Mode",
+                    "default": true
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "llm",
+                  "kind"
+                ],
+                "title": "Agent"
               }
             ],
             "title": "Agent",
             "description": "The agent running in the conversation. This is persisted to allow resuming conversations and check agent configuration to handle e.g., tool changes, LLM changes, etc.",
             "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "openhands.sdk.agent.base.AgentBase": "#/components/schemas/AgentBase"
-              }
+              "propertyName": "kind"
             }
           },
           "agent_finished": {
@@ -1404,62 +3790,6 @@
           "agent"
         ],
         "title": "ConversationState"
-      },
-      "FinishAction": {
-        "properties": {
-          "security_risk": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "UNKNOWN"
-            ],
-            "title": "Security Risk",
-            "description": "The LLM's assessment of the safety risk of this action.",
-            "default": "UNKNOWN"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message",
-            "description": "Final message to send to the user."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "message",
-          "kind"
-        ],
-        "title": "FinishAction"
-      },
-      "FinishObservation": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "title": "Message",
-            "description": "Final message sent to the user."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "message",
-          "kind"
-        ],
-        "title": "FinishObservation"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1920,44 +4250,6 @@
         "title": "LLM",
         "description": "Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."
       },
-      "LLMConvertibleEvent": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "description": "The source of this event"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "source",
-          "kind"
-        ],
-        "title": "LLMConvertibleEvent",
-        "description": "Base class for events that can be converted to LLM messages."
-      },
       "ListConversationsItem": {
         "properties": {
           "conversation_id": {
@@ -1974,35 +4266,6 @@
           "state"
         ],
         "title": "ListConversationsItem"
-      },
-      "MCPActionBase": {
-        "properties": {
-          "security_risk": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "UNKNOWN"
-            ],
-            "title": "Security Risk",
-            "description": "The LLM's assessment of the safety risk of this action.",
-            "default": "UNKNOWN"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "MCPActionBase",
-        "description": "Base schema for MCP input action."
       },
       "Message": {
         "properties": {
@@ -2105,80 +4368,6 @@
         ],
         "title": "Message"
       },
-      "MessageEvent": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source"
-          },
-          "llm_message": {
-            "$ref": "#/components/schemas/Message",
-            "description": "The exact LLM message for this message event"
-          },
-          "metrics": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MetricsSnapshot"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Snapshot of LLM metrics (token counts and costs) for this message. Only attached to messages from agent."
-          },
-          "activated_microagents": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Activated Microagents",
-            "description": "List of activated microagent name"
-          },
-          "extended_content": {
-            "items": {
-              "$ref": "#/components/schemas/TextContent"
-            },
-            "type": "array",
-            "title": "Extended Content",
-            "description": "List of content added by agent context"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          },
-          "reasoning_content": {
-            "type": "string",
-            "title": "Reasoning Content",
-            "readOnly": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "source",
-          "llm_message",
-          "kind",
-          "reasoning_content"
-        ],
-        "title": "MessageEvent",
-        "description": "Message from either agent or user.\n\nThis is originally the \"MessageAction\", but it suppose not to be tool call."
-      },
       "MetricsSnapshot": {
         "properties": {
           "model_name": {
@@ -2221,117 +4410,6 @@
         "type": "object",
         "title": "MetricsSnapshot",
         "description": "A snapshot of metrics at a point in time.\n\nDoes not include lists of individual costs, latencies, or token usages."
-      },
-      "ObservationEvent": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "default": "environment"
-          },
-          "observation": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FinishObservation"
-              },
-              {
-                "$ref": "#/components/schemas/ThinkObservation"
-              }
-            ],
-            "title": "Observation",
-            "description": "The observation (tool call) sent to LLM",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "openhands.sdk.tool.builtins.finish.FinishObservation": "#/components/schemas/FinishObservation",
-                "openhands.sdk.tool.builtins.think.ThinkObservation": "#/components/schemas/ThinkObservation"
-              }
-            }
-          },
-          "action_id": {
-            "type": "string",
-            "title": "Action Id",
-            "description": "The action id that this observation is responding to"
-          },
-          "tool_name": {
-            "type": "string",
-            "title": "Tool Name",
-            "description": "The tool name that this observation is responding to"
-          },
-          "tool_call_id": {
-            "type": "string",
-            "title": "Tool Call Id",
-            "description": "The tool call id that this observation is responding to"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "observation",
-          "action_id",
-          "tool_name",
-          "tool_call_id",
-          "kind"
-        ],
-        "title": "ObservationEvent"
-      },
-      "PauseEvent": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "default": "user"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "PauseEvent",
-        "description": "Event indicating that the agent execution was paused by user request."
       },
       "SendMessageRequest": {
         "properties": {
@@ -2491,56 +4569,36 @@
         ],
         "title": "StartConversationResponse"
       },
-      "SystemPromptEvent": {
+      "TaskItem": {
         "properties": {
-          "id": {
+          "title": {
             "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
+            "title": "Title",
+            "description": "A brief title for the task."
           },
-          "timestamp": {
+          "notes": {
             "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
+            "title": "Notes",
+            "description": "Additional details or notes about the task.",
+            "default": ""
           },
-          "source": {
+          "status": {
             "type": "string",
             "enum": [
-              "agent",
-              "user",
-              "environment"
+              "todo",
+              "in_progress",
+              "done"
             ],
-            "title": "Source",
-            "default": "agent"
-          },
-          "system_prompt": {
-            "$ref": "#/components/schemas/TextContent",
-            "description": "The system prompt text"
-          },
-          "tools": {
-            "items": {
-              "$ref": "#/components/schemas/ChatCompletionToolParam"
-            },
-            "type": "array",
-            "title": "Tools",
-            "description": "List of tools in OpenAI tool format"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
+            "title": "Status",
+            "description": "The current status of the task. One of 'todo', 'in_progress', or 'done'.",
+            "default": "todo"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "required": [
-          "system_prompt",
-          "tools",
-          "kind"
+          "title"
         ],
-        "title": "SystemPromptEvent",
-        "description": "System prompt added by the agent."
+        "title": "TaskItem"
       },
       "TextContent": {
         "properties": {
@@ -2588,64 +4646,6 @@
           "text"
         ],
         "title": "TextContent"
-      },
-      "ThinkAction": {
-        "properties": {
-          "security_risk": {
-            "type": "string",
-            "enum": [
-              "LOW",
-              "MEDIUM",
-              "HIGH",
-              "UNKNOWN"
-            ],
-            "title": "Security Risk",
-            "description": "The LLM's assessment of the safety risk of this action.",
-            "default": "UNKNOWN"
-          },
-          "thought": {
-            "type": "string",
-            "title": "Thought",
-            "description": "The thought to log."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "thought",
-          "kind"
-        ],
-        "title": "ThinkAction",
-        "description": "Action for logging a thought without making any changes."
-      },
-      "ThinkObservation": {
-        "properties": {
-          "content": {
-            "type": "string",
-            "title": "Content",
-            "description": "Confirmation message.",
-            "default": "Your thought has been logged."
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "title": "ThinkObservation",
-        "description": "Observation returned after logging a thought."
       },
       "TokenUsage": {
         "properties": {
@@ -2719,15 +4719,7 @@
             "type": "string",
             "title": "Name"
           },
-          "description": {
-            "type": "string",
-            "title": "Description"
-          },
-          "action_type": {
-            "type": "string",
-            "title": "Action Type"
-          },
-          "observation_type": {
+          "title": {
             "anyOf": [
               {
                 "type": "string"
@@ -2736,19 +4728,47 @@
                 "type": "null"
               }
             ],
-            "title": "Observation Type"
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "inputSchema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inputschema"
+          },
+          "outputSchema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputschema"
           },
           "annotations": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ToolAnnotations"
+                "$ref": "#/components/schemas/mcp__types__ToolAnnotations"
               },
               {
                 "type": "null"
               }
             ]
           },
-          "meta": {
+          "_meta": {
             "anyOf": [
               {
                 "additionalProperties": true,
@@ -2759,52 +4779,145 @@
               }
             ],
             "title": "Meta"
-          },
-          "kind": {
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "name",
+          "inputSchema"
+        ],
+        "title": "Tool",
+        "description": "Definition for a tool the client can call."
+      },
+      "ToolSpec": {
+        "properties": {
+          "name": {
             "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
+            "title": "Name",
+            "description": "Name of the tool class, e.g., 'BashTool', must be importable from openhands.tools",
+            "examples": [
+              "BashTool",
+              "FileEditorTool",
+              "TaskTrackerTool"
+            ]
           },
-          "input_schema": {
+          "params": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Input Schema",
-            "readOnly": true
+            "title": "Params",
+            "description": "Parameters for the tool's .create() method, e.g., {'working_dir': '/app'}",
+            "examples": [
+              {
+                "working_dir": "/workspace"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ToolSpec",
+        "description": "Defines a tool to be initialized for the agent.\n\nThis is only used in agent-sdk for type schema for server use."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
           },
-          "output_schema": {
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "mcp__types__ToolAnnotations": {
+        "properties": {
+          "title": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Output Schema",
-            "readOnly": true
+            "title": "Title"
           },
-          "title": {
-            "type": "string",
-            "title": "Title",
-            "readOnly": true
+          "readOnlyHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readonlyhint"
+          },
+          "destructiveHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destructivehint"
+          },
+          "idempotentHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotenthint"
+          },
+          "openWorldHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openworldhint"
           }
         },
+        "additionalProperties": true,
         "type": "object",
-        "required": [
-          "name",
-          "description",
-          "action_type",
-          "kind",
-          "input_schema",
-          "output_schema",
-          "title"
-        ],
-        "title": "Tool",
-        "description": "Tool that wraps an executor function with input/output validation and schema.\n\n- Normalize input/output schemas (class or dict) into both model+schema.\n- Validate inputs before execute.\n- Coerce outputs only if an output model is defined; else return vanilla JSON.\n- Export MCP tool description."
+        "title": "ToolAnnotations",
+        "description": "Additional properties describing a Tool to clients.\n\nNOTE: all properties in ToolAnnotations are **hints**.\nThey are not guaranteed to provide a faithful description of\ntool behavior (including descriptive properties like `title`).\n\nClients should never make tool use decisions based on ToolAnnotations\nreceived from untrusted servers."
       },
-      "ToolAnnotations": {
+      "openhands__sdk__tool__tool__ToolAnnotations": {
         "properties": {
           "title": {
             "anyOf": [
@@ -2844,133 +4957,8 @@
           }
         },
         "type": "object",
-        "title": "ToolAnnotations",
+        "title": "openhands.sdk.tool.tool.ToolAnnotations",
         "description": "Annotations to provide hints about the tool's behavior.\n\nBased on Model Context Protocol (MCP) spec:\nhttps://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838"
-      },
-      "ToolSpec": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "description": "Name of the tool class, e.g., 'BashTool', must be importable from openhands.tools",
-            "examples": [
-              "BashTool",
-              "FileEditorTool",
-              "TaskTrackerTool"
-            ]
-          },
-          "params": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Params",
-            "description": "Parameters for the tool's .create() method, e.g., {'working_dir': '/app'}",
-            "examples": [
-              {
-                "working_dir": "/workspace"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "ToolSpec",
-        "description": "Defines a tool to be initialized for the agent.\n\nThis is only used in agent-sdk for type schema for server use."
-      },
-      "UserRejectObservation": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Unique event id (ULID/UUID)"
-          },
-          "timestamp": {
-            "type": "string",
-            "title": "Timestamp",
-            "description": "Event timestamp"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "agent",
-              "user",
-              "environment"
-            ],
-            "title": "Source",
-            "default": "user"
-          },
-          "action_id": {
-            "type": "string",
-            "title": "Action Id",
-            "description": "The action id that this rejection is responding to"
-          },
-          "tool_name": {
-            "type": "string",
-            "title": "Tool Name",
-            "description": "The tool name that this rejection is responding to"
-          },
-          "tool_call_id": {
-            "type": "string",
-            "title": "Tool Call Id",
-            "description": "The tool call id that this rejection is responding to"
-          },
-          "rejection_reason": {
-            "type": "string",
-            "title": "Rejection Reason",
-            "description": "Reason for rejecting the action",
-            "default": "User rejected the action"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Property to create kind field from class name when serializing.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "action_id",
-          "tool_name",
-          "tool_call_id",
-          "kind"
-        ],
-        "title": "UserRejectObservation",
-        "description": "Observation when user rejects an action in confirmation mode."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
       }
     },
     "securitySchemes": {
