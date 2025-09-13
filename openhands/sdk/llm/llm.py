@@ -1,9 +1,22 @@
+from __future__ import annotations
+
 import copy
 import json
 import os
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, Literal, cast, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Callable,
+    Literal,
+    Sequence,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import httpx
 from pydantic import (
@@ -57,8 +70,11 @@ from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
-logger = get_logger(__name__)
+if TYPE_CHECKING:
+    from openhands.sdk.tool import Tool
 
+logger = get_logger(__name__)
+CallKind = Literal["chat", "responses"]
 
 __all__ = ["LLM"]
 
@@ -71,6 +87,33 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     InternalServerError,
     LLMNoResponseError,
 )
+
+# ---------------------------
+# Discriminated union context
+# ---------------------------
+
+
+class _BaseCtxModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    call_kwargs: dict[str, Any]
+    log_ctx: dict[str, Any]
+    tools: list[ChatCompletionToolParam] = Field(default_factory=list)
+
+
+class ChatCtx(_BaseCtxModel):
+    kind: Literal["chat"]
+    messages: list[dict[str, Any]]
+    # internal to support mocked tool-calls
+    nonfn_msgs: list[dict[str, Any]] | None = None
+    use_mock_tools: bool = False
+
+
+class ResponsesCtx(_BaseCtxModel):
+    kind: Literal["responses"]
+    input: list[dict[str, Any]]
+
+
+ReqCtx = Annotated[Union[ChatCtx, ResponsesCtx], Field(discriminator="kind")]
 
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
@@ -303,16 +346,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[dict[str, Any]] | list[Message],
-        tools: list[ChatCompletionToolParam] | None = None,
+        tools: list[ChatCompletionToolParam] | list["Tool"] | None = None,
         return_metrics: bool = False,
         **kwargs,
     ) -> ModelResponse:
-        """Single entry point for LLM completion.
+        """Get a completion from the LLM.
 
         Serialize messages/tools → (maybe) mock tools
           → normalize → transport → postprocess.
         """
-        # Check if streaming is requested
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
@@ -324,92 +366,32 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ):
             return self.responses(messages=messages, tools=tools, **kwargs)
 
-        # 1) serialize messages for Chat Completions path
+        # Serialize Message objects if present
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
         else:
             messages = cast(list[dict[str, Any]], messages)
 
-        # 2) choose function-calling strategy
-        use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(messages)
-        use_mock_tools = self.should_mock_tool_calls(tools)
-        if use_mock_tools:
-            logger.debug(
-                "LLM.completion: mocking function-calling via prompt "
-                f"for model {self.model}"
-            )
-            messages, kwargs = self.pre_request_prompt_mock(
-                messages, tools or [], kwargs
-            )
+        # Convert tools
+        from openhands.sdk.tool import Tool
 
-        # 3) normalize provider params
-        kwargs["tools"] = tools  # we might remove this field in _normalize_call_kwargs
-        has_tools_flag = (
-            bool(tools) and use_native_fc
-        )  # only keep tools when native FC is active
-        call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
+        if tools:
+            tools = [t.to_openai_tool() if isinstance(t, Tool) else t for t in tools]
 
-        # 4) optional request logging context (kept small)
-        assert self._telemetry is not None
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "messages": messages[:],  # already simple dicts
-                "tools": tools,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": (self.max_input_tokens or 0),
-            }
-            if tools and not use_native_fc:
-                log_ctx["raw_messages"] = original_fncall_msgs
-        self._telemetry.on_request(log_ctx=log_ctx)
-
-        # 5) do the call with retries
-        @self.retry_decorator(
-            num_retries=self.num_retries,
-            retry_exceptions=LLM_RETRY_EXCEPTIONS,
-            retry_min_wait=self.retry_min_wait,
-            retry_max_wait=self.retry_max_wait,
-            retry_multiplier=self.retry_multiplier,
-            retry_listener=self.retry_listener,
+        return self._unified_request(
+            kind="chat",
+            messages=messages,
+            tools=tools or [],
+            **kwargs,
         )
-        def _one_attempt(**retry_kwargs) -> ModelResponse:
-            assert self._telemetry is not None
-            # Merge retry-modified kwargs (like temperature) with call_kwargs
-            final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=messages, **final_kwargs)
-            raw_resp: ModelResponse | None = None
-            if use_mock_tools:
-                raw_resp = copy.deepcopy(resp)
-                resp = self.post_response_prompt_mock(
-                    resp, nonfncall_msgs=messages, tools=tools or []
-                )
-            # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
-            # Ensure at least one choice
-            if not resp.get("choices") or len(resp["choices"]) < 1:
-                raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(resp)
-                )
-            return resp
-
-        try:
-            resp = _one_attempt()
-            return resp
-        except Exception as e:
-            self._telemetry.on_error(e)
-            raise
 
     def responses(
         self,
         messages: list[dict[str, Any]] | list[Message] | str | None = None,
-        input: str | None = None,
+        input: list[dict[str, Any]] | None = None,
+        tools: Sequence[dict[str, Any]] | None = None,
         **kwargs,
     ) -> ModelResponse:
-        """Use the Responses API path if supported by the model.
-
-        Note: only one of `messages` or `input` should be provided.
-        """
         if not get_features(self.model).supports_responses_api:
             raise ValueError(
                 f"Model {self.model} does not support the Responses API. "
@@ -424,42 +406,55 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             messages = cast(list[dict[str, Any]], messages)
 
-        return self._responses_request(messages=messages, input=input, **kwargs)
+        if messages is not None:
+            if len(messages) == 0:
+                raise ValueError("messages cannot be an empty list")
+            # Convert messages to a list of inputs for Responses API
+            # messages here are already plain dicts via format_messages_for_llm
+            input = messages_to_responses_items(messages)
 
-    def _responses_request(
+        if input is None:
+            raise ValueError("Either messages or input must be provided")
+
+        # Convert tools
+        from openhands.sdk.tool import Tool
+
+        if tools:
+            tools = [t.to_responses_tool() if isinstance(t, Tool) else t for t in tools]
+
+        return self._unified_request(
+            kind="responses",
+            input=input,
+            tools=tools or [],
+            **kwargs,
+        )
+
+    # ---------------------------
+    # Unified engine
+    # ---------------------------
+
+    def _unified_request(
         self,
         *,
+        kind: CallKind,
         messages: list[dict[str, Any]] | None = None,
-        input: str | None = None,
-        tools: list[Any] | None = None,
+        input: list[dict[str, Any]] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> ModelResponse:
         assert self._telemetry is not None
-        if input is not None:
-            input_payload = input
-        elif messages is not None:
-            if isinstance(messages, str):
-                input_payload = messages
-            else:
-                # messages here are already plain dicts via format_messages_for_llm
-                input_payload = messages_to_responses_items(messages)
-        else:
-            raise ValueError("Either 'messages' or 'input' parameter must be provided")
 
-        # Normalize kwargs for Responses API
-        if tools is not None:
-            kwargs = {**kwargs, "tools": tools}
-        call_kwargs = self._normalize_responses_kwargs(kwargs)
+        kwargs["tools"] = tools  # might be removed in _normalize_kwargs
 
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "input": input_payload,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": (self.max_input_tokens or 0),
-            }
-        self._telemetry.on_request(log_ctx=log_ctx)
+        # 1) Build validated context (Pydantic will enforce required fields by kind)
+        ctx: ReqCtx = self._build_ctx(
+            kind=kind, messages=messages, input=input, tools=tools or [], opts=kwargs
+        )
 
+        # 2) Telemetry (request)
+        self._telemetry.on_request(log_ctx=ctx.log_ctx)
+
+        # 3) Retry wrapper
         @self.retry_decorator(
             num_retries=self.num_retries,
             retry_exceptions=LLM_RETRY_EXCEPTIONS,
@@ -469,26 +464,154 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_listener=self.retry_listener,
         )
         def _one_attempt() -> ModelResponse:
-            raw = self._transport_responses_call(input=input_payload, **call_kwargs)
-            # Convert raw Responses into ChatCompletions-compatible response
-            converted = responses_to_completion_format(raw)
-            assert self._telemetry is not None
-            self._telemetry.on_response(converted, raw_resp=raw)
-            if not converted.get("choices") or len(converted["choices"]) < 1:
+            # Transport
+            resp = self._transport_dispatch(ctx)
+
+            # Post-process + telemetry (response)
+            resp = self._postprocess_dispatch(ctx, resp)
+
+            # Response invariant
+            if not resp.get("choices") or len(resp["choices"]) < 1:
                 raise LLMNoResponseError(
-                    "Response choices is less than 1. Response: " + str(converted)
+                    "Response choices is less than 1. Response: " + str(resp)
                 )
-            return converted
+            return resp
 
-        return _one_attempt()
+        try:
+            return _one_attempt()
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
 
-    # =========================================================================
-    # Transport + helpers
-    # =========================================================================
-    def _transport_call(
-        self, *, messages: list[dict[str, Any]], **kwargs
-    ) -> ModelResponse:
-        # litellm.modify_params is GLOBAL; guard it for thread-safety
+    # ---------------------------
+    # Build + normalize once
+    # ---------------------------
+
+    def _build_ctx(
+        self,
+        *,
+        kind: CallKind,
+        messages: list[dict[str, Any]] | None,
+        input: list[dict[str, Any]] | None,
+        tools: list[dict[str, Any]] | None,
+        opts: dict[str, Any],
+    ) -> ReqCtx:
+        # Mock tools for non-native function-calling
+        nonfn_msgs = copy.deepcopy(messages or [])
+        use_mock_tools = self.should_mock_tool_calls(tools)
+        if kind == "chat" and use_mock_tools:
+            logger.debug(
+                "LLM.completion: mocking function-calling via prompt "
+                f"for model {self.model}"
+            )
+            nonfn_msgs, opts = self.pre_request_prompt_mock(messages, tools or [], opts)
+
+        has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
+        call_kwargs = self._normalize_kwargs(kind, opts, has_tools=has_tools)
+
+        # Build log context (what we write is exactly what we send)
+        log_ctx: dict[str, Any] = {
+            "kwargs": {k: v for k, v in call_kwargs.items()},
+            "context_window": self.max_input_tokens,
+        }
+
+        # Build the request context
+        if kind == "chat":
+            log_ctx["messages"] = (messages or [])[:]
+            log_ctx["tools"] = tools if has_tools else None
+            if nonfn_msgs is not None:
+                log_ctx["raw_messages"] = nonfn_msgs
+            return ChatCtx(
+                kind="chat",
+                messages=messages or [],
+                nonfn_msgs=nonfn_msgs,
+                use_mock_tools=use_mock_tools,
+                call_kwargs=call_kwargs,
+                log_ctx=log_ctx,
+                tools=tools,
+            )
+        else:
+            log_ctx["input"] = (input or [])[:]
+            return ResponsesCtx(
+                kind="responses",
+                input=input or [],
+                call_kwargs=call_kwargs,
+                log_ctx=log_ctx,
+                tools=tools,
+            )
+
+    def _normalize_kwargs(self, kind: CallKind, opts: dict, *, has_tools: bool) -> dict:
+        out = dict(opts)
+
+        # Respect configured sampling params unless reasoning models override
+        if self.top_k is not None:
+            out.setdefault("top_k", self.top_k)
+        if self.top_p is not None:
+            out.setdefault("top_p", self.top_p)
+        if self.temperature is not None:
+            out.setdefault("temperature", self.temperature)
+
+        # Max tokens (chat vs responses)
+        if kind == "chat":
+            if self.max_output_tokens is not None:
+                out.setdefault("max_completion_tokens", self.max_output_tokens)
+            if self.model.startswith("azure") and "max_completion_tokens" in out:
+                out["max_tokens"] = out.pop("max_completion_tokens")
+        else:
+            if self.max_output_tokens is not None:
+                out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # Reasoning-model quirks
+        if get_features(self.model).supports_reasoning_effort:
+            if self.reasoning_effort is not None:
+                out["reasoning_effort"] = (
+                    self.reasoning_effort
+                    if self.reasoning_effort not in (None, "none")
+                    else "low"
+                )
+            out.pop("temperature", None)
+            out.pop("top_p", None)
+
+        # Anthropic Opus 4.1: prefer temperature when
+        # both provided; disable extended thinking
+        if "claude-opus-4-1" in self.model.lower():
+            if "temperature" in out and "top_p" in out:
+                out.pop("top_p", None)
+            out.setdefault("thinking", {"type": "disabled"})
+
+        # Responses API specific!
+        if kind == "responses":
+            out.setdefault(
+                "reasoning",
+                {"effort": out.get("reasoning_effort", "low"), "summary": "detailed"},
+            )
+
+        # Mistral / Gemini safety
+        if self.safety_settings:
+            ml = self.model.lower()
+            if "mistral" in ml or "gemini" in ml:
+                out["safety_settings"] = self.safety_settings
+
+        # Tools only when native FC
+        if not has_tools:
+            out.pop("tools", None)
+            out.pop("tool_choice", None)
+
+        # Responses API doesn't support stop/tools
+        if kind == "responses":
+            out.pop("stop", None)
+
+        # Only keep extra_body for litellm_proxy
+        if "litellm_proxy" not in self.model:
+            out.pop("extra_body", None)
+
+        return out
+
+    # ---------------------------
+    # Transport + postprocess
+    # ---------------------------
+
+    def _transport_dispatch(self, ctx: ReqCtx) -> ModelResponse:
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -504,46 +627,56 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r"There is no current event loop",
                     category=DeprecationWarning,
                 )
-                # Some providers need renames handled in _normalize_call_kwargs.
-                ret = litellm_completion(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    drop_params=self.drop_params,
-                    seed=self.seed,
-                    messages=messages,
-                    **kwargs,
-                )
-                logger.debug("Raw completion response: %s", ret)
-                assert isinstance(ret, ModelResponse), (
-                    f"Expected ModelResponse, got {type(ret)}"
-                )
-                return ret
 
-    def _transport_responses_call(self, *, input: Any, **kwargs) -> Any:
-        with self._litellm_modify_params_ctx(self.modify_params):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", category=DeprecationWarning, module="httpx.*"
-                )
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r".*content=.*upload.*",
-                    category=DeprecationWarning,
-                )
-                ret = litellm_responses(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    api_base=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    input=input,
-                    **kwargs,
-                )
-                logger.debug("Raw responses result: %s", ret)
-                return ret
+                if ctx.kind == "chat":
+                    ret = litellm_completion(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        messages=ctx.messages,  # type: ignore[attr-defined]
+                        **ctx.call_kwargs,
+                    )
+                    assert isinstance(ret, ModelResponse)
+                    return ret
+                else:
+                    raw = litellm_responses(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        input=ctx.input,  # type: ignore[attr-defined]
+                        **ctx.call_kwargs,
+                    )
+                    return responses_to_completion_format(raw)
+
+    def _postprocess_dispatch(self, ctx: ReqCtx, resp: ModelResponse) -> ModelResponse:
+        assert self._telemetry is not None
+        # tool-mocking only applies to chat when we mocked pre-request
+        if ctx.kind == "chat" and getattr(ctx, "use_mock_tools", False):  # type: ignore[attr-defined]
+            raw_resp = copy.deepcopy(resp)
+            resp = self.post_response_prompt_mock(
+                resp,
+                nonfncall_msgs=getattr(ctx, "nonfn_msgs") or [],  # type: ignore[attr-defined]
+                tools=ctx.tools,
+            )
+            # keep raw vs converted for telemetry parity
+            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            return resp
+        self._telemetry.on_response(resp)
+        return resp
+
+    # =========================================================================
+    # Helpers
+    # =========================================================================
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
@@ -553,118 +686,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             yield
         finally:
             litellm.modify_params = old
-
-    def _normalize_call_kwargs(self, opts: dict, *, has_tools: bool) -> dict:
-        """Central place for provider quirks + param harmonization."""
-        out = dict(opts)
-
-        # Respect configured sampling params unless reasoning models override
-        if self.top_k is not None:
-            out.setdefault("top_k", self.top_k)
-        if self.top_p is not None:
-            out.setdefault("top_p", self.top_p)
-        if self.temperature is not None:
-            out.setdefault("temperature", self.temperature)
-
-        # Max tokens wiring differences
-        if self.max_output_tokens is not None:
-            # OpenAI-compatible param is `max_completion_tokens`
-            out.setdefault("max_completion_tokens", self.max_output_tokens)
-
-        # Azure -> uses max_tokens instead
-        if self.model.startswith("azure"):
-            if "max_completion_tokens" in out:
-                out["max_tokens"] = out.pop("max_completion_tokens")
-
-        # Reasoning-model quirks
-        if get_features(self.model).supports_reasoning_effort:
-            # Preferred: use reasoning_effort
-            if self.reasoning_effort is not None:
-                out["reasoning_effort"] = self.reasoning_effort
-            # Anthropic/OpenAI reasoning models ignore temp/top_p
-            out.pop("temperature", None)
-            out.pop("top_p", None)
-            # Gemini 2.5-pro default to low if not set
-            # otherwise litellm doesn't send reasoning, even though it happens
-            if "gemini-2.5-pro" in self.model:
-                if self.reasoning_effort in {None, "none"}:
-                    out["reasoning_effort"] = "low"
-
-        # Anthropic Opus 4.1: prefer temperature when
-        # both provided; disable extended thinking
-        if "claude-opus-4-1" in self.model.lower():
-            if "temperature" in out and "top_p" in out:
-                out.pop("top_p", None)
-            out.setdefault("thinking", {"type": "disabled"})
-
-        # Mistral / Gemini safety
-        if self.safety_settings:
-            ml = self.model.lower()
-            if "mistral" in ml or "gemini" in ml:
-                out["safety_settings"] = self.safety_settings
-
-        # Tools: if not using native, strip tool_choice so we don't confuse providers
-        if not has_tools:
-            out.pop("tools", None)
-            out.pop("tool_choice", None)
-
-        # non litellm proxy special-case: keep `extra_body` off unless model requires it
-        if "litellm_proxy" not in self.model:
-            out.pop("extra_body", None)
-
-        return out
-
-    def _normalize_responses_kwargs(self, opts: dict) -> dict:
-        out = dict(opts)
-        if self.top_k is not None:
-            out.setdefault("top_k", self.top_k)
-        if self.max_output_tokens is not None:
-            out.setdefault("max_output_tokens", self.max_output_tokens)
-
-        # reasoning
-        if self.reasoning_effort is not None:
-            out["reasoning_effort"] = self.reasoning_effort
-        effort = (
-            self.reasoning_effort
-            if self.reasoning_effort not in (None, "none")
-            else "low"
-        )
-        out.setdefault("reasoning", {"effort": effort, "summary": "detailed"})
-
-        # reasoning models don't like temp/top_p/stop
-        out.pop("temperature", None)
-        out.pop("top_p", None)
-        out.pop("stop", None)
-
-        # Tools mapping: accept either our Tool objects or OpenAI-style dicts
-        tools_param = out.get("tools")
-        if tools_param:
-            converted: list[dict] = []
-            for t in tools_param:
-                if hasattr(t, "to_responses"):
-                    converted.append(t.to_responses())  # type: ignore[attr-defined]
-                else:
-                    fn = t.get("function", {}) if isinstance(t, dict) else {}
-                    name = fn.get("name")
-                    desc = fn.get("description")
-                    params = fn.get("parameters")
-                    td: dict[str, Any] = {"type": "function"}
-                    if name is not None:
-                        td["name"] = name
-                    if desc is not None:
-                        td["description"] = desc
-                    if params is not None:
-                        td["parameters"] = params
-                    converted.append(td)
-            out["tools"] = converted
-        # tool_choice schema is compatible – pass through as-is
-
-        # Default to storing Responses for better retrieval/debugging
-        # out.setdefault("store", True)
-
-        if "litellm_proxy" not in self.model:
-            out.pop("extra_body", None)
-        return out
 
     # =========================================================================
     # Capabilities, formatting, and info
