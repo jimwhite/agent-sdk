@@ -68,6 +68,9 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
 
+    # =========================================================================
+    # Config fields
+    # =========================================================================
     model: str = Field(default="claude-sonnet-4-20250514", description="Model name.")
     api_key: SecretStr | None = Field(default=None, description="API key.")
     base_url: str | None = Field(default=None, description="Custom base URL.")
