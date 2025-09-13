@@ -48,6 +48,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
+from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
@@ -97,12 +98,14 @@ class _BaseCtxModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
     call_kwargs: dict[str, Any]
     log_ctx: dict[str, Any]
-    tools: list[ChatCompletionToolParam] = Field(default_factory=list)
 
 
 class ChatCtx(_BaseCtxModel):
     kind: Literal["chat"]
     messages: list[dict[str, Any]]
+    # tools used only in chat path
+    tools: list[ChatCompletionToolParam] = Field(default_factory=list)
+
     # internal to support mocked tool-calls
     nonfn_msgs: list[dict[str, Any]] | None = None
     use_mock_tools: bool = False
@@ -110,7 +113,9 @@ class ChatCtx(_BaseCtxModel):
 
 class ResponsesCtx(_BaseCtxModel):
     kind: Literal["responses"]
-    input: list[dict[str, Any]]
+    input: str | list[dict[str, Any]]
+    # tools used only in responses path
+    tools: list[dict[str, Any]] = Field(default_factory=list)
 
 
 ReqCtx = Annotated[Union[ChatCtx, ResponsesCtx], Field(discriminator="kind")]
@@ -364,32 +369,40 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             and not kwargs.pop("force_chat_completions", False)
             and self.is_function_calling_active()
         ):
-            return self.responses(messages=messages, tools=tools, **kwargs)
+            return cast("LLM", self).responses(messages=messages, tools=tools, **kwargs)
 
         # Serialize Message objects if present
         if messages and isinstance(messages[0], Message):
             messages = self.format_messages_for_llm(cast(list[Message], messages))
         else:
-            messages = cast(list[dict[str, Any]], messages)
-
-        # Convert tools
+            messages = cast(
+                list[dict[str, Any]], messages
+            )  # Convert tools for Chat Completions path
         from openhands.sdk.tool import Tool
 
+        tools_cc: list[ChatCompletionToolParam] = []
         if tools:
-            tools = [t.to_openai_tool() if isinstance(t, Tool) else t for t in tools]
+            if isinstance(tools[0], Tool):
+                tools_cc = [
+                    cast(Tool, t).to_openai_tool()
+                    for t in tools  # type: ignore[arg-type]
+                ]
+            else:
+                tools_cc = cast(list[ChatCompletionToolParam], tools)
 
         return self._unified_request(
             kind="chat",
             messages=messages,
-            tools=tools or [],
+            tools=tools_cc,
             **kwargs,
         )
 
     def responses(
         self,
         messages: list[dict[str, Any]] | list[Message] | str | None = None,
-        input: list[dict[str, Any]] | None = None,
-        tools: Sequence[dict[str, Any]] | None = None,
+        input: str | list[dict[str, Any]] | None = None,
+        tools: Sequence[dict[str, Any] | "Tool" | ChatCompletionToolParam]
+        | None = None,
         **kwargs,
     ) -> ModelResponse:
         if not get_features(self.model).supports_responses_api:
@@ -410,22 +423,40 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if len(messages) == 0:
                 raise ValueError("messages cannot be an empty list")
             # Convert messages to a list of inputs for Responses API
-            # messages here are already plain dicts via format_messages_for_llm
             input = messages_to_responses_items(messages)
 
         if input is None:
             raise ValueError("Either messages or input must be provided")
 
-        # Convert tools
-        from openhands.sdk.tool import Tool
-
+        # Convert tools: normalize Tool | dict | ChatCompletionToolParam -> dict
+        tools_dicts: list[dict[str, Any]] = []
         if tools:
-            tools = [t.to_responses_tool() if isinstance(t, Tool) else t for t in tools]
+            from openhands.sdk.tool import Tool
+
+            first = tools[0]
+            if isinstance(first, Tool):
+                tools_dicts = [cast(Any, t).to_responses_tool() for t in tools]
+            elif isinstance(first, dict):
+                tools_dicts = cast(list[dict[str, Any]], list(tools))
+            else:
+                # Provided as Chat Completions tools; convert to Responses format
+                tools_dicts = []
+                for t in cast(Sequence[ChatCompletionToolParam], tools):
+                    fn = t.get("function", {})  # type: ignore[assignment]
+                    fn = cast(dict, fn)
+                    item: dict[str, Any] = {"type": "function", "name": fn.get("name")}
+                    desc = fn.get("description")
+                    if desc is not None:
+                        item["description"] = desc
+                    params = fn.get("parameters")
+                    if params is not None:
+                        item["parameters"] = params
+                    tools_dicts.append(item)
 
         return self._unified_request(
             kind="responses",
             input=input,
-            tools=tools or [],
+            tools=tools_dicts,
             **kwargs,
         )
 
@@ -438,8 +469,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         *,
         kind: CallKind,
         messages: list[dict[str, Any]] | None = None,
-        input: list[dict[str, Any]] | None = None,
-        tools: list[dict[str, Any]] | None = None,
+        input: str | list[dict[str, Any]] | None = None,
+        tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None = None,
         **kwargs,
     ) -> ModelResponse:
         assert self._telemetry is not None
@@ -448,7 +479,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # 1) Build validated context (Pydantic will enforce required fields by kind)
         ctx: ReqCtx = self._build_ctx(
-            kind=kind, messages=messages, input=input, tools=tools or [], opts=kwargs
+            kind=kind,
+            messages=messages,
+            input=input,
+            tools=tools or [],
+            opts=kwargs,
         )
 
         # 2) Telemetry (request)
@@ -492,19 +527,25 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         *,
         kind: CallKind,
         messages: list[dict[str, Any]] | None,
-        input: list[dict[str, Any]] | None,
-        tools: list[dict[str, Any]] | None,
+        input: str | list[dict[str, Any]] | None,
+        tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
         opts: dict[str, Any],
     ) -> ReqCtx:
         # Mock tools for non-native function-calling
         nonfn_msgs = copy.deepcopy(messages or [])
-        use_mock_tools = self.should_mock_tool_calls(tools)
+        use_mock_tools = False
+        if kind == "chat":
+            use_mock_tools = self.should_mock_tool_calls(
+                cast(list[ChatCompletionToolParam] | None, tools)
+            )
         if kind == "chat" and use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
-            nonfn_msgs, opts = self.pre_request_prompt_mock(messages, tools or [], opts)
+            nonfn_msgs, opts = self.pre_request_prompt_mock(
+                messages or [], cast(list[ChatCompletionToolParam], tools) or [], opts
+            )
 
         has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
         call_kwargs = self._normalize_kwargs(kind, opts, has_tools=has_tools)
@@ -528,16 +569,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 use_mock_tools=use_mock_tools,
                 call_kwargs=call_kwargs,
                 log_ctx=log_ctx,
-                tools=tools,
+                tools=cast(list[ChatCompletionToolParam], tools or []),
             )
         else:
-            log_ctx["input"] = (input or [])[:]
+            log_ctx["input"] = input if input is not None else []
             return ResponsesCtx(
                 kind="responses",
-                input=input or [],
+                input=cast(str | list[dict[str, Any]], input or []),
                 call_kwargs=call_kwargs,
                 log_ctx=log_ctx,
-                tools=tools,
+                tools=cast(list[dict[str, Any]], tools or []),
             )
 
     def _normalize_kwargs(self, kind: CallKind, opts: dict, *, has_tools: bool) -> dict:
@@ -654,9 +695,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         api_version=self.api_version,
                         timeout=self.timeout,
                         input=ctx.input,  # type: ignore[attr-defined]
+                        stream=False,  # enforce non-stream for typed converter
                         **ctx.call_kwargs,
                     )
-                    return responses_to_completion_format(raw)
+                    return responses_to_completion_format(
+                        cast(ResponsesAPIResponse, raw)
+                    )
 
     def _postprocess_dispatch(self, ctx: ReqCtx, resp: ModelResponse) -> ModelResponse:
         assert self._telemetry is not None

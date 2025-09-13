@@ -282,7 +282,8 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
 def test_responses_method_parameter_normalization_with_tool_object(
     mock_litellm_responses,
 ):
-    """Tools provided as our Tool objects should be converted via to_responses()."""
+    """Tools provided as our Tool objects should be converted via
+    to_responses_tool()."""
     mock_response = Mock()
     mock_response.id = "resp_toolobj"
     mock_response.model = "o1-preview"
