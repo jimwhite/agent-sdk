@@ -30,6 +30,7 @@ _MESSAGE_ASSISTANT_COLOR = _ACTION_COLOR
 
 DEFAULT_HIGHLIGHT_REGEX = {
     r"^Reasoning:": f"bold {_THOUGHT_COLOR}",
+    r"^Thinking:": f"bold {_THOUGHT_COLOR}",
     r"^Thought:": f"bold {_THOUGHT_COLOR}",
     r"^Action:": f"bold {_ACTION_COLOR}",
     r"^Arguments:": f"bold {_ACTION_COLOR}",

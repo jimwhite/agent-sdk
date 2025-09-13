@@ -136,6 +136,33 @@ class ActionEvent(LLMConvertibleEvent):
             content.append(thought_text)
             content.append("\n\n")
 
+        # Thinking blocks (provider-normalized) if available
+        if self.thinking_blocks:
+            content.append("Thinking:\n", style="bold")
+            for blk in self.thinking_blocks[:3]:  # cap display for safety
+                # TypedDicts at runtime are dict-like
+                t = (
+                    blk.get("type")
+                    if isinstance(blk, dict)
+                    else getattr(blk, "type", None)
+                )
+                if t == "thinking":
+                    txt = (
+                        blk.get("thinking")
+                        if isinstance(blk, dict)
+                        else getattr(blk, "thinking", "")
+                    )
+                elif t == "redacted_thinking":
+                    txt = "[redacted]"
+                else:
+                    txt = str(blk)
+                if txt and len(txt) > N_CHAR_PREVIEW:
+                    txt = txt[: N_CHAR_PREVIEW - 3] + "..."
+                if txt:
+                    content.append(txt)
+                    content.append("\n")
+            content.append("\n")
+
         # Display action information using action's visualize method
         content.append(self.action.visualize)
 
@@ -251,6 +278,38 @@ class MessageEvent(LLMConvertibleEvent):
     def visualize(self) -> Text:
         """Return Rich Text representation of this message event."""
         content = Text()
+
+        # Reasoning content if available
+        if self.llm_message.reasoning_content:
+            content.append("Reasoning:\n", style="bold")
+            content.append(self.llm_message.reasoning_content)
+            content.append("\n\n")
+
+        # Thinking blocks (provider-normalized) if available
+        if getattr(self.llm_message, "thinking_blocks", None):
+            content.append("Thinking:\n", style="bold")
+            for blk in (self.llm_message.thinking_blocks or [])[:3]:
+                t = (
+                    blk.get("type")
+                    if isinstance(blk, dict)
+                    else getattr(blk, "type", None)
+                )
+                if t == "thinking":
+                    txt = (
+                        blk.get("thinking")
+                        if isinstance(blk, dict)
+                        else getattr(blk, "thinking", "")
+                    )
+                elif t == "redacted_thinking":
+                    txt = "[redacted]"
+                else:
+                    txt = str(blk)
+                if txt and len(txt) > N_CHAR_PREVIEW:
+                    txt = txt[: N_CHAR_PREVIEW - 3] + "..."
+                if txt:
+                    content.append(txt)
+                    content.append("\n")
+            content.append("\n")
 
         text_parts = content_to_str(self.llm_message.content)
         if text_parts:

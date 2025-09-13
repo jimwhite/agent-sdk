@@ -97,12 +97,10 @@ class Message(BaseModel):
         default=None,
         description="Provider-normalized thinking blocks (e.g., Anthropic)",
     )
-    # provider specific fields (Anthropic thinking blocks, etc.)
+    # provider-specific fields (back-compat; e.g., Anthropic thinking blocks)
     provider_specific_fields: dict[str, Any] | None = Field(
         default=None,
-        description=(
-            "Provider-specific message fields (e.g., Anthropic thinking blocks)"
-        ),
+        description="Provider-specific fields (e.g., Anthropic thinking blocks)",
     )
 
     @property
