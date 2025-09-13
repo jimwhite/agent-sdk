@@ -82,7 +82,6 @@ jobs:
           commit_message: "chore(ci): regenerate OpenAPI client and schema"
           file_pattern: |
             openhands/server/openapi.json
-            openhands/client/**
           branch: ${{ github.head_ref }}
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
