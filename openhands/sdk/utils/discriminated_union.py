@@ -63,7 +63,12 @@ from __future__ import annotations
 
 from typing import Any, Generic, TypeVar, cast
 
-from pydantic import BaseModel, GetCoreSchemaHandler, computed_field
+from pydantic import (
+    BaseModel,
+    GetJsonSchemaHandler,
+    TypeAdapter,
+    computed_field,
+)
 from pydantic_core import core_schema
 
 
@@ -194,12 +199,34 @@ class DiscriminatedUnionType(Generic[T]):
         self.__origin__ = cls
         self.__args__ = ()
 
-    def __get_pydantic_core_schema__(self, source_type, handler: GetCoreSchemaHandler):
-        # Collect all imported subclasses of the base class
-        def iter_subclasses(cls: type) -> list[type]:
+    def __get_pydantic_core_schema__(self, source_type, handler):
+        """Define custom Pydantic core schema for this type.
+
+        This schema uses a custom validator function to handle discriminated union
+        deserialization based on the 'kind' field.
+        """
+
+        # Importantly, this validation function calls the base class model validation
+        # _at validation time_, meaning that even if new subclasses are registered after
+        # the fact they will still be recognized.
+        def validate(v):
+            if isinstance(v, self.base_class):
+                return v
+            if isinstance(v, dict) and "kind" in v:
+                return self.base_class.model_validate(v)
+            return self.base_class(**v)
+
+        return core_schema.no_info_plain_validator_function(validate)
+
+    def __get_pydantic_json_schema__(
+        self,
+        _core_schema: core_schema.CoreSchema,
+        handler: GetJsonSchemaHandler,
+    ) -> dict:
+        def iter_subclasses(c: type) -> list[type[BaseModel]]:
             seen: set[type] = set()
-            stack: list[type] = [cls]
-            out: list[type] = []
+            stack: list[type] = [c]
+            out: list[type[BaseModel]] = []
             while stack:
                 cur = stack.pop()
                 for sub in cur.__subclasses__():
@@ -207,33 +234,47 @@ class DiscriminatedUnionType(Generic[T]):
                         continue
                     seen.add(sub)
                     if issubclass(sub, BaseModel):
-                        out.append(sub)
+                        out.append(sub)  # type: ignore[arg-type]
                     stack.append(sub)
             return out
 
-        subs = iter_subclasses(self.base_class)
+        base = self.base_class
+        subs: list[type[BaseModel]] = iter_subclasses(base) or [base]
 
-        # If none are imported yet, at least include the base class so OpenAPI builds
-        if not subs:
-            subs = [self.base_class]
+        # Ensure deterministic order for stable schemas across runs
+        subs.sort(key=lambda t: kind_of(t))
 
-        # Build the tagged union over subclasses
-        choices: dict[str, core_schema.CoreSchema] = {
-            kind_of(sub): handler.generate_schema(sub) for sub in subs
+        one_of: list[dict] = []
+        mapping: dict[str, str] = {}
+
+        for sub in subs:
+            kind = kind_of(sub)
+
+            # Ask pydantic to generate (and register) the schema for the subclass.
+            # Often this returns a $ref into components/schemas.
+            sub_schema_json = handler(TypeAdapter(sub).core_schema)
+
+            # Use whatever Pydantic returns directly in the oneOf.
+            # If it's a $ref, populate the discriminator mapping
+            # with that same ref target.
+            one_of.append(sub_schema_json)
+            ref_path = (
+                sub_schema_json.get("$ref")
+                if isinstance(sub_schema_json, dict)
+                else None
+            )
+            if ref_path:
+                mapping[kind] = ref_path
+
+        # Plain union with a discriminator. No branch-level wrappers, no consts.
+        return {
+            "oneOf": one_of,
+            "discriminator": (
+                {"propertyName": "kind", "mapping": mapping}
+                if mapping
+                else {"propertyName": "kind"}
+            ),
         }
-
-        tagged = core_schema.tagged_union_schema(
-            discriminator="kind",
-            choices=choices,
-        )
-
-        # Accept already-constructed instances too (fast path)
-        instance_pass_through = core_schema.is_instance_schema(self.base_class)
-
-        # Union: instances OR tagged JSON
-        return core_schema.union_schema(
-            [instance_pass_through, tagged],
-        )
 
     def __repr__(self):
         return f"DiscriminatedUnion[{self.base_class.__name__}]"
