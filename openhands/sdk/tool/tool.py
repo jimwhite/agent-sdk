@@ -30,6 +30,13 @@ class ToolAnnotations(BaseModel):
     https://github.com/modelcontextprotocol/modelcontextprotocol/blob/caf3424488b10b4a7b1f8cb634244a450a1f4400/schema/2025-06-18/schema.ts#L838
     """
 
+    model_config = ConfigDict(
+        frozen=True,
+        # We need to define the title here to avoid conflict with MCP's ToolAnnotations
+        # when both are included in the same JSON schema for openapi.json
+        title="openhands.sdk.tool.tool.ToolAnnotations",
+    )
+
     title: str | None = Field(
         default=None, description="A human-readable title for the tool."
     )
