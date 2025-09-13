@@ -1,6 +1,7 @@
 """Task tracker tool definition and implementation."""
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -77,7 +78,7 @@ class TaskTrackerObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Return the observation content for the agent."""
         return [TextContent(text=self.content)]
 

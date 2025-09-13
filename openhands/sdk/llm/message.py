@@ -1,5 +1,6 @@
 """Message types and content for LLM communication."""
 
+from collections.abc import Sequence
 from typing import Any, Literal, cast
 
 import mcp.types
@@ -54,14 +55,11 @@ class TextContent(mcp.types.TextContent, BaseContent):
         return data
 
 
-class ImageContent(mcp.types.ImageContent, BaseContent):
+class ImageContent(BaseContent):
     """Image content for messages."""
 
     type: Literal["image"] = "image"
     image_urls: list[str]
-    # We use populate_by_name since mcp.types.ImageContent
-    # alias meta -> _meta, but .model_dumps() will output "meta"
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
@@ -79,7 +77,7 @@ class Message(BaseModel):
     # NOTE: this is not the same as EventSource
     # These are the roles in the LLM's APIs
     role: Literal["user", "system", "assistant", "tool"]
-    content: list[TextContent | ImageContent] = Field(default_factory=list)
+    content: Sequence[TextContent | ImageContent] = Field(default_factory=list)
     cache_enabled: bool = False
     vision_enabled: bool = False
     # function calling
@@ -104,7 +102,7 @@ class Message(BaseModel):
 
     @field_validator("content", mode="before")
     @classmethod
-    def _coerce_content(cls, v: Any) -> list[TextContent | ImageContent] | Any:
+    def _coerce_content(cls, v: Any) -> Sequence[TextContent | ImageContent] | Any:
         """Coerce content to proper format."""
         # Accept None → []
         if v is None:
@@ -227,7 +225,7 @@ class Message(BaseModel):
         )
 
 
-def content_to_str(contents: list[TextContent | ImageContent]) -> list[str]:
+def content_to_str(contents: Sequence[TextContent | ImageContent]) -> list[str]:
     """Convert a list of TextContent and ImageContent to a list of strings.
 
     This is primarily used for display purposes.

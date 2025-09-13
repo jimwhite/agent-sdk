@@ -1,5 +1,7 @@
 """Think tool for logging thoughts and reasoning."""
 
+from collections.abc import Sequence
+
 from pydantic import Field
 from rich.text import Text
 
@@ -47,7 +49,7 @@ class ThinkObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Return the observation content for the agent."""
         return [TextContent(text=self.content)]
 

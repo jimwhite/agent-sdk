@@ -2,6 +2,7 @@
 
 import os
 import shlex
+from collections.abc import Sequence
 
 from pydantic import Field, SecretStr
 
@@ -52,7 +53,7 @@ class GrepObservation(ObservationBase):
     count: int = 0
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Return agent-readable observation content."""
         if not self.count:
             return [TextContent(text="No matches found.")]
