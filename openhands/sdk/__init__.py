@@ -1,6 +1,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase
+from openhands.sdk.client import OpenHandsClient
 from openhands.sdk.context import AgentContext
 from openhands.sdk.conversation import Conversation, ConversationCallbackType
 from openhands.sdk.event import Event, EventBase, LLMConvertibleEvent
@@ -15,7 +16,7 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool
+from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolSpec
 
 
 try:
@@ -31,6 +32,7 @@ __all__ = [
     "TextContent",
     "ImageContent",
     "Tool",
+    "ToolSpec",
     "AgentBase",
     "Agent",
     "ActionBase",
@@ -48,5 +50,6 @@ __all__ = [
     "AgentContext",
     "FileStore",
     "LocalFileStore",
+    "OpenHandsClient",
     "__version__",
 ]
