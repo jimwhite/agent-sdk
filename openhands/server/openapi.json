@@ -461,519 +461,7 @@
                         "additionalProperties": false
                       },
                       {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "Unique event id (ULID/UUID)",
-                            "title": "Id"
-                          },
-                          "timestamp": {
-                            "type": "string",
-                            "description": "Event timestamp",
-                            "title": "Timestamp"
-                          },
-                          "source": {
-                            "enum": [
-                              "agent",
-                              "user",
-                              "environment"
-                            ],
-                            "type": "string",
-                            "default": "agent",
-                            "title": "Source"
-                          },
-                          "thought": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/components/schemas/TextContent"
-                            },
-                            "description": "The thought process of the agent before taking this action",
-                            "title": "Thought"
-                          },
-                          "reasoning_content": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Intermediate reasoning/thinking content from reasoning models",
-                            "title": "Reasoning Content"
-                          },
-                          "action": {
-                            "oneOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "security_risk": {
-                                    "enum": [
-                                      "LOW",
-                                      "MEDIUM",
-                                      "HIGH",
-                                      "UNKNOWN"
-                                    ],
-                                    "type": "string",
-                                    "default": "UNKNOWN",
-                                    "description": "The LLM's assessment of the safety risk of this action.",
-                                    "title": "Security Risk"
-                                  },
-                                  "message": {
-                                    "type": "string",
-                                    "description": "Final message to send to the user.",
-                                    "title": "Message"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "readOnly": true,
-                                    "description": "Property to create kind field from class name when serializing.",
-                                    "title": "Kind"
-                                  },
-                                  "_du_spec": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "additionalProperties": true
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "readOnly": true,
-                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                                    "title": "Du Spec"
-                                  }
-                                },
-                                "required": [
-                                  "message",
-                                  "kind",
-                                  "_du_spec"
-                                ],
-                                "title": "FinishAction",
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "security_risk": {
-                                    "enum": [
-                                      "LOW",
-                                      "MEDIUM",
-                                      "HIGH",
-                                      "UNKNOWN"
-                                    ],
-                                    "type": "string",
-                                    "default": "UNKNOWN",
-                                    "description": "The LLM's assessment of the safety risk of this action.",
-                                    "title": "Security Risk"
-                                  },
-                                  "thought": {
-                                    "type": "string",
-                                    "description": "The thought to log.",
-                                    "title": "Thought"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "readOnly": true,
-                                    "description": "Property to create kind field from class name when serializing.",
-                                    "title": "Kind"
-                                  },
-                                  "_du_spec": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "additionalProperties": true
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "readOnly": true,
-                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                                    "title": "Du Spec"
-                                  }
-                                },
-                                "required": [
-                                  "thought",
-                                  "kind",
-                                  "_du_spec"
-                                ],
-                                "title": "ThinkAction",
-                                "description": "Action for logging a thought without making any changes.",
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "security_risk": {
-                                    "enum": [
-                                      "LOW",
-                                      "MEDIUM",
-                                      "HIGH",
-                                      "UNKNOWN"
-                                    ],
-                                    "type": "string",
-                                    "default": "UNKNOWN",
-                                    "description": "The LLM's assessment of the safety risk of this action.",
-                                    "title": "Security Risk"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "readOnly": true,
-                                    "description": "Property to create kind field from class name when serializing.",
-                                    "title": "Kind"
-                                  },
-                                  "_du_spec": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "additionalProperties": true
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "readOnly": true,
-                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                                    "title": "Du Spec"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "_du_spec"
-                                ],
-                                "title": "MCPActionBase",
-                                "description": "Base schema for MCP input action.",
-                                "additionalProperties": true
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "security_risk": {
-                                    "enum": [
-                                      "LOW",
-                                      "MEDIUM",
-                                      "HIGH",
-                                      "UNKNOWN"
-                                    ],
-                                    "type": "string",
-                                    "default": "UNKNOWN",
-                                    "description": "The LLM's assessment of the safety risk of this action.",
-                                    "title": "Security Risk"
-                                  },
-                                  "command": {
-                                    "type": "string",
-                                    "description": "The bash command to execute. Can be empty string to view additional logs when previous exit code is `-1`. Can be `C-c` (Ctrl+C) to interrupt the currently running process. Note: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together.",
-                                    "title": "Command"
-                                  },
-                                  "is_input": {
-                                    "type": "boolean",
-                                    "default": false,
-                                    "description": "If True, the command is an input to the running process. If False, the command is a bash command to be executed in the terminal. Default is False.",
-                                    "title": "Is Input"
-                                  },
-                                  "timeout": {
-                                    "anyOf": [
-                                      {
-                                        "type": "number"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "description": "Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you\u2019ll be asked whether to continue or stop it. If you don\u2019t set a value, the command will instead pause and ask for confirmation when it produces no new output for 30 seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",
-                                    "title": "Timeout"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "readOnly": true,
-                                    "description": "Property to create kind field from class name when serializing.",
-                                    "title": "Kind"
-                                  },
-                                  "_du_spec": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "additionalProperties": true
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "readOnly": true,
-                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                                    "title": "Du Spec"
-                                  }
-                                },
-                                "required": [
-                                  "command",
-                                  "kind",
-                                  "_du_spec"
-                                ],
-                                "title": "ExecuteBashAction",
-                                "description": "Schema for bash command execution.",
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "security_risk": {
-                                    "enum": [
-                                      "LOW",
-                                      "MEDIUM",
-                                      "HIGH",
-                                      "UNKNOWN"
-                                    ],
-                                    "type": "string",
-                                    "default": "UNKNOWN",
-                                    "description": "The LLM's assessment of the safety risk of this action.",
-                                    "title": "Security Risk"
-                                  },
-                                  "command": {
-                                    "enum": [
-                                      "view",
-                                      "create",
-                                      "str_replace",
-                                      "insert",
-                                      "undo_edit"
-                                    ],
-                                    "type": "string",
-                                    "description": "The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
-                                    "title": "Command"
-                                  },
-                                  "path": {
-                                    "type": "string",
-                                    "description": "Absolute path to file or directory, e.g. `/workspace/file.py` or `/workspace`.",
-                                    "title": "Path"
-                                  },
-                                  "file_text": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "description": "Required parameter of `create` command, with the content of the file to be created.",
-                                    "title": "File Text"
-                                  },
-                                  "old_str": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "description": "Required parameter of `str_replace` command containing the string in `path` to replace.",
-                                    "title": "Old Str"
-                                  },
-                                  "new_str": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "description": "Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert.",
-                                    "title": "New Str"
-                                  },
-                                  "insert_line": {
-                                    "anyOf": [
-                                      {
-                                        "type": "integer"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "description": "Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.",
-                                    "title": "Insert Line"
-                                  },
-                                  "view_range": {
-                                    "anyOf": [
-                                      {
-                                        "type": "array",
-                                        "items": {
-                                          "type": "integer"
-                                        }
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "description": "Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.",
-                                    "title": "View Range"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "readOnly": true,
-                                    "description": "Property to create kind field from class name when serializing.",
-                                    "title": "Kind"
-                                  },
-                                  "_du_spec": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "additionalProperties": true
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "readOnly": true,
-                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                                    "title": "Du Spec"
-                                  }
-                                },
-                                "required": [
-                                  "command",
-                                  "path",
-                                  "kind",
-                                  "_du_spec"
-                                ],
-                                "title": "StrReplaceEditorAction",
-                                "description": "Schema for string replace editor operations.",
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "security_risk": {
-                                    "enum": [
-                                      "LOW",
-                                      "MEDIUM",
-                                      "HIGH",
-                                      "UNKNOWN"
-                                    ],
-                                    "type": "string",
-                                    "default": "UNKNOWN",
-                                    "description": "The LLM's assessment of the safety risk of this action.",
-                                    "title": "Security Risk"
-                                  },
-                                  "command": {
-                                    "enum": [
-                                      "view",
-                                      "plan"
-                                    ],
-                                    "type": "string",
-                                    "default": "view",
-                                    "description": "The command to execute. `view` shows the current task list. `plan` creates or updates the task list based on provided requirements and progress. Always `view` the current list before making changes.",
-                                    "title": "Command"
-                                  },
-                                  "task_list": {
-                                    "type": "array",
-                                    "items": {
-                                      "$ref": "#/components/schemas/TaskItem"
-                                    },
-                                    "description": "The full task list. Required parameter of `plan` command.",
-                                    "title": "Task List"
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "readOnly": true,
-                                    "description": "Property to create kind field from class name when serializing.",
-                                    "title": "Kind"
-                                  },
-                                  "_du_spec": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "additionalProperties": true
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ],
-                                    "readOnly": true,
-                                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                                    "title": "Du Spec"
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "_du_spec"
-                                ],
-                                "title": "TaskTrackerAction",
-                                "description": "An action where the agent writes or updates a task list for task management.",
-                                "additionalProperties": false
-                              }
-                            ],
-                            "discriminator": {
-                              "propertyName": "kind"
-                            },
-                            "description": "Single action (tool call) returned by LLM",
-                            "title": "Action"
-                          },
-                          "tool_name": {
-                            "type": "string",
-                            "description": "The name of the tool being called",
-                            "title": "Tool Name"
-                          },
-                          "tool_call_id": {
-                            "type": "string",
-                            "description": "The unique id returned by LLM API for this tool call",
-                            "title": "Tool Call Id"
-                          },
-                          "tool_call": {
-                            "$ref": "#/components/schemas/ChatCompletionMessageToolCall",
-                            "description": "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"
-                          },
-                          "llm_response_id": {
-                            "type": "string",
-                            "description": "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response.",
-                            "title": "Llm Response Id"
-                          },
-                          "metrics": {
-                            "anyOf": [
-                              {
-                                "$ref": "#/components/schemas/MetricsSnapshot"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
-                          },
-                          "kind": {
-                            "type": "string",
-                            "readOnly": true,
-                            "description": "Property to create kind field from class name when serializing.",
-                            "title": "Kind"
-                          },
-                          "_du_spec": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "additionalProperties": true
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "readOnly": true,
-                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                            "title": "Du Spec"
-                          }
-                        },
-                        "required": [
-                          "thought",
-                          "action",
-                          "tool_name",
-                          "tool_call_id",
-                          "tool_call",
-                          "llm_response_id",
-                          "kind",
-                          "_du_spec"
-                        ],
-                        "title": "ActionEvent",
-                        "additionalProperties": false
+                        "$ref": "#/components/schemas/ActionEvent"
                       },
                       {
                         "type": "object",
@@ -1045,93 +533,7 @@
                         "additionalProperties": false
                       },
                       {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "Unique event id (ULID/UUID)",
-                            "title": "Id"
-                          },
-                          "timestamp": {
-                            "type": "string",
-                            "description": "Event timestamp",
-                            "title": "Timestamp"
-                          },
-                          "source": {
-                            "enum": [
-                              "agent",
-                              "user",
-                              "environment"
-                            ],
-                            "type": "string",
-                            "title": "Source"
-                          },
-                          "llm_message": {
-                            "$ref": "#/components/schemas/Message",
-                            "description": "The exact LLM message for this message event"
-                          },
-                          "metrics": {
-                            "anyOf": [
-                              {
-                                "$ref": "#/components/schemas/MetricsSnapshot"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Snapshot of LLM metrics (token counts and costs) for this message. Only attached to messages from agent."
-                          },
-                          "activated_microagents": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "List of activated microagent name",
-                            "title": "Activated Microagents"
-                          },
-                          "extended_content": {
-                            "type": "array",
-                            "items": {
-                              "$ref": "#/components/schemas/TextContent"
-                            },
-                            "description": "List of content added by agent context",
-                            "title": "Extended Content"
-                          },
-                          "kind": {
-                            "type": "string",
-                            "readOnly": true,
-                            "description": "Property to create kind field from class name when serializing.",
-                            "title": "Kind"
-                          },
-                          "_du_spec": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "additionalProperties": true
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "readOnly": true,
-                            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
-                            "title": "Du Spec"
-                          },
-                          "reasoning_content": {
-                            "type": "string",
-                            "readOnly": true,
-                            "title": "Reasoning Content"
-                          }
-                        },
-                        "required": [
-                          "source",
-                          "llm_message",
-                          "kind",
-                          "_du_spec",
-                          "reasoning_content"
-                        ],
-                        "title": "MessageEvent",
-                        "description": "Message from either agent or user.\n\nThis is originally the \"MessageAction\", but it suppose not to be tool call."
+                        "$ref": "#/components/schemas/MessageEvent"
                       },
                       {
                         "type": "object",
@@ -1777,7 +1179,11 @@
                       }
                     ],
                     "discriminator": {
-                      "propertyName": "kind"
+                      "propertyName": "kind",
+                      "mapping": {
+                        "openhands.sdk.event.llm_convertible.ActionEvent": "#/components/schemas/ActionEvent",
+                        "openhands.sdk.event.llm_convertible.MessageEvent": "#/components/schemas/MessageEvent"
+                      }
                     }
                   },
                   "title": "Response Get Conversation Events"
@@ -2152,6 +1558,521 @@
   },
   "components": {
     "schemas": {
+      "ActionEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source",
+            "default": "agent"
+          },
+          "thought": {
+            "items": {
+              "$ref": "#/components/schemas/TextContent"
+            },
+            "type": "array",
+            "title": "Thought",
+            "description": "The thought process of the agent before taking this action"
+          },
+          "reasoning_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Content",
+            "description": "Intermediate reasoning/thinking content from reasoning models"
+          },
+          "action": {
+            "oneOf": [
+              {
+                "properties": {
+                  "security_risk": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "UNKNOWN"
+                    ],
+                    "title": "Security Risk",
+                    "description": "The LLM's assessment of the safety risk of this action.",
+                    "default": "UNKNOWN"
+                  },
+                  "message": {
+                    "type": "string",
+                    "title": "Message",
+                    "description": "Final message to send to the user."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "message",
+                  "kind",
+                  "_du_spec"
+                ],
+                "title": "FinishAction"
+              },
+              {
+                "properties": {
+                  "security_risk": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "UNKNOWN"
+                    ],
+                    "title": "Security Risk",
+                    "description": "The LLM's assessment of the safety risk of this action.",
+                    "default": "UNKNOWN"
+                  },
+                  "thought": {
+                    "type": "string",
+                    "title": "Thought",
+                    "description": "The thought to log."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "thought",
+                  "kind",
+                  "_du_spec"
+                ],
+                "title": "ThinkAction",
+                "description": "Action for logging a thought without making any changes."
+              },
+              {
+                "properties": {
+                  "security_risk": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "UNKNOWN"
+                    ],
+                    "title": "Security Risk",
+                    "description": "The LLM's assessment of the safety risk of this action.",
+                    "default": "UNKNOWN"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
+                  }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "_du_spec"
+                ],
+                "title": "MCPActionBase",
+                "description": "Base schema for MCP input action."
+              },
+              {
+                "properties": {
+                  "security_risk": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "UNKNOWN"
+                    ],
+                    "title": "Security Risk",
+                    "description": "The LLM's assessment of the safety risk of this action.",
+                    "default": "UNKNOWN"
+                  },
+                  "command": {
+                    "type": "string",
+                    "title": "Command",
+                    "description": "The bash command to execute. Can be empty string to view additional logs when previous exit code is `-1`. Can be `C-c` (Ctrl+C) to interrupt the currently running process. Note: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together."
+                  },
+                  "is_input": {
+                    "type": "boolean",
+                    "title": "Is Input",
+                    "description": "If True, the command is an input to the running process. If False, the command is a bash command to be executed in the terminal. Default is False.",
+                    "default": false
+                  },
+                  "timeout": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Timeout",
+                    "description": "Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you\u2019ll be asked whether to continue or stop it. If you don\u2019t set a value, the command will instead pause and ask for confirmation when it produces no new output for 30 seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep)."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "command",
+                  "kind",
+                  "_du_spec"
+                ],
+                "title": "ExecuteBashAction",
+                "description": "Schema for bash command execution."
+              },
+              {
+                "properties": {
+                  "security_risk": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "UNKNOWN"
+                    ],
+                    "title": "Security Risk",
+                    "description": "The LLM's assessment of the safety risk of this action.",
+                    "default": "UNKNOWN"
+                  },
+                  "command": {
+                    "type": "string",
+                    "enum": [
+                      "view",
+                      "create",
+                      "str_replace",
+                      "insert",
+                      "undo_edit"
+                    ],
+                    "title": "Command",
+                    "description": "The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`."
+                  },
+                  "path": {
+                    "type": "string",
+                    "title": "Path",
+                    "description": "Absolute path to file or directory, e.g. `/workspace/file.py` or `/workspace`."
+                  },
+                  "file_text": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "File Text",
+                    "description": "Required parameter of `create` command, with the content of the file to be created."
+                  },
+                  "old_str": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Old Str",
+                    "description": "Required parameter of `str_replace` command containing the string in `path` to replace."
+                  },
+                  "new_str": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "New Str",
+                    "description": "Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert."
+                  },
+                  "insert_line": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Insert Line",
+                    "description": "Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`."
+                  },
+                  "view_range": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "View Range",
+                    "description": "Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "command",
+                  "path",
+                  "kind",
+                  "_du_spec"
+                ],
+                "title": "StrReplaceEditorAction",
+                "description": "Schema for string replace editor operations."
+              },
+              {
+                "properties": {
+                  "security_risk": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "MEDIUM",
+                      "HIGH",
+                      "UNKNOWN"
+                    ],
+                    "title": "Security Risk",
+                    "description": "The LLM's assessment of the safety risk of this action.",
+                    "default": "UNKNOWN"
+                  },
+                  "command": {
+                    "type": "string",
+                    "enum": [
+                      "view",
+                      "plan"
+                    ],
+                    "title": "Command",
+                    "description": "The command to execute. `view` shows the current task list. `plan` creates or updates the task list based on provided requirements and progress. Always `view` the current list before making changes.",
+                    "default": "view"
+                  },
+                  "task_list": {
+                    "items": {
+                      "$ref": "#/components/schemas/TaskItem"
+                    },
+                    "type": "array",
+                    "title": "Task List",
+                    "description": "The full task list. Required parameter of `plan` command."
+                  },
+                  "kind": {
+                    "type": "string",
+                    "title": "Kind",
+                    "description": "Property to create kind field from class name when serializing.",
+                    "readOnly": true
+                  },
+                  "_du_spec": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Du Spec",
+                    "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+                    "readOnly": true
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "_du_spec"
+                ],
+                "title": "TaskTrackerAction",
+                "description": "An action where the agent writes or updates a task list for task management."
+              }
+            ],
+            "title": "Action",
+            "description": "Single action (tool call) returned by LLM",
+            "discriminator": {
+              "propertyName": "kind"
+            }
+          },
+          "tool_name": {
+            "type": "string",
+            "title": "Tool Name",
+            "description": "The name of the tool being called"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "title": "Tool Call Id",
+            "description": "The unique id returned by LLM API for this tool call"
+          },
+          "tool_call": {
+            "$ref": "#/components/schemas/ChatCompletionMessageToolCall",
+            "description": "The tool call received from the LLM response. We keep a copy of it so it is easier to construct it into LLM message"
+          },
+          "llm_response_id": {
+            "type": "string",
+            "title": "Llm Response Id",
+            "description": "Groups related actions from same LLM response. This helps in tracking and managing results of parallel function calling from the same LLM response."
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricsSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snapshot of LLM metrics (token counts and costs). Only attached to the last action when multiple actions share the same LLM response."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          },
+          "_du_spec": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Du Spec",
+            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "thought",
+          "action",
+          "tool_name",
+          "tool_call_id",
+          "tool_call",
+          "llm_response_id",
+          "kind",
+          "_du_spec"
+        ],
+        "title": "ActionEvent"
+      },
       "AgentContext": {
         "properties": {
           "microagents": {
@@ -4919,6 +4840,95 @@
           "role"
         ],
         "title": "Message"
+      },
+      "MessageEvent": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique event id (ULID/UUID)"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "Event timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "user",
+              "environment"
+            ],
+            "title": "Source"
+          },
+          "llm_message": {
+            "$ref": "#/components/schemas/Message",
+            "description": "The exact LLM message for this message event"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricsSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snapshot of LLM metrics (token counts and costs) for this message. Only attached to messages from agent."
+          },
+          "activated_microagents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Activated Microagents",
+            "description": "List of activated microagent name"
+          },
+          "extended_content": {
+            "items": {
+              "$ref": "#/components/schemas/TextContent"
+            },
+            "type": "array",
+            "title": "Extended Content",
+            "description": "List of content added by agent context"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Property to create kind field from class name when serializing.",
+            "readOnly": true
+          },
+          "_du_spec": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Du Spec",
+            "description": "Optional compact spec for resilience:\n{\n    \"title\": \"QualifiedName\",\n    \"base\": \"QualifiedNameOfBaseClass\",\n    \"fields\": {\n    \"name\": {\"type\": \"str\", \"required\": True},\n    \"age\":  {\"type\": \"int\", \"required\": False, \"default\": 0}\n    }\n}\nOnly emitted if __include_du_spec__ is True.\n\nWe need this for MCPAction that are constructed on the fly\ne.g., if the MCP was created on the server side, clients may not\nhave access to schema via discriminator mapping.\nRead openhands/sdk/mcp/tool.py for more context.",
+            "readOnly": true
+          },
+          "reasoning_content": {
+            "type": "string",
+            "title": "Reasoning Content",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "llm_message",
+          "kind",
+          "_du_spec",
+          "reasoning_content"
+        ],
+        "title": "MessageEvent",
+        "description": "Message from either agent or user.\n\nThis is originally the \"MessageAction\", but it suppose not to be tool call."
       },
       "MetricsSnapshot": {
         "properties": {
