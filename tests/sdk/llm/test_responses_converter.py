@@ -130,6 +130,7 @@ def test_responses_to_completion_format_basic():
             self.input_tokens = input_tokens
             self.output_tokens = output_tokens
             self.total_tokens = total_tokens
+            self.output_tokens_details = None
 
     class MockResponse:
         def __init__(self):

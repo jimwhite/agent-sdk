@@ -203,20 +203,18 @@ def responses_to_completion_format(
     }
 
     # Extract usage information if available
-    if hasattr(responses_result, "usage") and responses_result.usage is not None:
+    if responses_result.usage is not None:
         usage = responses_result.usage
         # Map Responses API usage fields to ChatCompletions format
-        response["usage"]["prompt_tokens"] = getattr(usage, "input_tokens", 0)
-        response["usage"]["completion_tokens"] = getattr(usage, "output_tokens", 0)
-        response["usage"]["total_tokens"] = getattr(usage, "total_tokens", 0)
+        response["usage"]["prompt_tokens"] = usage.input_tokens
+        response["usage"]["completion_tokens"] = usage.output_tokens
+        response["usage"]["total_tokens"] = usage.total_tokens
 
         # Map reasoning tokens if available
-        output_details = getattr(usage, "output_tokens_details", None)
-        if output_details and hasattr(output_details, "reasoning_tokens"):
-            reasoning_tokens = getattr(output_details, "reasoning_tokens", None)
-            if reasoning_tokens is not None and isinstance(reasoning_tokens, int):
-                response["usage"]["completion_tokens_details"] = {
-                    "reasoning_tokens": reasoning_tokens
-                }
+        output_details = usage.output_tokens_details
+        if output_details and output_details.reasoning_tokens is not None:
+            response["usage"]["completion_tokens_details"] = {
+                "reasoning_tokens": output_details.reasoning_tokens
+            }
 
     return ModelResponse(**response)
