@@ -100,60 +100,63 @@ if USE_DOCKER:
 
 LLM_API_KEY = os.getenv("LITELLM_API_KEY")
 if not LLM_API_KEY:
-    raise RuntimeError("LITELLM_API_KEY environment variable is not set.")
+    print("[info] LITELLM_API_KEY not set; will only test /health and skip conversation.")
 
 try:
-    with OpenHandsClient(server_url=SERVER_URL, master_key=MASTER_KEY) as oh:
-        print("Starting conversation…")
+    if LLM_API_KEY:
+        with OpenHandsClient(server_url=SERVER_URL, master_key=MASTER_KEY) as oh:
+            print("Starting conversation…")
 
-        working_dir = "/app" if USE_DOCKER else os.getcwd()
-        conv_id, _state = oh.start_conversation(
-            llm=LLM(
-                model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                api_key=SecretStr(LLM_API_KEY),
-                base_url="https://llm-proxy.eval.all-hands.dev",
-            ),
-            tools=[
-                ToolSpec(name="BashTool", params={"working_dir": working_dir}),
-                ToolSpec(name="FileEditorTool", params={}),
-            ],
-            mcp_config=(
-                {}
-                if USE_DOCKER
-                else {
-                    "mcpServers": {
-                        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}
+            working_dir = "/app" if USE_DOCKER else os.getcwd()
+            conv_id, _state = oh.start_conversation(
+                llm=LLM(
+                    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                    api_key=SecretStr(LLM_API_KEY),
+                    base_url="https://llm-proxy.eval.all-hands.dev",
+                ),
+                tools=[
+                    ToolSpec(name="BashTool", params={"working_dir": working_dir}),
+                    ToolSpec(name="FileEditorTool", params={}),
+                ],
+                mcp_config=(
+                    {"mcpServers": {}}
+                    if USE_DOCKER
+                    else {
+                        "mcpServers": {
+                            "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}
+                        }
                     }
-                }
-            ),
-        )
-        print("Conversation ID:", conv_id)
+                ),
+            )
+            print("Conversation ID:", conv_id)
 
-        # 1) Ask the agent to read the repo and write 3 facts into FACTS.txt
-        oh.send_message(
-            conversation_id=conv_id,
-            content=[
-                TextContent(
-                    text="Read https://github.com/All-Hands-AI/OpenHands and "
-                    "write 3 facts about the project into FACTS.txt."
-                )
-            ],
-        )
-        oh.wait_until_idle(conv_id)
+            # 1) Ask the agent to read the repo and write 3 facts into FACTS.txt
+            oh.send_message(
+                conversation_id=conv_id,
+                content=[
+                    TextContent(
+                        text="Read https://github.com/All-Hands-AI/OpenHands and "
+                        "write 3 facts about the project into FACTS.txt."
+                    )
+                ],
+            )
+            oh.wait_until_idle(conv_id)
 
-        # 2) Ask the agent to delete the file
-        oh.send_message(
-            conversation_id=conv_id,
-            content=[TextContent(text="Great! Now delete that file.")],
-        )
-        oh.wait_until_idle(conv_id)
+            # 2) Ask the agent to delete the file
+            oh.send_message(
+                conversation_id=conv_id,
+                content=[TextContent(text="Great! Now delete that file.")],
+            )
+            oh.wait_until_idle(conv_id)
 
-        # Print compact view of LLM messages
-        print("=" * 80)
-        evts = oh.get_events(conv_id, start=0, limit=1000)
-        print("Events:")
-        for e in evts:
-            print(e)
+            # Print compact view of LLM messages
+            print("=" * 80)
+            evts = oh.get_events(conv_id, start=0, limit=1000)
+            print("Events:")
+            for e in evts:
+                print(e)
+    else:
+        print("[ok] Health check passed; skipping conversation. Set LITELLM_API_KEY to run it.")
 finally:
     if container_runtime is not None:
         print("[docker] stopping container…")
