@@ -205,7 +205,7 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
             function=ChatCompletionToolParamFunctionChunk(**kwargs),
         )
 
-    def to_responses(self) -> dict[str, Any]:
+    def to_responses_tool(self) -> dict[str, Any]:
         """Convert this tool to an OpenAI Responses API tool dict.
 
         Only include keys with values to avoid sending nulls downstream.
