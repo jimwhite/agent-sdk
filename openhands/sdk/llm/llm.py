@@ -381,7 +381,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns (messages, input, tools) normalized for the selected path.
         """
         # Local import to avoid TYPE_CHECKING branch issues
-        from openhands.sdk.tool import Tool  # noqa: WPS433 (intentional local import)
+        from openhands.sdk.tool import Tool
 
         if kind == "chat":
             # Messages: ensure list[dict]
@@ -404,40 +404,71 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Input/messages handling
         if input is None:
             if messages is not None:
-                if isinstance(messages, list) and len(messages) == 0:
-                    raise ValueError("messages cannot be an empty list")
-                if messages and isinstance(messages[0], Message):
-                    messages = self.format_messages_for_llm(
-                        cast(list[Message], messages)
-                    )
+                # Allow a direct string to be used as input
+                if isinstance(messages, str):
+                    input = messages
                 else:
-                    messages = cast(list[dict[str, Any]] | None, messages)
-                input = messages_to_responses_items(
-                    cast(list[dict[str, Any]], messages or [])
-                )
+                    if isinstance(messages, list) and len(messages) == 0:
+                        raise ValueError("messages cannot be an empty list")
+                    if messages and isinstance(messages[0], Message):
+                        messages = self.format_messages_for_llm(
+                            cast(list[Message], messages)
+                        )
+                    else:
+                        messages = cast(list[dict[str, Any]] | None, messages)
+                    input = messages_to_responses_items(
+                        cast(list[dict[str, Any]], messages or [])
+                    )
             else:
                 raise ValueError("Either messages or input must be provided")
 
         # Tools: normalize to Responses tool dicts
         tools_dicts: list[dict[str, Any]] = []
         if tools:
-            first = tools[0]
-            if isinstance(first, Tool):
-                tools_dicts = [cast(Any, t).to_responses_tool() for t in tools]
-            elif isinstance(first, dict):
-                tools_dicts = cast(list[dict[str, Any]], list(tools))
-            else:
-                tools_dicts = []
-                for t in cast(Sequence[ChatCompletionToolParam], tools):
-                    fn = cast(dict, t.get("function", {}))
-                    item: dict[str, Any] = {"type": "function", "name": fn.get("name")}
-                    desc = fn.get("description")
-                    if desc is not None:
-                        item["description"] = desc
-                    params = fn.get("parameters")
-                    if params is not None:
-                        item["parameters"] = params
-                    tools_dicts.append(item)
+            for t in tools:
+                if isinstance(t, Tool):
+                    tools_dicts.append(cast(Any, t).to_responses_tool())
+                    continue
+                if isinstance(t, dict):
+                    # If provided in Chat Completions shape, flatten to Responses
+                    if "function" in t:
+                        fn = cast(dict, t.get("function") or {})
+                        item: dict[str, Any] = {
+                            "type": "function",
+                            "name": fn.get("name"),
+                        }
+                        desc = fn.get("description")
+                        if desc is not None:
+                            item["description"] = desc
+                        params = fn.get("parameters")
+                        if params is not None:
+                            item["parameters"] = params
+                        tools_dicts.append(item)
+                    else:
+                        tools_dicts.append(cast(dict, t))
+                    continue
+                # Fallback for ChatCompletionToolParam-like objects
+                try:
+                    fn = cast(dict, t.get("function", {}))  # type: ignore[attr-defined]
+                except Exception:
+                    fn_obj = getattr(t, "function", None)
+                    fn = (
+                        fn_obj.model_dump()  # type: ignore[attr-defined]
+                        if fn_obj is not None and hasattr(fn_obj, "model_dump")
+                        else {
+                            k: getattr(fn_obj, k)
+                            for k in ("name", "description", "parameters")
+                            if fn_obj is not None and hasattr(fn_obj, k)
+                        }
+                    )
+                item2: dict[str, Any] = {"type": "function", "name": fn.get("name")}
+                desc2 = fn.get("description")
+                if desc2 is not None:
+                    item2["description"] = desc2
+                params2 = fn.get("parameters")
+                if params2 is not None:
+                    item2["parameters"] = params2
+                tools_dicts.append(item2)
 
         return None, input, tools_dicts
 
@@ -494,50 +525,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported in responses() method")
 
-        # Serialize messages for Responses API path (convert Message objects to dicts)
-        if messages and isinstance(messages, list) and isinstance(messages[0], Message):
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            messages = cast(list[dict[str, Any]], messages)
-
-        if messages is not None:
-            if len(messages) == 0:
-                raise ValueError("messages cannot be an empty list")
-            # Convert messages to a list of inputs for Responses API
-            input = messages_to_responses_items(messages)
-
-        if input is None:
-            raise ValueError("Either messages or input must be provided")
-
-        # Convert tools: normalize Tool | dict | ChatCompletionToolParam -> dict
-        tools_dicts: list[dict[str, Any]] = []
-        if tools:
-            from openhands.sdk.tool import Tool
-
-            first = tools[0]
-            if isinstance(first, Tool):
-                tools_dicts = [cast(Any, t).to_responses_tool() for t in tools]
-            elif isinstance(first, dict):
-                tools_dicts = cast(list[dict[str, Any]], list(tools))
-            else:
-                # Provided as Chat Completions tools; convert to Responses format
-                tools_dicts = []
-                for t in cast(Sequence[ChatCompletionToolParam], tools):
-                    fn = t.get("function", {})  # type: ignore[assignment]
-                    fn = cast(dict, fn)
-                    item: dict[str, Any] = {"type": "function", "name": fn.get("name")}
-                    desc = fn.get("description")
-                    if desc is not None:
-                        item["description"] = desc
-                    params = fn.get("parameters")
-                    if params is not None:
-                        item["parameters"] = params
-                    tools_dicts.append(item)
+        # Use unified pre-normalization for responses
+        msgs, input, tools_dicts = self._pre_normalize(
+            kind="responses",
+            messages=cast(list[dict[str, Any]] | list[Message], messages),
+            input=input,
+            tools=tools,
+        )
 
         return self._unified_request(
             kind="responses",
+            messages=msgs,
             input=input,
-            tools=tools_dicts,
+            tools=cast(
+                list[dict[str, Any]] | list[ChatCompletionToolParam] | None, tools_dicts
+            ),
             **kwargs,
         )
 
@@ -579,7 +581,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_multiplier=self.retry_multiplier,
             retry_listener=self.retry_listener,
         )
-        def _one_attempt() -> ModelResponse:
+        def _one_attempt(**_tenacity_kwargs: Any) -> ModelResponse:
             # Transport
             resp = self._transport_dispatch(ctx)
 

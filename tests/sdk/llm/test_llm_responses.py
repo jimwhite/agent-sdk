@@ -66,12 +66,12 @@ def test_responses_method_with_input_string(mock_litellm_responses):
         mock_telemetry.log_enabled = False
         result = llm.responses(input="Hello, how are you?")
 
-    # Verify litellm.responses was called correctly; store should default to False
+    # Verify litellm.responses was called correctly; store defaults to True
     mock_litellm_responses.assert_called_once()
     call_args = mock_litellm_responses.call_args
     assert call_args[1]["input"] == "Hello, how are you?"
     assert call_args[1]["model"] == "o1-preview"
-    assert call_args[1].get("store", False) is False
+    assert call_args[1].get("store", False) is True
 
     # Verify result is a ModelResponse
     assert hasattr(result, "choices")
