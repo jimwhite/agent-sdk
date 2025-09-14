@@ -19,8 +19,8 @@ from openhands.tools import BashTool
 logger = get_logger(__name__)
 LOG_DIR = os.path.join(os.getcwd(), "logs", "reasoning")
 
-api_key = os.getenv("OPENAI_API_KEY")
-assert api_key is not None, "OPENAI_API_KEY environment variable is not set."
+api_key = os.getenv("LITELLM_API_KEY")
+assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 # Choose a model that supports Responses API and reasoning
 # You can switch to o1-preview or another reasoning-capable model through the proxy
