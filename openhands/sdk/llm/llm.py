@@ -552,6 +552,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Build log context (what we write is exactly what we send)
         log_ctx: dict[str, Any] = {
+            "kind": kind,
             "kwargs": {k: v for k, v in call_kwargs.items()},
             "context_window": self.max_input_tokens,
         }
@@ -633,8 +634,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             if "mistral" in ml or "gemini" in ml:
                 out["safety_settings"] = self.safety_settings
 
-        # Tools only when native FC
-        if not has_tools:
+        # Tools in Chat Completions only when native FC is active.
+        # Do not drop tools for Responses API; they are supported there.
+        if kind == "chat" and not has_tools:
             out.pop("tools", None)
             out.pop("tool_choice", None)
 
@@ -695,6 +697,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         api_version=self.api_version,
                         timeout=self.timeout,
                         input=ctx.input,  # type: ignore[attr-defined]
+                        drop_params=self.drop_params,
                         stream=False,  # enforce non-stream for typed converter
                         **ctx.call_kwargs,
                     )
