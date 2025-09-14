@@ -50,6 +50,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         request.url.path,
         exc.detail,
         exc.status_code,
+        exc_info=exc if exc.status_code >= 500 else None,
+        stack_info=exc if exc.status_code >= 500 else False,
     )
     return JSONResponse(
         status_code=exc.status_code,
@@ -61,7 +63,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 async def unhandled_exception_handler(request: Request, exc: Exception):
     # Log unexpected server errors with stack trace
     logger.exception(
-        "Unhandled exception during %s %s", request.method, request.url.path
+        "Unhandled exception during %s %s", request.method, request.url.path,
+        exc_info=exc,
+        stack_info=True,
     )
     return JSONResponse(
         status_code=500,

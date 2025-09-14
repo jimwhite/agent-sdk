@@ -1,12 +1,12 @@
 from __future__ import annotations
-
+import sys
 import threading
 from collections import deque
 from typing import Callable
 
 import docker
 from docker.models.containers import Container
-
+from openhands.sdk.logger import DEBUG
 
 class LogStreamer:
     """Streams Docker container logs to a provided logger function.
@@ -72,31 +72,64 @@ class LogStreamer:
 
 
 class RollingLogger:
-    """Very small rolling logger buffer for build progress."""
+    max_lines: int
+    char_limit: int
+    log_lines: list[str]
+    all_lines: str
 
-    def __init__(self, max_lines: int = 50) -> None:
+    def __init__(self, max_lines: int = 10, char_limit: int = 80) -> None:
         self.max_lines = max_lines
-        self.lines: deque[str] = deque(maxlen=max_lines)
+        self.char_limit = char_limit
+        self.log_lines = [''] * self.max_lines
+        self.all_lines = ''
 
     def is_enabled(self) -> bool:
-        return True
+        return DEBUG and sys.stdout.isatty()
+
+    def start(self, message: str = '') -> None:
+        if message:
+            print(message)
+        self._write('\n' * self.max_lines)
+        self._flush()
 
     def add_line(self, line: str) -> None:
-        self.lines.append(line)
+        self.log_lines.pop(0)
+        self.log_lines.append(line[: self.char_limit])
+        self.print_lines()
+        self.all_lines += line + '\n'
 
     def write_immediately(self, line: str) -> None:
-        self.lines.append(line)
+        self._write(line)
+        self._flush()
 
-    # No-op placeholders for advanced terminal behavior
-    def start(self, title: str) -> None:  # pragma: no cover
-        self.add_line(title)
+    def print_lines(self) -> None:
+        """Display the last n log_lines in the console (not for file logging).
 
-    def move_back(self, n: int) -> None:  # pragma: no cover
-        pass
+        This will create the effect of a rolling display in the console.
+        """
+        self.move_back()
+        for line in self.log_lines:
+            self.replace_current_line(line)
 
-    def replace_current_line(self) -> None:  # pragma: no cover
-        pass
+    def move_back(self, amount: int = -1) -> None:
+        r"""'\033[F' moves the cursor up one line."""
+        if amount == -1:
+            amount = self.max_lines
+        self._write('\033[F' * (self.max_lines))
+        self._flush()
 
-    @property
-    def all_lines(self) -> str:
-        return "\n".join(self.lines)
+    def replace_current_line(self, line: str = '') -> None:
+        r"""'\033[2K\r' clears the line and moves the cursor to the beginning of the line."""
+        self._write('\033[2K' + line + '\n')
+        self._flush()
+
+    def _write(self, line: str) -> None:
+        if not self.is_enabled():
+            return
+        sys.stdout.write(line)
+
+    def _flush(self) -> None:
+        if not self.is_enabled():
+            return
+        sys.stdout.flush()
+        

@@ -70,14 +70,12 @@ class DockerRuntime(Runtime):
                         chunk = str(chunk)
                 if isinstance(chunk, str):
                     rolling.add_line(chunk.rstrip())
-                    logger.debug(chunk.rstrip())
                 elif isinstance(chunk, dict):
                     # docker-py may decode JSON to dict
                     msg = chunk.get("stream") or chunk.get("status") or str(chunk)
                     rolling.add_line(str(msg).rstrip())
-                    logger.debug(str(msg).rstrip())
                 else:
-                    logger.debug(str(chunk).rstrip())
+                    rolling.add_line(str(chunk).rstrip())
         finally:
             shutil.rmtree(ctx_dir, ignore_errors=True)
 
@@ -136,10 +134,12 @@ class DockerRuntime(Runtime):
             detach=detach,
             auto_remove=False,
         )
+        assert self._container is not None, "Failed to start container"
+        assert isinstance(self._container, Container)
         # Start streaming logs in background for better visibility
         try:
             self._log_streamer = LogStreamer(
-                self._container, lambda level, msg: logger.log(getattr(logger, level.upper(), 10), msg)
+                self._container, lambda level, msg: logger.debug(msg)
             )
         except Exception:
             self._log_streamer = None
