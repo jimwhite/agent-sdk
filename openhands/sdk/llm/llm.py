@@ -637,7 +637,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         log_ctx: dict[str, Any] = {
             "kind": kind,
             "kwargs": {k: v for k, v in call_kwargs.items()},
-            "context_window": self.max_input_tokens,
+            "context_window": self.max_input_tokens or 0,
         }
 
         # Build the request context
