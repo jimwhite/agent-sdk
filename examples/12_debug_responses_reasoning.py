@@ -24,11 +24,11 @@ assert api_key is not None, "OPENAI_API_KEY environment variable is not set."
 
 # Choose a model that supports Responses API and reasoning
 # You can switch to o1-preview or another reasoning-capable model through the proxy
-MODEL = os.getenv("DEBUG_MODEL", "gpt-5-mini-2025-08-07")
+MODEL = os.getenv("DEBUG_MODEL", "litellm_proxy/openai/gpt-5-mini-2025-08-07")
 
 llm = LLM(
     model=MODEL,
-    base_url=None,  # direct to OpenAI
+    base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
     native_tool_calling=True,
     log_completions=True,
