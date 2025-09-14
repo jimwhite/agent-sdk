@@ -7,7 +7,7 @@ from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
+from openhands.sdk.utils import DEFAULT_TOKEN_LIMIT, maybe_truncate
 
 
 logger = get_logger(__name__)
@@ -33,12 +33,8 @@ class TextContent(mcp.types.TextContent, BaseContent):
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
         text = self.text
-        if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
-            logger.warning(
-                f"TextContent text length ({len(text)}) exceeds limit "
-                f"({DEFAULT_TEXT_CONTENT_LIMIT}), truncating"
-            )
-            text = maybe_truncate(text, DEFAULT_TEXT_CONTENT_LIMIT)
+        # Use token-based truncation for better LLM context management
+        text = maybe_truncate(text, DEFAULT_TOKEN_LIMIT, use_tokens=True)
 
         data: dict[str, str | dict[str, str]] = {
             "type": self.type,
