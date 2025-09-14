@@ -158,13 +158,35 @@ def responses_to_completion_format(
             continue
         if isinstance(item, ResponseReasoningItem) and item.type == "reasoning":
             if item.content:
-                parts = [seg.text for seg in item.content if seg.text]
+                parts = [seg.text for seg in item.content if getattr(seg, "text", None)]
                 if parts:
                     reasoning_content = "\n\n".join(parts)
             elif item.summary:
-                parts = [s.text for s in item.summary if s.text]
+                parts = [s.text for s in item.summary if getattr(s, "text", None)]
                 if parts:
                     reasoning_content = "\n\n".join(parts)
+
+    # Fallback: some providers attach reasoning summary only on the top-level response
+    if not reasoning_content:
+        top_level_reasoning = getattr(responses_result, "reasoning", None)
+        if top_level_reasoning is not None:
+            # Try common shapes: dict with "summary"; or object with .summary
+            summary = None
+            try:
+                summary = top_level_reasoning.get("summary")  # type: ignore[attr-defined]
+            except Exception:
+                summary = getattr(top_level_reasoning, "summary", None)
+            if summary:
+                # summary could be a list of text segments or a plain string
+                if isinstance(summary, str):
+                    reasoning_content = summary
+                else:
+                    try:
+                        parts = [s.text for s in summary if getattr(s, "text", None)]
+                        if parts:
+                            reasoning_content = "\n\n".join(parts)
+                    except Exception:
+                        pass
 
     # Create a ChatCompletions-compatible response
     message: dict[str, Any] = {
