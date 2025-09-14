@@ -627,6 +627,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "reasoning",
                 {"effort": out.get("reasoning_effort", "low"), "summary": "detailed"},
             )
+            out.setdefault("store", True)
 
         # Mistral / Gemini safety
         if self.safety_settings:
@@ -694,6 +695,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         if self.api_key
                         else None,
                         base_url=self.base_url,
+                        api_base=self.base_url,
                         api_version=self.api_version,
                         timeout=self.timeout,
                         input=ctx.input,  # type: ignore[attr-defined]
