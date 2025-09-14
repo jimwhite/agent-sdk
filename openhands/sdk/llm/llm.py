@@ -698,6 +698,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         timeout=self.timeout,
                         input=ctx.input,  # type: ignore[attr-defined]
                         drop_params=self.drop_params,
+                        custom_llm_provider=(
+                            self.model.split("/")[1]
+                            if self.model.startswith("litellm_proxy/")
+                            else None
+                        ),
                         stream=False,  # enforce non-stream for typed converter
                         **ctx.call_kwargs,
                     )
