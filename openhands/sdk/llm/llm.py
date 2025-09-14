@@ -448,24 +448,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         tools_dicts.append(cast(dict, t))
                     continue
                 # Fallback for ChatCompletionToolParam-like objects
-                try:
-                    fn = cast(dict, t.get("function", {}))  # type: ignore[attr-defined]
-                except Exception:
-                    fn_obj = getattr(t, "function", None)
-                    fn = (
-                        fn_obj.model_dump()  # type: ignore[attr-defined]
-                        if fn_obj is not None and hasattr(fn_obj, "model_dump")
-                        else {
-                            k: getattr(fn_obj, k)
-                            for k in ("name", "description", "parameters")
-                            if fn_obj is not None and hasattr(fn_obj, k)
-                        }
-                    )
-                item2: dict[str, Any] = {"type": "function", "name": fn.get("name")}
-                desc2 = fn.get("description")
+                fn_obj = getattr(t, "function", None)
+                if fn_obj is None:
+                    continue
+                item2: dict[str, Any] = {
+                    "type": "function",
+                    "name": getattr(fn_obj, "name"),
+                }
+                desc2 = getattr(fn_obj, "description", None)
                 if desc2 is not None:
                     item2["description"] = desc2
-                params2 = fn.get("parameters")
+                params2 = getattr(fn_obj, "parameters", None)
                 if params2 is not None:
                     item2["parameters"] = params2
                 tools_dicts.append(item2)
