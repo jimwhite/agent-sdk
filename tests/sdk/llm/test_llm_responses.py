@@ -39,9 +39,7 @@ def test_responses_method_no_input():
     """Test that responses method raises error when no input is provided."""
     llm = LLM(model="o1-preview")
 
-    with pytest.raises(
-        ValueError, match="Either 'messages' or 'input' parameter must be provided"
-    ):
+    with pytest.raises(ValueError, match="Either messages or input must be provided"):
         llm.responses()
 
 

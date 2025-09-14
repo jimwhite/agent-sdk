@@ -346,6 +346,108 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return self
 
     # =========================================================================
+    # =========================================================================
+    # Routing + pre-normalization helpers
+    # =========================================================================
+    def _select_kind(self, kwargs: dict[str, Any], tools: Any | None) -> CallKind:
+        """Decide which transport to use for a completion-style request.
+
+        - Use Responses API when model supports it, function-calling is active,
+          and caller did not force Chat Completions.
+        - Otherwise, use Chat Completions.
+        """
+        if (
+            get_features(self.model).supports_responses_api
+            and not kwargs.get("force_chat_completions", False)
+            and self.is_function_calling_active()
+        ):
+            return "responses"
+        return "chat"
+
+    def _pre_normalize(
+        self,
+        *,
+        kind: CallKind,
+        messages: list[dict[str, Any]] | list[Message] | None,
+        input: str | list[dict[str, Any]] | None,
+        tools: Sequence[dict[str, Any] | "Tool" | ChatCompletionToolParam] | None,
+    ) -> tuple[
+        list[dict[str, Any]] | None,
+        str | list[dict[str, Any]] | None,
+        list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
+    ]:
+        """Prepare payload for the unified request based on kind.
+
+        Returns (messages, input, tools) normalized for the selected path.
+        """
+        # Local import to avoid TYPE_CHECKING branch issues
+        from openhands.sdk.tool import Tool  # noqa: WPS433 (intentional local import)
+
+        if kind == "chat":
+            # Messages: ensure list[dict]
+            if messages and isinstance(messages[0], Message):
+                messages = self.format_messages_for_llm(cast(list[Message], messages))
+            else:
+                messages = cast(list[dict[str, Any]] | None, messages)
+
+            # Tools: Tool -> ChatCompletionToolParam
+            tools_cc: list[ChatCompletionToolParam] = []
+            if tools:
+                first = tools[0]
+                if isinstance(first, Tool):
+                    tools_cc = [cast(Tool, t).to_openai_tool() for t in tools]  # type: ignore[arg-type]
+                else:
+                    tools_cc = cast(list[ChatCompletionToolParam], list(tools))
+            return messages, None, tools_cc
+
+        # kind == "responses"
+        # Input/messages handling
+        if input is None:
+            if messages is not None:
+                if isinstance(messages, list) and len(messages) == 0:
+                    raise ValueError("messages cannot be an empty list")
+                if messages and isinstance(messages[0], Message):
+                    messages = self.format_messages_for_llm(
+                        cast(list[Message], messages)
+                    )
+                else:
+                    messages = cast(list[dict[str, Any]] | None, messages)
+                input = messages_to_responses_items(
+                    cast(list[dict[str, Any]], messages or [])
+                )
+            else:
+                raise ValueError("Either messages or input must be provided")
+
+        # Tools: normalize to Responses tool dicts
+        tools_dicts: list[dict[str, Any]] = []
+        if tools:
+            first = tools[0]
+            if isinstance(first, Tool):
+                tools_dicts = [cast(Any, t).to_responses_tool() for t in tools]
+            elif isinstance(first, dict):
+                tools_dicts = cast(list[dict[str, Any]], list(tools))
+            else:
+                tools_dicts = []
+                for t in cast(Sequence[ChatCompletionToolParam], tools):
+                    fn = cast(dict, t.get("function", {}))
+                    item: dict[str, Any] = {"type": "function", "name": fn.get("name")}
+                    desc = fn.get("description")
+                    if desc is not None:
+                        item["description"] = desc
+                    params = fn.get("parameters")
+                    if params is not None:
+                        item["parameters"] = params
+                    tools_dicts.append(item)
+
+        return None, input, tools_dicts
+
+    # =========================================================================
+    # helpers are defined once above; this is the only definition
+
+    # helpers are defined once above; this is the only definition
+
+    # Routing + pre-normalization helpers
+
     # Public API
     # =========================================================================
     def completion(
@@ -363,37 +465,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
-        # Route to Responses API first, before any message formatting
-        if (
-            get_features(self.model).supports_responses_api
-            and not kwargs.pop("force_chat_completions", False)
-            and self.is_function_calling_active()
-        ):
-            return cast("LLM", self).responses(messages=messages, tools=tools, **kwargs)
-
-        # Serialize Message objects if present
-        if messages and isinstance(messages[0], Message):
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
-        else:
-            messages = cast(
-                list[dict[str, Any]], messages
-            )  # Convert tools for Chat Completions path
-        from openhands.sdk.tool import Tool
-
-        tools_cc: list[ChatCompletionToolParam] = []
-        if tools:
-            if isinstance(tools[0], Tool):
-                tools_cc = [
-                    cast(Tool, t).to_openai_tool()
-                    for t in tools  # type: ignore[arg-type]
-                ]
-            else:
-                tools_cc = cast(list[ChatCompletionToolParam], tools)
-
+        # Decide route once, then pre-normalize for unified engine
+        kind = self._select_kind(kwargs, tools)
+        msgs, inp, ttools = self._pre_normalize(
+            kind=kind, messages=messages, input=None, tools=tools
+        )
         return self._unified_request(
-            kind="chat",
-            messages=messages,
-            tools=tools_cc,
+            kind=kind,
+            messages=msgs,
+            input=inp,
+            tools=ttools,
             **kwargs,
         )
 
