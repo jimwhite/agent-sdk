@@ -19,16 +19,16 @@ from openhands.tools import BashTool
 logger = get_logger(__name__)
 LOG_DIR = os.path.join(os.getcwd(), "logs", "reasoning")
 
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("OPENAI_API_KEY")
+assert api_key is not None, "OPENAI_API_KEY environment variable is not set."
 
 # Choose a model that supports Responses API and reasoning
 # You can switch to o1-preview or another reasoning-capable model through the proxy
-MODEL = os.getenv("DEBUG_MODEL", "litellm_proxy/openai/o1-preview")
+MODEL = os.getenv("DEBUG_MODEL", "gpt-5-mini-2025-08-07")
 
 llm = LLM(
     model=MODEL,
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    base_url=None,  # direct to OpenAI
     api_key=SecretStr(api_key),
     native_tool_calling=True,
     log_completions=True,
