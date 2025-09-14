@@ -13,6 +13,7 @@ from openhands.sdk import get_logger
 from ..base import Runtime
 from ..build import assemble_context_dir
 from ..models import BuildSpec
+from ..logs import LogStreamer, RollingLogger
 
 
 logger = get_logger(__name__)
@@ -46,18 +47,37 @@ class DockerRuntime(Runtime):
             pass
 
         ctx_dir = assemble_context_dir(spec)
+        rolling = RollingLogger(max_lines=200)
         try:
             kwargs: dict[str, Any] = {
                 "path": str(ctx_dir),
                 "tag": tag,
                 "rm": True,
                 "pull": False,
+                "decode": True,
             }
             if spec.build_args:
                 kwargs["buildargs"] = spec.build_args
             if spec.platform:
                 kwargs["platform"] = spec.platform  # requires daemon support
-            self.client.images.build(**kwargs)
+
+            # Stream build logs for better visibility
+            for chunk in self.client.api.build(**kwargs):
+                if isinstance(chunk, (bytes, bytearray)):
+                    try:
+                        chunk = chunk.decode("utf-8", errors="replace")
+                    except Exception:
+                        chunk = str(chunk)
+                if isinstance(chunk, str):
+                    rolling.add_line(chunk.rstrip())
+                    logger.debug(chunk.rstrip())
+                elif isinstance(chunk, dict):
+                    # docker-py may decode JSON to dict
+                    msg = chunk.get("stream") or chunk.get("status") or str(chunk)
+                    rolling.add_line(str(msg).rstrip())
+                    logger.debug(str(msg).rstrip())
+                else:
+                    logger.debug(str(chunk).rstrip())
         finally:
             shutil.rmtree(ctx_dir, ignore_errors=True)
 
@@ -116,6 +136,13 @@ class DockerRuntime(Runtime):
             detach=detach,
             auto_remove=False,
         )
+        # Start streaming logs in background for better visibility
+        try:
+            self._log_streamer = LogStreamer(
+                self._container, lambda level, msg: logger.log(getattr(logger, level.upper(), 10), msg)
+            )
+        except Exception:
+            self._log_streamer = None
         assert isinstance(self._container, Container)
         self.container_id = self._container.id
         assert isinstance(self.container_id, str), "Container ID must be a string"
@@ -147,5 +174,11 @@ class DockerRuntime(Runtime):
                         f"Failed to remove existing container {self.name}",
                         exc_info=True,
                     )
+        # stop log streamer
+        try:
+            if hasattr(self, "_log_streamer") and self._log_streamer:
+                self._log_streamer.close()
+        except Exception:
+            pass
         self.container_id = None
         self._container = None
