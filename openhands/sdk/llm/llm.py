@@ -589,7 +589,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             resp = self._postprocess_dispatch(ctx, resp)
 
             # Response invariant
-            if not resp.get("choices") or len(resp["choices"]) < 1:
+            if not resp.choices or len(resp.choices) < 1:
                 raise LLMNoResponseError(
                     "Response choices is less than 1. Response: " + str(resp)
                 )
