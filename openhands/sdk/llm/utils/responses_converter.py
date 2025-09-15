@@ -26,6 +26,7 @@ def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str
 
     Mapping rules:
     - user/system/assistant text -> {type: 'message', role, content}
+    - user/system/assistant images -> {type: 'input_image', image_url}
     - assistant tool_calls -> for each call ->
       {type: 'function_call', call_id, name, arguments}
     - tool messages -> {type: 'function_call_output', call_id: tool_call_id, output}
@@ -35,18 +36,46 @@ def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str
 
     dict_messages = messages
 
-    def _to_text(content: Any) -> str:
+    def _extract_content_items(content: Any) -> list[dict[str, Any]]:
+        """Extract both text and image content items from message content.
+
+        Returns a list of items where each item is either:
+        - {"type": "text", "content": "..."}
+        - {"type": "input_image", "image_url": "..."}
+        """
+        items: list[dict[str, Any]] = []
+
         if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            parts: list[str] = []
+            if content:
+                items.append({"type": "text", "content": content})
+        elif isinstance(content, list):
             for seg in content:
                 if isinstance(seg, dict):
-                    t = seg.get("text")
-                    if isinstance(t, str) and t:
-                        parts.append(t)
-            return "".join(parts)
-        return str(content) if content is not None else ""
+                    # Handle text content
+                    if seg.get("type") == "text" and seg.get("text"):
+                        items.append({"type": "text", "content": seg["text"]})
+                    # Handle image content - convert from Chat Completions to Responses
+                    elif seg.get("type") == "image_url" and seg.get("image_url"):
+                        image_url_obj = seg["image_url"]
+                        if isinstance(image_url_obj, dict) and image_url_obj.get("url"):
+                            items.append(
+                                {
+                                    "type": "input_image",
+                                    "image_url": image_url_obj["url"],
+                                }
+                            )
+        elif content is not None:
+            content_str = str(content)
+            if content_str:
+                items.append({"type": "text", "content": content_str})
+
+        return items
+
+    def _to_text(content: Any) -> str:
+        """Extract only text content for backward compatibility."""
+        items = _extract_content_items(content)
+        text_parts = [item["content"] for item in items if item["type"] == "text"]
+        return "".join(text_parts)
 
     out: list[dict[str, Any]] = []
     for msg in dict_messages:
@@ -93,11 +122,18 @@ def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str
                     pass
             continue
 
-        # 3) Plain text messages
-        text = _to_text(msg.get("content", ""))
-        if role in {"user", "system", "assistant", "developer"} and text:
-            out.append({"role": role, "content": text})
+        # 3) Messages with text and/or image content
+        content_items = _extract_content_items(msg.get("content", ""))
+        if role in {"user", "system", "assistant", "developer"}:
+            # Add each content item as a separate Responses API item
+            for item in content_items:
+                if item["type"] == "text":
+                    out.append({"role": role, "content": item["content"]})
+                elif item["type"] == "input_image":
+                    out.append({"type": "input_image", "image_url": item["image_url"]})
         else:
+            # For unknown roles, treat as user and only add text content
+            text = _to_text(msg.get("content", ""))
             if text:
                 out.append({"role": "user", "content": text})
     return out

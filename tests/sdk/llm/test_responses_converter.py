@@ -111,6 +111,137 @@ def test_messages_to_responses_input_message_objects():
     ]
 
 
+def test_messages_to_responses_input_with_images():
+    """Test conversion of messages with image content to Responses format."""
+    msgs = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What's in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,abc123"},
+                },
+            ],
+        }
+    ]
+    items = messages_to_responses_items(msgs)
+
+    # Should produce two items: one text message and one image input
+    assert len(items) == 2
+    assert items[0] == {"role": "user", "content": "What's in this image?"}
+    assert items[1] == {
+        "type": "input_image",
+        "image_url": "data:image/png;base64,abc123",
+    }
+
+
+def test_messages_to_responses_input_with_multiple_images():
+    """Test conversion of messages with multiple images."""
+    msgs = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Compare these images:"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,image1"},
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/jpeg;base64,image2"},
+                },
+                {"type": "text", "text": "Which is better?"},
+            ],
+        }
+    ]
+    items = messages_to_responses_items(msgs)
+
+    # Should produce four items: text, image, image, text
+    assert len(items) == 4
+    assert items[0] == {"role": "user", "content": "Compare these images:"}
+    assert items[1] == {
+        "type": "input_image",
+        "image_url": "data:image/png;base64,image1",
+    }
+    assert items[2] == {
+        "type": "input_image",
+        "image_url": "data:image/jpeg;base64,image2",
+    }
+    assert items[3] == {"role": "user", "content": "Which is better?"}
+
+
+def test_messages_to_responses_input_image_only():
+    """Test conversion of messages with only image content."""
+    msgs = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/image.jpg"},
+                }
+            ],
+        }
+    ]
+    items = messages_to_responses_items(msgs)
+
+    # Should produce one image input item
+    assert len(items) == 1
+    assert items[0] == {
+        "type": "input_image",
+        "image_url": "https://example.com/image.jpg",
+    }
+
+
+def test_messages_to_responses_input_mixed_content_with_tools():
+    """Test conversion with mixed text/image content and tool calls."""
+    msgs = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Analyze this image and get weather data:"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,weather_map"},
+                },
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": "I'll analyze the image and get weather data.",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"location":"NYC"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_1", "content": "Sunny, 75°F"},
+    ]
+    items = messages_to_responses_items(msgs)
+
+    # Should produce: user text, image, assistant text, function_call, function_output
+    assert len(items) == 5
+    assert items[0] == {
+        "role": "user",
+        "content": "Analyze this image and get weather data:",
+    }
+    assert items[1] == {
+        "type": "input_image",
+        "image_url": "data:image/png;base64,weather_map",
+    }
+    assert items[2] == {
+        "role": "assistant",
+        "content": "I'll analyze the image and get weather data.",
+    }
+    assert items[3]["type"] == "function_call"
+    assert items[4]["type"] == "function_call_output"
+
+
 def test_responses_to_completion_format_basic():
     """Test basic conversion from responses format to completion format.
 
