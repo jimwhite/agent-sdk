@@ -1,7 +1,8 @@
 """Execute bash tool implementation."""
 
+import os
 from collections.abc import Sequence
-from typing import Literal
+from typing import Callable, Literal
 
 from pydantic import Field
 from rich.text import Text
@@ -219,6 +220,8 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
+        env_provider: Callable[[str], dict[str, str]] | None = None,
+        env_masker: Callable[[str], str] | None = None,
     ) -> "BashTool":
         """Initialize BashTool with executor parameters.
 
@@ -231,9 +234,18 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess
+            env_provider: Optional callable that maps a command string to
+                          environment variables (key -> value) to export before
+                          running that command.
+            env_masker: Optional callable that returns current secret values
+                        for masking purposes. This ensures consistent masking
+                        even when env_provider calls fail.
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
+
+        if not os.path.isdir(working_dir):
+            raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 
         # Initialize the executor
         executor = BashExecutor(
@@ -241,6 +253,8 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             username=username,
             no_change_timeout_seconds=no_change_timeout_seconds,
             terminal_type=terminal_type,
+            env_provider=env_provider,
+            env_masker=env_masker,
         )
 
         # Initialize the parent Tool with the executor
