@@ -14,6 +14,7 @@ from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )
+from openhands.sdk.utils.visualize import display_dict
 
 
 S = TypeVar("S", bound="Schema")
@@ -101,6 +102,20 @@ def _process_schema_node(node, defs):
 class Schema(BaseModel):
     """Base schema for input action / output observation."""
 
+    __include_du_spec__ = True
+    """Whether to include the _du_spec field in the serialized output.
+
+    This is used to help with discriminated union deserialization fallback.
+    When True, the model's JSON schema will be included in the serialized output
+    under the `_du_spec` key. This allows deserialization to reconstruct the model
+    even if the `kind` discriminator is missing or unresolvable.
+
+    This can be especially useful in server-client scenarios where the client may not
+    have all the same model classes registered as the server.
+    e.g., MCPAction schema created in the server-side; openhands.tools action schemas
+    (if the client doesn't have openhands.tools installed).
+    """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
@@ -181,22 +196,7 @@ class ActionBase(Schema, DiscriminatedUnionMixin):
         # Display all action fields systematically
         content.append("Arguments:", style="bold")
         action_fields = self.model_dump()
-        for field_name, field_value in action_fields.items():
-            if field_value is None:
-                continue  # skip None fields
-            content.append(f"\n  {field_name}: ", style="bold")
-            if isinstance(field_value, str):
-                # Handle multiline strings with proper indentation
-                if "\n" in field_value:
-                    content.append("\n")
-                    for line in field_value.split("\n"):
-                        content.append(f"    {line}\n")
-                else:
-                    content.append(f'"{field_value}"')
-            elif isinstance(field_value, (list, dict)):
-                content.append(str(field_value))
-            else:
-                content.append(str(field_value))
+        content.append(display_dict(action_fields))
 
         return content
 

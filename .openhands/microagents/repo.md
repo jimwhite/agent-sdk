@@ -192,7 +192,7 @@ The simplified pattern eliminates the need for manual executor instantiation and
 ### Avoid overly defensive code
 
 - Prefer relying on type hints and validated models over runtime shape checks.
-- Do not add getattr/hasattr guards or broad try/except unless there is a real, demonstrated need (e.g., upstream library returns multiple shapes). If tests need mixed shapes for mocks, keep the minimal guard exactly where required and document why.
+- Do not add getattr/hasattr guards or broad try/except unless there is a real, demonstrated need (e.g., upstream library returns multiple shapes).
 - Examples to avoid:
   - Overly defensive:
     - `fn = t.get("function", {})` followed by multiple `hasattr`/`getattr` fallbacks.
