@@ -1,7 +1,7 @@
 name: Run Integration Tests
 
 on:
-  pull_request:
+  pull_request_target:
     types: 
       - labeled
       - synchronize
@@ -53,21 +53,35 @@ jobs:
           version: "latest"
           python-version: ${{ matrix.python-version }}
 
+      - name: Check if secrets are available
+        id: check-secrets
+        run: |
+          if [ -n "${{ secrets.LLM_API_KEY }}" ] && [ -n "${{ secrets.LLM_BASE_URL }}" ]; then
+            echo "secrets-available=true" >> $GITHUB_OUTPUT
+          else
+            echo "secrets-available=false" >> $GITHUB_OUTPUT
+            echo "::warning::Secrets not available - this is expected for forked repositories"
+          fi
+
       - name: Comment on PR if 'integration-test' label is present
-        if: github.event_name == 'pull_request' && github.event.label.name == 'integration-test'
+        if: github.event_name == 'pull_request_target' && github.event.label.name == 'integration-test'
         uses: KeisukeYamashita/create-comment@v1
         with:
           unique: false
           comment: |
             Hi! I started running the integration tests on your PR. You will receive a comment with the results shortly.
+            
+            ${{ steps.check-secrets.outputs.secrets-available == 'false' && '⚠️ **Note**: This PR is from a forked repository, so integration tests will be skipped due to security restrictions. A maintainer can re-run the tests if needed.' || '' }}
 
       - name: Install Python dependencies using uv
+        if: steps.check-secrets.outputs.secrets-available == 'true'
         run: |
           uv sync --dev
           uv pip install pytest
 
       # Run integration test evaluation
       - name: Run integration test evaluation for ${{ matrix.job-config.name }}
+        if: steps.check-secrets.outputs.secrets-available == 'true'
         env:
           LLM_CONFIG: ${{ toJson(matrix.job-config.llm-config) }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -87,6 +101,11 @@ jobs:
             echo "INTEGRATION_TEST_REPORT=No report file found" >> $GITHUB_ENV
           fi
 
+      - name: Set fallback report for forked PRs
+        if: steps.check-secrets.outputs.secrets-available == 'false'
+        run: |
+          echo "INTEGRATION_TEST_REPORT=Integration tests skipped for forked repository due to security restrictions." >> $GITHUB_ENV
+
       - name: Wait a little bit
         run: sleep 10
 
@@ -95,12 +114,14 @@ jobs:
 
 
       - name: Create archive of evaluation outputs
+        if: steps.check-secrets.outputs.secrets-available == 'true'
         run: |
           TIMESTAMP=$(date +'%y-%m-%d-%H-%M')
           cd tests/integration/outputs  # Change to the outputs directory
           tar -czvf ../../../integration_tests_${{ matrix.job-config.run-suffix }}_${TIMESTAMP}.tar.gz *${{ matrix.job-config.run-suffix }}* # Include result directories for this model
 
       - name: Upload evaluation results as artifact
+        if: steps.check-secrets.outputs.secrets-available == 'true'
         uses: actions/upload-artifact@v4
         id: upload_results_artifact
         with:
@@ -111,7 +132,8 @@ jobs:
         run: |
           # Create a results summary file for this model
           mkdir -p test_results_summary
-          cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
+          if [ "${{ steps.check-secrets.outputs.secrets-available }}" == "true" ]; then
+            cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
           {
             "model_name": "${{ matrix.job-config.name }}",
             "run_suffix": "${{ matrix.job-config.run-suffix }}",
@@ -120,6 +142,17 @@ jobs:
             "status": "completed"
           }
           EOF
+          else
+            cat > test_results_summary/${{ matrix.job-config.run-suffix }}_results.json << EOF
+          {
+            "model_name": "${{ matrix.job-config.name }}",
+            "run_suffix": "${{ matrix.job-config.run-suffix }}",
+            "test_report": $(echo '${{ env.INTEGRATION_TEST_REPORT }}' | jq -Rs .),
+            "artifact_url": null,
+            "status": "skipped_fork"
+          }
+          EOF
+          fi
 
       - name: Upload test results summary
         uses: actions/upload-artifact@v4
@@ -165,8 +198,14 @@ jobs:
       - name: Create consolidated PR comment
         run: |
           COMMENT_BODY=$(cat consolidated_report.md)
-          # Use GitHub CLI to create comment
-          echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+          # Check if PR_NUMBER is available (it might not be for some events)
+          if [ -n "${{ env.PR_NUMBER }}" ] && [ "${{ env.PR_NUMBER }}" != "null" ]; then
+            echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+          else
+            echo "::warning::PR number not available, skipping comment creation"
+            echo "Comment body would have been:"
+            echo "$COMMENT_BODY"
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
 

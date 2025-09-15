@@ -39,13 +39,17 @@ def process_result_file(filepath):
         with open(filepath, "r") as f:
             data = json.load(f)
 
+        status = data.get("status", "completed")
         return {
             "model_name": data.get("model_name", "Unknown"),
             "run_suffix": data.get("run_suffix", "unknown"),
             "test_report": data.get("test_report", "No report available"),
             "artifact_url": data.get("artifact_url", "N/A"),
-            "success_rate": extract_success_rate(data.get("test_report", "")),
+            "success_rate": extract_success_rate(data.get("test_report", ""))
+            if status != "skipped_fork"
+            else "Skipped",
             "total_cost": data.get("total_cost", 0.0),
+            "status": status,
         }
     except Exception as e:
         print(f"Error processing {filepath}: {e}", file=sys.stderr)
@@ -75,7 +79,15 @@ def generate_report(results, trigger_text, commit_sha):
         report += "| No results | N/A | N/A | No test results available | N/A |\n"
     else:
         for result in results:
-            artifact_link = f"[Download]({result['artifact_url']})"
+            if result.get("status") == "skipped_fork":
+                artifact_link = "N/A (Forked PR)"
+            else:
+                artifact_link = (
+                    f"[Download]({result['artifact_url']})"
+                    if result["artifact_url"] != "N/A"
+                    else "N/A"
+                )
+
             model_name = result["model_name"]
             success_rate = result["success_rate"]
             cost = format_cost(result.get("total_cost", 0.0))
@@ -98,7 +110,7 @@ def generate_report(results, trigger_text, commit_sha):
 
 def determine_trigger_info(event_name, pr_number, manual_reason):
     """Determine trigger text and final PR number based on event type."""
-    if event_name == "pull_request":
+    if event_name in ["pull_request", "pull_request_target"]:
         trigger_text = f"Pull Request (integration-test label on PR #{pr_number})"
         final_pr_number = pr_number
     elif event_name == "workflow_dispatch":
