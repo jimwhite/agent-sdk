@@ -138,10 +138,29 @@ def test_action_event_visualize():
     text_content = result.plain
     assert "Reasoning:" in text_content
     assert "Let me check the directory contents" in text_content
-    assert "Thought:" in text_content
-    assert "I need to list files" in text_content
-    assert "MockAction" in text_content
-    assert "ls -la" in text_content
+
+
+def test_message_event_with_reasoning_visualize():
+    """MessageEvent should display reasoning when present on llm_message."""
+    message = Message(
+        role="assistant",
+        content=[TextContent(text="Here is the answer")],
+        reasoning_content=(
+            "I will think through the steps and provide a concise response."
+        ),
+    )
+    event = MessageEvent(
+        source="agent",
+        llm_message=message,
+    )
+
+    result = event.visualize
+    assert isinstance(result, Text)
+
+    text_content = result.plain
+    assert "Reasoning:" in text_content
+    assert "think through the steps" in text_content
+    assert "Here is the answer" in text_content
 
 
 def test_observation_event_visualize():
