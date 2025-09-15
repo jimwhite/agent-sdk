@@ -178,6 +178,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     _metrics: Metrics | None = PrivateAttr(default=None)
     _retry_listener: Callable[[int, int], None] | None = PrivateAttr(default=None)
+
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
