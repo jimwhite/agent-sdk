@@ -3,6 +3,34 @@
 import tiktoken
 
 
+def get_tokenizer(encoding_name: str = "o200k_base") -> tiktoken.Encoding:
+    """Get a tiktoken tokenizer for the specified encoding.
+
+    This function provides access to tiktoken encoders for token counting and
+    text processing. By default, it uses the "o200k_base" encoding which is
+    used by GPT-5 and other modern language models.
+
+    Note: The token counts returned by this tokenizer are a best-effort
+    approximation when used with non-OpenAI LLM providers. Different providers
+    may use different tokenization schemes, so the actual token consumption
+    may vary slightly from the counts provided by this function.
+
+    Args:
+        encoding_name: The name of the tiktoken encoding to use.
+                      Defaults to "o200k_base" (GPT-5 encoding).
+                      Other common encodings include:
+                      - "cl100k_base" (GPT-4, GPT-3.5-turbo)
+                      - "p50k_base" (GPT-3, Codex)
+
+    Returns:
+        A tiktoken.Encoding object for the specified encoding.
+
+    Raises:
+        ValueError: If the specified encoding is not available.
+    """
+    return tiktoken.get_encoding(encoding_name)
+
+
 # Default truncation limits
 DEFAULT_TEXT_CONTENT_LIMIT = 50_000
 DEFAULT_TOKEN_LIMIT = 12_000  # Reasonable default for token-based truncation
@@ -18,7 +46,7 @@ def maybe_truncate_by_tokens(
     content: str,
     max_tokens: int | None = None,
     truncate_notice: str = DEFAULT_TRUNCATE_NOTICE,
-    encoding_name: str = "cl100k_base",
+    encoding_name: str = "o200k_base",
 ) -> str:
     """
     Truncate the middle of content if it exceeds the specified token count.
@@ -30,7 +58,7 @@ def maybe_truncate_by_tokens(
         content: The text content to potentially truncate
         max_tokens: Maximum tokens before truncation. If None, no truncation occurs
         truncate_notice: Notice to insert in the middle when content is truncated
-        encoding_name: The tiktoken encoding to use (default: cl100k_base for GPT-4)
+        encoding_name: The tiktoken encoding to use (default: o200k_base for GPT-5)
 
     Returns:
         Original content if under limit, or truncated content with head and tail
@@ -40,7 +68,7 @@ def maybe_truncate_by_tokens(
         return content
 
     try:
-        encoding = tiktoken.get_encoding(encoding_name)
+        encoding = get_tokenizer(encoding_name)
     except ValueError:
         # Fallback to character-based truncation if encoding is not available
         return maybe_truncate(
@@ -76,7 +104,7 @@ def maybe_truncate(
     truncate_after: int | None = None,
     truncate_notice: str = DEFAULT_TRUNCATE_NOTICE,
     use_tokens: bool = False,
-    encoding_name: str = "cl100k_base",
+    encoding_name: str = "o200k_base",
 ) -> str:
     """
     Truncate the middle of content if it exceeds the specified length.

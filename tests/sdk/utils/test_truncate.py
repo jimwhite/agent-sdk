@@ -136,7 +136,7 @@ def test_maybe_truncate_with_tokens():
     # Should be truncated since it's more than max_tokens
     assert DEFAULT_TRUNCATE_NOTICE in result
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -151,7 +151,7 @@ def test_maybe_truncate_by_tokens_no_limit():
 def test_maybe_truncate_by_tokens_under_limit():
     """Test that maybe_truncate_by_tokens returns original content when under limit."""
     content = "Short string"
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     token_count = len(encoding.encode(content))
 
     result = maybe_truncate_by_tokens(content, max_tokens=token_count + 10)
@@ -170,7 +170,7 @@ def test_maybe_truncate_by_tokens_over_limit():
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -191,7 +191,7 @@ def test_maybe_truncate_by_tokens_custom_notice():
 def test_maybe_truncate_by_tokens_exact_limit():
     """Test that maybe_truncate_by_tokens doesn't truncate when exactly at limit."""
     content = "word " * 10  # Approximately 10 tokens
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     token_count = len(encoding.encode(content))
 
     result = maybe_truncate_by_tokens(content, max_tokens=token_count)
@@ -292,7 +292,7 @@ def test_maybe_truncate_by_tokens_unicode_content():
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -333,7 +333,7 @@ class Calculator:
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -368,7 +368,7 @@ def test_maybe_truncate_by_tokens_json_content():
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -390,7 +390,7 @@ def test_maybe_truncate_by_tokens_very_large_content():
     assert len(result) < len(large_content)
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -417,7 +417,7 @@ def test_maybe_truncate_by_tokens_very_small_limit():
 
     # With very small limits, the notice itself might be larger than the limit
     # In this case, the function returns just the notice
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     notice_tokens = len(encoding.encode(DEFAULT_TRUNCATE_NOTICE))
 
     if notice_tokens >= max_tokens:
@@ -438,7 +438,7 @@ def test_maybe_truncate_by_tokens_single_word():
     result = maybe_truncate_by_tokens(content, max_tokens=max_tokens)
 
     # With small limits, the notice itself might be larger than the limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     notice_tokens = len(encoding.encode(DEFAULT_TRUNCATE_NOTICE))
 
     if notice_tokens >= max_tokens:
@@ -461,7 +461,7 @@ def test_maybe_truncate_by_tokens_whitespace_handling():
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -511,7 +511,7 @@ def hello_world():
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -549,7 +549,7 @@ def test_maybe_truncate_by_tokens_token_boundary_accuracy():
     assert DEFAULT_TRUNCATE_NOTICE in result
 
     # Verify exact token count
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens
 
@@ -597,6 +597,6 @@ def test_maybe_truncate_by_tokens_performance_large_input():
     assert len(result) < len(large_content)
 
     # Verify token count is within limit
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding("o200k_base")
     result_tokens = len(encoding.encode(result))
     assert result_tokens <= max_tokens

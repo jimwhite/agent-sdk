@@ -7,7 +7,7 @@ from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils import DEFAULT_TOKEN_LIMIT, maybe_truncate
+from openhands.sdk.utils import DEFAULT_TOKEN_LIMIT, get_tokenizer, maybe_truncate
 
 
 logger = get_logger(__name__)
@@ -33,6 +33,24 @@ class TextContent(mcp.types.TextContent, BaseContent):
     def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
         text = self.text
+
+        # Check token count and warn if it exceeds the limit
+        try:
+            tokenizer = get_tokenizer()
+            token_count = len(tokenizer.encode(text))
+            if token_count > DEFAULT_TOKEN_LIMIT:
+                logger.warning(
+                    f"TextContent token count ({token_count}) exceeds limit "
+                    f"({DEFAULT_TOKEN_LIMIT}), truncating"
+                )
+        except Exception:
+            # Fallback to character-based warning if tokenizer fails
+            if len(text) > DEFAULT_TOKEN_LIMIT * 4:  # Rough approximation
+                logger.warning(
+                    f"TextContent text length ({len(text)}) may exceed token limit, "
+                    "truncating"
+                )
+
         # Use token-based truncation for better LLM context management
         text = maybe_truncate(text, DEFAULT_TOKEN_LIMIT, use_tokens=True)
 
