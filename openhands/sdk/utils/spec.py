@@ -7,42 +7,42 @@ from pydantic import BaseModel, Field
 
 
 class StringType(BaseModel):
-    _type: Literal["string"] = "string"
+    type_name: Literal["string"] = "string"
 
     def to_type(self) -> Union[type, types.GenericAlias]:
         return str
 
 
 class IntType(BaseModel):
-    _type: Literal["int"] = "int"
+    type_name: Literal["int"] = "int"
 
     def to_type(self) -> Union[type, types.GenericAlias]:
         return int
 
 
 class FloatType(BaseModel):
-    _type: Literal["float"] = "float"
+    type_name: Literal["float"] = "float"
 
     def to_type(self) -> Union[type, types.GenericAlias]:
         return float
 
 
 class BoolType(BaseModel):
-    _type: Literal["bool"] = "bool"
+    type_name: Literal["bool"] = "bool"
 
     def to_type(self) -> Union[type, types.GenericAlias]:
         return bool
 
 
 class NoneType(BaseModel):
-    _type: Literal["none"] = "none"
+    type_name: Literal["none"] = "none"
 
     def to_type(self) -> Union[type, types.GenericAlias]:
         return type(None)
 
 
 class ListType(BaseModel):
-    _type: Literal["list"] = "list"
+    type_name: Literal["list"] = "list"
     item_type: SimpleTypePayload
 
     def to_type(self) -> Union[type, types.GenericAlias]:
@@ -50,7 +50,7 @@ class ListType(BaseModel):
 
 
 class DictType(BaseModel):
-    _type: Literal["dict"] = "dict"
+    type_name: Literal["dict"] = "dict"
     key_type: SimpleTypePayload
     value_type: SimpleTypePayload
 
@@ -68,7 +68,7 @@ SimpleTypePayload = Annotated[
         ListType,
         DictType,
     ],
-    Field(discriminator="type"),
+    Field(discriminator="type_name"),
 ]
 
 
