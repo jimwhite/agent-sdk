@@ -46,7 +46,7 @@ class ListType(BaseModel):
     item_type: SimpleTypePayload
 
     def to_type(self) -> Union[type, types.GenericAlias]:
-        return list[self.item_type.to_type()]
+        return list[self.item_type.to_type()]  # type: ignore
 
 
 class DictType(BaseModel):
@@ -55,7 +55,7 @@ class DictType(BaseModel):
     value_type: SimpleTypePayload
 
     def to_type(self) -> Union[type, types.GenericAlias]:
-        return dict[self.key_type.to_type(), self.value_type.to_type()]
+        return dict[self.key_type.to_type(), self.value_type.to_type()]  # type: ignore
 
 
 SimpleTypePayload = Annotated[
