@@ -1,7 +1,7 @@
 name: Run Integration Tests
 
 on:
-  pull_request:
+  pull_request_target:
     types: 
       - labeled
       - synchronize
@@ -19,7 +19,7 @@ env:
 
 jobs:
   run-integration-tests:
-    if: github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: (github.event.label.name == 'integration-test' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && (secrets.LLM_API_KEY != '' && secrets.LLM_BASE_URL != '')
     runs-on: blacksmith-4vcpu-ubuntu-2204
     permissions:
       contents: "read"
@@ -146,7 +146,21 @@ jobs:
           merge-multiple: true
           path: all_results
 
+      - name: Check if integration tests ran
+        id: check_tests
+        run: |
+          if [ "${{ needs.run-integration-tests.result }}" = "skipped" ]; then
+            echo "tests_skipped=true" >> $GITHUB_OUTPUT
+            echo "Integration tests were skipped due to missing secrets (likely running from a fork)" > consolidated_report.md
+            echo "" >> consolidated_report.md
+            echo "Integration tests require access to LLM API secrets which are not available to forked repositories for security reasons." >> consolidated_report.md
+            echo "If you are a maintainer, you can run the integration tests by pushing to a branch on the main repository." >> consolidated_report.md
+          else
+            echo "tests_skipped=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Consolidate test results
+        if: steps.check_tests.outputs.tests_skipped == 'false'
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -163,10 +177,11 @@ jobs:
           path: consolidated_report.md
 
       - name: Create consolidated PR comment
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.number
         run: |
           COMMENT_BODY=$(cat consolidated_report.md)
           # Use GitHub CLI to create comment
-          echo "$COMMENT_BODY" | gh pr comment ${{ env.PR_NUMBER }} --body-file -
+          echo "$COMMENT_BODY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
         env:
           GH_TOKEN: ${{ github.token }}
 
