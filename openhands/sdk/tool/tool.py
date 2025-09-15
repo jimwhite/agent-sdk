@@ -11,7 +11,7 @@ from pydantic import (
 )
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.discriminated_union.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
     kind_of,

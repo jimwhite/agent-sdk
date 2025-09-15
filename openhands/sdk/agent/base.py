@@ -10,7 +10,7 @@ from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolType
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.discriminated_union.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )

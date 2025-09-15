@@ -4,7 +4,7 @@ from typing import Annotated
 
 from openhands.sdk.context.view import View
 from openhands.sdk.event.condenser import Condensation
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.discriminated_union.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )

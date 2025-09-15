@@ -10,7 +10,7 @@ from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
 )
-from openhands.sdk.utils.discriminated_union import (
+from openhands.sdk.utils.discriminated_union.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
 )
