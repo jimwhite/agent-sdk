@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import types
 from typing import Annotated, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, Field
@@ -8,35 +9,35 @@ from pydantic import BaseModel, Field
 class StringType(BaseModel):
     _type: Literal["string"] = "string"
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return str
 
 
 class IntType(BaseModel):
     _type: Literal["int"] = "int"
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return int
 
 
 class FloatType(BaseModel):
     _type: Literal["float"] = "float"
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return float
 
 
 class BoolType(BaseModel):
     _type: Literal["bool"] = "bool"
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return bool
 
 
 class NoneType(BaseModel):
     _type: Literal["none"] = "none"
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return type(None)
 
 
@@ -44,7 +45,7 @@ class ListType(BaseModel):
     _type: Literal["list"] = "list"
     item_type: SimpleTypePayload
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return list[self.item_type.to_type()]
 
 
@@ -53,7 +54,7 @@ class DictType(BaseModel):
     key_type: SimpleTypePayload
     value_type: SimpleTypePayload
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         return dict[self.key_type.to_type(), self.value_type.to_type()]
 
 
@@ -126,6 +127,6 @@ class SimpleType(BaseModel):
             "Supported types are: str, int, float, bool, type(None), list, and dict."
         )
 
-    def to_type(self) -> type:
+    def to_type(self) -> Union[type, types.GenericAlias]:
         """Convert back to the original Python type object."""
         return self.payload.to_type()
