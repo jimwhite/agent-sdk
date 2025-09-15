@@ -1,4 +1,4 @@
-from openhands.sdk.utils.spec import SimpleType
+from openhands.sdk.utils.discriminated_union.simple_type import SimpleType
 
 
 def test_roundtrip_serialization_of_int() -> None:
