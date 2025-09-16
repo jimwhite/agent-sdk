@@ -28,6 +28,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -232,8 +233,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Internal fields (excluded from dumps)
     # =========================================================================
-    retry_listener: Callable[[int, int], None] | None = Field(
-        default=None, exclude=True
+    retry_listener: SkipJsonSchema[Callable[[int, int], None] | None] = Field(
+        default=None,
+        exclude=True,
     )
     _metrics: Metrics | None = PrivateAttr(default=None)
     # ===== Plain class vars (NOT Fields) =====
@@ -483,7 +485,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def completion(
         self,
-        messages: list[dict[str, Any]] | list[Message],
+        messages: list[Message],
         tools: list[ChatCompletionToolParam] | list["Tool"] | None = None,
         return_metrics: bool = False,
         **kwargs,
@@ -999,21 +1001,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         return [message.to_llm_dict() for message in messages]
 
-    # =========================================================================
-    # Responses input conversion helpers (moved to utils.responses_converter)
-    # =========================================================================
-
-    def get_token_count(self, messages: list[dict] | list[Message]) -> int:
-        if isinstance(messages, list) and messages and isinstance(messages[0], Message):
-            logger.info(
-                "Message objects now include serialized tool calls in token counting"
-            )
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
+    def get_token_count(self, messages: list[Message]) -> int:
+        logger.info(
+            "Message objects now include serialized tool calls in token counting"
+        )
+        formatted_messages = self.format_messages_for_llm(messages)
         try:
             return int(
                 token_counter(
                     model=self.model,
-                    messages=messages,  # type: ignore[arg-type]
+                    messages=formatted_messages,
                     custom_tokenizer=self._tokenizer,
                 )
             )

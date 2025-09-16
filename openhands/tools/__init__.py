@@ -1,5 +1,6 @@
 """Runtime tools package."""
 
+from openhands.tools.browser_use import BrowserToolSet
 from openhands.tools.execute_bash import (
     BashExecutor,
     BashTool,
@@ -39,10 +40,7 @@ __all__ = [
     "TaskTrackerObservation",
     "TaskTrackerExecutor",
     "TaskTrackerTool",
-    "pack_codebase_tool",
-    "PackCodebaseAction",
-    "PackCodebaseObservation",
-    "RepomixTool",
+    "BrowserToolSet",
 ]
 
 from importlib.metadata import PackageNotFoundError, version
