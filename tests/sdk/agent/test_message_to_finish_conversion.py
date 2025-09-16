@@ -84,7 +84,9 @@ def test_agent_message_converted_to_finish_action():
     finish_event = finish_action_events[0]
     assert isinstance(finish_event.action, FinishAction)
     assert finish_event.action.message == "I have completed the task successfully!"
-    assert finish_event.tool_call_id.startswith("auto_finish_")
+    assert (
+        finish_event.tool_call_id is None
+    )  # No tool call ID for manually simulated actions
     assert finish_event.llm_response_id == "test-response-id"
 
     # Verify the finish action was executed (should have corresponding observation)
@@ -94,7 +96,8 @@ def test_agent_message_converted_to_finish_action():
         e
         for e in conversation.state.events
         if isinstance(e, ObservationEvent)
-        and e.tool_call_id == finish_event.tool_call_id
+        and e.tool_name == "finish"
+        and e.action_id == finish_event.id
     ]
     assert len(finish_observations) == 1, "FinishAction should have been executed"
 

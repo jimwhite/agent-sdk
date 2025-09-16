@@ -304,9 +304,9 @@ class Agent(AgentBase):
                 reasoning_content=message.reasoning_content,
                 action=finish_action,
                 tool_name="finish",
-                tool_call_id="auto_finish_" + response.id,
+                tool_call_id=None,  # No tool call ID for manually simulated actions
                 tool_call=ChatCompletionMessageToolCall(
-                    id="auto_finish_" + response.id,
+                    id=None,  # No ID for manually simulated tool calls
                     type="function",
                     function=Function(
                         name="finish",

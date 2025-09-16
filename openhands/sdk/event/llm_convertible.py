@@ -83,8 +83,12 @@ class ActionEvent(LLMConvertibleEvent):
     )
     action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
-    tool_call_id: ToolCallID = Field(
-        ..., description="The unique id returned by LLM API for this tool call"
+    tool_call_id: ToolCallID | None = Field(
+        default=None,
+        description=(
+            "The unique id returned by LLM API for this tool call. "
+            "None for synthetic actions."
+        ),
     )
     tool_call: ChatCompletionMessageToolCall = Field(
         ...,
@@ -166,8 +170,12 @@ class ObservationEvent(LLMConvertibleEvent):
     tool_name: str = Field(
         ..., description="The tool name that this observation is responding to"
     )
-    tool_call_id: ToolCallID = Field(
-        ..., description="The tool call id that this observation is responding to"
+    tool_call_id: ToolCallID | None = Field(
+        default=None,
+        description=(
+            "The tool call id that this observation is responding to. "
+            "None for synthetic actions."
+        ),
     )
 
     @property
@@ -298,8 +306,12 @@ class UserRejectObservation(LLMConvertibleEvent):
     tool_name: str = Field(
         ..., description="The tool name that this rejection is responding to"
     )
-    tool_call_id: ToolCallID = Field(
-        ..., description="The tool call id that this rejection is responding to"
+    tool_call_id: ToolCallID | None = Field(
+        default=None,
+        description=(
+            "The tool call id that this rejection is responding to. "
+            "None for synthetic actions."
+        ),
     )
     rejection_reason: str = Field(
         default="User rejected the action",
