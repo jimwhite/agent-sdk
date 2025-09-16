@@ -2,17 +2,21 @@ from collections.abc import Sequence
 from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic_core import core_schema
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.llm.message import content_to_str
+from openhands.sdk.tool.schema_registry import (
+    kind_of,
+    register_action_schema,
+    register_observation_schema,
+    validate_action,
+    validate_observation,
+)
 from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
-)
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
 )
 from openhands.sdk.utils.visualize import display_dict
 
@@ -102,21 +106,45 @@ def _process_schema_node(node, defs):
 class Schema(BaseModel):
     """Base schema for input action / output observation."""
 
-    __include_du_spec__ = True
-    """Whether to include the _du_spec field in the serialized output.
-
-    This is used to help with discriminated union deserialization fallback.
-    When True, the model's JSON schema will be included in the serialized output
-    under the `_du_spec` key. This allows deserialization to reconstruct the model
-    even if the `kind` discriminator is missing or unresolvable.
-
-    This can be especially useful in server-client scenarios where the client may not
-    have all the same model classes registered as the server.
-    e.g., MCPAction schema created in the server-side; openhands.tools action schemas
-    (if the client doesn't have openhands.tools installed).
-    """
-
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # Add kind field for discriminated union support
+    kind: str = Field(default="", description="Schema type discriminator")
+
+    def model_post_init(self, __context: Any) -> None:
+        """Set the kind field after initialization."""
+        # Use object.__setattr__ to bypass frozen=True
+        if not self.kind:
+            object.__setattr__(self, "kind", kind_of(self.__class__))
+
+    @classmethod
+    def model_json_schema(
+        cls,
+        by_alias: bool = True,
+        ref_template: str = "#/$defs/{model}",
+        schema_generator=None,
+        mode="validation",
+    ) -> dict[str, Any]:
+        """Generate JSON schema, excluding the kind field."""
+        # Import here to avoid circular imports
+        from pydantic.json_schema import GenerateJsonSchema
+
+        if schema_generator is None:
+            schema_generator = GenerateJsonSchema
+
+        schema = super().model_json_schema(
+            by_alias=by_alias,
+            ref_template=ref_template,
+            schema_generator=schema_generator,
+            mode=mode,
+        )
+        # Remove kind field from properties if it exists
+        if "properties" in schema and "kind" in schema["properties"]:
+            del schema["properties"]["kind"]
+        # Remove kind from required fields if it exists
+        if "required" in schema and "kind" in schema["required"]:
+            schema["required"].remove("kind")
+        return schema
 
     @classmethod
     def to_mcp_schema(cls) -> dict[str, Any]:
@@ -165,18 +193,33 @@ class Schema(BaseModel):
                 else Field(default=default),
             )
 
-        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
+        dynamic_class = create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
+
+        # Register the dynamic class in the appropriate registry
+        from openhands.sdk.tool.schema_registry import (
+            register_dynamic_action_schema,
+            register_dynamic_observation_schema,
+        )
+
+        if issubclass(cls, ActionBase):
+            register_dynamic_action_schema(dynamic_class)
+        elif issubclass(cls, ObservationBase):
+            register_dynamic_observation_schema(dynamic_class)
+
+        return dynamic_class
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin):
+class ActionBase(Schema):
     """Base schema for input action."""
 
-    # NOTE: We make it optional since some weaker
-    # LLMs may not be able to fill it out correctly.
-    # https://github.com/All-Hands-AI/OpenHands/issues/10797
     security_risk: SECURITY_RISK_LITERAL = Field(
         default="UNKNOWN", description=SECURITY_RISK_DESC
     )
+
+    def __init_subclass__(cls, **kwargs):
+        """Auto-register action schemas when they are defined."""
+        super().__init_subclass__(**kwargs)
+        register_action_schema(cls)
 
     @property
     def visualize(self) -> Text:
@@ -247,19 +290,78 @@ class MCPActionBase(ActionBase):
         return data
 
 
-Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
+class ActionUnionType:
+    """Custom type for action unions that uses the registry system."""
+
+    def __get_pydantic_core_schema__(self, source_type, handler):
+        """Define custom Pydantic core schema for action validation."""
+
+        def validate_action_union(v: Any) -> ActionBase:
+            if isinstance(v, ActionBase):
+                return v
+            if isinstance(v, dict):
+                result = validate_action(v)
+                if isinstance(result, ActionBase):
+                    return result
+                # Fallback case - create a generic action
+                if isinstance(result, BaseModel):
+                    data = result.model_dump()
+                    data["kind"] = kind_of(ActionBase)
+                    return ActionBase.model_validate(data)
+            raise ValueError(f"Cannot validate action data: {v}")
+
+        return core_schema.no_info_plain_validator_function(validate_action_union)
+
+
+class ObservationUnionType:
+    """Custom type for observation unions that uses the registry system."""
+
+    def __get_pydantic_core_schema__(self, source_type, handler):
+        """Define custom Pydantic core schema for observation validation."""
+
+        def validate_observation_union(v: Any) -> ObservationBase:
+            if isinstance(v, ObservationBase):
+                return v
+            if isinstance(v, dict):
+                result = validate_observation(v)
+                if isinstance(result, ObservationBase):
+                    return result
+                # Fallback case - create a generic observation
+                if isinstance(result, BaseModel):
+                    data = result.model_dump()
+                    data["kind"] = kind_of(ObservationBase)
+
+                    # Create a minimal observation class
+                    class GenericObservation(ObservationBase):
+                        @property
+                        def agent_observation(
+                            self,
+                        ) -> Sequence[TextContent | ImageContent]:
+                            return [TextContent(text=str(data))]
+
+                    return GenericObservation.model_validate(data)
+            raise ValueError(f"Cannot validate observation data: {v}")
+
+        return core_schema.no_info_plain_validator_function(validate_observation_union)
+
+
+Action = Annotated[ActionBase, ActionUnionType()]
 """Type annotation for values that can be any implementation of ActionBase.
 
-In most situations, this is equivalent to ActionBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
+Uses a registry-based approach for polymorphic deserialization without requiring
+DiscriminatedUnionMixin inheritance.
 """
 
 
-class ObservationBase(Schema, DiscriminatedUnionMixin):
+class ObservationBase(Schema):
     """Base schema for output observation."""
 
     model_config = ConfigDict(extra="allow", frozen=True)
+
+    def __init_subclass__(cls, **kwargs):
+        """Auto-register observation schemas when they are defined."""
+        super().__init_subclass__(**kwargs)
+        register_observation_schema(cls)
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
@@ -283,10 +385,9 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
         return content
 
 
-Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
+Observation = Annotated[ObservationBase, ObservationUnionType()]
 """Type annotation for values that can be any implementation of ObservationBase.
 
-In most situations, this is equivalent to ObservationBase. However, when used in
-Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
-delaying the discriminator resolution until runtime.
+Uses a registry-based approach for polymorphic deserialization without requiring
+DiscriminatedUnionMixin inheritance.
 """

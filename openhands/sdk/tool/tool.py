@@ -9,13 +9,13 @@ from pydantic import (
     field_serializer,
     field_validator,
 )
+from pydantic_core import core_schema
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
+from openhands.sdk.tool.schema_registry import (
     kind_of,
-    resolve_kind,
+    register_tool_schema,
+    validate_tool,
 )
 
 
@@ -74,7 +74,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
+class Tool(BaseModel, Generic[ActionT, ObservationT]):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -83,7 +83,21 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     - Export MCP tool description.
     """
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="allow")
+
+    # Add kind field for identification
+    kind: str = Field(default="", description="Tool type discriminator")
+
+    def model_post_init(self, __context: Any) -> None:
+        """Set the kind field after initialization."""
+        # Use object.__setattr__ to bypass frozen=True
+        if not self.kind:
+            object.__setattr__(self, "kind", kind_of(self.__class__))
+
+    def __init_subclass__(cls, **kwargs):
+        """Auto-register tool schemas when they are defined."""
+        super().__init_subclass__(**kwargs)
+        register_tool_schema(cls)
 
     name: str
     description: str
@@ -135,7 +149,13 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     @classmethod
     def _val_action_type(cls, v):
         if isinstance(v, str):
-            return resolve_kind(v)
+            # Try to resolve from action registry
+            from openhands.sdk.tool.schema_registry import action_registry
+
+            schema_class = action_registry.get_schema(v)
+            if schema_class and issubclass(schema_class, ActionBase):
+                return schema_class
+            raise ValueError(f"Cannot resolve action_type: {v}")
         assert isinstance(v, type) and issubclass(v, ActionBase), (
             f"action_type must be a subclass of ActionBase, but got {type(v)}"
         )
@@ -147,7 +167,13 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         if v is None:
             return None
         if isinstance(v, str):
-            v = resolve_kind(v)
+            # Try to resolve from observation registry
+            from openhands.sdk.tool.schema_registry import observation_registry
+
+            schema_class = observation_registry.get_schema(v)
+            if schema_class and issubclass(schema_class, ObservationBase):
+                return schema_class
+            raise ValueError(f"Cannot resolve observation_type: {v}")
         assert isinstance(v, type) and issubclass(v, ObservationBase), (
             f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
         )
@@ -212,4 +238,27 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         )
 
 
-ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]
+class ToolUnionType:
+    """Custom type for tool unions that uses the registry system."""
+
+    def __get_pydantic_core_schema__(self, source_type, handler):
+        """Define custom Pydantic core schema for tool validation."""
+
+        def validate_tool_union(v: Any) -> Tool:
+            if isinstance(v, Tool):
+                return v
+            if isinstance(v, dict):
+                result = validate_tool(v)
+                if isinstance(result, Tool):
+                    return result
+                # Fallback case - create a generic tool
+                if isinstance(result, BaseModel):
+                    data = result.model_dump()
+                    data["kind"] = kind_of(Tool)
+                    return Tool.model_validate(data)
+            raise ValueError(f"Cannot validate tool data: {v}")
+
+        return core_schema.no_info_plain_validator_function(validate_tool_union)
+
+
+ToolType = Annotated[Tool[ActionT, ObservationT], ToolUnionType()]
