@@ -14,9 +14,9 @@ from openhands.sdk.tool.schema import ActionBase, ObservationBase
 from openhands.sdk.utils.discriminated_union.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
-    kind_of,
     resolve_kind,
 )
+from openhands.sdk.utils.discriminated_union.spec import kind_of
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
