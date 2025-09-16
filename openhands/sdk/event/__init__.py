@@ -1,4 +1,4 @@
-from openhands.sdk.event.base import Event, EventBase, LLMConvertibleEvent
+from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
 from openhands.sdk.event.condenser import (
     Condensation,
     CondensationRequest,
@@ -15,6 +15,10 @@ from openhands.sdk.event.llm_convertible import (
 from openhands.sdk.event.metric_events import EventWithMetrics
 from openhands.sdk.event.types import EventID, ToolCallID
 from openhands.sdk.event.user_action import PauseEvent
+
+
+# Backward-compat alias for types
+Event = EventBase
 
 
 __all__ = [

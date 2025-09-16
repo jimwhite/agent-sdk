@@ -3,7 +3,11 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.condenser import Condenser
+from openhands.sdk.context.condenser import (
+    LLMSummarizingCondenser,
+    NoOpCondenser,
+    PipelineCondenser,
+)
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolSpec
 
@@ -88,19 +92,22 @@ class AgentSpec(BaseModel):
         description="Optional kwargs to pass to render system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    condenser: Condenser | None = Field(
-        default=None,
-        description="Optional condenser to use for condensing conversation history.",
-        examples=[
-            {
-                "kind": "LLMSummarizingCondenser",
-                "llm": {
-                    "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
-                    "base_url": "https://llm-proxy.eval.all-hands.dev",
-                    "api_key": "your_api_key_here",
-                },
-                "max_size": 80,
-                "keep_first": 10,
-            }
-        ],
+    condenser: LLMSummarizingCondenser | NoOpCondenser | PipelineCondenser | None = (
+        Field(
+            default=None,
+            description=(
+                "Optional condenser to use for condensing conversation history."
+            ),
+            examples=[
+                {
+                    "llm": {
+                        "model": "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                        "base_url": "https://llm-proxy.eval.all-hands.dev",
+                        "api_key": "your_api_key_here",
+                    },
+                    "max_size": 80,
+                    "keep_first": 10,
+                }
+            ],
+        )
     )

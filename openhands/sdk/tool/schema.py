@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Annotated, Any, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
@@ -9,10 +9,6 @@ from openhands.sdk.llm.message import content_to_str
 from openhands.sdk.tool.security_prompt import (
     SECURITY_RISK_DESC,
     SECURITY_RISK_LITERAL,
-)
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
 )
 from openhands.sdk.utils.visualize import display_dict
 
@@ -168,8 +164,15 @@ class Schema(BaseModel):
         return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
 
 
-class ActionBase(Schema, DiscriminatedUnionMixin):
-    """Base schema for input action."""
+class ActionBase(Schema):
+    """Base schema for input action.
+
+    We allow extra keys to support schema-first persistence, where action payloads
+    may include fields from dynamically generated subclasses. Execution will
+    rehydrate to the tool's declared action_type when available.
+    """
+
+    model_config = ConfigDict(extra="allow", frozen=True)
 
     # NOTE: We make it optional since some weaker
     # LLMs may not be able to fill it out correctly.
@@ -238,7 +241,7 @@ class MCPActionBase(ActionBase):
         """Dump model excluding parent ActionBase fields.
 
         This is used to convert this action to MCP tool call arguments.
-        The parent fields (e.g., safety_risk, kind) are not part of the MCP tool schema
+        The parent fields (e.g., safety_risk) are not part of the MCP tool schema
         but are only used for our internal processing.
         """
         data = self.model_dump(exclude_none=True)
@@ -247,24 +250,34 @@ class MCPActionBase(ActionBase):
         return data
 
 
-Action = Annotated[ActionBase, DiscriminatedUnionType[ActionBase]]
-"""Type annotation for values that can be any implementation of ActionBase.
-
-In most situations, this is equivalent to ActionBase. However, when used in Pydantic
-BaseModels as a field annotation, it enables polymorphic deserialization by delaying the
-discriminator resolution until runtime.
+Action = ActionBase
+"""Alias for action type. Previously a discriminated union, now a direct base type.
 """
 
 
-class ObservationBase(Schema, DiscriminatedUnionMixin):
-    """Base schema for output observation."""
+class ObservationBase(Schema):
+    """Base schema for output observation.
+
+    Subclasses should override agent_observation for rich formatting.
+    The base implementation provides a sensible fallback for schema-only
+    observations to keep conversations robust when types aren't rehydrated.
+    """
 
     model_config = ConfigDict(extra="allow", frozen=True)
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        """Get the observation string to show to the agent."""
-        raise NotImplementedError("Subclasses must implement agent_observation")
+        """Default observation shown to the agent.
+
+        Fallback behavior:
+        - If an 'output' field exists and is a non-empty string, use it.
+        - Otherwise, show the serialized model data.
+        """
+        output = getattr(self, "output", None)
+        if isinstance(output, str) and output.strip():
+            return [TextContent(text=output)]
+        data = self.model_dump(exclude_none=True)
+        return [TextContent(text=str(data))]
 
     @property
     def visualize(self) -> Text:
@@ -283,10 +296,5 @@ class ObservationBase(Schema, DiscriminatedUnionMixin):
         return content
 
 
-Observation = Annotated[ObservationBase, DiscriminatedUnionType[ObservationBase]]
-"""Type annotation for values that can be any implementation of ObservationBase.
-
-In most situations, this is equivalent to ObservationBase. However, when used in
-Pydantic BaseModels as a field annotation, it enables polymorphic deserialization by
-delaying the discriminator resolution until runtime.
-"""
+Observation = ObservationBase
+"""Observation type alias for clarity; no discriminated union behavior."""

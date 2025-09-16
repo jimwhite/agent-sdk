@@ -1,4 +1,8 @@
-"""Test tool JSON serialization with DiscriminatedUnionMixin."""
+"""Test tool JSON serialization without discriminated unions.
+
+Tools now persist raw JSON schemas for inputs/outputs and reconstruct runtime
+Pydantic models on demand. There is no 'kind' discriminator.
+"""
 
 import json
 
@@ -88,22 +92,24 @@ def test_tool_model_validate_json_dict() -> None:
 
 
 def test_tool_fallback_behavior_json() -> None:
-    """Test that Tool handles unknown types gracefully in JSON."""
-    # Create JSON with unknown kind
+    """Tool can be reconstructed from JSON schema without type strings."""
     tool_dict = {
-        "name": "test-tool",
-        "description": "A test tool",
-        "action_type": "openhands.sdk.tool.builtins.finish.FinishAction",
-        "observation_type": None,
-        "kind": "UnknownToolType",
+        "name": "schema-tool",
+        "description": "A schema-first test tool",
+        "input_schema": {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+        },
     }
     tool_json = json.dumps(tool_dict)
 
-    # Should fall back to base Tool type
     deserialized_tool = Tool.model_validate_json(tool_json)
     assert isinstance(deserialized_tool, Tool)
-    assert deserialized_tool.name == "test-tool"
-    assert deserialized_tool.description == "A test tool"
+    assert deserialized_tool.name == "schema-tool"
+    assert deserialized_tool.description == "A schema-first test tool"
+    # Action type should be reconstructed at runtime
+    assert deserialized_tool.action_type is not None
 
 
 def test_tool_type_annotation_works_json() -> None:
@@ -128,22 +134,11 @@ def test_tool_type_annotation_works_json() -> None:
     assert tool.model_dump() == deserialized_model.tool.model_dump()
 
 
-def test_tool_kind_field_json() -> None:
-    """Test Tool kind field is correctly set and preserved through JSON."""
-    # Create tool
+def test_tool_to_openai_tool_has_parameters() -> None:
     tool = FinishTool
-
-    # Check kind field
-    assert hasattr(tool, "kind")
-    expected_kind = f"{tool.__class__.__module__}.{tool.__class__.__name__}"
-    assert tool.kind == expected_kind
-
-    # Serialize to JSON
-    tool_json = tool.model_dump_json()
-
-    # Deserialize from JSON
-    deserialized_tool = Tool.model_validate_json(tool_json)
-
-    # Should preserve kind field
-    assert hasattr(deserialized_tool, "kind")
-    assert deserialized_tool.kind == tool.kind
+    oai = tool.to_openai_tool()
+    assert oai["type"] == "function"
+    fn = oai["function"]
+    assert fn["name"] == tool.name
+    # parameters isn't a required key, but should be present as a dict here
+    assert isinstance(fn.get("parameters", {}), dict)

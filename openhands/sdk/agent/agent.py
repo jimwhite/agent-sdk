@@ -352,6 +352,7 @@ class Agent(AgentBase):
 
         # Validate arguments
         try:
+            assert tool.action_type is not None
             action: ActionBase = tool.action_type.model_validate(
                 json.loads(tool_call.function.arguments)
             )
@@ -403,10 +404,49 @@ class Agent(AgentBase):
         # Execute actions!
         if tool.executor is None:
             raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
+
+        # Rehydrate action to the tool's declared schema if needed
+        action = action_event.action
+        action_type = getattr(tool, "action_type", None)
+        if action_type is not None and not isinstance(action, action_type):
+            try:
+                payload = (
+                    action.model_dump() if hasattr(action, "model_dump") else action
+                )
+                action = action_type.model_validate(payload)
+            except Exception:
+                # Best-effort: keep original action if coercion fails
+                pass
+
+        # Prefer reconstructing action from the original tool_call arguments
+        # to avoid losing subclass fields during event serialization.
+        try:
+            args_dict = json.loads(action_event.tool_call.function.arguments)
+            if action_type is not None:
+                action = action_type.model_validate(args_dict)
+        except Exception:
+            # Fallback to best-effort validated action above
+            pass
+
+        observation: ObservationBase = tool.executor(action)
         assert isinstance(observation, ObservationBase), (
             f"Tool '{tool.name}' executor must return an ObservationBase"
         )
+
+        # Normalize observation to declared schema if available to ensure
+        # typed fields (e.g., FinishObservation.message) are present in dumps.
+        obs_type = getattr(tool, "observation_type", None)
+        if obs_type is not None and not isinstance(observation, obs_type):
+            try:
+                payload = (
+                    observation.model_dump()
+                    if hasattr(observation, "model_dump")
+                    else observation
+                )
+                observation = obs_type.model_validate(payload)
+            except Exception:
+                # Best-effort: keep original observation if coercion fails
+                pass
 
         obs_event = ObservationEvent(
             observation=observation,

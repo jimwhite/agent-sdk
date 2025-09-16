@@ -3,7 +3,7 @@ import json
 from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
-from pydantic import ConfigDict, Field, computed_field
+from pydantic import ConfigDict, Field, computed_field, field_serializer
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
@@ -132,6 +132,14 @@ class ActionEvent(LLMConvertibleEvent):
 
         return content
 
+    @field_serializer("action", when_used="json")
+    def _dump_action(self, action):
+        # Persist raw action payload to preserve subclass fields
+        try:
+            return action.model_dump(exclude_none=True)
+        except Exception:
+            return action
+
     def to_llm_message(self) -> Message:
         """Individual message - may be incomplete for multi-action batches"""
         return Message(
@@ -169,6 +177,15 @@ class ObservationEvent(LLMConvertibleEvent):
     tool_call_id: ToolCallID = Field(
         ..., description="The tool call id that this observation is responding to"
     )
+
+    # Persist observation as raw dict to ensure schema-first JSON (no DU discriminator)
+    # and preserve fields like FinishObservation.message on disk.
+    @field_serializer("observation", when_used="json")
+    def _dump_observation(self, obs):
+        try:
+            return obs.model_dump(exclude_none=True)
+        except Exception:
+            return obs
 
     @property
     def visualize(self) -> Text:

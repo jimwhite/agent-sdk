@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -6,17 +6,10 @@ from pydantic import (
     ConfigDict,
     Field,
     computed_field,
-    field_serializer,
-    field_validator,
+    model_validator,
 )
 
 from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.utils.discriminated_union import (
-    DiscriminatedUnionMixin,
-    DiscriminatedUnionType,
-    kind_of,
-    resolve_kind,
-)
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
@@ -74,7 +67,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
+class Tool(BaseModel, Generic[ActionT, ObservationT]):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -83,12 +76,17 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
     - Export MCP tool description.
     """
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="allow")
 
     name: str
     description: str
-    action_type: type[ActionBase] = Field(repr=False)
-    observation_type: type[ObservationBase] | None = Field(default=None, repr=False)
+    # Persist schema; reconstruct types at runtime. Exclude types from dumps.
+    action_type: type[ActionBase] | None = Field(default=None, repr=False, exclude=True)
+    observation_type: type[ObservationBase] | None = Field(
+        default=None, repr=False, exclude=True
+    )
+    input_schema: dict[str, Any] | None = None
+    output_schema: dict[str, Any] | None = None
 
     annotations: ToolAnnotations | None = None
     meta: dict[str, Any] | None = None
@@ -105,15 +103,43 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
-    @computed_field(return_type=dict[str, Any], alias="input_schema")
-    @property
-    def input_schema(self) -> dict[str, Any]:
-        return self.action_type.to_mcp_schema()
+    @model_validator(mode="after")
+    def _sync_types_and_schemas(self):
+        # Populate input/output schemas from types if missing
+        if self.action_type is not None and self.input_schema is None:
+            object.__setattr__(self, "input_schema", self.action_type.to_mcp_schema())
+        if self.observation_type is not None and self.output_schema is None:
+            object.__setattr__(
+                self, "output_schema", self.observation_type.to_mcp_schema()
+            )
 
-    @computed_field(return_type=dict[str, Any] | None, alias="output_schema")
-    @property
-    def output_schema(self) -> dict[str, Any] | None:
-        return self.observation_type.to_mcp_schema() if self.observation_type else None
+        # If types are missing but schemas provided, reconstruct runtime models
+        if self.action_type is None and self.input_schema is not None:
+            model_name = (
+                self.annotations.title
+                if self.annotations and self.annotations.title
+                else self.name
+            ) + "Action"
+            object.__setattr__(
+                self,
+                "action_type",
+                ActionBase.from_mcp_schema(model_name, self.input_schema),
+            )
+        if self.observation_type is None:
+            if self.output_schema is not None:
+                model_name = self.name + "Observation"
+                object.__setattr__(
+                    self,
+                    "observation_type",
+                    ObservationBase.from_mcp_schema(model_name, self.output_schema),
+                )
+            # MCP fallback: if we detect MCP metadata and no output schema was provided,
+            # default to MCPToolObservation for compatibility
+            elif getattr(self, "mcp_tool", None) is not None:
+                from openhands.sdk.mcp.definition import MCPToolObservation
+
+                object.__setattr__(self, "observation_type", MCPToolObservation)
+        return self
 
     @computed_field(return_type=str, alias="title")
     @property
@@ -121,37 +147,6 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
         if self.annotations and self.annotations.title:
             return self.annotations.title
         return self.name
-
-    @field_serializer("action_type")
-    def _ser_action_type(self, t: type[ActionBase]) -> str:
-        # serialize as a plain kind string
-        return kind_of(t)
-
-    @field_serializer("observation_type")
-    def _ser_observation_type(self, t: type[ObservationBase] | None) -> str | None:
-        return None if t is None else kind_of(t)
-
-    @field_validator("action_type", mode="before")
-    @classmethod
-    def _val_action_type(cls, v):
-        if isinstance(v, str):
-            return resolve_kind(v)
-        assert isinstance(v, type) and issubclass(v, ActionBase), (
-            f"action_type must be a subclass of ActionBase, but got {type(v)}"
-        )
-        return v
-
-    @field_validator("observation_type", mode="before")
-    @classmethod
-    def _val_observation_type(cls, v):
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = resolve_kind(v)
-        assert isinstance(v, type) and issubclass(v, ObservationBase), (
-            f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
-        )
-        return v
 
     def set_executor(self, executor: ToolExecutor) -> "Tool":
         """Create a new Tool instance with the given executor."""
@@ -207,9 +202,9 @@ class Tool(DiscriminatedUnionMixin, Generic[ActionT, ObservationT]):
             function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
-                parameters=self.input_schema,
+                parameters=self.input_schema or {},
             ),
         )
 
 
-ToolType = Annotated[Tool[ActionT, ObservationT], DiscriminatedUnionType[Tool]]
+ToolType = Tool[ActionT, ObservationT]

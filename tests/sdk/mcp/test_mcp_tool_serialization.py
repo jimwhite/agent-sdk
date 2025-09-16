@@ -1,8 +1,6 @@
-"""Test MCP tool JSON serialization with DiscriminatedUnionMixin.
+"""Test MCP tool JSON serialization without discriminated unions.
 
-Note: MCPTool serialization may be limited due to complex MCP objects
-(mcp_tool field contains mcp.types.Tool which may not be fully JSON serializable).
-These tests demonstrate the expected behavior and limitations.
+MCP tools are schema-first; no 'kind' discriminator is used.
 """
 
 from unittest.mock import Mock
@@ -62,19 +60,7 @@ def test_mcp_tool_polymorphic_behavior() -> None:
     assert hasattr(mcp_tool, "mcp_tool")
 
 
-def test_mcp_tool_kind_field() -> None:
-    """Test that MCPTool kind field is correctly set."""
-    # Create mock MCP tool and client
-    mock_mcp_tool = create_mock_mcp_tool()
-    mock_client = Mock(spec=MCPClient)
-
-    # Create MCPTool instance
-    mcp_tool = MCPTool.create(mock_mcp_tool, mock_client)
-
-    # Check kind field
-    assert hasattr(mcp_tool, "kind")
-    expected_kind = f"{mcp_tool.__class__.__module__}.{mcp_tool.__class__.__name__}"
-    assert mcp_tool.kind == expected_kind
+# No 'kind' discriminator expectations anymore
 
 
 def test_mcp_tool_fallback_behavior() -> None:
@@ -83,9 +69,7 @@ def test_mcp_tool_fallback_behavior() -> None:
     tool_data = {
         "name": "fallback-tool",
         "description": "A fallback test tool",
-        "action_type": "openhands.sdk.tool.schema.ActionBase",  # Use base class
-        "observation_type": "openhands.sdk.mcp.definition.MCPToolObservation",
-        "kind": "openhands.sdk.mcp.tool.MCPTool",
+        "input_schema": {"type": "object", "properties": {}},
         "mcp_tool": {
             "name": "fallback-tool",
             "description": "A fallback test tool",
@@ -96,6 +80,7 @@ def test_mcp_tool_fallback_behavior() -> None:
     deserialized_tool = Tool.model_validate(tool_data)
     assert isinstance(deserialized_tool, Tool)
     assert deserialized_tool.name == "fallback-tool"
+    assert deserialized_tool.action_type is not None
     assert issubclass(deserialized_tool.action_type, ActionBase)
     assert deserialized_tool.observation_type and issubclass(
         deserialized_tool.observation_type, MCPToolObservation

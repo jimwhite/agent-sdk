@@ -9,9 +9,61 @@ from openhands.sdk.conversation.persistence_const import (
     EVENTS_DIR,
 )
 from openhands.sdk.event import Event, EventBase, EventID
+from openhands.sdk.event.condenser import (
+    Condensation,
+    CondensationSummaryEvent,
+)
+from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
+    MessageEvent,
+    ObservationEvent,
+    SystemPromptEvent,
+)
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.protocol import ListLike
+
+
+def _parse_event(data: dict) -> Event:
+    """Heuristically parse event JSON into a concrete Event subclass.
+
+    Removes legacy 'kind' field if present. Falls back to EventBase validation
+    if no subtype matches, which will likely raise ValidationError for extras.
+    """
+    data = dict(data)
+    data.pop("kind", None)
+
+    if "llm_message" in data and "source" in data:
+        return MessageEvent.model_validate(data)
+    if "action" in data and "tool_call" in data and "tool_name" in data:
+        return ActionEvent.model_validate(data)
+    if "observation" in data and "tool_call_id" in data:
+        return ObservationEvent.model_validate(data)
+    if "system_prompt" in data and "tools" in data:
+        return SystemPromptEvent.model_validate(data)
+    if "forgotten_event_ids" in data or "summary_offset" in data:
+        return Condensation.model_validate(data)
+    if "summary" in data and "source" in data and "llm_message" not in data:
+        return CondensationSummaryEvent.model_validate(data)
+    # User rejection event
+    if {
+        "action_id",
+        "tool_name",
+        "tool_call_id",
+        "rejection_reason",
+    }.issubset(data.keys()):
+        from openhands.sdk.event.llm_convertible import UserRejectObservation
+
+        return UserRejectObservation.model_validate(data)
+    # Heuristic: a minimal user-sourced event with only base fields is a PauseEvent
+    if "source" in data and set(data.keys()) <= {"id", "timestamp", "source"}:
+        from openhands.sdk.event.user_action import PauseEvent
+
+        if data.get("source") == "user":
+            return PauseEvent.model_validate(data)
+        return EventBase.model_validate(data)
+    # Last resort
+    return EventBase.model_validate(data)
 
 
 logger = get_logger(__name__)
@@ -58,14 +110,14 @@ class EventLog(ListLike[Event]):
         txt = self._fs.read(self._path(i))
         if not txt:
             raise FileNotFoundError(f"Missing event file: {self._path(i)}")
-        return EventBase.model_validate(json.loads(txt))
+        return _parse_event(json.loads(txt))
 
     def __iter__(self) -> Iterator[Event]:
         for i in range(self._length):
             txt = self._fs.read(self._path(i))
             if not txt:
                 continue
-            evt = EventBase.model_validate(json.loads(txt))
+            evt = _parse_event(json.loads(txt))
             evt_id = evt.id
             # only backfill mapping if missing
             if i not in self._idx_to_id:

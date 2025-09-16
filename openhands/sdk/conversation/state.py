@@ -4,7 +4,7 @@ from enum import Enum
 from threading import RLock, get_ident
 from typing import TYPE_CHECKING, Optional
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 from openhands.sdk.agent.base import AgentType
 from openhands.sdk.conversation.event_store import EventLog
@@ -93,6 +93,19 @@ class ConversationState(BaseModel):
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.release()
+
+    @field_validator("agent", mode="before")
+    @classmethod
+    def _coerce_agent(cls, v):
+        # When loading from JSON, reconstruct a concrete Agent from dict
+        try:
+            from openhands.sdk.agent.agent import Agent
+        except Exception:
+            # Fallback import path in case of different packaging
+            from openhands.sdk.agent import Agent  # type: ignore
+        if isinstance(v, dict):
+            return Agent.model_validate(v)
+        return v
 
     def assert_locked(self) -> None:
         if self._owner_tid != get_ident():

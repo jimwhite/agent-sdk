@@ -217,8 +217,8 @@ def test_event_log_index_gaps_detection():
             "content": [{"type": "text", "text": "Event 0"}],
         },
         "source": "user",
-        "kind": "openhands.sdk.event.llm_convertible.MessageEvent",
     }
+
     fs.write("events/event-00000-event-0.json", json.dumps(event0))
 
     event2 = {
@@ -228,7 +228,6 @@ def test_event_log_index_gaps_detection():
             "content": [{"type": "text", "text": "Event 2"}],
         },
         "source": "user",
-        "kind": "openhands.sdk.event.llm_convertible.MessageEvent",
     }
     fs.write("events/event-00002-event-2.json", json.dumps(event2))
 

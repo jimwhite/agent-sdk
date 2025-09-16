@@ -237,14 +237,18 @@ class Conversation:
         effect until the current LLM call completes.
         """
 
-        if self.state.agent_status == AgentExecutionStatus.PAUSED:
+        # If already paused or waiting for confirmation, do nothing.
+        if self.state.agent_status in (
+            AgentExecutionStatus.PAUSED,
+            AgentExecutionStatus.WAITING_FOR_CONFIRMATION,
+        ):
             return
 
         with self.state:
             # Only pause when running or idle
-            if (
-                self.state.agent_status == AgentExecutionStatus.IDLE
-                or self.state.agent_status == AgentExecutionStatus.RUNNING
+            if self.state.agent_status in (
+                AgentExecutionStatus.IDLE,
+                AgentExecutionStatus.RUNNING,
             ):
                 self.state.agent_status = AgentExecutionStatus.PAUSED
                 pause_event = PauseEvent()
