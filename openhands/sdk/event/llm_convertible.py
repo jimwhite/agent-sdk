@@ -203,22 +203,16 @@ class ObservationEvent(LLMConvertibleEvent):
 
 
 class MessageEvent(LLMConvertibleEvent):
-    """Message from either agent or user.
+    """Message from user.
 
-    This is originally the "MessageAction", but it suppose not to be tool call."""
+    Agent messages are now converted to FinishActionEvent for consistency.
+    This event should only represent user messages."""
 
     model_config = ConfigDict(extra="ignore", frozen=True)
 
     source: SourceType
     llm_message: Message = Field(
         ..., description="The exact LLM message for this message event"
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs) for this message. "
-            "Only attached to messages from agent."
-        ),
     )
 
     # context extensions stuff / microagent can go here
