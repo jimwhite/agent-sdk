@@ -220,6 +220,26 @@ class DiscriminatedUnionMixin(BaseModel):
             "fields": fields,
         }
 
+    @computed_field  # type: ignore
+    @property
+    def _schema(self) -> dict | None:
+        """Optional JSON/MCP schema for runtime validation.
+
+        When subclasses provide a `to_mcp_schema()` classmethod (e.g., ActionBase,
+        ObservationBase), we expose that schema alongside the DU metadata so a
+        consumer can validate/instantiate the payload without importing the class.
+        """
+        # Only include for models opting in to DU spec emission to avoid bloat
+        if not getattr(self.__class__, "__include_du_spec__", False):
+            return None
+        to_schema = getattr(self.__class__, "to_mcp_schema", None)
+        if callable(to_schema):
+            try:
+                return to_schema()  # type: ignore[misc]
+            except Exception:
+                return None
+        return None
+
     @classmethod
     def _reconstruct_from_spec(
         cls, spec: dict, payload: dict
@@ -305,7 +325,9 @@ class DiscriminatedUnionMixin(BaseModel):
             target_class = cls.target_subclass(kind)
             if target_class is not None:
                 obj_clean = {
-                    k: v for k, v in obj.items() if k not in ("kind", "_du_spec")
+                    k: v
+                    for k, v in obj.items()
+                    if k not in ("kind", "_du_spec", "_schema")
                 }
                 return cast(
                     T,
@@ -320,13 +342,40 @@ class DiscriminatedUnionMixin(BaseModel):
             # Fallback: if we can't resolve, try reconstructing from spec.
             if isinstance(spec, dict):
                 payload = {
-                    k: v for k, v in obj.items() if k not in ("kind", "_du_spec")
+                    k: v
+                    for k, v in obj.items()
+                    if k not in ("kind", "_du_spec", "_schema")
                 }
                 return cast(T, cls._reconstruct_from_spec(spec, payload))
 
+            # Secondary fallback: if a JSON schema is embedded, and this DU base
+            # provides a factory like `from_mcp_schema`, use it to build a
+            # temporary model for validation.
+            schema = obj.get("_schema")
+            if isinstance(schema, dict):
+                factory = getattr(cls, "from_mcp_schema", None)
+                if callable(factory):
+                    try:
+                        model_name = (
+                            schema.get("title")
+                            if isinstance(schema.get("title"), str)
+                            else f"{cls.__name__}FromSchema"
+                        )
+                        Tmp = factory(model_name, schema)  # type: ignore[misc]
+                        payload = {
+                            k: v
+                            for k, v in obj.items()
+                            if k not in ("kind", "_du_spec", "_schema")
+                        }
+                        return cast(
+                            T, cast(type[BaseModel], Tmp).model_validate(payload)
+                        )
+                    except Exception:
+                        pass
+
         # No usable 'kind': make sure we don't leak '_du_spec' downstream.
-        if "_du_spec" in obj:
-            obj = {k: v for k, v in obj.items() if k != "_du_spec"}
+        if "_du_spec" in obj or "_schema" in obj:
+            obj = {k: v for k, v in obj.items() if k not in ("_du_spec", "_schema")}
 
         return cast(
             T,
