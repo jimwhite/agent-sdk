@@ -18,6 +18,7 @@ from openhands.sdk.preset.default import get_default_tools
 
 logger = get_logger(__name__)
 
+
 def create_llm() -> LLM:
     api_key = os.getenv("LITELLM_API_KEY")
     assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
@@ -26,6 +27,7 @@ def create_llm() -> LLM:
         base_url="https://llm-proxy.eval.all-hands.dev",
         api_key=SecretStr(api_key),
     )
+
 
 def create_tools():
     cwd = os.getcwd()
@@ -39,17 +41,17 @@ def create_tools():
     # ]
     return tools
 
+
 def create_agent() -> Agent:
     return Agent(llm=create_llm(), tools=create_tools())
+
 
 def example(agent: AgentBase):
     llm_messages = []  # collect raw LLM messages
 
-
     def conversation_callback(event: Event):
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message())
-
 
     conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
@@ -76,11 +78,11 @@ def example(agent: AgentBase):
     )
     conversation.run()
 
-
     print("=" * 100)
     print("Conversation finished. Got the following LLM messages:")
     for i, message in enumerate(llm_messages):
         print(f"Message {i}: {str(message)[:200]}")
+
 
 if __name__ == "__main__":
     example(create_agent())

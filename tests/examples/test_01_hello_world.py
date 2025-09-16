@@ -17,8 +17,9 @@ class FakeAgent(AgentBase):
     requested_write: bool = False
     requested_delete: bool = False
 
-    def init_state(self, state: "ConversationState",
-                   on_event: "ConversationCallbackType") -> None:
+    def init_state(
+        self, state: "ConversationState", on_event: "ConversationCallbackType"
+    ) -> None:
         pass
 
     def step(
@@ -54,7 +55,3 @@ def test_hello_world_example():
     assert fake_agent.requested_write
     assert fake_agent.requested_delete
     assert fake_agent.step_count == 2
-
-
-
-
