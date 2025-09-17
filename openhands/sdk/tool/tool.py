@@ -1,4 +1,5 @@
-from typing import Any
+from abc import ABC
+from typing import Any, Sequence
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -7,12 +8,15 @@ from pydantic import (
     Field,
     computed_field,
 )
+from rich.text import Text
 
+from openhands.sdk.llm import ImageContent, TextContent, content_to_str
 from openhands.sdk.tool.annotations import ToolAnnotations
 from openhands.sdk.tool.schema import Schema, SchemaInstance
+from openhands.sdk.utils.visualize import display_dict
 
 
-class ToolExecutor:
+class ToolExecutor(ABC):
     """Executor function type for a Tool."""
 
     def __call__(self, action: SchemaInstance) -> SchemaInstance:
@@ -26,6 +30,56 @@ class ToolExecutor:
         terminating processes, etc.).
         """
         pass
+
+
+class DataAdapter(ABC):
+    """Adapter to convert SchemaInstance to various formats.
+
+    Including:
+    - .agent_observation that will be sent to the LLM as observation.
+    - .visualize that will be displayed in the console.
+    """
+
+    def agent_observation(
+        self, observation: SchemaInstance
+    ) -> Sequence[TextContent | ImageContent]:
+        """Convert SchemaInstance to a string observation for the LLM."""
+        raise NotImplementedError("Subclasses must implement agent_observation")
+
+    def visualize_action(self, action: SchemaInstance) -> Text:
+        """Return Rich Text representation of this action.
+
+        This method can be overridden by subclasses to customize visualization.
+        The base implementation displays all action fields systematically.
+        """
+        content = Text()
+
+        # Display action name
+        action_name = self.__class__.__name__
+        content.append("Action: ", style="bold")
+        content.append(action_name)
+        content.append("\n\n")
+
+        # Display all action fields systematically
+        content.append("Arguments:", style="bold")
+        content.append(display_dict(action.data))
+
+        return content
+
+    def visualize_observation(self, observation: SchemaInstance) -> Text:
+        """Return Rich Text representation of this observation.
+
+        This method can be overridden by subclasses to customize visualization.
+        The base implementation displays all action fields systematically.
+        """
+        content = Text()
+        text_parts = content_to_str(self.agent_observation(observation))
+        if text_parts:
+            full_content = "".join(text_parts)
+            content.append(full_content)
+        else:
+            content.append("[no text content]", style="dim")
+        return content
 
 
 class Tool(BaseModel):
@@ -49,6 +103,7 @@ class Tool(BaseModel):
 
     # runtime-only; always hidden on dumps
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
+    adapter: DataAdapter | None = Field(default=None, repr=False, exclude=True)
 
     @classmethod
     def create(cls, *args, **kwargs) -> "Tool | list[Tool]":
