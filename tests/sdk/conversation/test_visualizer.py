@@ -8,6 +8,9 @@ from litellm.types.utils import Function
 from rich.text import Text
 
 from openhands.sdk.conversation.visualizer import (
+    DARK_THEME,
+    HIGH_CONTRAST_THEME,
+    LIGHT_THEME,
     ConversationVisualizer,
     create_default_visualizer,
 )
@@ -307,3 +310,116 @@ def test_event_base_fallback_visualize():
 
     text_content = result.plain
     assert "Unknown event type: UnknownEvent" in text_content
+
+
+def test_color_theme_customization():
+    """Test that custom color themes work correctly."""
+    custom_theme = {
+        "observation": "orange",
+        "pause": "cyan",
+        "error": "bright_red",
+    }
+
+    visualizer = ConversationVisualizer(color_theme=custom_theme)
+
+    # Check that custom colors are applied
+    assert visualizer._colors["observation"] == "orange"
+    assert visualizer._colors["pause"] == "cyan"
+    assert visualizer._colors["error"] == "bright_red"
+
+    # Check that non-overridden colors remain default
+    assert visualizer._colors["action"] == "blue"  # default value
+    assert visualizer._colors["system"] == "magenta"  # default value
+
+
+def test_predefined_themes():
+    """Test that predefined themes are available and work."""
+    # Test LIGHT_THEME
+    light_visualizer = ConversationVisualizer(color_theme=LIGHT_THEME)
+    assert light_visualizer._colors["observation"] == "blue"
+    assert light_visualizer._colors["message_user"] == "dark_orange"
+
+    # Test DARK_THEME
+    dark_visualizer = ConversationVisualizer(color_theme=DARK_THEME)
+    assert dark_visualizer._colors["observation"] == "yellow"
+    assert dark_visualizer._colors["pause"] == "bright_yellow"
+
+    # Test HIGH_CONTRAST_THEME
+    hc_visualizer = ConversationVisualizer(color_theme=HIGH_CONTRAST_THEME)
+    assert hc_visualizer._colors["observation"] == "bright_white"
+    assert hc_visualizer._colors["error"] == "bright_red"
+
+
+def test_create_default_visualizer_with_theme():
+    """Test that create_default_visualizer accepts color_theme parameter."""
+    custom_theme = {"observation": "green", "action": "red"}
+
+    visualizer = create_default_visualizer(color_theme=custom_theme)
+
+    assert isinstance(visualizer, ConversationVisualizer)
+    assert visualizer._colors["observation"] == "green"
+    assert visualizer._colors["action"] == "red"
+
+
+def test_color_theme_in_panel_creation():
+    """Test that custom colors are used in panel creation."""
+    custom_theme = {"observation": "green"}
+    visualizer = ConversationVisualizer(color_theme=custom_theme)
+
+    # Create a mock observation event
+    from openhands.sdk.tool import ObservationBase
+
+    class MockObservation(ObservationBase):
+        content: str = "Test output"
+
+        @property
+        def agent_observation(self):
+            from openhands.sdk.llm import TextContent
+
+            return [TextContent(text=self.content)]
+
+    observation = MockObservation(content="Test output")
+    event = ObservationEvent(
+        observation=observation,
+        action_id="action_123",
+        tool_name="test",
+        tool_call_id="call_123",
+    )
+
+    panel = visualizer._create_event_panel(event)
+    assert panel is not None
+    # The panel should use the custom green color for observation
+    assert panel.border_style == "green"
+
+
+def test_metrics_reasoning_color_customization():
+    """Test that reasoning tokens color can be customized."""
+    custom_theme = {"metrics_reasoning": "orange"}
+    visualizer = ConversationVisualizer(color_theme=custom_theme)
+
+    # Create an event with reasoning tokens
+    action = MockAction(command="test")
+    metrics = MetricsSnapshot(
+        accumulated_token_usage=TokenUsage(
+            prompt_tokens=1000,
+            completion_tokens=500,
+            reasoning_tokens=200,
+        ),
+        accumulated_cost=0.01,
+    )
+
+    tool_call = create_tool_call("call_1", "test", {})
+    event = ActionEvent(
+        thought=[TextContent(text="Testing")],
+        action=action,
+        tool_name="test",
+        tool_call_id="call_1",
+        tool_call=tool_call,
+        llm_response_id="response_1",
+        metrics=metrics,
+    )
+
+    subtitle = visualizer._format_metrics_subtitle(event)
+    assert subtitle is not None
+    # Should contain the custom orange color for reasoning tokens
+    assert "[orange]" in subtitle and "[/orange]" in subtitle

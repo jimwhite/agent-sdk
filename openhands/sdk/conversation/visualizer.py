@@ -18,17 +18,72 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation
 
 
-# These are external inputs
-_OBSERVATION_COLOR = "yellow"
-_MESSAGE_USER_COLOR = "gold3"
-_PAUSE_COLOR = "bright_yellow"
-# These are internal system stuff
-_SYSTEM_COLOR = "magenta"
-_THOUGHT_COLOR = "bright_black"
-_ERROR_COLOR = "red"
-# These are agent actions
-_ACTION_COLOR = "blue"
-_MESSAGE_ASSISTANT_COLOR = _ACTION_COLOR
+# Default color scheme - optimized for readability on both light and dark backgrounds
+_DEFAULT_COLORS = {
+    # External inputs - using colors with better contrast
+    "observation": "bright_cyan",  # Changed from "yellow" for better readability
+    "message_user": "gold3",
+    "pause": "bright_magenta",  # Changed from "bright_yellow" for better readability
+    # Internal system stuff
+    "system": "magenta",
+    "thought": "bright_black",
+    "error": "red",
+    # Agent actions
+    "action": "blue",
+    "message_assistant": "blue",
+    # Metrics colors
+    "metrics_reasoning": "bright_cyan",  # Changed from "yellow" for better readability
+}
+
+# Predefined color themes for different preferences
+LIGHT_THEME = {
+    # Colors optimized for light backgrounds
+    "observation": "blue",
+    "message_user": "dark_orange",
+    "pause": "purple",
+    "system": "dark_magenta",
+    "thought": "dim",
+    "error": "red",
+    "action": "dark_blue",
+    "message_assistant": "dark_blue",
+    "metrics_reasoning": "blue",
+}
+
+DARK_THEME = {
+    # Colors optimized for dark backgrounds (similar to original)
+    "observation": "yellow",
+    "message_user": "gold3",
+    "pause": "bright_yellow",
+    "system": "magenta",
+    "thought": "bright_black",
+    "error": "red",
+    "action": "blue",
+    "message_assistant": "blue",
+    "metrics_reasoning": "yellow",
+}
+
+HIGH_CONTRAST_THEME = {
+    # High contrast colors for accessibility
+    "observation": "bright_white",
+    "message_user": "bright_yellow",
+    "pause": "bright_magenta",
+    "system": "bright_cyan",
+    "thought": "white",
+    "error": "bright_red",
+    "action": "bright_blue",
+    "message_assistant": "bright_blue",
+    "metrics_reasoning": "bright_white",
+}
+
+# Legacy color constants for backward compatibility
+_OBSERVATION_COLOR = _DEFAULT_COLORS["observation"]
+_MESSAGE_USER_COLOR = _DEFAULT_COLORS["message_user"]
+_PAUSE_COLOR = _DEFAULT_COLORS["pause"]
+_SYSTEM_COLOR = _DEFAULT_COLORS["system"]
+_THOUGHT_COLOR = _DEFAULT_COLORS["thought"]
+_ERROR_COLOR = _DEFAULT_COLORS["error"]
+_ACTION_COLOR = _DEFAULT_COLORS["action"]
+_MESSAGE_ASSISTANT_COLOR = _DEFAULT_COLORS["message_assistant"]
 
 DEFAULT_HIGHLIGHT_REGEX = {
     r"^Reasoning:": f"bold {_THOUGHT_COLOR}",
@@ -55,6 +110,7 @@ class ConversationVisualizer:
         self,
         highlight_regex: Dict[str, str] | None = None,
         skip_user_messages: bool = False,
+        color_theme: Dict[str, str] | None = None,
     ):
         """Initialize the visualizer.
 
@@ -65,10 +121,19 @@ class ConversationVisualizer:
                            "Thought:": "bold green"}
             skip_user_messages: If True, skip displaying user messages. Useful for
                                 scenarios where user input is not relevant to show.
+            color_theme: Dictionary mapping color roles to Rich color names.
+                        Available roles: observation, message_user, pause, system,
+                        thought, error, action, message_assistant, metrics_reasoning.
+                        For example: {"observation": "orange", "pause": "cyan"}
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
         self._highlight_patterns: Dict[str, str] = highlight_regex or {}
+
+        # Set up color theme
+        self._colors = _DEFAULT_COLORS.copy()
+        if color_theme:
+            self._colors.update(color_theme)
 
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -113,28 +178,31 @@ class ConversationVisualizer:
 
         # Determine panel styling based on event type
         if isinstance(event, SystemPromptEvent):
+            system_color = self._colors["system"]
             return Panel(
                 content,
-                title=f"[bold {_SYSTEM_COLOR}]System Prompt[/bold {_SYSTEM_COLOR}]",
-                border_style=_SYSTEM_COLOR,
+                title=f"[bold {system_color}]System Prompt[/bold {system_color}]",
+                border_style=system_color,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, ActionEvent):
+            action_color = self._colors["action"]
             return Panel(
                 content,
-                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
+                title=f"[bold {action_color}]Agent Action[/bold {action_color}]",
                 subtitle=self._format_metrics_subtitle(event),
-                border_style=_ACTION_COLOR,
+                border_style=action_color,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, ObservationEvent):
+            observation_color = self._colors["observation"]
             return Panel(
                 content,
-                title=f"[bold {_OBSERVATION_COLOR}]Observation"
-                f"[/bold {_OBSERVATION_COLOR}]",
-                border_style=_OBSERVATION_COLOR,
+                title=f"[bold {observation_color}]Observation"
+                f"[/bold {observation_color}]",
+                border_style=observation_color,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
@@ -148,8 +216,8 @@ class ConversationVisualizer:
             assert event.llm_message is not None
             # Role-based styling
             role_colors = {
-                "user": _MESSAGE_USER_COLOR,
-                "assistant": _MESSAGE_ASSISTANT_COLOR,
+                "user": self._colors["message_user"],
+                "assistant": self._colors["message_assistant"],
             }
             role_color = role_colors.get(event.llm_message.role, "white")
 
@@ -166,38 +234,42 @@ class ConversationVisualizer:
                 expand=True,
             )
         elif isinstance(event, AgentErrorEvent):
+            error_color = self._colors["error"]
             return Panel(
                 content,
-                title=f"[bold {_ERROR_COLOR}]Agent Error[/bold {_ERROR_COLOR}]",
+                title=f"[bold {error_color}]Agent Error[/bold {error_color}]",
                 subtitle=self._format_metrics_subtitle(event),
-                border_style=_ERROR_COLOR,
+                border_style=error_color,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, PauseEvent):
+            pause_color = self._colors["pause"]
             return Panel(
                 content,
-                title=f"[bold {_PAUSE_COLOR}]User Paused[/bold {_PAUSE_COLOR}]",
-                border_style=_PAUSE_COLOR,
+                title=f"[bold {pause_color}]User Paused[/bold {pause_color}]",
+                border_style=pause_color,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, Condensation):
+            system_color = self._colors["system"]
             return Panel(
                 content,
-                title=f"[bold {_SYSTEM_COLOR}]Condensation[/bold {_SYSTEM_COLOR}]",
+                title=f"[bold {system_color}]Condensation[/bold {system_color}]",
                 subtitle=self._format_metrics_subtitle(event),
-                border_style=_SYSTEM_COLOR,
+                border_style=system_color,
                 expand=True,
             )
         else:
             # Fallback panel for unknown event types
+            error_color = self._colors["error"]
             return Panel(
                 content,
-                title=f"[bold {_ERROR_COLOR}]UNKNOWN Event: {event.__class__.__name__}"
-                f"[/bold {_ERROR_COLOR}]",
+                title=f"[bold {error_color}]UNKNOWN Event: {event.__class__.__name__}"
+                f"[/bold {error_color}]",
                 subtitle=f"({event.source})",
-                border_style=_ERROR_COLOR,
+                border_style=error_color,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
@@ -236,12 +308,16 @@ class ConversationVisualizer:
         # Cost
         cost_str = f"{cost:.4f}" if cost > 0 else "$0.00"
 
-        # Build with fixed color scheme
+        # Build with color scheme
         parts: list[str] = []
         parts.append(f"[cyan]↑ input {input_tokens}[/cyan]")
         parts.append(f"[magenta]cache hit {cache_rate}[/magenta]")
         if reasoning_tokens > 0:
-            parts.append(f"[yellow] reasoning {abbr(reasoning_tokens)}[/yellow]")
+            reasoning_color = self._colors["metrics_reasoning"]
+            parts.append(
+                f"[{reasoning_color}] reasoning {abbr(reasoning_tokens)}"
+                f"[/{reasoning_color}]"
+            )
         parts.append(f"[blue]↓ output {output_tokens}[/blue]")
         parts.append(f"[green]$ {cost_str}[/green]")
 
@@ -258,6 +334,8 @@ def create_default_visualizer(
                        for highlighting keywords in the visualizer.
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
+        **kwargs: Additional arguments passed to ConversationVisualizer,
+                 including color_theme for customizing colors.
     """
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX
