@@ -32,7 +32,7 @@ class ToolExecutor(ABC):
         pass
 
 
-class DataAdapter(ABC):
+class ToolDataConverter(ABC):
     """Adapter to convert SchemaInstance to various formats.
 
     Including:
@@ -103,7 +103,7 @@ class Tool(BaseModel):
 
     # runtime-only; always hidden on dumps
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
-    adapter: DataAdapter | None = Field(default=None, repr=False, exclude=True)
+    adapter: ToolDataConverter | None = Field(default=None, repr=False, exclude=True)
 
     @classmethod
     def create(cls, *args, **kwargs) -> "Tool | list[Tool]":

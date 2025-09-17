@@ -11,6 +11,7 @@ from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import (
     Tool,
     ToolAnnotations,
+    ToolDataConverter,
     ToolExecutor,
 )
 
@@ -20,6 +21,7 @@ __all__ = [
     "ToolSpec",
     "ToolAnnotations",
     "ToolExecutor",
+    "ToolDataConverter",
     "Schema",
     "SchemaField",
     "SchemaFieldType",
