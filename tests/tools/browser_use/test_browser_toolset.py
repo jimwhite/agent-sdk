@@ -2,18 +2,18 @@
 
 from openhands.sdk.tool import Tool
 from openhands.tools.browser_use import (
+    BrowserClickTool,
+    BrowserCloseTabTool,
+    BrowserGetContentTool,
+    BrowserGetStateTool,
+    BrowserGoBackTool,
+    BrowserListTabsTool,
+    BrowserNavigateTool,
+    BrowserScrollTool,
+    BrowserSwitchTabTool,
     BrowserToolExecutor,
     BrowserToolSet,
-    browser_click_tool,
-    browser_close_tab_tool,
-    browser_get_content_tool,
-    browser_get_state_tool,
-    browser_go_back_tool,
-    browser_list_tabs_tool,
-    browser_navigate_tool,
-    browser_scroll_tool,
-    browser_switch_tab_tool,
-    browser_type_tool,
+    BrowserTypeTool,
 )
 
 

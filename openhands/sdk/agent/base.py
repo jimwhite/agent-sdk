@@ -12,7 +12,7 @@ from openhands.sdk.context.condenser import Condenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.tool import Tool, ToolType
+from openhands.sdk.tool import Tool
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -34,11 +34,11 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: LLM
     agent_context: AgentContext | None = Field(default=None)
-    tools: dict[str, ToolType] | Sequence[ToolType] = Field(
+    tools: dict[str, Tool] | Sequence[Tool] = Field(
         default_factory=dict,
         description="Mapping of tool name to Tool instance that the agent can use."
         " If a list is provided, it should be converted to a mapping by tool name."
-        " We need to define this as ToolType for discriminated union.",
+        " We need to define this as Tool for discriminated union.",
     )
     system_prompt_filename: str = Field(default="system_prompt.j2")
     system_prompt_kwargs: dict = Field(
@@ -57,7 +57,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         import openhands.tools  # avoid circular import
         from openhands.sdk.mcp import create_mcp_tools
 
-        tools: list[ToolType] = []
+        tools: list[Tool] = []
         for tool_spec in spec.tools:
             if tool_spec.name not in openhands.tools.__dict__:
                 raise ValueError(

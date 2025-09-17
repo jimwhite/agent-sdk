@@ -1,11 +1,16 @@
 """Browser-use tool implementation for web automation."""
 
-from typing import Literal, Sequence
-
-from pydantic import Field
+from typing import Sequence
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import (
+    Schema,
+    SchemaField,
+    SchemaInstance,
+    Tool,
+    ToolAnnotations,
+    ToolDataConverter,
+)
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.browser_use.impl import BrowserToolExecutor
 
@@ -14,41 +19,91 @@ from openhands.tools.browser_use.impl import BrowserToolExecutor
 MAX_BROWSER_OUTPUT_SIZE = 50000
 
 
-class BrowserObservation(ObservationBase):
-    """Base observation for browser operations."""
-
-    output: str = Field(description="The output message from the browser operation")
-    error: str | None = Field(default=None, description="Error message if any")
-    screenshot_data: str | None = Field(
-        default=None, description="Base64 screenshot data if available"
+def make_browser_observation_schema() -> Schema:
+    """Common output schema for all browser tools."""
+    return Schema(
+        name="openhands.tools.browser_use.output",
+        fields=[
+            SchemaField.create(
+                name="output",
+                description="The output message from the browser operation",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="error",
+                description="Error message if any",
+                type=str,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="screenshot_data",
+                description="Base64 screenshot data if available",
+                type=str,
+                required=False,
+                default=None,
+            ),
+        ],
     )
 
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        if self.error:
-            return [TextContent(text=f"Error: {self.error}")]
 
+class BrowserDataConverter(ToolDataConverter):
+    """Data converter for browser tools."""
+
+    def agent_observation(
+        self, observation: SchemaInstance
+    ) -> Sequence[TextContent | ImageContent]:
+        observation.validate_data()
+
+        error = observation.data.get("error")
+        if error:
+            return [TextContent(text=f"Error: {error}")]
+
+        output = observation.data.get("output", "")
         content: list[TextContent | ImageContent] = [
-            TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))
+            TextContent(text=maybe_truncate(output, MAX_BROWSER_OUTPUT_SIZE))
         ]
 
-        if self.screenshot_data:
+        screenshot_data = observation.data.get("screenshot_data")
+        if screenshot_data:
             # Convert base64 to data URL format for ImageContent
-            data_url = f"data:image/png;base64,{self.screenshot_data}"
+            data_url = f"data:image/png;base64,{screenshot_data}"
             content.append(ImageContent(image_urls=[data_url]))
 
         return content
 
 
 # ============================================
-# `go_to_url`
+# `browser_navigate`
 # ============================================
-class BrowserNavigateAction(ActionBase):
-    """Schema for browser navigation."""
-
-    url: str = Field(description="The URL to navigate to")
-    new_tab: bool = Field(
-        default=False, description="Whether to open in a new tab. Default: False"
+def make_browser_navigate_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.navigate.input",
+        fields=[
+            SchemaField.create(
+                name="url",
+                description="The URL to navigate to",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="new_tab",
+                description="Whether to open in a new tab. Default: False",
+                type=bool,
+                required=False,
+                default=False,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -65,48 +120,64 @@ Examples:
 - Open GitHub in new tab: url="https://github.com", new_tab=True
 """  # noqa: E501
 
-browser_navigate_tool = Tool(
-    name="browser_navigate",
-    action_type=BrowserNavigateAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_NAVIGATE_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_navigate",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
+class BrowserNavigateTool(Tool):
     """Tool for browser navigation."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_navigate_tool.name,
+            name="browser_navigate",
             description=BROWSER_NAVIGATE_DESCRIPTION,
-            action_type=BrowserNavigateAction,
-            observation_type=BrowserObservation,
-            annotations=browser_navigate_tool.annotations,
+            input_schema=make_browser_navigate_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_navigate",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_click`
 # ============================================
-class BrowserClickAction(ActionBase):
-    """Schema for clicking elements."""
-
-    index: int = Field(
-        description="The index of the element to click (from browser_get_state)"
-    )
-    new_tab: bool = Field(
-        default=False,
-        description="Whether to open any resulting navigation in a new tab. Default: False",  # noqa: E501
+def make_browser_click_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.click.input",
+        fields=[
+            SchemaField.create(
+                name="index",
+                description=(
+                    "The index of the element to click (from browser_get_state)"
+                ),
+                type=int,
+                required=True,
+            ),
+            SchemaField.create(
+                name="new_tab",
+                description=(
+                    "Whether to open any resulting navigation in a new tab. "
+                    "Default: False"
+                ),
+                type=bool,
+                required=False,
+                default=False,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -122,46 +193,59 @@ Parameters:
 Important: Only use indices that appear in your current browser_get_state output.
 """  # noqa: E501
 
-browser_click_tool = Tool(
-    name="browser_click",
-    action_type=BrowserClickAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_CLICK_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_click",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
+class BrowserClickTool(Tool):
     """Tool for clicking browser elements."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_click_tool.name,
+            name="browser_click",
             description=BROWSER_CLICK_DESCRIPTION,
-            action_type=BrowserClickAction,
-            observation_type=BrowserObservation,
-            annotations=browser_click_tool.annotations,
+            input_schema=make_browser_click_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_click",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_type`
 # ============================================
-class BrowserTypeAction(ActionBase):
-    """Schema for typing text into elements."""
-
-    index: int = Field(
-        description="The index of the input element (from browser_get_state)"
+def make_browser_type_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.type.input",
+        fields=[
+            SchemaField.create(
+                name="index",
+                description="The index of the input element (from browser_get_state)",
+                type=int,
+                required=True,
+            ),
+            SchemaField.create(
+                name="text",
+                description="The text to type",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
-    text: str = Field(description="The text to type")
 
 
 BROWSER_TYPE_DESCRIPTION = """Type text into an input field.
@@ -176,45 +260,56 @@ Parameters:
 Important: Only use indices that appear in your current browser_get_state output.
 """  # noqa: E501
 
-browser_type_tool = Tool(
-    name="browser_type",
-    action_type=BrowserTypeAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_TYPE_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_type",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
+class BrowserTypeTool(Tool):
     """Tool for typing text into browser elements."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_type_tool.name,
+            name="browser_type",
             description=BROWSER_TYPE_DESCRIPTION,
-            action_type=BrowserTypeAction,
-            observation_type=BrowserObservation,
-            annotations=browser_type_tool.annotations,
+            input_schema=make_browser_type_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_type",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_get_state`
 # ============================================
-class BrowserGetStateAction(ActionBase):
-    """Schema for getting browser state."""
-
-    include_screenshot: bool = Field(
-        default=False,
-        description="Whether to include a screenshot of the current page. Default: False",  # noqa: E501
+def make_browser_get_state_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.get_state.input",
+        fields=[
+            SchemaField.create(
+                name="include_screenshot",
+                description=(
+                    "Whether to include a screenshot of the current page. "
+                    "Default: False"
+                ),
+                type=bool,
+                required=False,
+                default=False,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -227,49 +322,62 @@ Parameters:
 - include_screenshot: Whether to include a screenshot (optional, default: False)
 """  # noqa: E501
 
-browser_get_state_tool = Tool(
-    name="browser_get_state",
-    action_type=BrowserGetStateAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_GET_STATE_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_get_state",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
+class BrowserGetStateTool(Tool):
     """Tool for getting browser state."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_get_state_tool.name,
+            name="browser_get_state",
             description=BROWSER_GET_STATE_DESCRIPTION,
-            action_type=BrowserGetStateAction,
-            observation_type=BrowserObservation,
-            annotations=browser_get_state_tool.annotations,
+            input_schema=make_browser_get_state_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_get_state",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_get_content`
 # ============================================
-class BrowserGetContentAction(ActionBase):
-    """Schema for getting page content in markdown."""
-
-    extract_links: bool = Field(
-        default=False,
-        description="Whether to include links in the content (default: False)",
-    )
-    start_from_char: int = Field(
-        default=0,
-        description="Character index to start from in the page content (default: 0)",
+def make_browser_get_content_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.get_content.input",
+        fields=[
+            SchemaField.create(
+                name="extract_links",
+                description="Whether to include links in the content (default: False)",
+                type=bool,
+                required=False,
+                default=False,
+            ),
+            SchemaField.create(
+                name="start_from_char",
+                description=(
+                    "Character index to start from in the page content (default: 0)"
+                ),
+                type=int,
+                required=False,
+                default=0,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -278,45 +386,56 @@ BROWSER_GET_CONTENT_DESCRIPTION = """Extract the main content of the current pag
 If the content was truncated and you need more information, use start_from_char parameter to continue from where truncation occurred.
 """  # noqa: E501
 
-browser_get_content_tool = Tool(
-    name="browser_get_content",
-    action_type=BrowserGetContentAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_GET_CONTENT_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_get_content",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
+class BrowserGetContentTool(Tool):
     """Tool for getting page content in markdown."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_get_content_tool.name,
+            name="browser_get_content",
             description=BROWSER_GET_CONTENT_DESCRIPTION,
-            action_type=BrowserGetContentAction,
-            observation_type=BrowserObservation,
-            annotations=browser_get_content_tool.annotations,
+            input_schema=make_browser_get_content_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_get_content",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_scroll`
 # ============================================
-class BrowserScrollAction(ActionBase):
-    """Schema for scrolling the page."""
-
-    direction: Literal["up", "down"] = Field(
-        default="down",
-        description="Direction to scroll. Options: 'up', 'down'. Default: 'down'",
+def make_browser_scroll_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.scroll.input",
+        fields=[
+            SchemaField.create(
+                name="direction",
+                description=(
+                    "Direction to scroll. Options: 'up', 'down'. Default: 'down'"
+                ),
+                type=str,
+                required=False,
+                default="down",
+                enum=["up", "down"],
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -329,43 +448,47 @@ Parameters:
 - direction: Direction to scroll - "up" or "down" (optional, default: "down")
 """  # noqa: E501
 
-browser_scroll_tool = Tool(
-    name="browser_scroll",
-    action_type=BrowserScrollAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_SCROLL_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_scroll",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
+class BrowserScrollTool(Tool):
     """Tool for scrolling the browser page."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_scroll_tool.name,
+            name="browser_scroll",
             description=BROWSER_SCROLL_DESCRIPTION,
-            action_type=BrowserScrollAction,
-            observation_type=BrowserObservation,
-            annotations=browser_scroll_tool.annotations,
+            input_schema=make_browser_scroll_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_scroll",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_go_back`
 # ============================================
-class BrowserGoBackAction(ActionBase):
-    """Schema for going back in browser history."""
-
-    pass
+def make_browser_go_back_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.go_back.input",
+        fields=[
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
+    )
 
 
 BROWSER_GO_BACK_DESCRIPTION = """Go back to the previous page in browser history.
@@ -374,43 +497,47 @@ Use this tool to navigate back to the previously visited page, similar to clicki
 browser's back button.
 """  # noqa: E501
 
-browser_go_back_tool = Tool(
-    name="browser_go_back",
-    action_type=BrowserGoBackAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_GO_BACK_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_go_back",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
 
-
-class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
+class BrowserGoBackTool(Tool):
     """Tool for going back in browser history."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_go_back_tool.name,
+            name="browser_go_back",
             description=BROWSER_GO_BACK_DESCRIPTION,
-            action_type=BrowserGoBackAction,
-            observation_type=BrowserObservation,
-            annotations=browser_go_back_tool.annotations,
+            input_schema=make_browser_go_back_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_go_back",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_list_tabs`
 # ============================================
-class BrowserListTabsAction(ActionBase):
-    """Schema for listing browser tabs."""
-
-    pass
+def make_browser_list_tabs_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.list_tabs.input",
+        fields=[
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
+    )
 
 
 BROWSER_LIST_TABS_DESCRIPTION = """List all open browser tabs.
@@ -419,45 +546,55 @@ This tool shows all currently open tabs with their IDs, titles, and URLs. Use th
 with browser_switch_tab or browser_close_tab.
 """  # noqa: E501
 
-browser_list_tabs_tool = Tool(
-    name="browser_list_tabs",
-    action_type=BrowserListTabsAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_LIST_TABS_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_list_tabs",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
-    ),
-)
 
-
-class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
+class BrowserListTabsTool(Tool):
     """Tool for listing browser tabs."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_list_tabs_tool.name,
+            name="browser_list_tabs",
             description=BROWSER_LIST_TABS_DESCRIPTION,
-            action_type=BrowserListTabsAction,
-            observation_type=BrowserObservation,
-            annotations=browser_list_tabs_tool.annotations,
+            input_schema=make_browser_list_tabs_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_list_tabs",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_switch_tab`
 # ============================================
-class BrowserSwitchTabAction(ActionBase):
-    """Schema for switching browser tabs."""
-
-    tab_id: str = Field(
-        description="4 Character Tab ID of the tab to switch"
-        + " to (from browser_list_tabs)"
+def make_browser_switch_tab_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.switch_tab.input",
+        fields=[
+            SchemaField.create(
+                name="tab_id",
+                description=(
+                    "4 Character Tab ID of the tab to switch to "
+                    "(from browser_list_tabs)"
+                ),
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -469,44 +606,54 @@ Parameters:
 - tab_id: 4 Character Tab ID of the tab to switch to
 """
 
-browser_switch_tab_tool = Tool(
-    name="browser_switch_tab",
-    action_type=BrowserSwitchTabAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_SWITCH_TAB_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_switch_tab",
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=False,
-    ),
-)
 
-
-class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
+class BrowserSwitchTabTool(Tool):
     """Tool for switching browser tabs."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_switch_tab_tool.name,
+            name="browser_switch_tab",
             description=BROWSER_SWITCH_TAB_DESCRIPTION,
-            action_type=BrowserSwitchTabAction,
-            observation_type=BrowserObservation,
-            annotations=browser_switch_tab_tool.annotations,
+            input_schema=make_browser_switch_tab_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_switch_tab",
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=False,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
 # ============================================
 # `browser_close_tab`
 # ============================================
-class BrowserCloseTabAction(ActionBase):
-    """Schema for closing browser tabs."""
-
-    tab_id: str = Field(
-        description="4 Character Tab ID of the tab to close (from browser_list_tabs)"
+def make_browser_close_tab_input_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.browser_use.close_tab.input",
+        fields=[
+            SchemaField.create(
+                name="tab_id",
+                description=(
+                    "4 Character Tab ID of the tab to close (from browser_list_tabs)"
+                ),
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
     )
 
 
@@ -518,55 +665,47 @@ Parameters:
 - tab_id: 4 Character Tab ID of the tab to close
 """
 
-browser_close_tab_tool = Tool(
-    name="browser_close_tab",
-    action_type=BrowserCloseTabAction,
-    observation_type=BrowserObservation,
-    description=BROWSER_CLOSE_TAB_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="browser_close_tab",
-        readOnlyHint=False,
-        destructiveHint=True,
-        idempotentHint=False,
-        openWorldHint=False,
-    ),
-)
 
-
-class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
+class BrowserCloseTabTool(Tool):
     """Tool for closing browser tabs."""
 
     @classmethod
     def create(cls, executor: BrowserToolExecutor):
         return cls(
-            name=browser_close_tab_tool.name,
+            name="browser_close_tab",
             description=BROWSER_CLOSE_TAB_DESCRIPTION,
-            action_type=BrowserCloseTabAction,
-            observation_type=BrowserObservation,
-            annotations=browser_close_tab_tool.annotations,
+            input_schema=make_browser_close_tab_input_schema(),
+            output_schema=make_browser_observation_schema(),
+            annotations=ToolAnnotations(
+                title="browser_close_tab",
+                readOnlyHint=False,
+                destructiveHint=True,
+                idempotentHint=False,
+                openWorldHint=False,
+            ),
             executor=executor,
+            data_converter=BrowserDataConverter(),
         )
 
 
+# ============================================
+# Browser Tool Set
+# ============================================
 class BrowserToolSet(Tool):
-    """A set of all browser tools.
-
-    This tool set includes all available browser-related tools
-      for interacting with web pages.
-    """
+    """A collection of browser automation tools."""
 
     @classmethod
-    def create(cls) -> list[Tool]:
-        executor = BrowserToolExecutor()
+    def create(cls, executor: BrowserToolExecutor) -> list[Tool]:
+        """Create all browser tools with the given executor."""
         return [
-            browser_navigate_tool.set_executor(executor),
-            browser_click_tool.set_executor(executor),
-            browser_get_state_tool.set_executor(executor),
-            browser_get_content_tool.set_executor(executor),
-            browser_type_tool.set_executor(executor),
-            browser_scroll_tool.set_executor(executor),
-            browser_go_back_tool.set_executor(executor),
-            browser_list_tabs_tool.set_executor(executor),
-            browser_switch_tab_tool.set_executor(executor),
-            browser_close_tab_tool.set_executor(executor),
+            BrowserNavigateTool.create(executor),
+            BrowserClickTool.create(executor),
+            BrowserTypeTool.create(executor),
+            BrowserGetStateTool.create(executor),
+            BrowserGetContentTool.create(executor),
+            BrowserScrollTool.create(executor),
+            BrowserGoBackTool.create(executor),
+            BrowserListTabsTool.create(executor),
+            BrowserSwitchTabTool.create(executor),
+            BrowserCloseTabTool.create(executor),
         ]

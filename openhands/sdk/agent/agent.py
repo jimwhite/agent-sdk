@@ -31,12 +31,11 @@ from openhands.sdk.llm import (
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
-    ActionBase,
     FinishTool,
-    ObservationBase,
+    SchemaInstance,
     Tool,
 )
-from openhands.sdk.tool.builtins import FinishAction
+# FinishAction is no longer needed - we check tool name instead
 
 
 logger = get_logger(__name__)
@@ -303,14 +302,12 @@ class Agent(AgentBase):
         Rules:
             1. Confirmation mode is enabled
             2. Every action requires confirmation
-            3. A single `FinishAction` never requires confirmation
+            3. A single `finish` tool call never requires confirmation
         """
         if len(action_events) == 0:
             return False
 
-        if len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
-        ):
+        if len(action_events) == 1 and action_events[0].tool_name == "finish":
             return False
 
         if not state.confirmation_mode:
@@ -352,9 +349,8 @@ class Agent(AgentBase):
 
         # Validate arguments
         try:
-            action: ActionBase = tool.action_type.model_validate(
-                json.loads(tool_call.function.arguments)
-            )
+            action_data = json.loads(tool_call.function.arguments)
+            action = SchemaInstance(schema=tool.input_schema, data=action_data)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -403,9 +399,9 @@ class Agent(AgentBase):
         # Execute actions!
         if tool.executor is None:
             raise RuntimeError(f"Tool '{tool.name}' has no executor")
-        observation: ObservationBase = tool.executor(action_event.action)
-        assert isinstance(observation, ObservationBase), (
-            f"Tool '{tool.name}' executor must return an ObservationBase"
+        observation: SchemaInstance = tool.executor(action_event.action)
+        assert isinstance(observation, SchemaInstance), (
+            f"Tool '{tool.name}' executor must return a SchemaInstance"
         )
 
         obs_event = ObservationEvent(

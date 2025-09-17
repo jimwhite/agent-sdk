@@ -78,6 +78,15 @@ def make_input_schema(workspace_root: str | None = None) -> Schema:
                 required=False,
                 default=None,
             ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
         ],
     )
 
@@ -282,3 +291,32 @@ class FileEditorTool(Tool):
             executor=executor,
             data_converter=StrReplaceEditorDataConverter(),
         )
+
+
+# Compatibility classes for impl system
+from typing import Literal
+from pydantic import BaseModel
+
+CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
+
+
+class StrReplaceEditorAction(BaseModel):
+    """Compatibility class for impl system."""
+    command: CommandLiteral
+    path: str
+    file_text: str | None = None
+    view_range: list[int] | None = None
+    old_str: str | None = None
+    new_str: str | None = None
+    insert_line: int | None = None
+
+
+class StrReplaceEditorObservation(BaseModel):
+    """Compatibility class for impl system."""
+    command: CommandLiteral
+    output: str
+    error: bool = False
+    path: str | None = None
+    old_content: str | None = None
+    new_content: str | None = None
+    prev_exist: bool | None = None

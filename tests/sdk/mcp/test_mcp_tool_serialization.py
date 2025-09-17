@@ -10,9 +10,8 @@ from unittest.mock import Mock
 import mcp.types
 
 from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPActionBase, MCPTool, MCPToolObservation
+from openhands.sdk.mcp.tool import MCPTool
 from openhands.sdk.tool import Tool
-from openhands.sdk.tool.schema import ActionBase
 
 
 def create_mock_mcp_tool(name: str = "test_tool") -> mcp.types.Tool:
@@ -79,12 +78,18 @@ def test_mcp_tool_kind_field() -> None:
 
 def test_mcp_tool_fallback_behavior() -> None:
     """Test MCPTool fallback behavior with manual data."""
-    # Create data that could represent an MCPTool
+    # Create data that could represent an MCPTool with new schema format
     tool_data = {
         "name": "fallback-tool",
         "description": "A fallback test tool",
-        "action_type": "openhands.sdk.tool.schema.ActionBase",  # Use base class
-        "observation_type": "openhands.sdk.mcp.definition.MCPToolObservation",
+        "input_schema": {
+            "name": "fallback-tool-input",
+            "fields": []
+        },
+        "output_schema": {
+            "name": "fallback-tool-output", 
+            "fields": []
+        },
         "kind": "openhands.sdk.mcp.tool.MCPTool",
         "mcp_tool": {
             "name": "fallback-tool",
@@ -96,10 +101,8 @@ def test_mcp_tool_fallback_behavior() -> None:
     deserialized_tool = Tool.model_validate(tool_data)
     assert isinstance(deserialized_tool, Tool)
     assert deserialized_tool.name == "fallback-tool"
-    assert issubclass(deserialized_tool.action_type, ActionBase)
-    assert deserialized_tool.observation_type and issubclass(
-        deserialized_tool.observation_type, MCPToolObservation
-    )
+    assert deserialized_tool.input_schema.name == "fallback-tool-input"
+    assert deserialized_tool.output_schema.name == "fallback-tool-output"
 
 
 def test_mcp_tool_essential_properties() -> None:
@@ -125,8 +128,12 @@ def test_mcp_tool_essential_properties() -> None:
     assert mcp_tool.mcp_tool.name == "essential_tool"
     assert mcp_tool.mcp_tool.inputSchema is not None
 
-    # Verify action type was created correctly
-    assert mcp_tool.action_type is not None and issubclass(
-        mcp_tool.action_type, MCPActionBase
-    )
-    assert hasattr(mcp_tool.action_type, "to_mcp_arguments")
+    # Verify input schema was created correctly
+    assert mcp_tool.input_schema is not None
+    assert mcp_tool.input_schema.name == "openhands.sdk.mcp.essential_tool.input"
+    assert len(mcp_tool.input_schema.fields) == 2
+    
+    # Check that the fields were converted correctly
+    field_names = {field.name for field in mcp_tool.input_schema.fields}
+    assert "param1" in field_names
+    assert "param2" in field_names

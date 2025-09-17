@@ -1,8 +1,10 @@
 from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.str_replace_editor.definition import (
     CommandLiteral,
     StrReplaceEditorAction,
     StrReplaceEditorObservation,
+    make_output_schema,
 )
 from openhands.tools.str_replace_editor.editor import FileEditor
 from openhands.tools.str_replace_editor.exceptions import ToolError
@@ -16,24 +18,48 @@ class FileEditorExecutor(ToolExecutor):
     def __init__(self, workspace_root: str | None = None):
         self.editor = FileEditor(workspace_root=workspace_root)
 
-    def __call__(self, action: StrReplaceEditorAction) -> StrReplaceEditorObservation:
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+        # Convert SchemaInstance to StrReplaceEditorAction for editor system
+        editor_action = StrReplaceEditorAction(
+            command=action.data.get("command"),
+            path=action.data.get("path"),
+            file_text=action.data.get("file_text"),
+            view_range=action.data.get("view_range"),
+            old_str=action.data.get("old_str"),
+            new_str=action.data.get("new_str"),
+            insert_line=action.data.get("insert_line"),
+        )
+        
         result: StrReplaceEditorObservation | None = None
         try:
             result = self.editor(
-                command=action.command,
-                path=action.path,
-                file_text=action.file_text,
-                view_range=action.view_range,
-                old_str=action.old_str,
-                new_str=action.new_str,
-                insert_line=action.insert_line,
+                command=editor_action.command,
+                path=editor_action.path,
+                file_text=editor_action.file_text,
+                view_range=editor_action.view_range,
+                old_str=editor_action.old_str,
+                new_str=editor_action.new_str,
+                insert_line=editor_action.insert_line,
             )
         except ToolError as e:
             result = StrReplaceEditorObservation(
-                command=action.command, error=e.message
+                command=editor_action.command, output="", error=True
             )
         assert result is not None, "file_editor should always return a result"
-        return result
+        
+        # Convert StrReplaceEditorObservation back to SchemaInstance
+        return SchemaInstance(
+            schema=make_output_schema(),
+            data={
+                "command": result.command,
+                "output": result.output,
+                "error": result.error,
+                "path": result.path,
+                "old_content": result.old_content,
+                "new_content": result.new_content,
+                "prev_exist": result.prev_exist,
+            },
+        )
 
 
 def file_editor(

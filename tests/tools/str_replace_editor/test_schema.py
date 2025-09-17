@@ -1,11 +1,12 @@
-from openhands.tools.str_replace_editor import str_replace_editor_tool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 def test_to_mcp_tool_detailed_type_validation_editor():
     """Test detailed type validation for MCP tool schema generation."""
 
     # Test str_replace_editor tool schema
-    str_editor_mcp = str_replace_editor_tool.to_mcp_tool()
+    str_editor_tool = FileEditorTool.create()
+    str_editor_mcp = str_editor_tool.to_mcp_tool()
     str_editor_schema = str_editor_mcp["inputSchema"]
     str_editor_props = str_editor_schema["properties"]
 
@@ -24,7 +25,7 @@ def test_to_mcp_tool_detailed_type_validation_editor():
     assert view_range_schema["items"]["type"] == "integer"
 
     assert "description" in view_range_schema
-    assert "Optional parameter of `view` command" in view_range_schema["description"]
+    assert "Optional for `view`" in view_range_schema["description"]
 
     command_schema = str_editor_props["command"]
     assert "enum" in command_schema

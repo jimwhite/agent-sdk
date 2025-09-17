@@ -3,9 +3,11 @@ from typing import Callable, Literal
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
+    make_output_schema,
 )
 from openhands.tools.execute_bash.terminal.factory import create_terminal_session
 
@@ -77,18 +79,36 @@ class BashExecutor(ToolExecutor):
             )
         )
 
-    def __call__(self, action: ExecuteBashAction) -> ExecuteBashObservation:
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+        # Convert SchemaInstance to ExecuteBashAction for terminal system
+        bash_action = ExecuteBashAction(
+            command=action.data.get("command", ""),
+            is_input=action.data.get("is_input", False),
+            timeout=action.data.get("timeout"),
+        )
+        
         # If env keys detected, export env values to bash as a separate action first
-        self._export_envs(action)
-        observation = self.session.execute(action)
+        self._export_envs(bash_action)
+        observation = self.session.execute(bash_action)
 
         # Apply automatic secrets masking using env_masker
         if self.env_masker and observation.output:
             masked_output = self.env_masker(observation.output)
             data = observation.model_dump(exclude={"output"})
-            return ExecuteBashObservation(**data, output=masked_output)
+            observation = ExecuteBashObservation(**data, output=masked_output)
 
-        return observation
+        # Convert ExecuteBashObservation back to SchemaInstance
+        return SchemaInstance(
+            schema=make_output_schema(),
+            data={
+                "output": observation.output,
+                "command": observation.command,
+                "exit_code": observation.exit_code,
+                "error": observation.error,
+                "timeout": observation.timeout,
+                "metadata": observation.metadata or {},
+            },
+        )
 
     def close(self) -> None:
         """Close the terminal session and clean up resources."""

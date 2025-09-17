@@ -1,25 +1,62 @@
 from collections.abc import Sequence
 
-from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
 from openhands.sdk.tool.tool import (
-    ActionBase,
-    ObservationBase,
     Tool,
     ToolAnnotations,
+    ToolDataConverter,
     ToolExecutor,
 )
 
 
-class ThinkAction(ActionBase):
-    """Action for logging a thought without making any changes."""
+def make_input_schema() -> Schema:
+    return Schema(
+        name="openhands.sdk.tool.builtins.think.input",
+        fields=[
+            SchemaField.create(
+                name="thought",
+                description="The thought to log.",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
+    )
 
-    thought: str = Field(description="The thought to log.")
 
-    @property
-    def visualize(self) -> Text:
+def make_output_schema() -> Schema:
+    return Schema(
+        name="openhands.sdk.tool.builtins.think.output",
+        fields=[
+            SchemaField.create(
+                name="content",
+                description="Confirmation message.",
+                type=str,
+                required=True,
+            ),
+        ],
+    )
+
+
+class ThinkDataConverter(ToolDataConverter):
+    def agent_observation(
+        self, observation: SchemaInstance
+    ) -> Sequence[TextContent | ImageContent]:
+        content = observation.data.get("content", "Your thought has been logged.")
+        return [TextContent(text=content)]
+
+    def visualize_action(self, action: SchemaInstance) -> Text:
         """Return Rich Text representation with thinking styling."""
         content = Text()
 
@@ -28,9 +65,10 @@ class ThinkAction(ActionBase):
         content.append("Thinking: ", style="bold yellow")
 
         # Add the thought content with proper formatting
-        if self.thought:
+        thought = action.data.get("thought", "")
+        if thought:
             # Split into lines for better formatting
-            lines = self.thought.split("\n")
+            lines = thought.split("\n")
             for i, line in enumerate(lines):
                 if i > 0:
                     content.append("\n")
@@ -38,20 +76,7 @@ class ThinkAction(ActionBase):
 
         return content
 
-
-class ThinkObservation(ObservationBase):
-    """Observation returned after logging a thought."""
-
-    content: str = Field(
-        default="Your thought has been logged.", description="Confirmation message."
-    )
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.content)]
-
-    @property
-    def visualize(self) -> Text:
+    def visualize_observation(self, observation: SchemaInstance) -> Text:
         """Return Rich Text representation - empty since action shows the thought."""
         # Don't duplicate the thought display - action already shows it
         return Text()
@@ -70,20 +95,27 @@ The tool simply logs your thought process for better transparency and does not e
 
 
 class ThinkExecutor(ToolExecutor):
-    def __call__(self, _: ThinkAction) -> ThinkObservation:
-        return ThinkObservation()
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+        return SchemaInstance(
+            schema=make_output_schema(),
+            data={"content": "Your thought has been logged."},
+        )
 
 
-ThinkTool = Tool(
-    name="think",
-    description=THINK_DESCRIPTION,
-    action_type=ThinkAction,
-    observation_type=ThinkObservation,
-    executor=ThinkExecutor(),
-    annotations=ToolAnnotations(
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
-    ),
-)
+class ThinkTool(Tool):
+    @classmethod
+    def create(cls) -> "ThinkTool":
+        return cls(
+            name="think",
+            description=THINK_DESCRIPTION,
+            input_schema=make_input_schema(),
+            output_schema=make_output_schema(),
+            executor=ThinkExecutor(),
+            data_converter=ThinkDataConverter(),
+            annotations=ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+        )

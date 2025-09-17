@@ -1,11 +1,14 @@
-from openhands.tools.execute_bash import execute_bash_tool
+import tempfile
+from openhands.tools.execute_bash import BashTool
 
 
 def test_to_mcp_tool_detailed_type_validation_bash():
     """Test detailed type validation for MCP tool schema generation (execute_bash)."""  # noqa: E501
 
     # Test execute_bash tool schema
-    bash_mcp = execute_bash_tool.to_mcp_tool()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        bash_tool = BashTool.create(working_dir=temp_dir)
+        bash_mcp = bash_tool.to_mcp_tool()
     bash_schema = bash_mcp["inputSchema"]
     bash_props = bash_schema["properties"]
 

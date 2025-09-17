@@ -5,30 +5,14 @@ These are built in and are *required* for the agent to work.
 For tools that require interacting with the environment, add them to `openhands/tools`.
 """
 
-from openhands.sdk.tool.builtins.finish import (
-    FinishAction,
-    FinishExecutor,
-    FinishObservation,
-    FinishTool,
-)
-from openhands.sdk.tool.builtins.think import (
-    ThinkAction,
-    ThinkExecutor,
-    ThinkObservation,
-    ThinkTool,
-)
+from openhands.sdk.tool.builtins.finish import FinishTool
+from openhands.sdk.tool.builtins.think import ThinkTool
 
 
-BUILT_IN_TOOLS = [FinishTool, ThinkTool]
+BUILT_IN_TOOLS = [FinishTool.create(), ThinkTool.create()]
 
 __all__ = [
     "BUILT_IN_TOOLS",
     "FinishTool",
-    "FinishAction",
-    "FinishObservation",
-    "FinishExecutor",
     "ThinkTool",
-    "ThinkAction",
-    "ThinkObservation",
-    "ThinkExecutor",
 ]

@@ -9,12 +9,10 @@ from rich.text import Text
 from openhands.sdk import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
-    Schema,
-    SchemaField,
-    SchemaInstance,
+    ActionBase,
+    ObservationBase,
     Tool,
     ToolAnnotations,
-    ToolDataConverter,
     ToolExecutor,
 )
 
@@ -32,87 +30,25 @@ class TaskItem(BaseModel):
     )
 
 
-def make_input_schema() -> Schema:
-    return Schema(
-        name="openhands.tools.task_tracker.input",
-        fields=[
-            SchemaField.create(
-                name="command",
-                description="The command to execute. `view` shows the current "
-                "task list. `plan` creates or updates the task list based on "
-                "provided requirements and progress. Always `view` the current "
-                "list before making changes.",
-                type=str,
-                required=True,
-                enum=["view", "plan"],
-            ),
-            SchemaField.create(
-                name="task_list",
-                description="The full task list. Required parameter of `plan` command.",
-                type=list,
-                required=False,
-                default=[],
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
-        ],
+class TaskTrackerAction(ActionBase):
+    """An action where the agent writes or updates a task list for task management."""
+
+    command: Literal["view", "plan"] = Field(
+        default="view",
+        description="The command to execute. `view` shows the current task list. `plan` creates or updates the task list based on provided requirements and progress. Always `view` the current list before making changes.",  # noqa: E501
+    )
+    task_list: list[TaskItem] = Field(
+        default_factory=list,
+        description="The full task list. Required parameter of `plan` command.",
     )
 
-
-def make_output_schema() -> Schema:
-    return Schema(
-        name="openhands.tools.task_tracker.output",
-        fields=[
-            SchemaField.create(
-                name="content",
-                description="The formatted task list or status message",
-                type=str,
-                required=True,
-            ),
-            SchemaField.create(
-                name="command",
-                description="The command that was executed",
-                type=str,
-                required=True,
-            ),
-            SchemaField.create(
-                name="task_list",
-                description="The current task list",
-                type=list,
-                required=False,
-                default=[],
-            ),
-        ],
-    )
-
-
-class TaskTrackerDataConverter(ToolDataConverter):
-    """Data converter for TaskTracker tool."""
-
-    def agent_observation(
-        self, observation: SchemaInstance
-    ) -> Sequence[TextContent | ImageContent]:
-        observation.validate_data()
-        content = observation.data.get("content", "")
-        return [TextContent(text=content)]
-
-    def visualize_action(self, action: SchemaInstance) -> Text:
+    @property
+    def visualize(self) -> Text:
         """Return Rich Text representation with task management styling."""
-        action.validate_data()
         content = Text()
 
-        command = action.data.get("command", "view")
-        task_list = action.data.get("task_list", [])
-
         # Add command header with icon
-        if command == "view":
+        if self.command == "view":
             content.append("👀 ", style="blue")
             content.append("View Task List", style="blue")
         else:  # plan
@@ -120,39 +56,42 @@ class TaskTrackerDataConverter(ToolDataConverter):
             content.append("Update Task List", style="green")
 
         # Show task count if planning
-        if command == "plan" and task_list:
-            content.append(f" ({len(task_list)} tasks)", style="dim")
+        if self.command == "plan" and self.task_list:
+            content.append(f" ({len(self.task_list)} tasks)", style="dim")
 
         return content
 
-    def visualize_observation(self, observation: SchemaInstance) -> Text:
+
+class TaskTrackerObservation(ObservationBase):
+    """This data class represents the result of a task tracking operation."""
+
+    content: str = Field(
+        default="", description="The formatted task list or status message"
+    )
+    command: str = Field(default="", description="The command that was executed")
+    task_list: list[TaskItem] = Field(
+        default_factory=list, description="The current task list"
+    )
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.content)]
+
+    @property
+    def visualize(self) -> Text:
         """Return Rich Text representation with task list formatting."""
-        observation.validate_data()
         content = Text()
 
-        command = observation.data.get("command", "")
-        task_list_data = observation.data.get("task_list", [])
-
-        # Convert task list data to TaskItem objects for processing
-        task_list = []
-        for task_data in task_list_data:
-            if isinstance(task_data, dict):
-                try:
-                    task_list.append(TaskItem.model_validate(task_data))
-                except ValidationError:
-                    # Skip invalid task items
-                    continue
-
-        if task_list:
+        if self.task_list:
             # Count tasks by status
-            todo_count = sum(1 for task in task_list if task.status == "todo")
+            todo_count = sum(1 for task in self.task_list if task.status == "todo")
             in_progress_count = sum(
-                1 for task in task_list if task.status == "in_progress"
+                1 for task in self.task_list if task.status == "in_progress"
             )
-            done_count = sum(1 for task in task_list if task.status == "done")
+            done_count = sum(1 for task in self.task_list if task.status == "done")
 
             # Show status summary
-            if command == "plan":
+            if self.command == "plan":
                 content.append("✅ ", style="green")
                 content.append("Task list updated: ", style="green")
             else:  # view command
@@ -173,7 +112,7 @@ class TaskTrackerDataConverter(ToolDataConverter):
                 content.append("\n\n")
 
             # Show the actual task list
-            for i, task in enumerate(task_list, 1):
+            for i, task in enumerate(self.task_list, 1):
                 # Status icon
                 if task.status == "done":
                     content.append("✅ ", style="green")
@@ -185,11 +124,11 @@ class TaskTrackerDataConverter(ToolDataConverter):
                 # Task title
                 content.append(f"{i}. {task.title}", style="white")
 
-                # Show notes under the title if present
+                # NEW: show notes under the title if present
                 if task.notes:
                     content.append("\n   Notes: " + task.notes, style="italic dim")
 
-                if i < len(task_list):
+                if i < len(self.task_list):
                     content.append("\n")
         else:
             content.append("📝 ", style="blue")
@@ -215,76 +154,38 @@ class TaskTrackerExecutor(ToolExecutor):
         if self.save_dir:
             self._load_tasks()
 
-    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+    def __call__(self, action: TaskTrackerAction) -> TaskTrackerObservation:
         """Execute the task tracker action."""
-        action.validate_data()
-
-        command = action.data.get("command", "view")
-        task_list_data = action.data.get("task_list", [])
-
-        if command == "plan":
-            # Convert task list data to TaskItem objects
-            task_list = []
-            for task_data in task_list_data:
-                if isinstance(task_data, dict):
-                    try:
-                        task_list.append(TaskItem.model_validate(task_data))
-                    except ValidationError as e:
-                        logger.warning(f"Invalid task item: {task_data}, error: {e}")
-                        continue
-
+        if action.command == "plan":
             # Update the task list
-            self._task_list = task_list
+            self._task_list = action.task_list
             # Save to file if save_dir is provided
             if self.save_dir:
                 self._save_tasks()
-
-            return SchemaInstance(
-                name="openhands.tools.task_tracker.output",
-                definition=make_output_schema(),
-                data={
-                    "content": (
-                        f"Task list has been updated with "
-                        f"{len(self._task_list)} item(s)."
-                    ),
-                    "command": command,
-                    "task_list": [task.model_dump() for task in self._task_list],
-                },
+            return TaskTrackerObservation(
+                content="Task list has been updated with "
+                + f"{len(self._task_list)} item(s).",
+                command=action.command,
+                task_list=self._task_list,
             )
-        elif command == "view":
+        elif action.command == "view":
             # Return the current task list
             if not self._task_list:
-                return SchemaInstance(
-                    name="openhands.tools.task_tracker.output",
-                    definition=make_output_schema(),
-                    data={
-                        "content": (
-                            'No task list found. Use the "plan" command to create one.'
-                        ),
-                        "command": command,
-                        "task_list": [],
-                    },
+                return TaskTrackerObservation(
+                    content='No task list found. Use the "plan" command to create one.',
+                    command=action.command,
+                    task_list=[],
                 )
             content = self._format_task_list(self._task_list)
-            return SchemaInstance(
-                name="openhands.tools.task_tracker.output",
-                definition=make_output_schema(),
-                data={
-                    "content": content,
-                    "command": command,
-                    "task_list": [task.model_dump() for task in self._task_list],
-                },
+            return TaskTrackerObservation(
+                content=content, command=action.command, task_list=self._task_list
             )
         else:
-            return SchemaInstance(
-                name="openhands.tools.task_tracker.output",
-                definition=make_output_schema(),
-                data={
-                    "content": f"Unknown command: {command}. "
-                    + 'Supported commands are "view" and "plan".',
-                    "command": command,
-                    "task_list": [],
-                },
+            return TaskTrackerObservation(
+                content=f"Unknown command: {action.command}. "
+                + 'Supported commands are "view" and "plan".',
+                command=action.command,
+                task_list=[],
             )
 
     def _format_task_list(self, task_list: list[TaskItem]) -> str:
@@ -478,7 +379,21 @@ When uncertain, favor using this tool. Proactive task management demonstrates
 systematic approach and ensures comprehensive requirement fulfillment."""  # noqa: E501
 
 
-class TaskTrackerTool(Tool):
+task_tracker_tool = Tool(
+    name="task_tracker",
+    description=TASK_TRACKER_DESCRIPTION,
+    action_type=TaskTrackerAction,
+    observation_type=TaskTrackerObservation,
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+
+
+class TaskTrackerTool(Tool[TaskTrackerAction, TaskTrackerObservation]):
     """A Tool subclass that automatically initializes a TaskTrackerExecutor."""
 
     @classmethod
@@ -489,25 +404,14 @@ class TaskTrackerTool(Tool):
             save_dir: Optional directory to save tasks to. If provided, tasks will be
                      persisted to save_dir/TASKS.json
         """
-        # Create input and output schemas
-        input_schema = make_input_schema()
-        output_schema = make_output_schema()
-
-        # Initialize the executor
         executor = TaskTrackerExecutor(save_dir=save_dir)
 
         # Initialize the parent Tool with the executor
         return cls(
             name="task_tracker",
             description=TASK_TRACKER_DESCRIPTION,
-            input_schema=input_schema,
-            output_schema=output_schema,
-            annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
+            action_type=TaskTrackerAction,
+            observation_type=TaskTrackerObservation,
+            annotations=task_tracker_tool.annotations,
             executor=executor,
-            data_converter=TaskTrackerDataConverter(),
         )

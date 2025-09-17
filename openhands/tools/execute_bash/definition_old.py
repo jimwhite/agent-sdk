@@ -61,153 +61,107 @@ def make_input_schema() -> Schema:
                 required=False,
                 default=None,
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
 
-def make_output_schema() -> Schema:
-    return Schema(
-        name="openhands.tools.execute_bash.output",
-        fields=[
-            SchemaField.create(
-                name="output",
-                description="The raw output from the tool.",
-                type=str,
-                required=True,
-            ),
-            SchemaField.create(
-                name="command",
-                description="The bash command that was executed. Can be empty "
-                "string if the observation is from a previous command that hit "
-                "soft timeout and is not yet finished.",
-                type=str,
-                required=False,
-                default=None,
-            ),
-            SchemaField.create(
-                name="exit_code",
-                description="The exit code of the command. -1 indicates the "
-                "process hit the soft timeout and is not yet finished.",
-                type=int,
-                required=False,
-                default=None,
-            ),
-            SchemaField.create(
-                name="error",
-                description="Whether there was an error during command execution.",
-                type=bool,
-                required=False,
-                default=False,
-            ),
-            SchemaField.create(
-                name="timeout",
-                description="Whether the command execution timed out.",
-                type=bool,
-                required=False,
-                default=False,
-            ),
-            SchemaField.create(
-                name="metadata",
-                description="Additional metadata captured from PS1 after "
-                "command execution.",
-                type=dict[str, str],
-                required=False,
-                default=None,
-            ),
-        ],
+class ExecuteBashAction(ActionBase):
+    """Schema for bash command execution."""
+
+    command: str = Field(
+        description="The bash command to execute. Can be empty string to view additional logs when previous exit code is `-1`. Can be `C-c` (Ctrl+C) to interrupt the currently running process. Note: You can only execute one bash command at a time. If you need to run multiple commands sequentially, you can use `&&` or `;` to chain them together."  # noqa
+    )
+    is_input: bool = Field(
+        default=False,
+        description="If True, the command is an input to the running process. If False, the command is a bash command to be executed in the terminal. Default is False.",  # noqa
+    )
+    timeout: float | None = Field(
+        default=None,
+        description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
 
-
-class ExecuteBashDataConverter(ToolDataConverter):
-    """Data converter for ExecuteBash tool."""
-
-    def agent_observation(
-        self, observation: SchemaInstance
-    ) -> Sequence[TextContent | ImageContent]:
-        observation.validate_data()
-
-        # Extract metadata if present
-        metadata_dict = observation.data.get("metadata", {})
-        if isinstance(metadata_dict, dict):
-            metadata = CmdOutputMetadata(**metadata_dict)
-        else:
-            metadata = CmdOutputMetadata()
-
-        output = observation.data.get("output", "")
-        error = observation.data.get("error", False)
-
-        ret = f"{metadata.prefix}{output}{metadata.suffix}"
-        if metadata.working_dir:
-            ret += f"\n[Current working directory: {metadata.working_dir}]"
-        if metadata.py_interpreter_path:
-            ret += f"\n[Python interpreter: {metadata.py_interpreter_path}]"
-        if metadata.exit_code != -1:
-            ret += f"\n[Command finished with exit code {metadata.exit_code}]"
-        if error:
-            ret = f"[There was an error during command execution.]\n{ret}"
-
-        return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
-
-    def visualize_action(self, action: SchemaInstance) -> Text:
+    @property
+    def visualize(self) -> Text:
         """Return Rich Text representation with PS1-style bash prompt."""
-        action.validate_data()
         content = Text()
 
         # Create PS1-style prompt
         content.append("$ ", style="bold green")
 
         # Add command with syntax highlighting
-        command = action.data.get("command", "")
-        if command:
-            content.append(command, style="white")
+        if self.command:
+            content.append(self.command, style="white")
         else:
             content.append("[empty command]", style="dim italic")
 
         # Add metadata if present
-        is_input = action.data.get("is_input", False)
-        if is_input:
+        if self.is_input:
             content.append(" ", style="white")
             content.append("(input to running process)", style="dim yellow")
 
-        timeout = action.data.get("timeout")
-        if timeout is not None:
+        if self.timeout is not None:
             content.append(" ", style="white")
-            content.append(f"[timeout: {timeout}s]", style="dim cyan")
+            content.append(f"[timeout: {self.timeout}s]", style="dim cyan")
 
         return content
 
-    def visualize_observation(self, observation: SchemaInstance) -> Text:
+
+class ExecuteBashObservation(ObservationBase):
+    """A ToolResult that can be rendered as a CLI output."""
+
+    output: str = Field(description="The raw output from the tool.")
+    command: str | None = Field(
+        default=None,
+        description="The bash command that was executed. Can be empty string if the observation is from a previous command that hit soft timeout and is not yet finished.",  # noqa
+    )
+    exit_code: int | None = Field(
+        default=None,
+        description="The exit code of the command. -1 indicates the process hit the soft timeout and is not yet finished.",  # noqa
+    )
+    error: bool = Field(
+        default=False,
+        description="Whether there was an error during command execution.",
+    )
+    timeout: bool = Field(
+        default=False, description="Whether the command execution timed out."
+    )
+    metadata: CmdOutputMetadata = Field(
+        default_factory=CmdOutputMetadata,
+        description="Additional metadata captured from PS1 after command execution.",
+    )
+
+    @property
+    def command_id(self) -> int | None:
+        """Get the command ID from metadata."""
+        return self.metadata.pid
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
+        if self.metadata.working_dir:
+            ret += f"\n[Current working directory: {self.metadata.working_dir}]"
+        if self.metadata.py_interpreter_path:
+            ret += f"\n[Python interpreter: {self.metadata.py_interpreter_path}]"
+        if self.metadata.exit_code != -1:
+            ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
+        if self.error:
+            ret = f"[There was an error during command execution.]\n{ret}"
+        return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
+
+    @property
+    def visualize(self) -> Text:
         """Return Rich Text representation with terminal-style output formatting."""
-        observation.validate_data()
         content = Text()
 
-        error = observation.data.get("error", False)
-        output = observation.data.get("output", "")
-        metadata_dict = observation.data.get("metadata", {})
-
-        if isinstance(metadata_dict, dict):
-            metadata = CmdOutputMetadata(**metadata_dict)
-        else:
-            metadata = CmdOutputMetadata()
-
         # Add error indicator if present
-        if error:
+        if self.error:
             content.append("❌ ", style="red bold")
             content.append("Command execution error\n", style="red")
 
         # Add command output with proper styling
-        if output:
+        if self.output:
             # Style the output based on content
-            output_lines = output.split("\n")
+            output_lines = self.output.split("\n")
             for line in output_lines:
                 if line.strip():
                     # Color error-like lines differently
@@ -227,32 +181,37 @@ class ExecuteBashDataConverter(ToolDataConverter):
                 content.append("\n")
 
         # Add metadata with styling
-        if metadata:
-            if metadata.working_dir:
+        if hasattr(self, "metadata") and self.metadata:
+            if self.metadata.working_dir:
                 content.append("\n📁 ", style="blue")
                 content.append(
-                    f"Working directory: {metadata.working_dir}", style="dim blue"
+                    f"Working directory: {self.metadata.working_dir}", style="dim blue"
                 )
 
-            if metadata.py_interpreter_path:
+            if self.metadata.py_interpreter_path:
                 content.append("\n🐍 ", style="green")
                 content.append(
-                    f"Python interpreter: {metadata.py_interpreter_path}",
+                    f"Python interpreter: {self.metadata.py_interpreter_path}",
                     style="dim green",
                 )
 
-            if metadata.exit_code is not None:
-                if metadata.exit_code == 0:
+            if (
+                hasattr(self.metadata, "exit_code")
+                and self.metadata.exit_code is not None
+            ):
+                if self.metadata.exit_code == 0:
                     content.append("\n✅ ", style="green")
-                    content.append(f"Exit code: {metadata.exit_code}", style="green")
-                elif metadata.exit_code == -1:
+                    content.append(
+                        f"Exit code: {self.metadata.exit_code}", style="green"
+                    )
+                elif self.metadata.exit_code == -1:
                     content.append("\n⏳ ", style="yellow")
                     content.append(
                         "Process still running (soft timeout)", style="yellow"
                     )
                 else:
                     content.append("\n❌ ", style="red")
-                    content.append(f"Exit code: {metadata.exit_code}", style="red")
+                    content.append(f"Exit code: {self.metadata.exit_code}", style="red")
 
         return content
 
@@ -284,7 +243,22 @@ TOOL_DESCRIPTION = """Execute a bash command in the terminal within a persistent
 """  # noqa
 
 
-class BashTool(Tool):
+execute_bash_tool = Tool(
+    name="execute_bash",
+    action_type=ExecuteBashAction,
+    observation_type=ExecuteBashObservation,
+    description=TOOL_DESCRIPTION,
+    annotations=ToolAnnotations(
+        title="execute_bash",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+
+
+class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
     """A Tool subclass that automatically initializes a BashExecutor with auto-detection."""  # noqa: E501
 
     @classmethod
@@ -321,10 +295,6 @@ class BashTool(Tool):
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 
-        # Create input and output schemas
-        input_schema = make_input_schema()
-        output_schema = make_output_schema()
-
         # Initialize the executor
         executor = BashExecutor(
             working_dir=working_dir,
@@ -337,38 +307,10 @@ class BashTool(Tool):
 
         # Initialize the parent Tool with the executor
         return cls(
-            name="execute_bash",
+            name=execute_bash_tool.name,
             description=TOOL_DESCRIPTION,
-            input_schema=input_schema,
-            output_schema=output_schema,
-            annotations=ToolAnnotations(
-                title="execute_bash",
-                readOnlyHint=False,
-                destructiveHint=True,
-                idempotentHint=False,
-                openWorldHint=True,
-            ),
+            action_type=ExecuteBashAction,
+            observation_type=ExecuteBashObservation,
+            annotations=execute_bash_tool.annotations,
             executor=executor,
-            data_converter=ExecuteBashDataConverter(),
         )
-
-
-# Compatibility classes for terminal system
-from pydantic import BaseModel
-
-
-class ExecuteBashAction(BaseModel):
-    """Compatibility class for terminal system."""
-    command: str
-    is_input: bool = False
-    timeout: int | None = None
-
-
-class ExecuteBashObservation(BaseModel):
-    """Compatibility class for terminal system."""
-    output: str
-    command: str | None = None
-    exit_code: int | None = None
-    error: bool = False
-    timeout: bool = False
-    metadata: dict | None = None

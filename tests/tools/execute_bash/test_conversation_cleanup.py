@@ -9,7 +9,7 @@ import tempfile
 from unittest.mock import Mock
 
 from openhands.sdk import Agent, Conversation
-from openhands.tools import BashExecutor, execute_bash_tool
+from openhands.tools import BashExecutor, BashTool
 
 
 def test_conversation_close_calls_executor_close(mock_llm):
@@ -20,7 +20,10 @@ def test_conversation_close_calls_executor_close(mock_llm):
         bash_executor.close = Mock()
 
         # Create tools with the executor
-        tools = [execute_bash_tool.set_executor(executor=bash_executor)]
+        bash_tool = BashTool.create(working_dir=temp_dir)
+        # Use object.__setattr__ to bypass frozen model restriction
+        object.__setattr__(bash_tool, 'executor', bash_executor)
+        tools = [bash_tool]
 
         # Create agent and conversation
         agent = Agent(llm=mock_llm, tools=tools)
@@ -41,7 +44,10 @@ def test_conversation_del_calls_close(mock_llm):
         bash_executor.close = Mock()
 
         # Create tools with the executor
-        tools = [execute_bash_tool.set_executor(executor=bash_executor)]
+        bash_tool = BashTool.create(working_dir=temp_dir)
+        # Use object.__setattr__ to bypass frozen model restriction
+        object.__setattr__(bash_tool, 'executor', bash_executor)
+        tools = [bash_tool]
 
         # Create agent and conversation
         agent = Agent(llm=mock_llm, tools=tools)
@@ -65,7 +71,10 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
         bash_executor.close = Mock(side_effect=Exception("Test exception"))
 
         # Create tools with the executor
-        tools = [execute_bash_tool.set_executor(executor=bash_executor)]
+        bash_tool = BashTool.create(working_dir=temp_dir)
+        # Use object.__setattr__ to bypass frozen model restriction
+        object.__setattr__(bash_tool, 'executor', bash_executor)
+        tools = [bash_tool]
 
         # Create agent and conversation
         agent = Agent(llm=mock_llm, tools=tools)
@@ -81,14 +90,17 @@ def test_conversation_close_skips_none_executors(mock_llm):
     # Create a mock LLM to avoid actual API calls
 
     # Create a tool with no executor
-    tool_with_no_executor = execute_bash_tool  # No executor set
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tool_with_no_executor = BashTool.create(working_dir=temp_dir)
+        # Set executor to None to simulate a tool with no executor
+        object.__setattr__(tool_with_no_executor, 'executor', None)
 
-    # Create agent and conversation
-    agent = Agent(llm=mock_llm, tools=[tool_with_no_executor])
-    conversation = Conversation(agent=agent)
+        # Create agent and conversation
+        agent = Agent(llm=mock_llm, tools=[tool_with_no_executor])
+        conversation = Conversation(agent=agent)
 
-    # This should not raise an exception
-    conversation.close()
+        # This should not raise an exception
+        conversation.close()
 
 
 def test_bash_executor_close_calls_session_close():

@@ -1,39 +1,70 @@
 from collections.abc import Sequence
 
-from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
 from openhands.sdk.tool.tool import (
-    ActionBase,
-    ObservationBase,
     Tool,
     ToolAnnotations,
+    ToolDataConverter,
     ToolExecutor,
 )
 
 
-class FinishAction(ActionBase):
-    message: str = Field(description="Final message to send to the user.")
+def make_input_schema() -> Schema:
+    return Schema(
+        name="openhands.sdk.tool.builtins.finish.input",
+        fields=[
+            SchemaField.create(
+                name="message",
+                description="Final message to send to the user.",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="security_risk",
+                description="The LLM's assessment of the safety risk of this "
+                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
+                "prompt for risk level definitions.",
+                type=str,
+                required=True,
+                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+            ),
+        ],
+    )
 
-    @property
-    def visualize(self) -> Text:
+
+def make_output_schema() -> Schema:
+    return Schema(
+        name="openhands.sdk.tool.builtins.finish.output",
+        fields=[
+            SchemaField.create(
+                name="message",
+                description="Final message sent to the user.",
+                type=str,
+                required=True,
+            ),
+        ],
+    )
+
+
+class FinishDataConverter(ToolDataConverter):
+    def agent_observation(
+        self, observation: SchemaInstance
+    ) -> Sequence[TextContent | ImageContent]:
+        message = observation.data.get("message", "")
+        return [TextContent(text=message)]
+
+    def visualize_action(self, action: SchemaInstance) -> Text:
         """Return Rich Text representation of this action."""
         content = Text()
         content.append("Finish with message:\n", style="bold blue")
-        content.append(self.message)
+        message = action.data.get("message", "")
+        content.append(message)
         return content
 
-
-class FinishObservation(ObservationBase):
-    message: str = Field(description="Final message sent to the user.")
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.message)]
-
-    @property
-    def visualize(self) -> Text:
+    def visualize_observation(self, observation: SchemaInstance) -> Text:
         """Return Rich Text representation - empty since action shows the message."""
         # Don't duplicate the finish message display - action already shows it
         return Text()
@@ -54,21 +85,29 @@ The message should include:
 
 
 class FinishExecutor(ToolExecutor):
-    def __call__(self, action: FinishAction) -> FinishObservation:
-        return FinishObservation(message=action.message)
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+        message = action.data.get("message", "")
+        return SchemaInstance(
+            schema=make_output_schema(),
+            data={"message": message},
+        )
 
 
-FinishTool = Tool(
-    name="finish",
-    action_type=FinishAction,
-    observation_type=FinishObservation,
-    description=TOOL_DESCRIPTION,
-    executor=FinishExecutor(),
-    annotations=ToolAnnotations(
-        title="finish",
-        readOnlyHint=True,
-        destructiveHint=False,
-        idempotentHint=True,
-        openWorldHint=False,
-    ),
-)
+class FinishTool(Tool):
+    @classmethod
+    def create(cls) -> "FinishTool":
+        return cls(
+            name="finish",
+            description=TOOL_DESCRIPTION,
+            input_schema=make_input_schema(),
+            output_schema=make_output_schema(),
+            executor=FinishExecutor(),
+            data_converter=FinishDataConverter(),
+            annotations=ToolAnnotations(
+                title="finish",
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+        )

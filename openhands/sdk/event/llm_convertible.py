@@ -10,7 +10,7 @@ from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
-from openhands.sdk.tool import Action, Observation
+from openhands.sdk.tool import SchemaInstance
 
 
 class SystemPromptEvent(LLMConvertibleEvent):
@@ -81,7 +81,7 @@ class ActionEvent(LLMConvertibleEvent):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
-    action: Action = Field(..., description="Single action (tool call) returned by LLM")
+    action: SchemaInstance = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -150,13 +150,13 @@ class ActionEvent(LLMConvertibleEvent):
             if len(thought_text) > N_CHAR_PREVIEW
             else thought_text
         )
-        action_name = self.action.__class__.__name__
+        action_name = self.action.schema.name
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
 
 class ObservationEvent(LLMConvertibleEvent):
     source: SourceType = "environment"
-    observation: Observation = Field(
+    observation: SchemaInstance = Field(
         ..., description="The observation (tool call) sent to LLM"
     )
 
@@ -193,7 +193,8 @@ class ObservationEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        content_str = "".join(content_to_str(self.observation.agent_observation))
+        # For now, just use the raw data as string representation
+        content_str = str(self.observation.data)
         obs_preview = (
             content_str[:N_CHAR_PREVIEW] + "..."
             if len(content_str) > N_CHAR_PREVIEW
