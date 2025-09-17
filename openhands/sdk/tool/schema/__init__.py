@@ -1,4 +1,4 @@
-from .spec import Schema, SchemaField, SchemaFieldType, SchemaInstance
+from .schema import Schema, SchemaField, SchemaFieldType, SchemaInstance
 from .types import (
     BoolType,
     DictType,

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    create_model,
+    model_validator,
+)
 
 from openhands.sdk.tool.schema.types import (
     BoolType,
@@ -20,12 +26,57 @@ class SchemaField(BaseModel):
     """A single field of the Schema."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    name: str
-    type: SchemaFieldType
-    required: bool = True
-    default: Any | None = None
-    description: str | None = None
-    enum: list[Any] | None = None  # enforced if provided
+    name: str = Field(..., description="Name of the field")
+    description: str = Field(
+        description="Description of the field. Will be shown to the "
+        "model as part of the tool definition.",
+    )
+    type: SchemaFieldType = Field(
+        ...,
+        description="Type of the field, either a SchemaFieldType",
+    )
+    required: bool = Field(
+        default=False,
+        description="Whether the field is required (default: True). "
+        "If False, the field is optional.",
+    )
+    default: Any | None = Field(
+        default=None,
+        description="Default value for the field if not provided. "
+        "If required is True and default is None, the field must be provided.",
+    )
+    enum: list[Any] | None = Field(
+        default=None,
+        description="Optional list of allowed values for the field",
+    )
+
+    @model_validator(mode="after")
+    def check_default(self) -> SchemaField:
+        if self.required and self.default is not None:
+            raise ValueError("Field cannot be required and have a default value")
+        return self
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        name: str,
+        description: str,
+        type: type[Any] | SchemaFieldType,
+        required: bool = False,
+        default: Any | None = None,
+        enum: list[Any] | None = None,
+    ) -> "SchemaField":
+        return cls(
+            name=name,
+            description=description,
+            type=type
+            if isinstance(type, SchemaFieldType)
+            else SchemaFieldType.from_type(type),
+            required=required,
+            default=default,
+            enum=enum,
+        )
 
 
 class Schema(BaseModel):
