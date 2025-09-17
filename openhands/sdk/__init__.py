@@ -23,7 +23,7 @@ from openhands.sdk.tool import Tool, ToolSpec
 
 
 try:
-    __version__ = version("openhands.sdk")
+    __version__ = version("openhands-sdk")
 except PackageNotFoundError:
     __version__ = "0.0.0"  # fallback for editable/unbuilt environments
 
