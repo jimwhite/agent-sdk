@@ -14,7 +14,8 @@ def test_bash_tool_initialization():
         # Check that the tool has the correct name and properties
         assert tool.name == "execute_bash"
         assert tool.executor is not None
-        assert tool.action_type == ExecuteBashAction
+        assert tool.input_schema is not None
+        assert tool.output_schema is not None
 
 
 def test_bash_tool_with_username():
@@ -25,7 +26,8 @@ def test_bash_tool_with_username():
         # Check that the tool has the correct name and properties
         assert tool.name == "execute_bash"
         assert tool.executor is not None
-        assert tool.action_type == ExecuteBashAction
+        assert tool.input_schema is not None
+        assert tool.output_schema is not None
 
 
 def test_bash_tool_execution():

@@ -81,7 +81,9 @@ class ActionEvent(LLMConvertibleEvent):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
-    action: SchemaInstance = Field(..., description="Single action (tool call) returned by LLM")
+    action: SchemaInstance = Field(
+        ..., description="Single action (tool call) returned by LLM"
+    )
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"

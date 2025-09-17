@@ -13,7 +13,8 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import Tool
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 from openhands.sdk.tool.spec import ToolSpec
 from openhands.sdk.tool.tool import ToolAnnotations, ToolExecutor
 
@@ -23,31 +24,40 @@ def get_tools_list(tools):
     return list(tools.values()) if isinstance(tools, dict) else list(tools)
 
 
-class MockAction(ActionBase):
-    """Mock action for testing."""
-
-    pass
-
-
-class MockObservation(ObservationBase):
-    """Mock observation for testing."""
-
-    pass
-
-
 class MockExecutor(ToolExecutor):
     """Mock executor for testing."""
 
-    def __call__(self, action: MockAction) -> MockObservation:
-        return MockObservation()
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+        return SchemaInstance(
+            name="mock_output",
+            definition=Schema(
+                name="mock_output",
+                fields=[
+                    SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Mock result")
+                ]
+            ),
+            data={"result": "mock result"}
+        )
 
 
 def create_mock_tool(name: str) -> Tool:
     """Create a mock tool that behaves like a Tool instance."""
+    input_schema = Schema(
+        name=f"mock_{name}_input",
+        fields=[
+            SchemaField(name="input", type=SchemaFieldType.from_type(str), description="Mock input")
+        ]
+    )
+    output_schema = Schema(
+        name=f"mock_{name}_output", 
+        fields=[
+            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Mock result")
+        ]
+    )
     return Tool(
         name=name,
-        action_type=MockAction,
-        observation_type=MockObservation,
+        input_schema=input_schema,
+        output_schema=output_schema,
         description=f"Mock tool {name}",
         executor=MockExecutor(),
         annotations=ToolAnnotations(title=name),

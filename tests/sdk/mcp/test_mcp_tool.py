@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import mcp.types
 
-from openhands.sdk.llm import TextContent
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.mcp.definition import MCPToolObservation
 from openhands.sdk.mcp.tool import MCPTool, MCPToolExecutor
@@ -155,6 +154,7 @@ class TestMCPToolExecutor:
         observation = self.executor(mock_action)
 
         from openhands.sdk.tool import SchemaInstance
+
         assert isinstance(observation, SchemaInstance)
         assert observation.data["tool_name"] == "test_tool"
         assert observation.data["is_error"] is False
@@ -183,6 +183,7 @@ class TestMCPToolExecutor:
         observation = self.executor(mock_action)
 
         from openhands.sdk.tool import SchemaInstance
+
         assert isinstance(observation, SchemaInstance)
         assert observation.data["tool_name"] == "test_tool"
         assert observation.data["is_error"] is True
@@ -199,7 +200,8 @@ class TestMCPToolExecutor:
             mock_result = MagicMock(spec=mcp.types.CallToolResult)
             mock_result.content = [
                 mcp.types.TextContent(
-                    type="text", text="Error calling MCP tool test_tool: Connection failed"
+                    type="text",
+                    text="Error calling MCP tool test_tool: Connection failed",
                 )
             ]
             mock_result.isError = True
@@ -212,6 +214,7 @@ class TestMCPToolExecutor:
         observation = self.executor(mock_action)
 
         from openhands.sdk.tool import SchemaInstance
+
         assert isinstance(observation, SchemaInstance)
         assert observation.data["tool_name"] == "test_tool"
         assert observation.data["is_error"] is True

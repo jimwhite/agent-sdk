@@ -44,7 +44,7 @@ def test_session_initialization(terminal_type):
         obs = session.execute(ExecuteBashAction(command="pwd", security_risk="LOW"))
 
         assert temp_dir in obs.output
-        assert "[The command completed with exit code 0.]" in obs.metadata.suffix
+        assert "[The command completed with exit code 0.]" in obs.metadata["suffix"]
         session.close()
 
     # Test with custom username
@@ -87,9 +87,9 @@ def test_basic_command(terminal_type):
     )
 
     assert "hello world" in obs.output
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
     # Note: prefix may vary between terminal implementations
-    assert obs.metadata.exit_code == 0
+    assert obs.metadata["exit_code"] == 0
     assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     # Test command with error
@@ -111,9 +111,9 @@ def test_basic_command(terminal_type):
     assert "first" in obs.output
     assert "second" in obs.output
     assert "third" in obs.output
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
     # Note: prefix may vary between terminal implementations
-    assert obs.metadata.exit_code == 0
+    assert obs.metadata["exit_code"] == 0
     assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
@@ -129,14 +129,14 @@ def test_environment_variable_persistence(terminal_type):
     obs = session.execute(
         ExecuteBashAction(command="export TEST_VAR='hello world'", security_risk="LOW")
     )
-    assert obs.metadata.exit_code == 0
+    assert obs.metadata["exit_code"] == 0
 
     # Use the environment variable in a subsequent command
     obs = session.execute(
         ExecuteBashAction(command="echo $TEST_VAR", security_risk="LOW")
     )
     assert "hello world" in obs.output
-    assert obs.metadata.exit_code == 0
+    assert obs.metadata["exit_code"] == 0
 
     session.close()
 
@@ -166,7 +166,7 @@ def test_environment_variable_inheritance_from_parent(terminal_type):
         assert test_var_value in obs.output, (
             f"Expected '{test_var_value}' in output, but got: {obs.output}"
         )
-        assert obs.metadata.exit_code == 0
+        assert obs.metadata["exit_code"] == 0
 
         session.close()
 
@@ -190,10 +190,10 @@ def test_long_running_command_follow_by_execute():
     )
 
     assert "1" in obs.output  # First number should appear before timeout
-    assert obs.metadata.exit_code == -1  # -1 indicates command is still running
+    assert obs.metadata["exit_code"] == -1  # -1 indicates command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(2)
-    assert obs.metadata.prefix == ""
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(2)
+    assert obs.metadata["prefix"] == ""
 
     # Continue watching output
     obs = session.execute(
@@ -201,18 +201,18 @@ def test_long_running_command_follow_by_execute():
     )
 
     assert "2" in obs.output
-    assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(2)
-    assert obs.metadata.exit_code == -1  # -1 indicates command is still running
+    assert obs.metadata["prefix"] == "[Below is the output of the previous command.]\n"
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(2)
+    assert obs.metadata["exit_code"] == -1  # -1 indicates command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Test command that produces no output
     obs = session.execute(ExecuteBashAction(command="sleep 15", security_risk="LOW"))
 
     assert "3" not in obs.output
-    assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
-    assert "The previous command is still running" in obs.metadata.suffix
-    assert obs.metadata.exit_code == -1  # -1 indicates command is still running
+    assert obs.metadata["prefix"] == "[Below is the output of the previous command.]\n"
+    assert "The previous command is still running" in obs.metadata["suffix"]
+    assert obs.metadata["exit_code"] == -1  # -1 indicates command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     time.sleep(3)
@@ -221,7 +221,7 @@ def test_long_running_command_follow_by_execute():
     obs = session.execute(ExecuteBashAction(command="sleep 15", security_risk="LOW"))
 
     assert "3" in obs.output  # Should see the final output from the previous command
-    assert obs.metadata.exit_code == -1  # -1 indicates new command is still running
+    assert obs.metadata["exit_code"] == -1  # -1 indicates new command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     session.close()
@@ -243,10 +243,10 @@ def test_interactive_command(terminal_type):
     )
 
     assert "Enter name:" in obs.output
-    assert obs.metadata.exit_code == -1  # -1 indicates command is still running
+    assert obs.metadata["exit_code"] == -1  # -1 indicates command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
-    assert obs.metadata.prefix == ""
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(3)
+    assert obs.metadata["prefix"] == ""
 
     # Send input
     obs = session.execute(
@@ -254,45 +254,45 @@ def test_interactive_command(terminal_type):
     )
 
     assert "Hello John" in obs.output
-    assert obs.metadata.exit_code == 0
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
-    assert obs.metadata.prefix == ""
+    assert obs.metadata["exit_code"] == 0
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["prefix"] == ""
     assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     # Test multiline command input
     obs = session.execute(ExecuteBashAction(command="cat << EOF", security_risk="LOW"))
 
-    assert obs.metadata.exit_code == -1
+    assert obs.metadata["exit_code"] == -1
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
-    assert obs.metadata.prefix == ""
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(3)
+    assert obs.metadata["prefix"] == ""
 
     obs = session.execute(
         ExecuteBashAction(command="line 1", is_input=True, security_risk="LOW")
     )
 
-    assert obs.metadata.exit_code == -1
+    assert obs.metadata["exit_code"] == -1
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
-    assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(3)
+    assert obs.metadata["prefix"] == "[Below is the output of the previous command.]\n"
 
     obs = session.execute(
         ExecuteBashAction(command="line 2", is_input=True, security_risk="LOW")
     )
 
-    assert obs.metadata.exit_code == -1
+    assert obs.metadata["exit_code"] == -1
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(3)
-    assert obs.metadata.prefix == "[Below is the output of the previous command.]\n"
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(3)
+    assert obs.metadata["prefix"] == "[Below is the output of the previous command.]\n"
 
     obs = session.execute(
         ExecuteBashAction(command="EOF", is_input=True, security_risk="LOW")
     )
 
     assert "line 1" in obs.output and "line 2" in obs.output
-    assert obs.metadata.exit_code == 0
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
-    assert obs.metadata.prefix == ""
+    assert obs.metadata["exit_code"] == 0
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["prefix"] == ""
 
     session.close()
 
@@ -312,9 +312,9 @@ def test_ctrl_c(terminal_type):
     )
 
     assert "looping" in obs.output
-    assert obs.metadata.suffix == get_no_change_timeout_suffix(2)
-    assert obs.metadata.prefix == ""
-    assert obs.metadata.exit_code == -1  # -1 indicates command is still running
+    assert obs.metadata["suffix"] == get_no_change_timeout_suffix(2)
+    assert obs.metadata["prefix"] == ""
+    assert obs.metadata["exit_code"] == -1  # -1 indicates command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Send Ctrl+C
@@ -324,12 +324,12 @@ def test_ctrl_c(terminal_type):
 
     # Check that the process was interrupted (exit code can be 1 or 130
     # depending on the shell/OS)
-    assert obs.metadata.exit_code in (
+    assert obs.metadata["exit_code"] in (
         1,
         130,
     )  # Accept both common exit codes for interrupted processes
-    assert "CTRL+C was sent" in obs.metadata.suffix
-    assert obs.metadata.prefix == ""
+    assert "CTRL+C was sent" in obs.metadata["suffix"]
+    assert obs.metadata["prefix"] == ""
     assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
@@ -354,9 +354,9 @@ def test_empty_command_error(terminal_type):
         "ERROR: No previous running command to retrieve logs from."
         in obs.agent_observation[0].text
     )
-    assert obs.metadata.exit_code == -1
-    assert obs.metadata.prefix == ""
-    assert obs.metadata.suffix == ""
+    assert obs.metadata["exit_code"] == -1
+    assert obs.metadata["prefix"] == ""
+    assert obs.metadata["suffix"] == ""
     assert session.prev_status is None
 
     session.close()
@@ -390,12 +390,12 @@ def test_command_output_continuation(terminal_type):
         assert "3" in obs.output
         assert "4" in obs.output
         assert "5" in obs.output
-        assert "[The command completed with exit code 0.]" in obs.metadata.suffix
+        assert "[The command completed with exit code 0.]" in obs.metadata["suffix"]
     else:
         # If the command timed out, verify we got the timeout message
         assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
         assert "1" in obs.output
-        assert "[The command has no new output after 1 seconds." in obs.metadata.suffix
+        assert "[The command has no new output after 1 seconds." in obs.metadata["suffix"]
 
         # Continue getting output until we see all numbers
         numbers_seen = set()
@@ -423,13 +423,13 @@ def test_command_output_continuation(terminal_type):
             # Check if the command has completed
             if session.prev_status == TerminalCommandStatus.COMPLETED:
                 assert (
-                    "[The command completed with exit code 0.]" in obs.metadata.suffix
+                    "[The command completed with exit code 0.]" in obs.metadata["suffix"]
                 )
                 break
             else:
                 assert (
                     "[The command has no new output after 1 seconds."
-                    in obs.metadata.suffix
+                    in obs.metadata["suffix"]
                 )
                 assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
@@ -458,9 +458,9 @@ def test_long_output(terminal_type):
 
     assert "Line 1" in obs.output
     assert "Line 5000" in obs.output
-    assert obs.metadata.exit_code == 0
-    assert obs.metadata.prefix == ""
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["exit_code"] == 0
+    assert obs.metadata["prefix"] == ""
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
 
     session.close()
 
@@ -477,11 +477,11 @@ def test_long_output_exceed_history_limit(terminal_type):
         )
     )
 
-    assert "Previous command outputs are truncated" in obs.metadata.prefix
+    assert "Previous command outputs are truncated" in obs.metadata["prefix"]
     assert "Line 40000" in obs.output
     assert "Line 50000" in obs.output
-    assert obs.metadata.exit_code == 0
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["exit_code"] == 0
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
 
     session.close()
 
@@ -501,9 +501,9 @@ fi""",
     )
 
     assert "inside if" in obs.output
-    assert obs.metadata.exit_code == 0
-    assert obs.metadata.prefix == ""
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["exit_code"] == 0
+    assert obs.metadata["prefix"] == ""
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
 
     session.close()
 
@@ -527,7 +527,7 @@ def test_python_interactive_input(terminal_type):
     )
 
     assert "Enter your name:" in obs.output
-    assert obs.metadata.exit_code == -1  # -1 indicates command is still running
+    assert obs.metadata["exit_code"] == -1  # -1 indicates command is still running
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Send first input (name)
@@ -536,7 +536,7 @@ def test_python_interactive_input(terminal_type):
     )
 
     assert "Enter your age:" in obs.output
-    assert obs.metadata.exit_code == -1
+    assert obs.metadata["exit_code"] == -1
     assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
 
     # Send second input (age)
@@ -545,8 +545,8 @@ def test_python_interactive_input(terminal_type):
     )
 
     assert "Hello Alice, you are 25 years old" in obs.output
-    assert obs.metadata.exit_code == 0
-    assert obs.metadata.suffix == "\n[The command completed with exit code 0.]"
+    assert obs.metadata["exit_code"] == 0
+    assert obs.metadata["suffix"] == "\n[The command completed with exit code 0.]"
     assert session.prev_status == TerminalCommandStatus.COMPLETED
 
     session.close()
@@ -558,7 +558,7 @@ def _run_bash_action(session, command: str, **kwargs):
     obs = session.execute(action)
     logger.info(f"Command: {command}")
     logger.info(f"Output: {obs.output}")
-    logger.info(f"Exit code: {obs.metadata.exit_code}")
+    logger.info(f"Exit code: {obs.metadata["exit_code"]}")
     return obs
 
 
@@ -576,23 +576,23 @@ def test_bash_server(terminal_type):
             obs = _run_bash_action(
                 session, "python -u -m http.server 8081", timeout=1.0
             )
-            assert obs.metadata.exit_code == -1
+            assert obs.metadata["exit_code"] == -1
             assert "Serving HTTP on" in obs.output
 
             # Send Ctrl+C to interrupt
             obs = _run_bash_action(session, "C-c", is_input=True)
-            assert "CTRL+C was sent" in obs.metadata.suffix
+            assert "CTRL+C was sent" in obs.metadata["suffix"]
             assert "Keyboard interrupt received, exiting." in obs.output
 
             # Verify we can run commands after interrupt
             obs = _run_bash_action(session, "ls")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             # Run server again to verify it works
             obs = _run_bash_action(
                 session, "python -u -m http.server 8081", timeout=1.0
             )
-            assert obs.metadata.exit_code == -1
+            assert obs.metadata["exit_code"] == -1
             assert "Serving HTTP on" in obs.output
 
         finally:
@@ -611,20 +611,20 @@ def test_bash_background_server(terminal_type):
         try:
             # Start the server in background
             obs = _run_bash_action(session, f"python3 -m http.server {server_port} &")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             # Give the server a moment to be ready
             time.sleep(1)
 
             # Verify the server is running by curling it
             obs = _run_bash_action(session, f"curl http://localhost:{server_port}")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             # Check for content typical of python http.server directory listing
             assert "Directory listing for" in obs.output
 
             # Kill the server
             obs = _run_bash_action(session, 'pkill -f "http.server"')
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
         finally:
             session.close()
@@ -642,17 +642,17 @@ def test_multiline_commands(terminal_type):
             # Original Linux bash version
             # single multiline command
             obs = _run_bash_action(session, 'echo \\\n -e "foo"')
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "foo" in obs.output
 
             # test multiline echo
             obs = _run_bash_action(session, 'echo -e "hello\nworld"')
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "hello\nworld" in obs.output
 
             # test whitespace
             obs = _run_bash_action(session, 'echo -e "a\\n\\n\\nz"')
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "\n\n\n" in obs.output
         finally:
             session.close()
@@ -675,7 +675,7 @@ def test_complex_commands(terminal_type):
         session.initialize()
         try:
             obs = _run_bash_action(session, cmd)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "Got 3 heads in a row after 3 flips!" in obs.output
         finally:
             session.close()
@@ -691,7 +691,7 @@ def test_no_ps2_in_output(terminal_type):
         session.initialize()
         try:
             obs = _run_bash_action(session, 'echo -e "hello\nworld"')
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             assert "hello\nworld" in obs.output
             assert ">" not in obs.output
@@ -723,11 +723,11 @@ done && echo "success"
         session.initialize()
         try:
             obs = _run_bash_action(session, init_cmd)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "created files" in obs.output
 
             obs = _run_bash_action(session, follow_up_cmd)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "success" in obs.output
         finally:
             session.close()
@@ -764,7 +764,7 @@ world""",
             results = []
             for cmd in cmds:
                 obs = _run_bash_action(session, cmd)
-                assert obs.metadata.exit_code == 0
+                assert obs.metadata["exit_code"] == 0
                 results.append(obs.output)
 
             # Verify all expected outputs are present
@@ -794,29 +794,29 @@ def test_cmd_run(terminal_type):
         try:
             # Unix version
             obs = _run_bash_action(session, f"ls -l {temp_dir}")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             obs = _run_bash_action(session, "ls -l")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "total 0" in obs.output
 
             obs = _run_bash_action(session, "mkdir test")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             obs = _run_bash_action(session, "ls -l")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "test" in obs.output
 
             obs = _run_bash_action(session, "touch test/foo.txt")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             obs = _run_bash_action(session, "ls -l test")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "foo.txt" in obs.output
 
             # clean up
             _run_bash_action(session, "rm -rf test")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
         finally:
             session.close()
 
@@ -832,7 +832,7 @@ def test_run_as_user_correct_home_dir(terminal_type):
         try:
             # Original Linux version
             obs = _run_bash_action(session, "cd ~ && pwd")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             home = os.getenv("HOME")
             assert home and home in obs.output
         finally:
@@ -848,7 +848,7 @@ def test_multi_cmd_run_in_single_line(terminal_type):
         try:
             # Original Linux version using &&
             obs = _run_bash_action(session, "pwd && ls -l")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert temp_dir in obs.output
             assert "total 0" in obs.output
         finally:
@@ -866,13 +866,13 @@ def test_stateful_cmd(terminal_type):
         try:
             # Original Linux version
             obs = _run_bash_action(session, "mkdir -p test")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             obs = _run_bash_action(session, "cd test")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             obs = _run_bash_action(session, "pwd")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert f"{temp_dir}/test" in obs.output.strip()
         finally:
             session.close()
@@ -888,7 +888,7 @@ def test_failed_cmd(terminal_type):
         session.initialize()
         try:
             obs = _run_bash_action(session, "non_existing_command")
-            assert obs.metadata.exit_code != 0
+            assert obs.metadata["exit_code"] != 0
         finally:
             session.close()
 
@@ -903,7 +903,7 @@ def test_python_version(terminal_type):
         session.initialize()
         try:
             obs = _run_bash_action(session, "python --version")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "Python 3" in obs.output
         finally:
             session.close()
@@ -920,10 +920,10 @@ def test_pwd_property(terminal_type):
         try:
             # Create a subdirectory and verify pwd updates
             obs = _run_bash_action(session, "mkdir -p random_dir")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             obs = _run_bash_action(session, "cd random_dir && pwd")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "random_dir" in obs.output
         finally:
             session.close()
@@ -945,11 +945,11 @@ def test_long_output_from_nested_directories(terminal_type):
                 'for j in $(seq 1 100); do touch "folder_$i/file_$j.txt"; done; done'
             )
             obs = _run_bash_action(session, setup_cmd.strip(), timeout=60)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             # List the directory structure recursively
             obs = _run_bash_action(session, "ls -R /tmp/test_dir", timeout=60)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             # Verify output contains expected files
             assert "folder_1" in obs.output
@@ -975,7 +975,7 @@ def test_command_backslash(terminal_type):
                 'echo "implemented_function" > /tmp/test_dir/file_1.txt'
             )
             obs = _run_bash_action(session, cmd)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             # Different escaping for different terminal types
             if terminal_type == "subprocess":
@@ -988,7 +988,7 @@ def test_command_backslash(terminal_type):
                 + f' -l "implemented_function" {{}} {semicolon}'
             )
             obs = _run_bash_action(session, cmd)
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "/tmp/test_dir/file_1.txt" in obs.output
         finally:
             session.close()
@@ -1008,11 +1008,11 @@ def test_bash_remove_prefix(terminal_type):
                 session,
                 "git init && git remote add origin https://github.com/All-Hands-AI/OpenHands",
             )
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
 
             # Check git remote - same for both platforms
             obs = _run_bash_action(session, "git remote -v")
-            assert obs.metadata.exit_code == 0
+            assert obs.metadata["exit_code"] == 0
             assert "https://github.com/All-Hands-AI/OpenHands" in obs.output
             assert "git remote -v" not in obs.output
         finally:

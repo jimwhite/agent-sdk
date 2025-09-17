@@ -14,8 +14,8 @@ def test_file_editor_tool_default_workspace_path():
     """Test that FileEditorTool uses default /workspace path when no workspace_root is provided."""  # noqa: E501
     tool = FileEditorTool.create()
 
-    # Check that the action type has the default path description
-    path_field = tool.action_type.model_fields["path"]
+    # Check that the input schema has the default path description
+    path_field = next(f for f in tool.input_schema.fields if f.name == "path")
     assert path_field.description is not None
     assert "/workspace/file.py" in path_field.description
     assert "/workspace`." in path_field.description
@@ -26,8 +26,8 @@ def test_file_editor_tool_custom_workspace_path():
     custom_workspace = "/custom/workspace"
     tool = FileEditorTool.create(workspace_root=custom_workspace)
 
-    # Check that the action type has the custom path description
-    path_field = tool.action_type.model_fields["path"]
+    # Check that the input schema has the custom path description
+    path_field = next(f for f in tool.input_schema.fields if f.name == "path")
     assert path_field.description is not None
     assert f"{custom_workspace}/file.py" in path_field.description
     assert f"{custom_workspace}`." in path_field.description
@@ -42,7 +42,7 @@ def test_file_editor_tool_workspace_path_in_examples():
     tool = FileEditorTool.create(workspace_root=custom_workspace)
 
     # Verify that the path field description is updated
-    path_field = tool.action_type.model_fields["path"]
+    path_field = next(f for f in tool.input_schema.fields if f.name == "path")
     assert path_field.description is not None
     assert "/app/file.py" in path_field.description
     assert "/app`." in path_field.description
@@ -59,19 +59,24 @@ def test_file_editor_tool_functional_with_custom_workspace():
         test_file = os.path.join(temp_dir, "test.txt")
 
         # Create a file using the tool
-        action = StrReplaceEditorAction(
-            command="create",
-            path=test_file,
-            file_text="Hello, Custom Workspace!",
-            security_risk="LOW",
+        from openhands.sdk.tool import SchemaInstance
+        action = SchemaInstance(
+            name="str_replace_editor",
+            definition=tool.input_schema,
+            data={
+                "command": "create",
+                "path": test_file,
+                "file_text": "Hello, Custom Workspace!",
+                "security_risk": "LOW",
+            }
         )
 
         result = tool.call(action)
 
         # Check that the operation succeeded
         assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
+        result_data = result.data
+        assert result_data.get("error") is None
         assert os.path.exists(test_file)
 
         # Check file contents
@@ -89,8 +94,8 @@ def test_file_editor_tool_different_workspace_paths():
     tool2 = FileEditorTool.create(workspace_root=workspace2)
 
     # Check path field descriptions
-    path_field1 = tool1.action_type.model_fields["path"]
-    path_field2 = tool2.action_type.model_fields["path"]
+    path_field1 = next(f for f in tool1.input_schema.fields if f.name == "path")
+    path_field2 = next(f for f in tool2.input_schema.fields if f.name == "path")
 
     assert path_field1.description is not None
     assert path_field2.description is not None
@@ -107,7 +112,7 @@ def test_file_editor_tool_none_workspace_root():
     tool = FileEditorTool.create(workspace_root=None)
 
     # Should behave the same as not providing workspace_root
-    path_field = tool.action_type.model_fields["path"]
+    path_field = next(f for f in tool.input_schema.fields if f.name == "path")
     assert path_field.description is not None
     assert "/workspace/file.py" in path_field.description
     assert "/workspace`." in path_field.description

@@ -16,19 +16,38 @@ from openhands.sdk.event import (
     UserRejectObservation,
 )
 from openhands.sdk.llm import Message, TextContent
-from openhands.sdk.tool import Action, Observation
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
-class MockAction(Action):
-    """Mock action for testing."""
+def create_mock_action() -> SchemaInstance:
+    """Create a mock action for testing."""
+    schema = Schema(
+        name="MockAction",
+        fields=[
+            SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command")
+        ]
+    )
+    return SchemaInstance(
+        name="MockAction",
+        definition=schema,
+        data={"command": "test_command"}
+    )
 
-    command: str = "test_command"
 
-
-class MockObservation(Observation):
-    """Mock observation for testing."""
-
-    result: str = "test_result"
+def create_mock_observation() -> SchemaInstance:
+    """Create a mock observation for testing."""
+    schema = Schema(
+        name="MockObservation",
+        fields=[
+            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+        ]
+    )
+    return SchemaInstance(
+        name="MockObservation",
+        definition=schema,
+        data={"result": "test_result"}
+    )
 
 
 def test_event_base_is_frozen():
@@ -81,7 +100,7 @@ def test_system_prompt_event_is_frozen():
 
 def test_action_event_is_frozen():
     """Test that ActionEvent instances are frozen."""
-    action = MockAction()
+    action = create_mock_action()
     tool_call = ChatCompletionMessageToolCall(
         id="test_call_id", function={"name": "test_tool", "arguments": "{}"}
     )
@@ -100,7 +119,9 @@ def test_action_event_is_frozen():
         event.thought = [TextContent(text="Modified thought")]
 
     with pytest.raises(Exception):
-        event.action = MockAction(command="modified_command")
+        modified_action = create_mock_action()
+        modified_action.data["command"] = "modified_command"
+        event.action = modified_action
 
     with pytest.raises(Exception):
         event.tool_name = "modified_tool"
@@ -111,7 +132,7 @@ def test_action_event_is_frozen():
 
 def test_observation_event_is_frozen():
     """Test that ObservationEvent instances are frozen."""
-    observation = MockObservation()
+    observation = create_mock_observation()
 
     event = ObservationEvent(
         observation=observation,
@@ -122,7 +143,9 @@ def test_observation_event_is_frozen():
 
     # Test that we cannot modify any field
     with pytest.raises(Exception):
-        event.observation = MockObservation(result="modified_result")
+        modified_observation = create_mock_observation()
+        modified_observation.data["result"] = "modified_result"
+        event.observation = modified_observation
 
     with pytest.raises(Exception):
         event.action_id = "modified_action_id"

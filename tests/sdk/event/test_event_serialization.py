@@ -16,24 +16,42 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
 class MockEvent(EventBase):
     test_field: str = "test_value"
 
 
-class MockAction(ActionBase):
-    """Mock action for testing."""
+def create_mock_action() -> SchemaInstance:
+    """Create a mock action for testing."""
+    schema = Schema(
+        name="MockAction",
+        fields=[
+            SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command")
+        ]
+    )
+    return SchemaInstance(
+        name="MockAction",
+        definition=schema,
+        data={"command": "test_command"}
+    )
 
-    def execute(self) -> "MockObservation":
-        return MockObservation(content="mock result")
 
-
-class MockObservation(ObservationBase):
-    """Mock observation for testing."""
-
-    content: str
+def create_mock_observation() -> SchemaInstance:
+    """Create a mock observation for testing."""
+    schema = Schema(
+        name="MockObservation",
+        fields=[
+            SchemaField(name="content", type=SchemaFieldType.from_type(str), description="Content")
+        ]
+    )
+    return SchemaInstance(
+        name="MockObservation",
+        definition=schema,
+        data={"content": "mock result"}
+    )
 
 
 def test_event_base_serialization() -> None:
@@ -58,7 +76,7 @@ def test_system_prompt_event_serialization() -> None:
 
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
-    action = MockAction()
+    action = create_mock_action()
     tool_call = ChatCompletionMessageToolCall(
         id="call_123",
         function=Function(name="mock_tool", arguments="{}"),
@@ -90,7 +108,8 @@ def test_action_event_serialization() -> None:
 
 def test_observation_event_serialization() -> None:
     """Test ObservationEvent serialization/deserialization."""
-    observation = MockObservation(content="test result")
+    observation = create_mock_observation()
+    observation.data["content"] = "test result"
     event = ObservationEvent(
         observation=observation,
         action_id="action_123",

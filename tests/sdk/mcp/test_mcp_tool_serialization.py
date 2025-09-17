@@ -82,14 +82,8 @@ def test_mcp_tool_fallback_behavior() -> None:
     tool_data = {
         "name": "fallback-tool",
         "description": "A fallback test tool",
-        "input_schema": {
-            "name": "fallback-tool-input",
-            "fields": []
-        },
-        "output_schema": {
-            "name": "fallback-tool-output", 
-            "fields": []
-        },
+        "input_schema": {"name": "fallback-tool-input", "fields": []},
+        "output_schema": {"name": "fallback-tool-output", "fields": []},
         "kind": "openhands.sdk.mcp.tool.MCPTool",
         "mcp_tool": {
             "name": "fallback-tool",
@@ -132,7 +126,7 @@ def test_mcp_tool_essential_properties() -> None:
     assert mcp_tool.input_schema is not None
     assert mcp_tool.input_schema.name == "openhands.sdk.mcp.essential_tool.input"
     assert len(mcp_tool.input_schema.fields) == 2
-    
+
     # Check that the fields were converted correctly
     field_names = {field.name for field in mcp_tool.input_schema.fields}
     assert "param1" in field_names

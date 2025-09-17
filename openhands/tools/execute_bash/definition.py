@@ -4,6 +4,7 @@ import os
 from collections.abc import Sequence
 from typing import Callable, Literal
 
+from pydantic import BaseModel
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -354,11 +355,11 @@ class BashTool(Tool):
 
 
 # Compatibility classes for terminal system
-from pydantic import BaseModel
 
 
 class ExecuteBashAction(BaseModel):
     """Compatibility class for terminal system."""
+
     command: str
     is_input: bool = False
     timeout: int | None = None
@@ -366,6 +367,7 @@ class ExecuteBashAction(BaseModel):
 
 class ExecuteBashObservation(BaseModel):
     """Compatibility class for terminal system."""
+
     output: str
     command: str | None = None
     exit_code: int | None = None

@@ -29,14 +29,14 @@ def to_camel_case(s: str) -> str:
 def mcp_schema_to_schema(name: str, mcp_schema: dict) -> Schema:
     """Convert MCP JSON schema to our Schema format."""
     fields = []
-    
+
     if "properties" in mcp_schema:
         required_fields = set(mcp_schema.get("required", []))
-        
+
         for field_name, field_def in mcp_schema["properties"].items():
             field_type = field_def.get("type", "string")
             description = field_def.get("description", f"Field {field_name}")
-            
+
             # Convert JSON schema type to our SchemaFieldType
             if field_type == "string":
                 schema_type = str
@@ -52,7 +52,7 @@ def mcp_schema_to_schema(name: str, mcp_schema: dict) -> Schema:
                 schema_type = dict
             else:
                 schema_type = str  # fallback
-            
+
             fields.append(
                 SchemaField.create(
                     name=field_name,
@@ -61,7 +61,7 @@ def mcp_schema_to_schema(name: str, mcp_schema: dict) -> Schema:
                     required=field_name in required_fields,
                 )
             )
-    
+
     # Always add security_risk field to input schemas
     if ".input" in name:
         fields.append(
@@ -75,7 +75,7 @@ def mcp_schema_to_schema(name: str, mcp_schema: dict) -> Schema:
                 enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
             )
         )
-    
+
     return Schema(name=name, fields=fields)
 
 
@@ -91,8 +91,7 @@ class MCPToolExecutor(ToolExecutor):
             assert self.client.is_connected(), "MCP client is not connected."
             try:
                 logger.debug(
-                    f"Calling MCP tool {self.tool_name} "
-                    f"with args: {action.data}"
+                    f"Calling MCP tool {self.tool_name} with args: {action.data}"
                 )
                 result: mcp.types.CallToolResult = await self.client.call_tool_mcp(
                     name=self.tool_name, arguments=action.data
@@ -104,6 +103,7 @@ class MCPToolExecutor(ToolExecutor):
                 error_msg = f"Error calling MCP tool {self.tool_name}: {str(e)}"
                 logger.error(error_msg, exc_info=True)
                 from openhands.sdk.mcp.definition import make_mcp_observation_schema
+
                 return SchemaInstance(
                     schema=make_mcp_observation_schema(),
                     data={
@@ -153,6 +153,7 @@ class MCPTool(Tool):
             )
 
             from openhands.sdk.mcp.definition import make_mcp_observation_schema
+
             output_schema = make_mcp_observation_schema()
 
             return cls(

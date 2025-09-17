@@ -2,24 +2,15 @@
 
 from openhands.sdk.tool import Tool
 from openhands.tools.browser_use import (
-    BrowserClickTool,
-    BrowserCloseTabTool,
-    BrowserGetContentTool,
-    BrowserGetStateTool,
-    BrowserGoBackTool,
-    BrowserListTabsTool,
-    BrowserNavigateTool,
-    BrowserScrollTool,
-    BrowserSwitchTabTool,
     BrowserToolExecutor,
     BrowserToolSet,
-    BrowserTypeTool,
 )
 
 
 def test_browser_toolset_create_returns_list():
     """Test that BrowserToolSet.create() returns a list of tools."""
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
 
     assert isinstance(tools, list)
     assert len(tools) == 10  # All browser tools
@@ -31,23 +22,24 @@ def test_browser_toolset_create_returns_list():
 
 def test_browser_toolset_create_includes_all_browser_tools():
     """Test that BrowserToolSet.create() includes all expected browser tools."""
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
 
     # Get tool names
     tool_names = [tool.name for tool in tools]
 
     # Expected tool names based on the browser tools
     expected_names = [
-        browser_navigate_tool.name,
-        browser_click_tool.name,
-        browser_get_state_tool.name,
-        browser_get_content_tool.name,
-        browser_type_tool.name,
-        browser_scroll_tool.name,
-        browser_go_back_tool.name,
-        browser_list_tabs_tool.name,
-        browser_switch_tab_tool.name,
-        browser_close_tab_tool.name,
+        "browser_navigate",
+        "browser_click",
+        "browser_get_state",
+        "browser_get_content",
+        "browser_type",
+        "browser_scroll",
+        "browser_go_back",
+        "browser_list_tabs",
+        "browser_switch_tab",
+        "browser_close_tab",
     ]
 
     # Verify all expected tools are present
@@ -60,7 +52,8 @@ def test_browser_toolset_create_includes_all_browser_tools():
 
 def test_browser_toolset_create_tools_have_shared_executor():
     """Test that all tools from BrowserToolSet.create() share the same executor."""
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
 
     # Get the executor from the first tool
     first_executor = tools[0].executor
@@ -74,39 +67,43 @@ def test_browser_toolset_create_tools_have_shared_executor():
 
 def test_browser_toolset_create_tools_are_properly_configured():
     """Test that tools from BrowserToolSet.create() are properly configured."""
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
 
     # Find a specific tool to test (e.g., navigate tool)
     navigate_tool = None
     for tool in tools:
-        if tool.name == browser_navigate_tool.name:
+        if tool.name == "browser_navigate":
             navigate_tool = tool
             break
 
     assert navigate_tool is not None
-    assert navigate_tool.description == browser_navigate_tool.description
-    assert navigate_tool.action_type == browser_navigate_tool.action_type
-    assert navigate_tool.observation_type == browser_navigate_tool.observation_type
+    assert navigate_tool.description is not None
+    assert navigate_tool.input_schema is not None
+    assert navigate_tool.output_schema is not None
     assert navigate_tool.executor is not None
 
 
 def test_browser_toolset_create_multiple_calls_create_separate_executors():
     """Test that multiple calls to BrowserToolSet.create() create separate executors."""
-    tools1 = BrowserToolSet.create()
-    tools2 = BrowserToolSet.create()
+    executor1 = BrowserToolExecutor()
+    executor2 = BrowserToolExecutor()
+    tools1 = BrowserToolSet.create(executor1)
+    tools2 = BrowserToolSet.create(executor2)
 
     # Executors should be different instances
-    executor1 = tools1[0].executor
-    executor2 = tools2[0].executor
+    first_executor = tools1[0].executor
+    second_executor = tools2[0].executor
 
-    assert executor1 is not executor2
-    assert isinstance(executor1, BrowserToolExecutor)
-    assert isinstance(executor2, BrowserToolExecutor)
+    assert first_executor is not second_executor
+    assert isinstance(first_executor, BrowserToolExecutor)
+    assert isinstance(second_executor, BrowserToolExecutor)
 
 
 def test_browser_toolset_create_tools_can_generate_mcp_schema():
     """Test that tools from BrowserToolSet.create() can generate MCP schemas."""
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
 
     for tool in tools:
         mcp_tool = tool.to_mcp_tool()
@@ -125,9 +122,10 @@ def test_browser_toolset_create_tools_can_generate_mcp_schema():
 
 
 def test_browser_toolset_create_no_parameters():
-    """Test that BrowserToolSet.create() works without parameters."""
+    """Test that BrowserToolSet.create() works with executor parameter."""
     # Should not raise any exceptions
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
     assert len(tools) > 0
 
 
@@ -137,7 +135,8 @@ def test_browser_toolset_inheritance():
 
     # BrowserToolSet should not be instantiable directly (it's a factory)
     # The create method returns a list, not an instance of BrowserToolSet
-    tools = BrowserToolSet.create()
+    executor = BrowserToolExecutor()
+    tools = BrowserToolSet.create(executor)
     for tool in tools:
         assert not isinstance(tool, BrowserToolSet)
         assert isinstance(tool, Tool)

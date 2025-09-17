@@ -3,6 +3,7 @@
 import os
 import tempfile
 
+from openhands.sdk.tool import SchemaInstance
 from openhands.tools import FileEditorTool
 from openhands.tools.str_replace_editor import (
     StrReplaceEditorAction,
@@ -17,7 +18,8 @@ def test_file_editor_tool_initialization():
     # Check that the tool has the correct name and properties
     assert tool.name == "str_replace_editor"
     assert tool.executor is not None
-    assert issubclass(tool.action_type, StrReplaceEditorAction)
+    assert tool.input_schema is not None
+    assert tool.output_schema is not None
 
 
 def test_file_editor_tool_create_file():
@@ -28,11 +30,15 @@ def test_file_editor_tool_create_file():
         test_file = os.path.join(temp_dir, "test.txt")
 
         # Create an action to create a file
-        action = StrReplaceEditorAction(
-            command="create",
-            path=test_file,
-            file_text="Hello, World!",
-            security_risk="LOW",
+        action = SchemaInstance(
+            name="str_replace_editor",
+            definition=tool.input_schema,
+            data={
+                "command": "create",
+                "path": test_file,
+                "file_text": "Hello, World!",
+                "security_risk": "LOW",
+            }
         )
 
         # Execute the action
@@ -40,8 +46,8 @@ def test_file_editor_tool_create_file():
 
         # Check the result
         assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
+        result_data = result.data
+        assert result_data.get("error") is None
         assert os.path.exists(test_file)
 
         # Check file contents
@@ -62,8 +68,14 @@ def test_file_editor_tool_view_file():
             f.write("Line 1\nLine 2\nLine 3")
 
         # Create an action to view the file
-        action = StrReplaceEditorAction(
-            command="view", path=test_file, security_risk="LOW"
+        action = SchemaInstance(
+            name="str_replace_editor",
+            definition=tool.input_schema,
+            data={
+                "command": "view",
+                "path": test_file,
+                "security_risk": "LOW",
+            }
         )
 
         # Execute the action
@@ -71,11 +83,11 @@ def test_file_editor_tool_view_file():
 
         # Check the result
         assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
-        assert "Line 1" in result.output
-        assert "Line 2" in result.output
-        assert "Line 3" in result.output
+        result_data = result.data
+        assert result_data.get("error") is None
+        assert "Line 1" in result_data["output"]
+        assert "Line 2" in result_data["output"]
+        assert "Line 3" in result_data["output"]
 
 
 def test_file_editor_tool_str_replace():
@@ -90,12 +102,16 @@ def test_file_editor_tool_str_replace():
             f.write("Hello, World!\nThis is a test.")
 
         # Create an action to replace text
-        action = StrReplaceEditorAction(
-            command="str_replace",
-            path=test_file,
-            old_str="World",
-            new_str="Universe",
-            security_risk="LOW",
+        action = SchemaInstance(
+            name="str_replace_editor",
+            definition=tool.input_schema,
+            data={
+                "command": "str_replace",
+                "path": test_file,
+                "old_str": "World",
+                "new_str": "Universe",
+                "security_risk": "LOW",
+            }
         )
 
         # Execute the action
@@ -103,8 +119,8 @@ def test_file_editor_tool_str_replace():
 
         # Check the result
         assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
+        result_data = result.data
+        assert result_data.get("error") is None
 
         # Check file contents
         with open(test_file, "r") as f:
@@ -141,8 +157,14 @@ def test_file_editor_tool_view_directory():
             f.write("File 2 content")
 
         # Create an action to view the directory
-        action = StrReplaceEditorAction(
-            command="view", path=temp_dir, security_risk="LOW"
+        action = SchemaInstance(
+            name="str_replace_editor",
+            definition=tool.input_schema,
+            data={
+                "command": "view",
+                "path": temp_dir,
+                "security_risk": "LOW",
+            }
         )
 
         # Execute the action
@@ -150,7 +172,7 @@ def test_file_editor_tool_view_directory():
 
         # Check the result
         assert result is not None
-        assert isinstance(result, StrReplaceEditorObservation)
-        assert not result.error
-        assert "file1.txt" in result.output
-        assert "file2.txt" in result.output
+        result_data = result.data
+        assert result_data.get("error") is None
+        assert "file1.txt" in result_data["output"]
+        assert "file2.txt" in result_data["output"]

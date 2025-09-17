@@ -86,7 +86,7 @@ class BashExecutor(ToolExecutor):
             is_input=action.data.get("is_input", False),
             timeout=action.data.get("timeout"),
         )
-        
+
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(bash_action)
         observation = self.session.execute(bash_action)

@@ -22,7 +22,7 @@ def test_conversation_close_calls_executor_close(mock_llm):
         # Create tools with the executor
         bash_tool = BashTool.create(working_dir=temp_dir)
         # Use object.__setattr__ to bypass frozen model restriction
-        object.__setattr__(bash_tool, 'executor', bash_executor)
+        object.__setattr__(bash_tool, "executor", bash_executor)
         tools = [bash_tool]
 
         # Create agent and conversation
@@ -46,7 +46,7 @@ def test_conversation_del_calls_close(mock_llm):
         # Create tools with the executor
         bash_tool = BashTool.create(working_dir=temp_dir)
         # Use object.__setattr__ to bypass frozen model restriction
-        object.__setattr__(bash_tool, 'executor', bash_executor)
+        object.__setattr__(bash_tool, "executor", bash_executor)
         tools = [bash_tool]
 
         # Create agent and conversation
@@ -73,7 +73,7 @@ def test_conversation_close_handles_executor_exceptions(mock_llm):
         # Create tools with the executor
         bash_tool = BashTool.create(working_dir=temp_dir)
         # Use object.__setattr__ to bypass frozen model restriction
-        object.__setattr__(bash_tool, 'executor', bash_executor)
+        object.__setattr__(bash_tool, "executor", bash_executor)
         tools = [bash_tool]
 
         # Create agent and conversation
@@ -93,7 +93,7 @@ def test_conversation_close_skips_none_executors(mock_llm):
     with tempfile.TemporaryDirectory() as temp_dir:
         tool_with_no_executor = BashTool.create(working_dir=temp_dir)
         # Set executor to None to simulate a tool with no executor
-        object.__setattr__(tool_with_no_executor, 'executor', None)
+        object.__setattr__(tool_with_no_executor, "executor", None)
 
         # Create agent and conversation
         agent = Agent(llm=mock_llm, tools=[tool_with_no_executor])

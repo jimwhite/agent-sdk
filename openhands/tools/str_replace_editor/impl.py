@@ -29,7 +29,7 @@ class FileEditorExecutor(ToolExecutor):
             new_str=action.data.get("new_str"),
             insert_line=action.data.get("insert_line"),
         )
-        
+
         result: StrReplaceEditorObservation | None = None
         try:
             result = self.editor(
@@ -43,13 +43,14 @@ class FileEditorExecutor(ToolExecutor):
             )
         except ToolError as e:
             result = StrReplaceEditorObservation(
-                command=editor_action.command, output="", error=True
+                command=editor_action.command, output="", error=e.message
             )
         assert result is not None, "file_editor should always return a result"
-        
+
         # Convert StrReplaceEditorObservation back to SchemaInstance
         return SchemaInstance(
-            schema=make_output_schema(),
+            name="str_replace_editor_output",
+            definition=make_output_schema(),
             data={
                 "command": result.command,
                 "output": result.output,
@@ -89,6 +90,6 @@ def file_editor(
             insert_line=insert_line,
         )
     except ToolError as e:
-        result = StrReplaceEditorObservation(command=command, error=e.message)
+        result = StrReplaceEditorObservation(command=command, output="", error=e.message)
     assert result is not None, "file_editor should always return a result"
     return result

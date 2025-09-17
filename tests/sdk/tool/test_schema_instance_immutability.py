@@ -32,8 +32,7 @@ def test_schema_instance_is_frozen():
     """Test that SchemaInstance instances are frozen and cannot be modified."""
     schema = create_test_schema()
     instance = SchemaInstance(
-        schema=schema,
-        data={"command": "test_command", "value": 100}
+        schema=schema, data={"command": "test_command", "value": 100}
     )
 
     # Test that we cannot modify the schema
@@ -49,8 +48,7 @@ def test_schema_instance_model_copy_creates_new_instance():
     """Test that model_copy creates a new instance with updated fields."""
     schema = create_test_schema()
     original = SchemaInstance(
-        schema=schema,
-        data={"command": "original_command", "value": 10}
+        schema=schema, data={"command": "original_command", "value": 10}
     )
 
     # Create a copy with updated data
@@ -75,8 +73,7 @@ def test_schema_instance_immutability_prevents_mutation_bugs():
     """Test a practical scenario where immutability prevents mutation bugs."""
     schema = create_test_schema()
     shared_instance = SchemaInstance(
-        schema=schema,
-        data={"command": "shared_cmd", "value": 42}
+        schema=schema, data={"command": "shared_cmd", "value": 42}
     )
 
     # Simulate two different contexts trying to modify the instance

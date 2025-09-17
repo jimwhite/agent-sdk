@@ -2,10 +2,8 @@
 
 import json
 from collections.abc import Sequence
-from typing import Union
 
 import mcp.types
-from pydantic import Field, computed_field
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -71,26 +69,28 @@ class MCPToolObservation:
                 logger.warning(
                     f"Unsupported MCP content block type: {type(block)}. Ignoring."
                 )
-        
+
         return SchemaInstance(
             name=f"mcp_tool_observation_{tool_name}",
             definition=make_mcp_observation_schema(),
             data={
-                "content": json.dumps([
-                    content.model_dump() for content in converted_content
-                ]),
+                "content": json.dumps(
+                    [content.model_dump() for content in converted_content]
+                ),
                 "is_error": result.isError,
                 "tool_name": tool_name,
             },
         )
 
     @staticmethod
-    def agent_observation(observation: SchemaInstance) -> Sequence[TextContent | ImageContent]:
+    def agent_observation(
+        observation: SchemaInstance,
+    ) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
         tool_name = observation.data.get("tool_name", "unknown")
         is_error = observation.data.get("is_error", False)
         content_json = observation.data.get("content", "[]")
-        
+
         # Deserialize the content from JSON
         content_data = json.loads(content_json)
         content = []
@@ -99,7 +99,7 @@ class MCPToolObservation:
                 content.append(TextContent.model_validate(item))
             elif item.get("type") == "image":
                 content.append(ImageContent.model_validate(item))
-        
+
         initial_message = f"[Tool '{tool_name}' executed.]\n"
         if is_error:
             initial_message += "[An error occurred during execution.]\n"
@@ -111,7 +111,7 @@ class MCPToolObservation:
         tool_name = observation.data.get("tool_name", "unknown")
         is_error = observation.data.get("is_error", False)
         content_json = observation.data.get("content", "[]")
-        
+
         # Deserialize the content from JSON
         content_data = json.loads(content_json)
         content_blocks = []
@@ -120,7 +120,7 @@ class MCPToolObservation:
                 content_blocks.append(TextContent.model_validate(item))
             elif item.get("type") == "image":
                 content_blocks.append(ImageContent.model_validate(item))
-        
+
         content = Text()
         content.append(f"[MCP Tool '{tool_name}' Observation]\n", style="bold")
         if is_error:

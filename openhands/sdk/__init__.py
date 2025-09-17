@@ -39,7 +39,6 @@ __all__ = [
     "AgentBase",
     "Agent",
     "AgentSpec",
-
     "MCPClient",
     "MCPTool",
     "MCPToolObservation",

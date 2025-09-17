@@ -306,8 +306,8 @@ class FileEditor:
                 stdout = "\n".join(msg)
             return StrReplaceEditorObservation(
                 command="view",
-                output=stdout,
-                error=stderr,
+                output=stdout if not stderr else "",
+                error=stderr if stderr else None,
                 path=str(path),
                 prev_exist=True,
             )

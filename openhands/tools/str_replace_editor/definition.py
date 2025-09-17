@@ -1,7 +1,9 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
+from typing import Literal
 
+from pydantic import BaseModel
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -294,14 +296,14 @@ class FileEditorTool(Tool):
 
 
 # Compatibility classes for impl system
-from typing import Literal
-from pydantic import BaseModel
+
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
 
 
 class StrReplaceEditorAction(BaseModel):
     """Compatibility class for impl system."""
+
     command: CommandLiteral
     path: str
     file_text: str | None = None
@@ -313,9 +315,10 @@ class StrReplaceEditorAction(BaseModel):
 
 class StrReplaceEditorObservation(BaseModel):
     """Compatibility class for impl system."""
+
     command: CommandLiteral
     output: str
-    error: bool = False
+    error: str | None = None
     path: str | None = None
     old_content: str | None = None
     new_content: str | None = None

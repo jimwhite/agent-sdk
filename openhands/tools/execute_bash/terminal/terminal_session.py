@@ -185,7 +185,7 @@ class TerminalSession(TerminalSessionBase):
         return ExecuteBashObservation(
             output=command_output,
             command=command,
-            metadata=metadata,
+            metadata=metadata.model_dump() if metadata else None,
         )
 
     def _handle_nochange_timeout_command(
@@ -219,7 +219,7 @@ class TerminalSession(TerminalSessionBase):
         return ExecuteBashObservation(
             output=command_output,
             command=command,
-            metadata=metadata,
+            metadata=metadata.model_dump() if metadata else None,
         )
 
     def _handle_hard_timeout_command(
@@ -255,7 +255,7 @@ class TerminalSession(TerminalSessionBase):
         return ExecuteBashObservation(
             output=command_output,
             command=command,
-            metadata=metadata,
+            metadata=metadata.model_dump() if metadata else None,
         )
 
     def _ready_for_next_command(self) -> None:
@@ -383,7 +383,7 @@ class TerminalSession(TerminalSessionBase):
             obs = ExecuteBashObservation(
                 output=command_output,
                 command=command,
-                metadata=metadata,
+                metadata=metadata.model_dump() if metadata else None,
             )
             logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")
             return obs

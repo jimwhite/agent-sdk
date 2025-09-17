@@ -6,8 +6,10 @@ from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_BEGIN,
     CMD_OUTPUT_PS1_END,
 )
+from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.execute_bash.definition import (
-    ExecuteBashObservation,
+    ExecuteBashDataConverter,
+    make_output_schema,
 )
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 
@@ -269,34 +271,57 @@ def test_ps1_metadata_regex_pattern():
 
 
 def test_cmd_output_observation_properties():
-    """Test ExecuteBashObservation class properties"""
+    """Test ExecuteBash output schema properties"""
     # Test with successful command
-    metadata = CmdOutputMetadata(exit_code=0, pid=123)
-    obs = ExecuteBashObservation(
-        command="ls", output="file1\nfile2", exit_code=0, metadata=metadata
+    metadata_dict = {"exit_code": "0", "pid": "123"}
+    output_schema = make_output_schema()
+    obs = SchemaInstance(
+        name="test_output",
+        definition=output_schema,
+        data={
+            "command": "ls",
+            "output": "file1\nfile2",
+            "exit_code": 0,
+            "metadata": metadata_dict,
+        },
     )
-    assert obs.command_id == 123
-    assert obs.exit_code == 0
-    assert not obs.error
-    assert len(obs.agent_observation) == 1
-    assert isinstance(obs.agent_observation[0], TextContent)
-    assert "exit code 0" in obs.agent_observation[0].text
-    assert "ls" not in obs.agent_observation[0].text
-    assert "file1\n" in obs.agent_observation[0].text
-    assert "file2\n" in obs.agent_observation[0].text
+    assert obs.data["exit_code"] == 0
+    assert obs.data["metadata"]["pid"] == "123"
+    assert obs.data.get("error", False) is False
+    
+    # Test agent observation via data converter
+    converter = ExecuteBashDataConverter()
+    agent_obs = converter.agent_observation(obs)
+    assert len(agent_obs) == 1
+    assert isinstance(agent_obs[0], TextContent)
+    assert "exit code 0" in agent_obs[0].text
+    assert "ls" not in agent_obs[0].text
+    assert "file1\n" in agent_obs[0].text
+    assert "file2\n" in agent_obs[0].text
 
     # Test with failed command
-    metadata = CmdOutputMetadata(exit_code=1, pid=456)
-    obs = ExecuteBashObservation(
-        command="invalid", output="error", exit_code=1, error=True, metadata=metadata
+    metadata_dict = {"exit_code": "1", "pid": "456"}
+    obs = SchemaInstance(
+        name="test_output_error",
+        definition=output_schema,
+        data={
+            "command": "invalid",
+            "output": "error",
+            "exit_code": 1,
+            "error": True,
+            "metadata": metadata_dict,
+        },
     )
-    assert obs.command_id == 456
-    assert obs.exit_code == 1
-    assert obs.error
-    assert len(obs.agent_observation) == 1
-    assert isinstance(obs.agent_observation[0], TextContent)
-    assert "exit code 1" in obs.agent_observation[0].text
-    assert obs.error
+    assert obs.data["metadata"]["pid"] == "456"
+    assert obs.data["exit_code"] == 1
+    assert obs.data["error"] is True
+    
+    # Test agent observation via data converter
+    agent_obs = converter.agent_observation(obs)
+    assert len(agent_obs) == 1
+    assert isinstance(agent_obs[0], TextContent)
+    assert "exit code 1" in agent_obs[0].text
+    assert obs.data["error"] is True
 
 
 def test_ps1_metadata_empty_fields():

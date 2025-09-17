@@ -28,33 +28,29 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolExecutor
+from openhands.sdk.tool import Tool, ToolExecutor
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
-class MockAction(ActionBase):
-    """Mock action schema for testing."""
-
-    command: str
-
-
-class MockObservation(ObservationBase):
-    """Mock observation schema for testing."""
-
-    result: str
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.result)]
-
-
-class BlockingExecutor(ToolExecutor[MockAction, MockObservation]):
+class BlockingExecutor(ToolExecutor):
     def __init__(self, step_entered: threading.Event):
         self.step_entered = step_entered
 
-    def __call__(self, action: MockAction) -> MockObservation:
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
         # Signal we've entered tool execution for this step
         self.step_entered.set()
-        return MockObservation(result=f"Executed: {action.command}")
+        command = action.data.get("command", "")
+        return SchemaInstance(
+            name="test_tool_output",
+            definition=Schema(
+                name="test_tool_output",
+                fields=[
+                    SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+                ]
+            ),
+            data={"result": f"Executed: {command}"}
+        )
 
 
 class TestPauseFunctionality:
@@ -65,15 +61,38 @@ class TestPauseFunctionality:
 
         self.llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
 
-        class TestExecutor(ToolExecutor[MockAction, MockObservation]):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Executed: {action.command}")
+        class TestExecutor(ToolExecutor):
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                command = action.data.get("command", "")
+                return SchemaInstance(
+                    name="test_tool_output",
+                    definition=Schema(
+                        name="test_tool_output",
+                        fields=[
+                            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+                        ]
+                    ),
+                    data={"result": f"Executed: {command}"}
+                )
+
+        input_schema = Schema(
+            name="test_tool_input",
+            fields=[
+                SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command to execute")
+            ]
+        )
+        output_schema = Schema(
+            name="test_tool_output",
+            fields=[
+                SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+            ]
+        )
 
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=input_schema,
+            output_schema=output_schema,
             executor=TestExecutor(),
         )
 
@@ -223,10 +242,11 @@ class TestPauseFunctionality:
         )
 
         # Action did not execute
+        from openhands.sdk.event import ActionEvent
         agent_messages = [
             event
             for event in self.conversation.state.events
-            if isinstance(event, ActionBase) and event.source == "agent"
+            if isinstance(event, ActionEvent) and event.source == "agent"
         ]
         assert len(agent_messages) == 0
 

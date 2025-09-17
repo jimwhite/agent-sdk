@@ -26,23 +26,8 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import Tool, ToolExecutor
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
-
-
-class MockAction(ActionBase):
-    """Mock action schema for testing."""
-
-    command: str
-
-
-class MockObservation(ObservationBase):
-    """Mock observation schema for testing."""
-
-    result: str
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.result)]
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
 class TestConfirmationMode:
@@ -76,15 +61,38 @@ class TestConfirmationMode:
         )
         self.mock_llm.metrics.get_snapshot.return_value = mock_metrics_snapshot
 
-        class TestExecutor(ToolExecutor[MockAction, MockObservation]):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Executed: {action.command}")
+        class TestExecutor(ToolExecutor):
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                command = action.data.get("command", "")
+                return SchemaInstance(
+                    name="test_tool_output",
+                    definition=Schema(
+                        name="test_tool_output",
+                        fields=[
+                            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+                        ]
+                    ),
+                    data={"result": f"Executed: {command}"}
+                )
+
+        input_schema = Schema(
+            name="test_tool_input",
+            fields=[
+                SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command to execute")
+            ]
+        )
+        output_schema = Schema(
+            name="test_tool_output",
+            fields=[
+                SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+            ]
+        )
 
         test_tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=input_schema,
+            output_schema=output_schema,
             executor=TestExecutor(),
         )
 
@@ -210,7 +218,16 @@ class TestConfirmationMode:
 
     def _create_test_action(self, call_id="call_1", command="test_command"):
         """Helper to create test action events."""
-        action = MockAction(command=command)
+        action = SchemaInstance(
+            name="test_tool_input",
+            definition=Schema(
+                name="test_tool_input",
+                fields=[
+                    SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command to execute")
+                ]
+            ),
+            data={"command": command}
+        )
 
         tool_call = ChatCompletionMessageToolCall(
             id=call_id,
@@ -266,7 +283,16 @@ class TestConfirmationMode:
         assert unmatched[0].id == action_event.id
 
         # Add observation for the action
-        obs = MockObservation(result="test result")
+        obs = SchemaInstance(
+            name="test_tool_output",
+            definition=Schema(
+                name="test_tool_output",
+                fields=[
+                    SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
+                ]
+            ),
+            data={"result": "test result"}
+        )
 
         obs_event = ObservationEvent(
             source="environment",
