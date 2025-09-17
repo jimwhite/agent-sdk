@@ -7,52 +7,127 @@ from pydantic import Field, PrivateAttr
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool import (
+    Schema,
+    SchemaField,
+    Tool,
+    ToolAnnotations,
+)
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
 
 
-class StrReplaceEditorAction(ActionBase):
-    """Schema for string replace editor operations."""
+def make_input_schema(workspace_root: str | None = None) -> Schema:
+    workspace_path = workspace_root or "/workspace"
+    return Schema(
+        name="openhands.tools.str_replace_editor.input",
+        fields=[
+            SchemaField.create(
+                name="command",
+                description="The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                type=str,
+                required=True,
+                enum=["view", "create", "str_replace", "insert", "undo_edit"],
+            ),
+            SchemaField.create(
+                name="path",
+                description=f"Absolute path to file or directory, e.g. `{workspace_path}/file.py` or `{workspace_path}`.",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="file_text",
+                description="Required for `create`: content of the file to be created.",
+                type=str,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="old_str",
+                type=str,
+                required=False,
+                default=None,
+                description="Required for `str_replace`: the string in `path` to replace (must match exactly).",
+            ),
+            SchemaField.create(
+                name="new_str",
+                description="Optional for `str_replace` (the replacement); required for `insert` (the string to insert).",
+                type=str,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="insert_line",
+                description="Required for `insert`: insert AFTER this 1-based line number.",
+                type=int,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="view_range",
+                description="Optional for `view` when `path` is a file: [start, end], end=-1 means to EOF.",
+                type=list[int],
+                required=False,
+                default=None,
+            ),
+        ],
+    )
 
-    command: CommandLiteral = Field(
-        description="The commands to run. Allowed options are: `view`, `create`, "
-        "`str_replace`, `insert`, `undo_edit`."
-    )
-    path: str = Field(
-        description="Absolute path to file or directory, e.g. `/workspace/file.py` "
-        "or `/workspace`."
-    )
-    file_text: str | None = Field(
-        default=None,
-        description="Required parameter of `create` command, with the content of "
-        "the file to be created.",
-    )
-    old_str: str | None = Field(
-        default=None,
-        description="Required parameter of `str_replace` command containing the "
-        "string in `path` to replace.",
-    )
-    new_str: str | None = Field(
-        default=None,
-        description="Optional parameter of `str_replace` command containing the "
-        "new string (if not given, no string will be added). Required parameter "
-        "of `insert` command containing the string to insert.",
-    )
-    insert_line: int | None = Field(
-        default=None,
-        description="Required parameter of `insert` command. The `new_str` will "
-        "be inserted AFTER the line `insert_line` of `path`.",
-    )
-    view_range: list[int] | None = Field(
-        default=None,
-        description="Optional parameter of `view` command when `path` points to a "
-        "file. If none is given, the full file is shown. If provided, the file "
-        "will be shown in the indicated line number range, e.g. [11, 12] will "
-        "show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, "
-        "-1]` shows all lines from `start_line` to the end of the file.",
+
+def make_output_schema() -> Schema:
+    return Schema(
+        name="openhands.tools.str_replace_editor.output",
+        fields=[
+            SchemaField.create(
+                name="command",
+                description="The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                type=str,
+                required=True,
+                enum=["view", "create", "str_replace", "insert", "undo_edit"],
+            ),
+            SchemaField.create(
+                name="output",
+                description="The output message from the tool for the LLM to see.",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="path",
+                description="The file path that was edited.",
+                type=str,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="prev_exist",
+                description="Indicates if the file previously existed. If not, it was created.",
+                type=bool,
+                required=True,
+            ),
+            SchemaField.create(
+                name="old_content",
+                description="The content of the file before the edit.",
+                type=str,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="new_content",
+                description="The content of the file after the edit.",
+                type=str,
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="error",
+                description="Error message if any.",
+                type=str,
+                required=False,
+                default=None,
+            ),
+        ],
     )
 
 
@@ -151,7 +226,7 @@ TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing file
 * State is persistent across command calls and discussions with the user
 * If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
 * The following binary file extensions can be viewed in Markdown format: [".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", ".docx"]. IT DOES NOT HANDLE IMAGES.
-* The `create` command cannot be used if the specified `path` already exists as a file
+* The `create` command cannot be used if the Schemaified `path` already exists as a file
 * If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 * The `undo_edit` command will revert the last edit made to the file at `path`
 * This tool can be used for creating and editing files in plain-text format.
