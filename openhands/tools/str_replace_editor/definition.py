@@ -1,22 +1,22 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import Literal
 
-from pydantic import Field, PrivateAttr
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import (
     Schema,
     SchemaField,
+    SchemaInstance,
     Tool,
     ToolAnnotations,
+    ToolDataConverter,
 )
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
-CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
+COMMAND_LIST = ["view", "create", "str_replace", "insert", "undo_edit"]
 
 
 def make_input_schema(workspace_root: str | None = None) -> Schema:
@@ -26,14 +26,16 @@ def make_input_schema(workspace_root: str | None = None) -> Schema:
         fields=[
             SchemaField.create(
                 name="command",
-                description="The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                description="The commands to run. Allowed options are: `view`, "
+                "`create`, `str_replace`, `insert`, `undo_edit`.",
                 type=str,
                 required=True,
-                enum=["view", "create", "str_replace", "insert", "undo_edit"],
+                enum=COMMAND_LIST,
             ),
             SchemaField.create(
                 name="path",
-                description=f"Absolute path to file or directory, e.g. `{workspace_path}/file.py` or `{workspace_path}`.",
+                description=f"Absolute path to file or directory, e.g. "
+                f"`{workspace_path}/file.py` or `{workspace_path}`.",
                 type=str,
                 required=True,
             ),
@@ -49,25 +51,29 @@ def make_input_schema(workspace_root: str | None = None) -> Schema:
                 type=str,
                 required=False,
                 default=None,
-                description="Required for `str_replace`: the string in `path` to replace (must match exactly).",
+                description="Required for `str_replace`: the string in `path` "
+                "to replace (must match exactly).",
             ),
             SchemaField.create(
                 name="new_str",
-                description="Optional for `str_replace` (the replacement); required for `insert` (the string to insert).",
+                description="Optional for `str_replace` (the replacement); "
+                "required for `insert` (the string to insert).",
                 type=str,
                 required=False,
                 default=None,
             ),
             SchemaField.create(
                 name="insert_line",
-                description="Required for `insert`: insert AFTER this 1-based line number.",
+                description="Required for `insert`: insert AFTER this "
+                "1-based line number.",
                 type=int,
                 required=False,
                 default=None,
             ),
             SchemaField.create(
                 name="view_range",
-                description="Optional for `view` when `path` is a file: [start, end], end=-1 means to EOF.",
+                description="Optional for `view` when `path` is a file: "
+                "[start, end], end=-1 means to EOF.",
                 type=list[int],
                 required=False,
                 default=None,
@@ -82,10 +88,11 @@ def make_output_schema() -> Schema:
         fields=[
             SchemaField.create(
                 name="command",
-                description="The commands to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.",
+                description="The commands to run. Allowed options are: `view`, "
+                "`create`, `str_replace`, `insert`, `undo_edit`.",
                 type=str,
                 required=True,
-                enum=["view", "create", "str_replace", "insert", "undo_edit"],
+                enum=COMMAND_LIST,
             ),
             SchemaField.create(
                 name="output",
@@ -102,7 +109,8 @@ def make_output_schema() -> Schema:
             ),
             SchemaField.create(
                 name="prev_exist",
-                description="Indicates if the file previously existed. If not, it was created.",
+                description="Indicates if the file previously "
+                "existed. If not, it was created.",
                 type=bool,
                 required=True,
             ),
@@ -131,95 +139,73 @@ def make_output_schema() -> Schema:
     )
 
 
-class StrReplaceEditorObservation(ObservationBase):
-    """A ToolResult that can be rendered as a CLI output."""
+class StrReplaceEditorDataConverter(ToolDataConverter):
+    """Data converter for StrReplaceEditor tool."""
 
-    command: CommandLiteral = Field(
-        description="The commands to run. Allowed options are: `view`, `create`, "
-        "`str_replace`, `insert`, `undo_edit`."
-    )
-    output: str = Field(
-        default="", description="The output message from the tool for the LLM to see."
-    )
-    path: str | None = Field(default=None, description="The file path that was edited.")
-    prev_exist: bool = Field(
-        default=True,
-        description="Indicates if the file previously existed. If not, it was created.",
-    )
-    old_content: str | None = Field(
-        default=None, description="The content of the file before the edit."
-    )
-    new_content: str | None = Field(
-        default=None, description="The content of the file after the edit."
-    )
-    error: str | None = Field(default=None, description="Error message if any.")
+    def agent_observation(
+        self, observation: SchemaInstance
+    ) -> Sequence[TextContent | ImageContent]:
+        observation.validate_data()
+        if observation.data["error"]:
+            return [TextContent(text=observation.data["error"])]
+        return [TextContent(text=observation.data["output"])]
 
-    _diff_cache: Text | None = PrivateAttr(default=None)
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        if self.error:
-            return [TextContent(text=self.error)]
-        return [TextContent(text=self.output)]
-
-    @property
-    def visualize(self) -> Text:
+    def visualize_observation(self, observation: SchemaInstance) -> Text:
         """Return Rich Text representation of this observation.
 
         Shows diff visualization for meaningful changes (file creation, successful
         edits), otherwise falls back to agent observation.
         """
+        assert observation.validate_data()
 
-        if not self._has_meaningful_diff:
-            return super().visualize
+        if not self._has_meaningful_diff(observation):
+            return super().visualize_observation(observation)
 
-        assert self.path is not None, "path should be set for meaningful diff"
+        path = observation.data.get("path")
+        old_content = observation.data.get("old_content")
+        new_content = observation.data.get("new_content")
+        command = observation.data.get("command")
+        error = observation.data.get("error")
+
+        assert path is not None, "path should be set for meaningful diff"
         # Generate and cache diff visualization
         if not self._diff_cache:
-            change_applied = self.command != "view" and not self.error
+            change_applied = command != "view" and not error
             self._diff_cache = visualize_diff(
-                self.path,
-                self.old_content,
-                self.new_content,
+                path,
+                old_content,
+                new_content,
                 n_context_lines=2,
                 change_applied=change_applied,
             )
 
         return self._diff_cache
 
-    @property
-    def _has_meaningful_diff(self) -> bool:
+    def _has_meaningful_diff(self, observation: SchemaInstance) -> bool:
         """Check if there's a meaningful diff to display."""
-        if self.error:
-            return False
+        path = observation.data.get("path")
+        old_content = observation.data.get("old_content")
+        new_content = observation.data.get("new_content")
+        command = observation.data.get("command")
+        error = observation.data.get("error")
+        prev_exist = observation.data.get("prev_exist")
 
-        if not self.path:
+        if error:
             return False
-
-        if self.command not in ("create", "str_replace", "insert", "undo_edit"):
+        if not path:
             return False
-
+        if command not in ("create", "str_replace", "insert", "undo_edit"):
+            return False
         # File creation case
-        if self.command == "create" and self.new_content and not self.prev_exist:
+        if command == "create" and new_content and not prev_exist:
             return True
-
         # File modification cases (str_replace, insert, undo_edit)
-        if self.command in ("str_replace", "insert", "undo_edit"):
+        if command in ("str_replace", "insert", "undo_edit"):
             # Need both old and new content to show meaningful diff
-            if self.old_content is not None and self.new_content is not None:
+            if old_content is not None and new_content is not None:
                 # Only show diff if content actually changed
-                return self.old_content != self.new_content
-
+                return old_content != new_content
         return False
-
-
-Command = Literal[
-    "view",
-    "create",
-    "str_replace",
-    "insert",
-    "undo_edit",
-]
 
 
 TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing files in plain-text format
@@ -256,21 +242,7 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-str_replace_editor_tool = Tool(
-    name="str_replace_editor",
-    action_type=StrReplaceEditorAction,
-    description=TOOL_DESCRIPTION,
-    annotations=ToolAnnotations(
-        title="str_replace_editor",
-        readOnlyHint=False,
-        destructiveHint=True,
-        idempotentHint=False,
-        openWorldHint=False,
-    ),
-)
-
-
-class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
+class FileEditorTool(Tool):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
@@ -287,22 +259,26 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         # Determine the workspace path for examples
         workspace_path = workspace_root if workspace_root else "/workspace"
 
-        # Create a dynamic action type with updated path description
-        class DynamicStrReplaceEditorAction(StrReplaceEditorAction):
-            path: str = Field(
-                description=f"Absolute path to file or directory, e.g. "
-                f"`{workspace_path}/file.py` or `{workspace_path}`."
-            )
+        # Create input and output schemas
+        input_schema = make_input_schema(workspace_root=workspace_root)
+        output_schema = make_output_schema()
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=workspace_root)
+        executor = FileEditorExecutor(workspace_root=workspace_path)
 
         # Initialize the parent Tool with the executor
         return cls(
-            name=str_replace_editor_tool.name,
+            name="str_replace_editor",
             description=TOOL_DESCRIPTION,
-            action_type=DynamicStrReplaceEditorAction,
-            observation_type=StrReplaceEditorObservation,
-            annotations=str_replace_editor_tool.annotations,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            annotations=ToolAnnotations(
+                title="str_replace_editor",
+                readOnlyHint=False,
+                destructiveHint=True,
+                idempotentHint=False,
+                openWorldHint=False,
+            ),
             executor=executor,
+            data_converter=StrReplaceEditorDataConverter(),
         )

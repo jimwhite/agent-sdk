@@ -103,7 +103,9 @@ class Tool(BaseModel):
 
     # runtime-only; always hidden on dumps
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
-    adapter: ToolDataConverter | None = Field(default=None, repr=False, exclude=True)
+    data_converter: ToolDataConverter | None = Field(
+        default=None, repr=False, exclude=True
+    )
 
     @classmethod
     def create(cls, *args, **kwargs) -> "Tool | list[Tool]":
