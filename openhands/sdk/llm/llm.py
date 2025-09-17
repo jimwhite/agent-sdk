@@ -419,8 +419,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         messages = self.format_messages_for_llm(
                             cast(list[Message], messages)
                         )
-                    else:
-                        messages = cast(list[dict[str, Any]] | None, messages)
                     input = messages_to_responses_items(
                         cast(list[dict[str, Any]], messages or [])
                     )
