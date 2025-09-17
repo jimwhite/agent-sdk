@@ -423,3 +423,61 @@ def test_metrics_reasoning_color_customization():
     assert subtitle is not None
     # Should contain the custom orange color for reasoning tokens
     assert "[orange]" in subtitle and "[/orange]" in subtitle
+
+
+def test_automatic_theme_detection():
+    """Test automatic theme detection functionality."""
+    import os
+    from unittest.mock import patch
+
+    # Test light theme detection
+    with patch.dict(
+        os.environ, {"TERM_PROGRAM": "Apple_Terminal", "COLORFGBG": "0;15"}
+    ):
+        from openhands.sdk.conversation.visualizer import (
+            _detect_terminal_theme,
+            _get_auto_theme_colors,
+        )
+
+        assert _detect_terminal_theme() == "light"
+        colors = _get_auto_theme_colors()
+        assert colors["observation"] == "blue"  # Should use LIGHT_THEME
+
+    # Test dark theme detection
+    with patch.dict(
+        os.environ, {"TERM_PROGRAM": "Apple_Terminal", "COLORFGBG": "15;0"}
+    ):
+        assert _detect_terminal_theme() == "dark"
+        colors = _get_auto_theme_colors()
+        assert colors["observation"] == "yellow"  # Should use DARK_THEME
+
+    # Test unknown theme (should use default)
+    with patch.dict(os.environ, {}, clear=True):
+        assert _detect_terminal_theme() is None
+        colors = _get_auto_theme_colors()
+        assert colors["observation"] == "bright_cyan"  # Should use _DEFAULT_COLORS
+
+
+def test_visualizer_with_automatic_theme():
+    """Test that visualizer uses automatic theme detection when no theme specified."""
+    import os
+    from unittest.mock import patch
+
+    # Test with light theme environment
+    with patch.dict(
+        os.environ, {"TERM_PROGRAM": "Apple_Terminal", "COLORFGBG": "0;15"}
+    ):
+        visualizer = ConversationVisualizer()  # No color_theme specified
+        assert (
+            visualizer._colors["observation"] == "blue"
+        )  # Should auto-detect light theme
+
+    # Test with explicit theme override
+    with patch.dict(
+        os.environ, {"TERM_PROGRAM": "Apple_Terminal", "COLORFGBG": "0;15"}
+    ):
+        custom_theme = {"observation": "orange"}
+        visualizer = ConversationVisualizer(color_theme=custom_theme)
+        assert (
+            visualizer._colors["observation"] == "orange"
+        )  # Should use explicit theme

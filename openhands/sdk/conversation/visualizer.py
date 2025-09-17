@@ -1,5 +1,6 @@
+import os
 import re
-from typing import Dict
+from typing import Dict, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -18,17 +19,17 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation
 
 
-# Default color scheme - optimized for readability on both light and dark backgrounds
+# Original color scheme with minimal changes for better readability
 _DEFAULT_COLORS = {
-    # External inputs - using colors with better contrast
+    # External inputs - keeping original colors except problematic yellows
     "observation": "bright_cyan",  # Changed from "yellow" for better readability
-    "message_user": "gold3",
+    "message_user": "gold3",  # Original color preserved
     "pause": "bright_magenta",  # Changed from "bright_yellow" for better readability
-    # Internal system stuff
+    # Internal system stuff - all original colors preserved
     "system": "magenta",
     "thought": "bright_black",
     "error": "red",
-    # Agent actions
+    # Agent actions - all original colors preserved
     "action": "blue",
     "message_assistant": "blue",
     # Metrics colors
@@ -100,6 +101,75 @@ DEFAULT_HIGHLIGHT_REGEX = {
 _PANEL_PADDING = (1, 1)
 
 
+def _detect_terminal_theme() -> Optional[str]:
+    """Detect if terminal has light or dark background.
+
+    Returns:
+        'light' if light background detected, 'dark' if dark background detected,
+        None if unable to determine.
+    """
+    # Check common environment variables that indicate terminal theme
+
+    # macOS Terminal.app and iTerm2
+    if os.environ.get("TERM_PROGRAM") in ["Apple_Terminal", "iTerm.app"]:
+        # Check if using a light theme (this is a heuristic)
+        colorfgbg = os.environ.get("COLORFGBG", "")
+        if colorfgbg:
+            # COLORFGBG format is usually "foreground;background"
+            # Light backgrounds typically have high numbers (15, 7, etc.)
+            # Dark backgrounds typically have low numbers (0, 8, etc.)
+            parts = colorfgbg.split(";")
+            if len(parts) >= 2:
+                try:
+                    bg_color = int(parts[-1])
+                    # Background colors 0-8 are typically dark, 9-15 are typically light
+                    if bg_color >= 7:  # 7 is light gray, 15 is white
+                        return "light"
+                    elif bg_color <= 8:  # 0 is black, 8 is dark gray
+                        return "dark"
+                except ValueError:
+                    pass
+
+    # VS Code integrated terminal
+    if os.environ.get("TERM_PROGRAM") == "vscode":
+        # VS Code usually follows system theme, but we can't easily detect it
+        # Default to our improved colors which work on both
+        return None
+
+    # Windows Terminal
+    if os.environ.get("WT_SESSION"):
+        # Windows Terminal theme detection is complex, use default
+        return None
+
+    # Check for explicit theme environment variables (some terminals set these)
+    theme_hint = os.environ.get("TERMINAL_THEME", "").lower()
+    if "light" in theme_hint:
+        return "light"
+    elif "dark" in theme_hint:
+        return "dark"
+
+    # Unable to determine
+    return None
+
+
+def _get_auto_theme_colors() -> Dict[str, str]:
+    """Get colors automatically based on detected terminal theme.
+
+    Returns:
+        Dictionary of colors appropriate for the detected terminal theme,
+        or default colors if theme cannot be detected.
+    """
+    detected_theme = _detect_terminal_theme()
+
+    if detected_theme == "light":
+        return LIGHT_THEME
+    elif detected_theme == "dark":
+        return DARK_THEME
+    else:
+        # Use our improved default colors that work reasonably well on both
+        return _DEFAULT_COLORS
+
+
 class ConversationVisualizer:
     """Handles visualization of conversation events with Rich formatting.
 
@@ -130,10 +200,14 @@ class ConversationVisualizer:
         self._skip_user_messages = skip_user_messages
         self._highlight_patterns: Dict[str, str] = highlight_regex or {}
 
-        # Set up color theme
-        self._colors = _DEFAULT_COLORS.copy()
-        if color_theme:
+        # Set up color theme with automatic detection
+        if color_theme is not None:
+            # User provided explicit theme
+            self._colors = _DEFAULT_COLORS.copy()
             self._colors.update(color_theme)
+        else:
+            # Use automatic theme detection
+            self._colors = _get_auto_theme_colors()
 
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
