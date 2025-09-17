@@ -21,8 +21,17 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-def messages_to_responses_items(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def messages_to_responses_items(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Convert Chat Completions-style messages into Responses API input items.
+
+    Args:
+        messages: List of chat completion messages in dict format. Each message
+            should conform to one of the ChatCompletion message types from
+            litellm.types.llms.openai (ChatCompletionUserMessage,
+            ChatCompletionAssistantMessage, ChatCompletionToolMessage, etc.)
+            but is passed as dict for flexible access patterns.
 
     Mapping rules:
     - user/system/assistant text -> {type: 'message', role, content}
