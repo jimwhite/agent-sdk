@@ -160,8 +160,12 @@ class SchemaInstance(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    definition: Schema
-    data: dict[str, Any]
+    name: str = Field(..., description="Name of this schema instance")
+    definition: Schema = Field(..., description="The schema definition")
+    data: dict[str, Any] = Field(
+        default_factory=dict,
+        description="The actual data conforming to the schema",
+    )
 
     def validate_data(self) -> BaseModel:
         Model = self.definition.build_args_model()
