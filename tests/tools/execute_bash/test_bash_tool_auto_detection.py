@@ -3,8 +3,8 @@
 import tempfile
 from unittest.mock import patch
 
+from openhands.sdk.tool import SchemaInstance
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
 from openhands.tools.execute_bash.terminal import (
     SubprocessTerminal,
@@ -31,8 +31,10 @@ def test_default_auto_detection():
         assert terminal_type in ["TmuxTerminal", "SubprocessTerminal"]
 
         # Test that it works
-        action = ExecuteBashAction(
-            command="echo 'Auto-detection test'", security_risk="LOW"
+        action = SchemaInstance(
+            name="ExecuteBashAction",
+            definition=tool.input_schema,
+            data={"command": "echo 'Auto-detection test'"},
         )
         obs = executor(action)
         assert "Auto-detection test" in obs.data["output"]
@@ -50,8 +52,10 @@ def test_forced_terminal_types():
         assert isinstance(executor.session.terminal, SubprocessTerminal)
 
         # Test basic functionality
-        action = ExecuteBashAction(
-            command="echo 'Subprocess test'", security_risk="LOW"
+        action = SchemaInstance(
+            name="ExecuteBashAction",
+            definition=tool.input_schema,
+            data={"command": "echo 'Subprocess test'"},
         )
         obs = tool.executor(action)
         assert obs.data["metadata"]["exit_code"] == 0
@@ -114,8 +118,10 @@ def test_backward_compatibility():
         tool = BashTool.create(working_dir=temp_dir)
 
         assert tool.executor is not None
-        action = ExecuteBashAction(
-            command="echo 'Backward compatibility test'", security_risk="LOW"
+        action = SchemaInstance(
+            name="ExecuteBashAction",
+            definition=tool.input_schema,
+            data={"command": "echo 'Backward compatibility test'"},
         )
         obs = tool.executor(action)
         assert "Backward compatibility test" in obs.data["output"]
@@ -145,7 +151,11 @@ def test_session_lifecycle():
         assert executor.session._initialized
 
         # Should be able to execute commands
-        action = ExecuteBashAction(command="echo 'Lifecycle test'", security_risk="LOW")
+        action = SchemaInstance(
+            name="ExecuteBashAction",
+            definition=tool.input_schema,
+            data={"command": "echo 'Lifecycle test'"},
+        )
         obs = executor(action)
         assert obs.data["metadata"]["exit_code"] == 0
 

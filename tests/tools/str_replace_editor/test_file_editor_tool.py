@@ -5,10 +5,6 @@ import tempfile
 
 from openhands.sdk.tool import SchemaInstance
 from openhands.tools import FileEditorTool
-from openhands.tools.str_replace_editor import (
-    StrReplaceEditorAction,
-    StrReplaceEditorObservation,
-)
 
 
 def test_file_editor_tool_initialization():
@@ -31,14 +27,13 @@ def test_file_editor_tool_create_file():
 
         # Create an action to create a file
         action = SchemaInstance(
-            name="str_replace_editor",
+            name="StrReplaceEditorAction",
             definition=tool.input_schema,
             data={
                 "command": "create",
                 "path": test_file,
                 "file_text": "Hello, World!",
-                "security_risk": "LOW",
-            }
+            },
         )
 
         # Execute the action
@@ -69,13 +64,13 @@ def test_file_editor_tool_view_file():
 
         # Create an action to view the file
         action = SchemaInstance(
-            name="str_replace_editor",
+            name="StrReplaceEditorAction",
             definition=tool.input_schema,
             data={
                 "command": "view",
                 "path": test_file,
                 "security_risk": "LOW",
-            }
+            },
         )
 
         # Execute the action
@@ -111,7 +106,7 @@ def test_file_editor_tool_str_replace():
                 "old_str": "World",
                 "new_str": "Universe",
                 "security_risk": "LOW",
-            }
+            },
         )
 
         # Execute the action
@@ -164,7 +159,7 @@ def test_file_editor_tool_view_directory():
                 "command": "view",
                 "path": temp_dir,
                 "security_risk": "LOW",
-            }
+            },
         )
 
         # Execute the action

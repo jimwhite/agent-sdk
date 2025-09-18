@@ -4,10 +4,6 @@ import os
 import tempfile
 
 from openhands.tools import FileEditorTool
-from openhands.tools.str_replace_editor import (
-    StrReplaceEditorAction,
-    StrReplaceEditorObservation,
-)
 
 
 def test_file_editor_tool_default_workspace_path():
@@ -60,6 +56,7 @@ def test_file_editor_tool_functional_with_custom_workspace():
 
         # Create a file using the tool
         from openhands.sdk.tool import SchemaInstance
+
         action = SchemaInstance(
             name="str_replace_editor",
             definition=tool.input_schema,
@@ -67,8 +64,7 @@ def test_file_editor_tool_functional_with_custom_workspace():
                 "command": "create",
                 "path": test_file,
                 "file_text": "Hello, Custom Workspace!",
-                "security_risk": "LOW",
-            }
+            },
         )
 
         result = tool.call(action)
