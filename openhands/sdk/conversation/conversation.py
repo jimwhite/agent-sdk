@@ -194,16 +194,8 @@ class Conversation:
 
                     if is_stuck:
                         logger.warning("Stuck pattern detected.")
-                        # FIXME: or raise error
-                        stuck_intervention_message = (
-                            "I notice you might be stuck in a repetitive pattern."
-                            "Please consider doing something different."
-                        )
-                        intervention_message = Message(
-                            role="user",
-                            content=[TextContent(text=stuck_intervention_message)],
-                        )
-                        self.send_message(intervention_message)
+                        # FIXME: raise error or handle differently?
+                        break
 
                 # clear the flag before calling agent.step() (user approved)
                 if (
