@@ -34,7 +34,7 @@ class TaskItem(BaseModel):
 
 def make_input_schema() -> Schema:
     return Schema(
-        name=f"{__package__}.action",
+        type="action",
         fields=[
             SchemaField.create(
                 name="command",
@@ -59,7 +59,7 @@ def make_input_schema() -> Schema:
 
 def make_output_schema() -> Schema:
     return Schema(
-        name=f"{__package__}.observation",
+        type="observation",
         fields=[
             SchemaField.create(
                 name="content",

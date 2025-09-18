@@ -56,21 +56,7 @@ def mcp_schema_to_schema(name: str, mcp_schema: dict) -> Schema:
                 )
             )
 
-    # Always add security_risk field to input schemas
-    if ".input" in name:
-        fields.append(
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            )
-        )
-
-    return Schema(name=name, fields=fields)
+    return Schema(type="action", fields=fields)
 
 
 class MCPToolExecutor(ToolExecutor):

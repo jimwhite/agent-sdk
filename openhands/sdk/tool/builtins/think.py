@@ -22,14 +22,14 @@ def make_input_schema() -> Schema:
         ),
     ]
     return Schema(
-        name=f"{__package__}.input",
+        type="action",
         fields=fields,
     )
 
 
 def make_output_schema() -> Schema:
     return Schema(
-        name=f"{__package__}.output",
+        type="observation",
         fields=[
             SchemaField.create(
                 name="content",

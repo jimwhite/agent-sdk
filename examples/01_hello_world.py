@@ -21,8 +21,9 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    # model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    # base_url="https://llm-proxy.eval.all-hands.dev",
+    model="openhands/gpt-5-mini-2025-08-07",
     api_key=SecretStr(api_key),
 )
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -92,11 +92,9 @@ class Schema(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    name: str = Field(
-        description="Human-readable name for the schema, "
-        "e.g. openhands.tools.str_replace_editor.action; "
-        "should have package-like format (dot-separated, no spaces), "
-        "and ends with either .action or .observation",
+
+    type: Literal["action", "observation"] = Field(
+        description="Type of the schema, either 'action' or 'observation'.",
     )
     fields: list[SchemaField] = Field(
         default_factory=list,
@@ -191,19 +189,11 @@ class SchemaInstance(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
-    name: str = Field(..., description="Name of this schema instance")
     definition: Schema = Field(..., description="The schema definition")
     data: dict[str, Any] = Field(
         default_factory=dict,
         description="The actual data conforming to the schema",
     )
-
-    @field_validator("name")
-    def must_be_camel_case(cls, v: str) -> str:
-        CAMEL_CASE_PATTERN = re.compile(r"^[a-z]+(?:[A-Z][a-z0-9]*)*$")
-        if not CAMEL_CASE_PATTERN.match(v):
-            raise ValueError("Value must be camelCase")
-        return v
 
     def validate_data(self) -> BaseModel:
         Model = self.definition.build_args_model()

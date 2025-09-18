@@ -15,6 +15,7 @@ from openhands.sdk.tool import (
     ToolAnnotations,
     ToolDataConverter,
 )
+from openhands.sdk.tool.tool import ToolExecutor
 from openhands.sdk.utils import maybe_truncate
 from openhands.tools.execute_bash.constants import (
     MAX_CMD_OUTPUT_SIZE,
@@ -25,7 +26,7 @@ from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 
 def make_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.execute_bash.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="command",
@@ -76,7 +77,7 @@ def make_input_schema() -> Schema:
 
 def make_output_schema() -> Schema:
     return Schema(
-        name="openhands.tools.execute_bash.output",
+        type="observation",
         fields=[
             SchemaField.create(
                 name="output",
@@ -296,6 +297,7 @@ class BashTool(Tool):
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
+        executor: ToolExecutor | None = None,
     ) -> "BashTool":
         """Initialize BashTool with executor parameters.
 
@@ -326,14 +328,15 @@ class BashTool(Tool):
         output_schema = make_output_schema()
 
         # Initialize the executor
-        executor = BashExecutor(
-            working_dir=working_dir,
-            username=username,
-            no_change_timeout_seconds=no_change_timeout_seconds,
-            terminal_type=terminal_type,
-            env_provider=env_provider,
-            env_masker=env_masker,
-        )
+        if executor is None:
+            executor = BashExecutor(
+                working_dir=working_dir,
+                username=username,
+                no_change_timeout_seconds=no_change_timeout_seconds,
+                terminal_type=terminal_type,
+                env_provider=env_provider,
+                env_masker=env_masker,
+            )
 
         # Initialize the parent Tool with the executor
         return cls(

@@ -25,7 +25,7 @@ def make_mcp_observation_schema() -> Schema:
     from typing import Union
 
     return Schema(
-        name=f"{__package__}.observation",
+        type="observation",
         fields=[
             SchemaField.create(
                 name="content",

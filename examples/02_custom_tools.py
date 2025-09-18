@@ -10,7 +10,6 @@ from openhands.sdk import (
     Agent,
     Conversation,
     Event,
-    ImageContent,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -21,107 +20,15 @@ from openhands.sdk.tool import (
     Schema,
     SchemaField,
     SchemaInstance,
-    ToolDataConverter,
     ToolExecutor,
 )
-from openhands.tools import (
-    BashExecutor,
-    ExecuteBashAction,
-    FileEditorTool,
-    execute_bash_tool,
-)
+from openhands.tools import BashExecutor, BashTool, FileEditorTool
 
 
 logger = get_logger(__name__)
 
 
 # --- Action / Observation Schemas ---
-
-
-def make_grep_input_schema() -> Schema:
-    return Schema(
-        name="examples.grep.action",
-        fields=[
-            SchemaField.create(
-                name="pattern",
-                description="Regex to search for",
-                type=str,
-                required=True,
-            ),
-            SchemaField.create(
-                name="path",
-                description="Directory to search (absolute or relative)",
-                type=str,
-                required=False,
-                default=".",
-            ),
-            SchemaField.create(
-                name="include",
-                description="Optional glob to filter files (e.g. '*.py')",
-                type=str,
-                required=False,
-                default=None,
-            ),
-        ],
-    )
-
-
-def make_grep_output_schema() -> Schema:
-    return Schema(
-        name="examples.grep.observation",
-        fields=[
-            SchemaField.create(
-                name="matches",
-                description="List of matching lines",
-                type=list[str],
-                required=False,
-                default=None,
-            ),
-            SchemaField.create(
-                name="files",
-                description="List of files that contain matches",
-                type=list[str],
-                required=False,
-                default=None,
-            ),
-            SchemaField.create(
-                name="count",
-                description="Total number of matches",
-                type=int,
-                required=True,
-            ),
-        ],
-    )
-
-
-class GrepDataConverter(ToolDataConverter):
-    def agent_observation(
-        self, observation: SchemaInstance
-    ) -> list[TextContent | ImageContent]:
-        observation.validate_data()
-        count = observation.data.get("count", 0)
-        matches = list(observation.data.get("matches") or [])
-        files = list(observation.data.get("files") or [])
-
-        if not count:
-            return [TextContent(text="No matches found.")]
-
-        files_list = "\n".join(f"- {f}" for f in files[:20])
-        sample = "\n".join(matches[:10])
-        more = "\n..." if count > 10 else ""
-        ret = (
-            f"Found {count} matching lines.\n"
-            f"Files:\n{files_list}\n"
-            f"Sample:\n{sample}{more}"
-        )
-        return [TextContent(text=ret)]
-
-
-# --- Executor ---
-
-
-GREP_INPUT_SCHEMA = make_grep_input_schema()
-GREP_OUTPUT_SCHEMA = make_grep_output_schema()
 
 
 class GrepExecutor(ToolExecutor):
@@ -144,7 +51,11 @@ class GrepExecutor(ToolExecutor):
         else:
             cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
 
-        result = self.bash(ExecuteBashAction(command=cmd))
+        from openhands.tools.execute_bash.definition import make_input_schema
+        result = self.bash(SchemaInstance(
+            definition=make_input_schema(),
+            data={"command": cmd, "is_input": False}
+        ))
 
         matches: list[str] = []
         files: set[str] = set()
@@ -159,8 +70,8 @@ class GrepExecutor(ToolExecutor):
                     files.add(os.path.abspath(file_path))
 
         return SchemaInstance(
-            name=GREP_OUTPUT_SCHEMA.name,
-            definition=GREP_OUTPUT_SCHEMA,
+            name="GrepObservation",
+            definition=action.definition,
             data={
                 "matches": matches,
                 "files": sorted(files),
@@ -194,17 +105,64 @@ cwd = os.getcwd()
 
 # Advanced pattern: explicit executor creation and reuse
 bash_executor = BashExecutor(working_dir=cwd)
-bash_tool_advanced = execute_bash_tool.set_executor(executor=bash_executor)
+bash_tool_advanced = BashTool.create(working_dir=cwd, executor=bash_executor)
 
 # Create the grep tool using explicit executor that reuses the bash executor
 grep_executor = GrepExecutor(bash_executor)
 grep_tool = Tool(
     name="grep",
     description=_GREP_DESCRIPTION,
-    input_schema=GREP_INPUT_SCHEMA,
-    output_schema=GREP_OUTPUT_SCHEMA,
+    input_schema=Schema(
+        type="action",
+        fields=[
+            SchemaField.create(
+                name="pattern",
+                description="Regex to search for",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="path",
+                description="Directory to search (absolute or relative)",
+                type=str,
+                required=False,
+                default=".",
+            ),
+            SchemaField.create(
+                name="include",
+                description="Optional glob to filter files (e.g. '*.py')",
+                type=str,
+                required=False,
+                default=None,
+            ),
+        ],
+    ),
+    output_schema=Schema(
+        type="observation",
+        fields=[
+            SchemaField.create(
+                name="matches",
+                description="List of matching lines",
+                type=list[str],
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="files",
+                description="List of files that contain matches",
+                type=list[str],
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="count",
+                description="Total number of matches",
+                type=int,
+                required=True,
+            ),
+        ],
+    ),
     executor=grep_executor,
-    data_converter=GrepDataConverter(),
 )
 
 tools = [

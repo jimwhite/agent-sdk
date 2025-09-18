@@ -22,7 +22,7 @@ MAX_BROWSER_OUTPUT_SIZE = 50000
 def make_browser_observation_schema() -> Schema:
     """Common output schema for all browser tools."""
     return Schema(
-        name="openhands.tools.browser_use.output",
+        type="observation",
         fields=[
             SchemaField.create(
                 name="output",
@@ -79,7 +79,7 @@ class BrowserDataConverter(ToolDataConverter):
 # ============================================
 def make_browser_navigate_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.navigate.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="url",
@@ -139,7 +139,7 @@ class BrowserNavigateTool(Tool):
 # ============================================
 def make_browser_click_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.click.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="index",
@@ -203,7 +203,7 @@ class BrowserClickTool(Tool):
 # ============================================
 def make_browser_type_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.type.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="index",
@@ -261,7 +261,7 @@ class BrowserTypeTool(Tool):
 # ============================================
 def make_browser_get_state_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.get_state.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="include_screenshot",
@@ -314,7 +314,7 @@ class BrowserGetStateTool(Tool):
 # ============================================
 def make_browser_get_content_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.get_content.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="extract_links",
@@ -369,7 +369,7 @@ class BrowserGetContentTool(Tool):
 # ============================================
 def make_browser_scroll_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.scroll.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="direction",
@@ -422,7 +422,7 @@ class BrowserScrollTool(Tool):
 # ============================================
 def make_browser_go_back_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.go_back.input",
+        type="action",
         fields=[],
     )
 
@@ -461,7 +461,7 @@ class BrowserGoBackTool(Tool):
 # ============================================
 def make_browser_list_tabs_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.list_tabs.input",
+        type="action",
         fields=[],
     )
 
@@ -500,7 +500,7 @@ class BrowserListTabsTool(Tool):
 # ============================================
 def make_browser_switch_tab_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.switch_tab.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="tab_id",
@@ -551,7 +551,7 @@ class BrowserSwitchTabTool(Tool):
 # ============================================
 def make_browser_close_tab_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.browser_use.close_tab.input",
+        type="action",
         fields=[
             SchemaField.create(
                 name="tab_id",

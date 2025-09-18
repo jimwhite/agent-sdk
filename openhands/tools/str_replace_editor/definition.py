@@ -13,6 +13,7 @@ from openhands.sdk.tool import (
     ToolAnnotations,
     ToolDataConverter,
 )
+from openhands.sdk.tool.tool import ToolExecutor
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
@@ -21,7 +22,7 @@ COMMAND_LIST = ["view", "create", "str_replace", "insert", "undo_edit"]
 
 def make_input_schema(workspace_path: str) -> Schema:
     return Schema(
-        name=f"{__package__}.action",
+        type="action",
         fields=[
             SchemaField.create(
                 name="command",
@@ -90,7 +91,7 @@ def make_input_schema(workspace_path: str) -> Schema:
 
 def make_output_schema() -> Schema:
     return Schema(
-        name=f"{__package__}.observation",
+        type="observation",
         fields=[
             SchemaField.create(
                 name="command",
@@ -252,7 +253,9 @@ class FileEditorTool(Tool):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
-    def create(cls, workspace_root: str | None = None) -> "FileEditorTool":
+    def create(
+        cls, workspace_root: str | None = None, executor: ToolExecutor | None = None
+    ) -> "FileEditorTool":
         """Initialize FileEditorTool with a FileEditorExecutor.
 
         Args:
@@ -270,7 +273,8 @@ class FileEditorTool(Tool):
         output_schema = make_output_schema()
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=workspace_path)
+        if executor is None:
+            executor = FileEditorExecutor(workspace_root=workspace_path)
 
         # Initialize the parent Tool with the executor
         return cls(
