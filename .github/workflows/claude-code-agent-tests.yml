@@ -44,7 +44,7 @@ jobs:
               run: uv sync --frozen --group dev
 
             - name: Install Claude Code SDK
-              run: uv add claude-code-sdk
+              run: uv add --dev claude-code-sdk
 
             - name: Run Claude Code Agent unit tests
               run: |
@@ -81,7 +81,7 @@ jobs:
               run: uv sync --frozen --group dev
 
             - name: Install Claude Code SDK
-              run: uv add claude-code-sdk
+              run: uv add --dev claude-code-sdk
 
             - name: Install Node.js for Claude Code CLI
               uses: actions/setup-node@v4
