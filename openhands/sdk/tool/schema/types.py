@@ -1,7 +1,7 @@
 # openhands/sdk/SchemaField/schema.py
 from __future__ import annotations
 
-from typing import Any, Literal, get_args, get_origin
+from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -61,8 +61,37 @@ class DictType(BaseModel):
         return dict[self.key_type.to_type(), self.value_type.to_type()]
 
 
+class UnionType(BaseModel):
+    type_name: Literal["union"] = "union"
+    types: list["SchemaFieldType"]
+
+    def to_type(self) -> Any:
+        return Union[tuple(t.to_type() for t in self.types)]
+
+
+class CustomType(BaseModel):
+    type_name: Literal["custom"] = "custom"
+    class_name: str
+    module_name: str
+
+    def to_type(self) -> Any:
+        # Import the actual class
+        import importlib
+
+        module = importlib.import_module(self.module_name)
+        return getattr(module, self.class_name)
+
+
 SchemaFieldTypePayload = (
-    StringType | IntType | FloatType | BoolType | NoneType | ListType | DictType
+    StringType
+    | IntType
+    | FloatType
+    | BoolType
+    | NoneType
+    | ListType
+    | DictType
+    | UnionType
+    | CustomType
 )
 
 
@@ -103,6 +132,23 @@ class SchemaFieldType(BaseModel):
                     value_type=SchemaFieldType.from_type(args[1]),
                 )
             )
+        if origin is Union:
+            return SchemaFieldType(
+                payload=UnionType(
+                    types=[SchemaFieldType.from_type(arg) for arg in args]
+                )
+            )
+
+        # Handle custom Pydantic models
+        if hasattr(tp, "__module__") and hasattr(tp, "__name__"):
+            # Check if it's a Pydantic model
+            if hasattr(tp, "model_fields"):
+                return SchemaFieldType(
+                    payload=CustomType(
+                        class_name=tp.__name__, module_name=tp.__module__
+                    )
+                )
+
         raise ValueError(f"Unsupported type: {tp!r}")
 
     def to_type(self) -> Any:

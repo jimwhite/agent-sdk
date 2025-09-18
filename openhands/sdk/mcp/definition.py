@@ -21,13 +21,17 @@ logger = get_logger(__name__)
 
 def make_mcp_observation_schema() -> Schema:
     """Create schema for MCP tool observations."""
+    from typing import Union
+
     return Schema(
         name="openhands.sdk.mcp.observation",
         fields=[
             SchemaField.create(
                 name="content",
-                description="JSON-serialized content returned from the MCP tool",
-                type=str,
+                description=(
+                    "List of content blocks (text or image) returned from the MCP tool"
+                ),
+                type=list[Union[TextContent, ImageContent]],
                 required=True,
             ),
             SchemaField.create(
@@ -74,9 +78,7 @@ class MCPToolObservation:
             name=f"mcp_tool_observation_{tool_name}",
             definition=make_mcp_observation_schema(),
             data={
-                "content": json.dumps(
-                    [content.model_dump() for content in converted_content]
-                ),
+                "content": converted_content,
                 "is_error": result.isError,
                 "tool_name": tool_name,
             },
@@ -89,16 +91,7 @@ class MCPToolObservation:
         """Format the observation for agent display."""
         tool_name = observation.data.get("tool_name", "unknown")
         is_error = observation.data.get("is_error", False)
-        content_json = observation.data.get("content", "[]")
-
-        # Deserialize the content from JSON
-        content_data = json.loads(content_json)
-        content = []
-        for item in content_data:
-            if item.get("type") == "text":
-                content.append(TextContent.model_validate(item))
-            elif item.get("type") == "image":
-                content.append(ImageContent.model_validate(item))
+        content = observation.data.get("content", [])
 
         initial_message = f"[Tool '{tool_name}' executed.]\n"
         if is_error:
@@ -110,16 +103,7 @@ class MCPToolObservation:
         """Return Rich Text representation of this observation."""
         tool_name = observation.data.get("tool_name", "unknown")
         is_error = observation.data.get("is_error", False)
-        content_json = observation.data.get("content", "[]")
-
-        # Deserialize the content from JSON
-        content_data = json.loads(content_json)
-        content_blocks = []
-        for item in content_data:
-            if item.get("type") == "text":
-                content_blocks.append(TextContent.model_validate(item))
-            elif item.get("type") == "image":
-                content_blocks.append(ImageContent.model_validate(item))
+        content_blocks = observation.data.get("content", [])
 
         content = Text()
         content.append(f"[MCP Tool '{tool_name}' Observation]\n", style="bold")

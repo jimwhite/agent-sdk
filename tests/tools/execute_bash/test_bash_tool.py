@@ -2,8 +2,9 @@
 
 import tempfile
 
+from openhands.sdk.tool import SchemaInstance
 from openhands.tools import BashTool
-from openhands.tools.execute_bash import ExecuteBashAction, ExecuteBashObservation
+from openhands.tools.execute_bash import ExecuteBashAction
 
 
 def test_bash_tool_initialization():
@@ -43,8 +44,8 @@ def test_bash_tool_execution():
 
         # Check the result
         assert result is not None
-        assert isinstance(result, ExecuteBashObservation)
-        assert "Hello, World!" in result.output
+        assert isinstance(result, SchemaInstance)
+        assert "Hello, World!" in result.data["output"]
 
 
 def test_bash_tool_working_directory():
@@ -59,8 +60,8 @@ def test_bash_tool_working_directory():
         result = tool.call(action)
 
         # Check that the working directory is correct
-        assert isinstance(result, ExecuteBashObservation)
-        assert temp_dir in result.output
+        assert isinstance(result, SchemaInstance)
+        assert temp_dir in result.data["output"]
 
 
 def test_bash_tool_to_openai_tool():

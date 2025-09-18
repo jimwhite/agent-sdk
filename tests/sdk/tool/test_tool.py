@@ -1,33 +1,96 @@
-"""Tests for the Tool class in openhands.sdk.runtime.tool."""
+"""Test cases for the Tool class using new schema system."""
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 import pytest
-from pydantic import Field
 
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Schema,
+    SchemaField,
+    SchemaFieldType,
+    SchemaInstance,
     Tool,
     ToolAnnotations,
     ToolExecutor,
 )
 
 
-class MockAction(ActionBase):
-    """Mock action class for testing."""
+def create_mock_action_schema() -> Schema:
+    """Create mock action schema for testing."""
+    return Schema(
+        name="MockAction",
+        fields=[
+            SchemaField(
+                name="command",
+                type=SchemaFieldType.from_type(str),
+                description="Command to execute",
+                required=True,
+            ),
+            SchemaField(
+                name="optional_field",
+                type=SchemaFieldType.from_type(str),
+                description="Optional field",
+                required=False,
+            ),
+            SchemaField(
+                name="nested",
+                type=SchemaFieldType.from_type(Dict[str, str]),
+                description="Nested object",
+                required=False,
+            ),
+            SchemaField(
+                name="array_field",
+                type=SchemaFieldType.from_type(List[int]),
+                description="Array field",
+                required=False,
+            ),
+        ],
+    )
 
-    command: str = Field(description="Command to execute")
-    optional_field: Optional[str] = Field(default=None, description="Optional field")
-    nested: Dict[str, Any] = Field(default_factory=dict, description="Nested object")
-    array_field: List[int] = Field(default_factory=list, description="Array field")
+
+def create_mock_observation_schema() -> Schema:
+    """Create mock observation schema for testing."""
+    return Schema(
+        name="MockObservation",
+        fields=[
+            SchemaField(
+                name="result",
+                type=SchemaFieldType.from_type(str),
+                description="Result of the action",
+                required=True,
+            ),
+            SchemaField(
+                name="extra_field",
+                type=SchemaFieldType.from_type(str),
+                description="Extra field",
+                required=False,
+            ),
+        ],
+    )
 
 
-class MockObservation(ObservationBase):
-    """Mock observation class for testing."""
+def create_mock_action(**kwargs) -> SchemaInstance:
+    """Create mock action instance."""
+    data = {
+        "command": "test",
+        "optional_field": None,
+        "nested": {},
+        "array_field": [],
+    }
+    data.update(kwargs)
+    schema = create_mock_action_schema()
+    return SchemaInstance(name=schema.name, definition=schema, data=data)
 
-    result: str = Field(description="Result of the action")
-    extra_field: Optional[str] = Field(default=None, description="Extra field")
+
+def create_mock_observation(**kwargs) -> SchemaInstance:
+    """Create mock observation instance."""
+    data = {
+        "result": "success",
+        "extra_field": None,
+    }
+    data.update(kwargs)
+    schema = create_mock_observation_schema()
+    return SchemaInstance(name=schema.name, definition=schema, data=data)
 
 
 class TestTool:
@@ -38,36 +101,39 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         assert tool.name == "test_tool"
         assert tool.description == "A test tool"
-        assert tool.action_type == MockAction
-        assert tool.observation_type == MockObservation
+        assert tool.input_schema.name == "MockAction"
+        assert tool.output_schema is not None
+        assert tool.output_schema.name == "MockObservation"
         assert tool.executor is None
 
     def test_tool_creation_with_executor(self):
         """Test tool creation with executor function."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Executed: {action.command}")
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_mock_observation(
+                    result=f"Executed: {action.data['command']}"
+                )
 
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             executor=MockExecutor(),
         )
 
         assert tool.executor is not None
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         result = tool.call(action)
-        assert isinstance(result, MockObservation)
-        assert result.result == "Executed: test"
+        assert isinstance(result, SchemaInstance)
+        assert result.data["result"] == "Executed: test"
 
     def test_tool_creation_with_annotations(self):
         """Test tool creation with annotations."""
@@ -80,8 +146,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             annotations=annotations,
         )
 
@@ -96,8 +162,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -125,8 +191,8 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             annotations=annotations,
         )
 
@@ -143,11 +209,11 @@ class TestTool:
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         with pytest.raises(
             NotImplementedError, match="Tool 'test_tool' has no executor"
         ):
@@ -157,40 +223,58 @@ class TestTool:
         """Test calling tool with executor."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Processed: {action.command}")
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_mock_observation(
+                    result=f"Processed: {action.data['command']}"
+                )
 
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             executor=MockExecutor(),
         )
 
-        action = MockAction(command="test_command")
+        action = create_mock_action(command="test_command")
         result = tool.call(action)
 
-        assert isinstance(result, MockObservation)
-        assert result.result == "Processed: test_command"
+        assert isinstance(result, SchemaInstance)
+        assert result.data["result"] == "Processed: test_command"
 
     def test_schema_generation_complex_types(self):
         """Test schema generation with complex field types."""
 
-        class ComplexAction(ActionBase):
-            simple_field: str = Field(description="Simple string field")
-            optional_int: int | None = Field(
-                default=None, description="Optional integer"
-            )
-            string_list: list[str] = Field(
-                default_factory=list, description="List of strings"
+        def create_complex_action_schema() -> Schema:
+            return Schema(
+                name="ComplexAction",
+                fields=[
+                    SchemaField(
+                        name="simple_field",
+                        type=SchemaFieldType.from_type(str),
+                        description="Simple string field",
+                        required=True,
+                    ),
+                    SchemaField(
+                        name="optional_int",
+                        type=SchemaFieldType.from_type(int),
+                        description="Optional integer",
+                        required=False,
+                    ),
+                    SchemaField(
+                        name="string_list",
+                        type=SchemaFieldType.from_type(List[str]),
+                        description="List of strings",
+                        required=False,
+                    ),
+                ],
             )
 
         tool = Tool(
             name="complex_tool",
             description="Tool with complex types",
-            action_type=ComplexAction,
-            observation_type=MockObservation,
+            input_schema=create_complex_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -207,98 +291,70 @@ class TestTool:
         """Test that observation type is properly validated."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result="success")
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_mock_observation(result="success")
 
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             executor=MockExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         result = tool.call(action)
 
         # Should return the correct observation type
-        assert isinstance(result, MockObservation)
-        assert result.result == "success"
+        assert isinstance(result, SchemaInstance)
+        assert result.data["result"] == "success"
 
     def test_observation_with_extra_fields(self):
         """Test observation with additional fields."""
 
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result="test", extra_field="extra_data")
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_mock_observation(result="test", extra_field="extra_data")
 
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             executor=MockExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         result = tool.call(action)
 
-        assert isinstance(result, MockObservation)
-        assert result.result == "test"
-        assert result.extra_field == "extra_data"
+        assert isinstance(result, SchemaInstance)
+        assert result.data["result"] == "test"
+        assert result.data["extra_field"] == "extra_data"
 
     def test_action_validation_with_nested_data(self):
         """Test action validation with nested data structures."""
-        tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
-        )
-
         # Create action with nested data
-        action_data = {
-            "command": "test",
-            "nested": {"value": "test"},
-            "array_field": [1, 2, 3],
-        }
-        action = tool.action_type.model_validate(action_data)
-
-        assert isinstance(action, MockAction)
-        assert action.nested == {"value": "test"}
-        assert action.array_field == [1, 2, 3]
-        assert hasattr(action, "optional_field")
-
-    def test_schema_roundtrip_conversion(self):
-        """Test that schema conversion is consistent."""
-        # Start with a class
-        original_schema = MockAction.to_mcp_schema()
-
-        # Create tool and get its schema
-        tool = Tool(
-            name="test_tool",
-            description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+        action = create_mock_action(
+            command="test",
+            nested={"value": "test"},
+            array_field=[1, 2, 3],
         )
-        tool_schema = tool.to_mcp_tool()["inputSchema"]
 
-        # Schemas should be equivalent (ignoring order)
-        assert original_schema["type"] == tool_schema["type"]
-        assert set(original_schema["properties"].keys()) == set(
-            tool_schema["properties"].keys()
-        )
+        assert isinstance(action, SchemaInstance)
+        assert action.data["nested"] == {"value": "test"}
+        assert action.data["array_field"] == [1, 2, 3]
+        assert "optional_field" in action.data
 
     def test_tool_with_no_observation_type(self):
         """Test tool creation with None observation type."""
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=None,
+            input_schema=create_mock_action_schema(),
+            output_schema=None,
         )
 
-        assert tool.observation_type is None
+        assert tool.output_schema is None
 
         # Should still be able to create MCP tool
         mcp_tool = tool.to_mcp_tool()
@@ -309,16 +365,18 @@ class TestTool:
 
         # Create executor first
         class MockExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result=f"Attached: {action.command}")
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_mock_observation(
+                    result=f"Attached: {action.data['command']}"
+                )
 
         executor = MockExecutor()
 
         tool = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             executor=executor,
         )
 
@@ -326,10 +384,10 @@ class TestTool:
         assert tool.executor is not None
 
         # Should work
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         result = tool.call(action)
-        assert isinstance(result, MockObservation)
-        assert result.result == "Attached: test"
+        assert isinstance(result, SchemaInstance)
+        assert result.data["result"] == "Attached: test"
 
     def test_tool_name_validation(self):
         """Test tool name validation."""
@@ -337,8 +395,8 @@ class TestTool:
         tool = Tool(
             name="valid_tool_name",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
         assert tool.name == "valid_tool_name"
 
@@ -346,121 +404,182 @@ class TestTool:
         tool2 = Tool(
             name="",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
         assert tool2.name == ""
 
     def test_complex_executor_return_types(self):
         """Test executor with complex return types."""
 
-        class ComplexObservation(ObservationBase):
-            data: Dict[str, Any] = Field(
-                default_factory=dict, description="Complex data"
+        def create_complex_observation_schema() -> Schema:
+            return Schema(
+                name="ComplexObservation",
+                fields=[
+                    SchemaField(
+                        name="data",
+                        type=SchemaFieldType.from_type(Dict[str, str]),
+                        description="Complex data",
+                        required=False,
+                    ),
+                    SchemaField(
+                        name="count",
+                        type=SchemaFieldType.from_type(int),
+                        description="Count field",
+                        required=False,
+                    ),
+                ],
             )
-            count: int = Field(default=0, description="Count field")
+
+        def create_complex_observation(**kwargs) -> SchemaInstance:
+            data = {
+                "data": {},
+                "count": 0,
+            }
+            data.update(kwargs)
+            schema = create_complex_observation_schema()
+            return SchemaInstance(name=schema.name, definition=schema, data=data)
 
         class MockComplexExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> ComplexObservation:
-                return ComplexObservation(
-                    data={"processed": action.command, "timestamp": 12345},
-                    count=len(action.command) if hasattr(action, "command") else 0,
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_complex_observation(
+                    data={"processed": action.data["command"], "timestamp": "12345"},
+                    count=len(action.data["command"])
+                    if action.data.get("command")
+                    else 0,
                 )
 
         tool = Tool(
             name="complex_tool",
             description="Tool with complex observation",
-            action_type=MockAction,
-            observation_type=ComplexObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_complex_observation_schema(),
             executor=MockComplexExecutor(),
         )
 
-        action = MockAction(command="test_command")
+        action = create_mock_action(command="test_command")
         result = tool.call(action)
 
-        assert isinstance(result, ComplexObservation)
-        assert result.data["processed"] == "test_command"
-        assert result.count == len("test_command")
+        assert isinstance(result, SchemaInstance)
+        assert result.data["data"]["processed"] == "test_command"
+        assert result.data["count"] == len("test_command")
 
     def test_error_handling_in_executor(self):
         """Test error handling when executor raises exceptions."""
 
         class FailingExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> MockObservation:
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
                 raise RuntimeError("Executor failed")
 
         tool = Tool(
             name="failing_tool",
             description="Tool that fails",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             executor=FailingExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         with pytest.raises(RuntimeError, match="Executor failed"):
             tool.call(action)
 
     def test_executor_with_observation_validation(self):
         """Test that executor return values are validated."""
 
-        class StrictObservation(ObservationBase):
-            message: str = Field(description="Required message field")
-            value: int = Field(description="Required value field")
+        def create_strict_observation_schema() -> Schema:
+            return Schema(
+                name="StrictObservation",
+                fields=[
+                    SchemaField(
+                        name="message",
+                        type=SchemaFieldType.from_type(str),
+                        description="Required message field",
+                        required=True,
+                    ),
+                    SchemaField(
+                        name="value",
+                        type=SchemaFieldType.from_type(int),
+                        description="Required value field",
+                        required=True,
+                    ),
+                ],
+            )
+
+        def create_strict_observation(**kwargs) -> SchemaInstance:
+            data = {
+                "message": "success",
+                "value": 42,
+            }
+            data.update(kwargs)
+            schema = create_strict_observation_schema()
+            return SchemaInstance(name=schema.name, definition=schema, data=data)
 
         class ValidExecutor(ToolExecutor):
-            def __call__(self, action: MockAction) -> StrictObservation:
-                return StrictObservation(message="success", value=42)
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_strict_observation(message="success", value=42)
 
         tool = Tool(
             name="strict_tool",
             description="Tool with strict observation",
-            action_type=MockAction,
-            observation_type=StrictObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_strict_observation_schema(),
             executor=ValidExecutor(),
         )
 
-        action = MockAction(command="test")
+        action = create_mock_action(command="test")
         result = tool.call(action)
-        assert isinstance(result, StrictObservation)
-        assert result.message == "success"
-        assert result.value == 42
+        assert isinstance(result, SchemaInstance)
+        assert result.data["message"] == "success"
+        assert result.data["value"] == 42
 
     def test_tool_equality_and_hashing(self):
         """Test tool equality and hashing behavior."""
         tool1 = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         tool2 = Tool(
             name="test_tool",
             description="A test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         # Tools with same parameters should be equal
         assert tool1.name == tool2.name
         assert tool1.description == tool2.description
-        assert tool1.action_type == tool2.action_type
+        assert tool1.input_schema.name == tool2.input_schema.name
 
     def test_mcp_tool_schema_required_fields(self):
         """Test that MCP tool schema includes required fields."""
 
-        class RequiredFieldAction(ActionBase):
-            required_field: str = Field(description="This field is required")
-            optional_field: Optional[str] = Field(
-                default=None, description="This field is optional"
+        def create_required_field_action_schema() -> Schema:
+            return Schema(
+                name="RequiredFieldAction",
+                fields=[
+                    SchemaField(
+                        name="required_field",
+                        type=SchemaFieldType.from_type(str),
+                        description="This field is required",
+                        required=True,
+                    ),
+                    SchemaField(
+                        name="optional_field",
+                        type=SchemaFieldType.from_type(str),
+                        description="This field is optional",
+                        required=False,
+                    ),
+                ],
             )
 
         tool = Tool(
             name="required_tool",
             description="Tool with required fields",
-            action_type=RequiredFieldAction,
-            observation_type=MockObservation,
+            input_schema=create_required_field_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         mcp_tool = tool.to_mcp_tool()
@@ -478,8 +597,8 @@ class TestTool:
         tool = Tool(
             name="meta_tool",
             description="Tool with metadata",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             meta=meta_data,
         )
 
@@ -492,31 +611,54 @@ class TestTool:
     def test_to_mcp_tool_complex_nested_types(self):
         """Test MCP tool schema generation with complex nested types."""
 
-        class ComplexNestedAction(ActionBase):
-            """Action with complex nested types for testing."""
-
-            simple_string: str = Field(description="Simple string field")
-            optional_int: Optional[int] = Field(
-                default=None, description="Optional integer"
-            )
-            string_array: List[str] = Field(
-                default_factory=list, description="Array of strings"
-            )
-            int_array: List[int] = Field(
-                default_factory=list, description="Array of integers"
-            )
-            nested_dict: Dict[str, Any] = Field(
-                default_factory=dict, description="Nested dictionary"
-            )
-            optional_array: Optional[List[str]] = Field(
-                default=None, description="Optional array"
+        def create_complex_nested_action_schema() -> Schema:
+            return Schema(
+                name="ComplexNestedAction",
+                fields=[
+                    SchemaField(
+                        name="simple_string",
+                        type=SchemaFieldType.from_type(str),
+                        description="Simple string field",
+                        required=True,
+                    ),
+                    SchemaField(
+                        name="optional_int",
+                        type=SchemaFieldType.from_type(int),
+                        description="Optional integer",
+                        required=False,
+                    ),
+                    SchemaField(
+                        name="string_array",
+                        type=SchemaFieldType.from_type(List[str]),
+                        description="Array of strings",
+                        required=False,
+                    ),
+                    SchemaField(
+                        name="int_array",
+                        type=SchemaFieldType.from_type(List[int]),
+                        description="Array of integers",
+                        required=False,
+                    ),
+                    SchemaField(
+                        name="nested_dict",
+                        type=SchemaFieldType.from_type(Dict[str, str]),
+                        description="Nested dictionary",
+                        required=False,
+                    ),
+                    SchemaField(
+                        name="optional_array",
+                        type=SchemaFieldType.from_type(List[str]),
+                        description="Optional array",
+                        required=False,
+                    ),
+                ],
             )
 
         tool = Tool(
             name="complex_nested_tool",
             description="Tool with complex nested types",
-            action_type=ComplexNestedAction,
-            observation_type=MockObservation,
+            input_schema=create_complex_nested_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         mcp_tool = tool.to_mcp_tool()

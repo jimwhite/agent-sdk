@@ -31,7 +31,6 @@ from openhands.sdk.llm import (
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
-    FinishTool,
     SchemaInstance,
     Tool,
 )
@@ -352,7 +351,11 @@ class Agent(AgentBase):
         # Validate arguments
         try:
             action_data = json.loads(tool_call.function.arguments)
-            action = SchemaInstance(schema=tool.input_schema, data=action_data)
+            action = SchemaInstance(
+                name=f"{tool.name}_input",
+                definition=tool.input_schema,
+                data=action_data,
+            )
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -415,6 +418,6 @@ class Agent(AgentBase):
         on_event(obs_event)
 
         # Set conversation state
-        if tool.name == FinishTool.name:
+        if tool.name == "finish":
             state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event

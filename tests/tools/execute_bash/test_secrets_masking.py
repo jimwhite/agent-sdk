@@ -37,10 +37,12 @@ def test_bash_executor_with_env_provider_automatic_masking():
             result = executor(action)
 
             # Check that both secrets were masked in the output
-            assert "secret-value-123" not in result.output
-            assert "another-secret-456" not in result.output
-            assert "<secret-hidden>" in result.output
-            assert "Token: <secret-hidden>, Key: <secret-hidden>" in result.output
+            assert "secret-value-123" not in result.data["output"]
+            assert "another-secret-456" not in result.data["output"]
+            assert "<secret-hidden>" in result.data["output"]
+            assert (
+                "Token: <secret-hidden>, Key: <secret-hidden>" in result.data["output"]
+            )
 
         finally:
             executor.close()
@@ -58,8 +60,8 @@ def test_bash_executor_without_env_provider():
             result = executor(action)
 
             # Check that the output is not masked
-            assert "secret-value-123" in result.output
-            assert "<secret-hidden>" not in result.output
+            assert "secret-value-123" in result.data["output"]
+            assert "<secret-hidden>" not in result.data["output"]
 
         finally:
             executor.close()

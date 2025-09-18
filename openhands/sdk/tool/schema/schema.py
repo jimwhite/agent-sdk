@@ -9,6 +9,7 @@ from pydantic import (
     create_model,
     model_validator,
 )
+from rich.text import Text
 
 from openhands.sdk.tool.schema.types import (
     BoolType,
@@ -117,6 +118,8 @@ class Schema(BaseModel):
 
     @staticmethod
     def _to_mcp_node(t: SchemaFieldType) -> dict[str, Any]:
+        from .types import CustomType, UnionType
+
         p = t.payload
         if isinstance(p, StringType):
             return {"type": "string"}
@@ -132,6 +135,15 @@ class Schema(BaseModel):
             return {"type": "array", "items": Schema._to_mcp_node(p.item_type)}
         elif isinstance(p, DictType):
             return {"type": "object"}
+        elif isinstance(p, UnionType):
+            # For Union types, use anyOf in JSON Schema
+            return {
+                "anyOf": [Schema._to_mcp_node(union_type) for union_type in p.types]
+            }
+        elif isinstance(p, CustomType):
+            # For custom Pydantic models, represent as object for now
+            # In a full implementation, we'd introspect the model fields
+            return {"type": "object", "description": f"Custom type: {p.class_name}"}
         return {"type": "string"}
 
     def build_args_model(self) -> type[BaseModel]:
@@ -159,7 +171,7 @@ class SchemaInstance(BaseModel):
     Data is typically a dict returned by LLM or tool executor.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
     name: str = Field(..., description="Name of this schema instance")
     definition: Schema = Field(..., description="The schema definition")
     data: dict[str, Any] = Field(
@@ -170,3 +182,29 @@ class SchemaInstance(BaseModel):
     def validate_data(self) -> BaseModel:
         Model = self.definition.build_args_model()
         return Model.model_validate(self.data)
+
+    @property
+    def schema(self) -> Schema:
+        """Backward compatibility property for accessing definition."""
+        return self.definition
+
+    @property
+    def agent_observation(self) -> list:
+        """Default agent observation - returns data as TextContent."""
+        # Convert data to a simple string representation
+        import json
+
+        from openhands.sdk.llm.message import TextContent
+        
+        data_str = json.dumps(self.data, indent=2)
+        return [TextContent(text=data_str)]
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this schema instance."""
+        from openhands.sdk.utils.visualize import display_dict
+
+        content = Text()
+        content.append(f"{self.name}:\n", style="bold")
+        content.append(display_dict(self.data))
+        return content

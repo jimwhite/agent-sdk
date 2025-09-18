@@ -25,6 +25,7 @@ def test_visualize_diff_simple_replacement():
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
+        output="File edited successfully.",
     )
 
     assert observation.path == "/test/file.py"
@@ -55,6 +56,7 @@ def test_visualize_diff_no_changes():
         old_content=content,
         new_content=content,
         prev_exist=True,
+        output="File edited successfully.",
     )
 
     assert observation.path == "/test/file.py"
@@ -98,6 +100,7 @@ def main():
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
+        output="File edited successfully.",
     )
     assert observation.path == "/test/calc.py"
     diff = visualize_diff(
@@ -126,6 +129,7 @@ def test_visualize_diff_attempted_edit():
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
+        output="File edited successfully.",
     )
 
     assert observation.path == "/test/file.py"
@@ -154,6 +158,7 @@ def test_visualize_diff_caching():
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
+        output="File edited successfully.",
     )
 
     # First call should compute and cache
@@ -195,6 +200,7 @@ line7"""
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
+        output="File edited successfully.",
     )
 
     # Test with 1 context line
@@ -237,6 +243,7 @@ line3"""
         old_content=old_content,
         new_content=new_content,
         prev_exist=True,
+        output="File edited successfully.",
     )
     assert observation.path == "/test/file.py"
     assert observation.old_content == old_content
@@ -285,6 +292,7 @@ def test_visualize_diff_none_content():
         old_content=None,
         new_content=None,
         prev_exist=True,
+        output="File edited successfully.",
     )
 
     # Should not crash and should return the "no changes detected" message

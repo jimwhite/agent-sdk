@@ -18,17 +18,23 @@ class FileEditorExecutor(ToolExecutor):
     def __init__(self, workspace_root: str | None = None):
         self.editor = FileEditor(workspace_root=workspace_root)
 
-    def __call__(self, action: SchemaInstance) -> SchemaInstance:
-        # Convert SchemaInstance to StrReplaceEditorAction for editor system
-        editor_action = StrReplaceEditorAction(
-            command=action.data.get("command"),
-            path=action.data.get("path"),
-            file_text=action.data.get("file_text"),
-            view_range=action.data.get("view_range"),
-            old_str=action.data.get("old_str"),
-            new_str=action.data.get("new_str"),
-            insert_line=action.data.get("insert_line"),
-        )
+    def __call__(
+        self, action: SchemaInstance | StrReplaceEditorAction
+    ) -> SchemaInstance:
+        # Handle both SchemaInstance and StrReplaceEditorAction for compatibility
+        if isinstance(action, StrReplaceEditorAction):
+            editor_action = action
+        else:
+            # Convert SchemaInstance to StrReplaceEditorAction for editor system
+            editor_action = StrReplaceEditorAction(
+                command=action.data.get("command"),
+                path=action.data.get("path"),
+                file_text=action.data.get("file_text"),
+                view_range=action.data.get("view_range"),
+                old_str=action.data.get("old_str"),
+                new_str=action.data.get("new_str"),
+                insert_line=action.data.get("insert_line"),
+            )
 
         result: StrReplaceEditorObservation | None = None
         try:
@@ -90,6 +96,8 @@ def file_editor(
             insert_line=insert_line,
         )
     except ToolError as e:
-        result = StrReplaceEditorObservation(command=command, output="", error=e.message)
+        result = StrReplaceEditorObservation(
+            command=command, output="", error=e.message
+        )
     assert result is not None, "file_editor should always return a result"
     return result

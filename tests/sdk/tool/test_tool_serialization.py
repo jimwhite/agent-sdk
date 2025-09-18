@@ -4,7 +4,7 @@ import json
 
 from pydantic import BaseModel
 
-from openhands.sdk.tool import Tool, ToolType
+from openhands.sdk.tool import Tool
 from openhands.sdk.tool.builtins import FinishTool, ThinkTool
 
 
@@ -107,13 +107,13 @@ def test_tool_fallback_behavior_json() -> None:
 
 
 def test_tool_type_annotation_works_json() -> None:
-    """Test that ToolType annotation works correctly with JSON."""
+    """Test that Tool annotation works correctly with JSON."""
     # Create tool
     tool = FinishTool
 
-    # Use ToolType annotation
+    # Use Tool annotation
     class TestModel(BaseModel):
-        tool: ToolType
+        tool: Tool
 
     model = TestModel(tool=tool)
 

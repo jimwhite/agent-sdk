@@ -395,7 +395,9 @@ def test_command_output_continuation(terminal_type):
         # If the command timed out, verify we got the timeout message
         assert session.prev_status == TerminalCommandStatus.NO_CHANGE_TIMEOUT
         assert "1" in obs.output
-        assert "[The command has no new output after 1 seconds." in obs.metadata["suffix"]
+        assert (
+            "[The command has no new output after 1 seconds." in obs.metadata["suffix"]
+        )
 
         # Continue getting output until we see all numbers
         numbers_seen = set()
@@ -423,7 +425,8 @@ def test_command_output_continuation(terminal_type):
             # Check if the command has completed
             if session.prev_status == TerminalCommandStatus.COMPLETED:
                 assert (
-                    "[The command completed with exit code 0.]" in obs.metadata["suffix"]
+                    "[The command completed with exit code 0.]"
+                    in obs.metadata["suffix"]
                 )
                 break
             else:
@@ -558,7 +561,7 @@ def _run_bash_action(session, command: str, **kwargs):
     obs = session.execute(action)
     logger.info(f"Command: {command}")
     logger.info(f"Output: {obs.output}")
-    logger.info(f"Exit code: {obs.metadata["exit_code"]}")
+    logger.info(f"Exit code: {obs.metadata.get('exit_code') if obs.metadata else None}")
     return obs
 
 

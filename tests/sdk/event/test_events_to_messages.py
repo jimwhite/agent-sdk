@@ -17,23 +17,46 @@ from openhands.sdk.event.llm_convertible import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
-from openhands.sdk.tool import ActionBase, ObservationBase
+from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
-class MockAction(ActionBase):
-    """Mock action for testing."""
+def create_mock_action(command: str = "test_command") -> SchemaInstance:
+    """Create a mock action for testing."""
+    schema = Schema(
+        name="MockAction",
+        fields=[
+            SchemaField(
+                name="command",
+                type=SchemaFieldType.from_type(str),
+                description="Command",
+            )
+        ],
+    )
+    return SchemaInstance(
+        name="MockAction", definition=schema, data={"command": command}
+    )
 
-    command: str
 
+def create_mock_observation(result: str = "test_result") -> SchemaInstance:
+    """Create a mock observation for testing."""
+    schema = Schema(
+        name="MockObservation",
+        fields=[
+            SchemaField(
+                name="result", type=SchemaFieldType.from_type(str), description="Result"
+            )
+        ],
+    )
 
-class MockObservation(ObservationBase):
-    """Mock observation for testing."""
+    class MockObservationInstance(SchemaInstance):
+        @property
+        def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+            return [TextContent(text=self.data["result"])]
 
-    result: str
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        return [TextContent(text=self.result)]
+    return MockObservationInstance(
+        name="MockObservation", definition=schema, data={"result": result}
+    )
 
 
 def create_tool_call(
@@ -55,7 +78,7 @@ def create_action_event(
     action_args: dict,
 ) -> ActionEvent:
     """Helper to create an ActionEvent."""
-    action = MockAction(command=action_args.get("command", "test"))
+    action = create_mock_action(command=action_args.get("command", "test"))
     tool_call = create_tool_call(tool_call_id, tool_name, action_args)
 
     return ActionEvent(
@@ -138,7 +161,7 @@ class TestEventsToMessages:
         action2 = ActionEvent(
             source="agent",
             thought=[],  # Empty thought for subsequent actions in parallel call
-            action=MockAction(command="test"),
+            action=create_mock_action(command="test"),
             tool_name="get_current_weather",
             tool_call_id="call_Tokyo",
             tool_call=create_tool_call(
@@ -152,7 +175,7 @@ class TestEventsToMessages:
         action3 = ActionEvent(
             source="agent",
             thought=[],  # Empty thought for subsequent actions in parallel call
-            action=MockAction(command="test"),
+            action=create_mock_action(command="test"),
             tool_name="get_current_weather",
             tool_call_id="call_Paris",
             tool_call=create_tool_call(
@@ -251,7 +274,7 @@ class TestEventsToMessages:
         # Observation event
         observation_event = ObservationEvent(
             source="environment",
-            observation=MockObservation(result="Sunny, 72°F"),
+            observation=create_mock_observation(result="Sunny, 72°F"),
             action_id="action_123",
             tool_name="get_weather",
             tool_call_id="call_weather",
@@ -318,7 +341,7 @@ class TestEventsToMessages:
         weather_nyc = ActionEvent(
             source="agent",
             thought=[],  # Empty for parallel call
-            action=MockAction(command="test"),
+            action=create_mock_action(command="test"),
             tool_name="get_weather",
             tool_call_id="call_nyc_weather",
             tool_call=create_tool_call(
@@ -330,7 +353,7 @@ class TestEventsToMessages:
         # Third: Weather observations
         obs_sf = ObservationEvent(
             source="environment",
-            observation=MockObservation(result="SF: Sunny, 65°F"),
+            observation=create_mock_observation(result="SF: Sunny, 65°F"),
             action_id="action_sf",
             tool_name="get_weather",
             tool_call_id="call_sf_weather",
@@ -338,7 +361,7 @@ class TestEventsToMessages:
 
         obs_nyc = ObservationEvent(
             source="environment",
-            observation=MockObservation(result="NYC: Cloudy, 45°F"),
+            observation=create_mock_observation(result="NYC: Cloudy, 45°F"),
             action_id="action_nyc",
             tool_name="get_weather",
             tool_call_id="call_nyc_weather",
@@ -395,7 +418,7 @@ class TestEventsToMessages:
         action2 = ActionEvent(
             source="agent",
             thought=[TextContent(text="This should not be here!")],  # Non-empty thought
-            action=MockAction(command="test"),
+            action=create_mock_action(command="test"),
             tool_name="get_weather",
             tool_call_id="call_2",
             tool_call=create_tool_call("call_2", "get_weather", {"location": "NYC"}),

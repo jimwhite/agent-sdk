@@ -1,33 +1,91 @@
 """Tests for the Tool class in openhands.sdk.runtime.tool."""
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 import pytest
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Schema,
+    SchemaField,
+    SchemaFieldType,
+    SchemaInstance,
     Tool,
     ToolAnnotations,
     ToolExecutor,
 )
 
 
-class MockAction(ActionBase):
-    """Mock action class for testing."""
+def create_mock_action_schema() -> Schema:
+    """Create mock action schema for testing."""
+    return Schema(
+        name="MockAction",
+        fields=[
+            SchemaField(
+                name="command",
+                type=SchemaFieldType.from_type(str),
+                description="Command to execute",
+                required=True,
+            ),
+            SchemaField(
+                name="optional_field",
+                type=SchemaFieldType.from_type(str),
+                description="Optional field",
+                required=False,
+            ),
+            SchemaField(
+                name="nested",
+                type=SchemaFieldType.from_type(Dict[str, str]),
+                description="Nested object",
+                required=False,
+            ),
+            SchemaField(
+                name="array_field",
+                type=SchemaFieldType.from_type(List[str]),
+                description="Array field",
+                required=False,
+            ),
+        ],
+    )
 
-    command: str = Field(description="Command to execute")
-    optional_field: Optional[str] = Field(default=None, description="Optional field")
-    nested: Dict[str, Any] = Field(default_factory=dict, description="Nested object")
-    array_field: List[int] = Field(default_factory=list, description="Array field")
+
+def create_mock_observation_schema() -> Schema:
+    """Create mock observation schema for testing."""
+    return Schema(
+        name="MockObservation",
+        fields=[
+            SchemaField(
+                name="result",
+                type=SchemaFieldType.from_type(str),
+                description="Result of the action",
+                required=True,
+            ),
+            SchemaField(
+                name="extra_field",
+                type=SchemaFieldType.from_type(str),
+                description="Extra field",
+                required=False,
+            ),
+        ],
+    )
 
 
-class MockObservation(ObservationBase):
-    """Mock observation class for testing."""
+def create_mock_action(**kwargs) -> SchemaInstance:
+    """Create mock action instance."""
+    data = {
+        "command": "test",
+        "optional_field": None,
+        "nested": {},
+        "array_field": [],
+        **kwargs,
+    }
+    return SchemaInstance(name="MockAction", data=data)
 
-    result: str = Field(description="Result of the action")
-    extra_field: Optional[str] = Field(default=None, description="Extra field")
+
+def create_mock_observation(**kwargs) -> SchemaInstance:
+    """Create mock observation instance."""
+    data = {"result": "success", "extra_field": None, **kwargs}
+    return SchemaInstance(name="MockObservation", data=data)
 
 
 class TestToolImmutability:
@@ -38,8 +96,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         # Test that we cannot modify any field
@@ -59,13 +117,13 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
-        class NewExecutor(ToolExecutor[MockAction, MockObservation]):
-            def __call__(self, action: MockAction) -> MockObservation:
-                return MockObservation(result="new_result")
+        class NewExecutor(ToolExecutor):
+            def __call__(self, action: SchemaInstance) -> SchemaInstance:
+                return create_mock_observation(result="new_result")
 
         new_executor = NewExecutor()
         new_tool = tool.set_executor(new_executor)
@@ -82,8 +140,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
 
         # Create a copy with modified fields
@@ -104,8 +162,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             meta=meta_data,
         )
 
@@ -128,19 +186,19 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
         )
-        assert tool.action_type == MockAction
-        assert tool.observation_type == MockObservation
+        assert tool.input_schema.name == "MockAction"
+        assert tool.output_schema.name == "MockObservation"
 
         # Test that invalid field types are rejected
         with pytest.raises(ValidationError):
             Tool(
                 name="test_tool",
                 description="Test tool",
-                action_type="invalid_type",  # type: ignore[arg-type] # Should be a class, not string
-                observation_type=MockObservation,
+                input_schema="invalid_type",  # type: ignore[arg-type] # Should be Schema, not string
+                output_schema=create_mock_observation_schema(),
             )
 
     def test_tool_annotations_immutability(self):
@@ -154,8 +212,8 @@ class TestToolImmutability:
         tool = Tool(
             name="test_tool",
             description="Test tool",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=create_mock_action_schema(),
+            output_schema=create_mock_observation_schema(),
             annotations=annotations,
         )
 

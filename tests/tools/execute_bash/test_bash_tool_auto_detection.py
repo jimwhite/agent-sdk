@@ -35,7 +35,7 @@ def test_default_auto_detection():
             command="echo 'Auto-detection test'", security_risk="LOW"
         )
         obs = executor(action)
-        assert "Auto-detection test" in obs.output
+        assert "Auto-detection test" in obs.data["output"]
 
 
 def test_forced_terminal_types():
@@ -54,7 +54,7 @@ def test_forced_terminal_types():
             command="echo 'Subprocess test'", security_risk="LOW"
         )
         obs = tool.executor(action)
-        assert obs.metadata.exit_code == 0
+        assert obs.data["metadata"]["exit_code"] == 0
 
 
 @patch("platform.system")
@@ -118,8 +118,8 @@ def test_backward_compatibility():
             command="echo 'Backward compatibility test'", security_risk="LOW"
         )
         obs = tool.executor(action)
-        assert "Backward compatibility test" in obs.output
-        assert obs.metadata.exit_code == 0
+        assert "Backward compatibility test" in obs.data["output"]
+        assert obs.data["metadata"]["exit_code"] == 0
 
 
 def test_tool_metadata():
@@ -129,8 +129,8 @@ def test_tool_metadata():
 
         assert tool.name == "execute_bash"
         assert tool.description is not None
-        assert tool.action_type == ExecuteBashAction
-        assert hasattr(tool, "annotations")
+        assert tool.input_schema is not None
+        assert tool.annotations is not None
 
 
 def test_session_lifecycle():
@@ -147,7 +147,7 @@ def test_session_lifecycle():
         # Should be able to execute commands
         action = ExecuteBashAction(command="echo 'Lifecycle test'", security_risk="LOW")
         obs = executor(action)
-        assert obs.metadata.exit_code == 0
+        assert obs.data["metadata"]["exit_code"] == 0
 
         # Manual cleanup should work
         executor.session.close()

@@ -79,13 +79,17 @@ class BashExecutor(ToolExecutor):
             )
         )
 
-    def __call__(self, action: SchemaInstance) -> SchemaInstance:
-        # Convert SchemaInstance to ExecuteBashAction for terminal system
-        bash_action = ExecuteBashAction(
-            command=action.data.get("command", ""),
-            is_input=action.data.get("is_input", False),
-            timeout=action.data.get("timeout"),
-        )
+    def __call__(self, action: SchemaInstance | ExecuteBashAction) -> SchemaInstance:
+        # Handle both SchemaInstance and ExecuteBashAction for compatibility
+        if isinstance(action, ExecuteBashAction):
+            bash_action = action
+        else:
+            # Convert SchemaInstance to ExecuteBashAction for terminal system
+            bash_action = ExecuteBashAction(
+                command=action.data.get("command", ""),
+                is_input=action.data.get("is_input", False),
+                timeout=action.data.get("timeout"),
+            )
 
         # If env keys detected, export env values to bash as a separate action first
         self._export_envs(bash_action)
@@ -98,8 +102,10 @@ class BashExecutor(ToolExecutor):
             observation = ExecuteBashObservation(**data, output=masked_output)
 
         # Convert ExecuteBashObservation back to SchemaInstance
+        output_schema = make_output_schema()
         return SchemaInstance(
-            schema=make_output_schema(),
+            name=output_schema.name,
+            definition=output_schema,
             data={
                 "output": observation.output,
                 "command": observation.command,

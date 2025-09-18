@@ -312,11 +312,13 @@ class TerminalSession(TerminalSessionBase):
                 return ExecuteBashObservation(
                     output="ERROR: No previous running command to retrieve logs from.",
                     error=True,
+                    metadata={"exit_code": -1, "prefix": "", "suffix": ""},
                 )
             if is_input:
                 return ExecuteBashObservation(
                     output="ERROR: No previous running command to interact with.",
                     error=True,
+                    metadata={"exit_code": -1, "prefix": "", "suffix": ""},
                 )
 
         # Check if the command is a single command or multiple commands

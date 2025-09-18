@@ -125,9 +125,10 @@ def test_mcp_tool_essential_properties() -> None:
     # Verify input schema was created correctly
     assert mcp_tool.input_schema is not None
     assert mcp_tool.input_schema.name == "openhands.sdk.mcp.essential_tool.input"
-    assert len(mcp_tool.input_schema.fields) == 2
+    assert len(mcp_tool.input_schema.fields) == 3  # param1, param2, security_risk
 
     # Check that the fields were converted correctly
     field_names = {field.name for field in mcp_tool.input_schema.fields}
     assert "param1" in field_names
     assert "param2" in field_names
+    assert "security_risk" in field_names

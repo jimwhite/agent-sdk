@@ -225,13 +225,13 @@ def test_mask_secrets(
     try:
         action = ExecuteBashAction(command="echo $API_KEY")
         result = bash_executor(action)
-        assert "test-api-key" not in result.output
-        assert "<secret-hidden>" in result.output
+        assert "test-api-key" not in result.data["output"]
+        assert "<secret-hidden>" in result.data["output"]
 
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
-        assert "dynamic-secret" not in result.output
-        assert "<secret-hidden>" in result.output
+        assert "dynamic-secret" not in result.data["output"]
+        assert "<secret-hidden>" in result.data["output"]
 
     finally:
         bash_executor.close()
@@ -256,13 +256,13 @@ def test_mask_changing_secrets(
     try:
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
-        assert "changing-secret" not in result.output
-        assert "<secret-hidden>" in result.output
+        assert "changing-secret" not in result.data["output"]
+        assert "<secret-hidden>" in result.data["output"]
 
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
-        assert "changing-secret" not in result.output
-        assert "<secret-hidden>" in result.output
+        assert "changing-secret" not in result.data["output"]
+        assert "<secret-hidden>" in result.data["output"]
 
     finally:
         bash_executor.close()
@@ -294,13 +294,13 @@ def test_masking_persists(
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
         print(result)
-        assert "changing-secret" not in result.output
-        assert "<secret-hidden>" in result.output
+        assert "changing-secret" not in result.data["output"]
+        assert "<secret-hidden>" in result.data["output"]
 
         action = ExecuteBashAction(command="echo $DB_PASSWORD")
         result = bash_executor(action)
-        assert "changing-secret" not in result.output
-        assert "<secret-hidden>" in result.output
+        assert "changing-secret" not in result.data["output"]
+        assert "<secret-hidden>" in result.data["output"]
         assert raised_on_second
 
     finally:

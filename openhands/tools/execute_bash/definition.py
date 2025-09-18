@@ -4,7 +4,7 @@ import os
 from collections.abc import Sequence
 from typing import Callable, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -120,7 +120,7 @@ def make_output_schema() -> Schema:
                 name="metadata",
                 description="Additional metadata captured from PS1 after "
                 "command execution.",
-                type=dict[str, str],
+                type=CmdOutputMetadata,
                 required=False,
                 default=None,
             ),
@@ -374,3 +374,33 @@ class ExecuteBashObservation(BaseModel):
     error: bool = False
     timeout: bool = False
     metadata: dict | None = None
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def validate_metadata(cls, v):
+        """Convert CmdOutputMetadata to dict if needed."""
+        if isinstance(v, CmdOutputMetadata):
+            return v.model_dump()
+        return v
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        """Convert to agent observation format for compatibility."""
+        # Create a data converter to format the observation
+        converter = ExecuteBashDataConverter()
+
+        # Create a SchemaInstance with our data
+        schema_instance = SchemaInstance(
+            name="openhands.tools.execute_bash.output",
+            definition=make_output_schema(),
+            data={
+                "output": self.output,
+                "command": self.command,
+                "exit_code": self.exit_code,
+                "error": self.error,
+                "timeout": self.timeout,
+                "metadata": self.metadata,
+            },
+        )
+
+        return converter.agent_observation(schema_instance)

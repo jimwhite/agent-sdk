@@ -24,10 +24,8 @@ from openhands.sdk.event.llm_convertible import (
     ObservationEvent,
 )
 from openhands.tools import (
-    BashExecutor,
-    FileEditorExecutor,
-    execute_bash_tool,
-    str_replace_editor_tool,
+    BashTool,
+    FileEditorTool,
 )
 
 
@@ -171,11 +169,9 @@ class TestHelloWorld:
         )
 
         # Tools setup with temporary directory
-        bash = BashExecutor(working_dir=self.temp_dir)
-        file_editor = FileEditorExecutor()
         tools: List[Tool] = [
-            execute_bash_tool.set_executor(executor=bash),
-            str_replace_editor_tool.set_executor(executor=file_editor),
+            BashTool.create(working_dir=self.temp_dir),
+            FileEditorTool.create(),
         ]
 
         # Agent setup
@@ -286,11 +282,9 @@ class TestHelloWorld:
         )
 
         # Tools setup with temporary directory
-        bash = BashExecutor(working_dir=self.temp_dir)
-        file_editor = FileEditorExecutor()
         tools: List[Tool] = [
-            execute_bash_tool.set_executor(executor=bash),
-            str_replace_editor_tool.set_executor(executor=file_editor),
+            BashTool.create(working_dir=self.temp_dir),
+            FileEditorTool.create(),
         ]
 
         # Create agent and conversation

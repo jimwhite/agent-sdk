@@ -323,3 +323,4 @@ class StrReplaceEditorObservation(BaseModel):
     old_content: str | None = None
     new_content: str | None = None
     prev_exist: bool | None = None
+    _diff_cache: str | None = None

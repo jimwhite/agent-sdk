@@ -19,7 +19,7 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
-from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolSpec
+from openhands.sdk.tool import Tool, ToolSpec
 
 
 try:
@@ -40,8 +40,6 @@ __all__ = [
     "AgentBase",
     "Agent",
     "AgentSpec",
-    "ActionBase",
-    "ObservationBase",
     "MCPClient",
     "MCPTool",
     "MCPToolObservation",

@@ -1,6 +1,5 @@
 """Tests for MCP tool functionality with new simplified implementation."""
 
-import json
 from unittest.mock import MagicMock
 
 import mcp.types
@@ -24,6 +23,8 @@ class TestMCPToolObservation:
 
     def test_from_call_tool_result_success(self):
         """Test creating observation from successful MCP result."""
+        from openhands.sdk.llm import TextContent
+
         # Create mock MCP result
         result = MagicMock(spec=mcp.types.CallToolResult)
         result.content = [
@@ -36,13 +37,16 @@ class TestMCPToolObservation:
         )
 
         assert observation.data["tool_name"] == "test_tool"
-        content = json.loads(observation.data["content"])
+        content = observation.data["content"]
         assert len(content) == 1
-        assert content[0]["text"] == "Operation completed successfully"
+        assert isinstance(content[0], TextContent)
+        assert content[0].text == "Operation completed successfully"
         assert observation.data["is_error"] is False
 
     def test_from_call_tool_result_error(self):
         """Test creating observation from error MCP result."""
+        from openhands.sdk.llm import TextContent
+
         # Create mock MCP result
         result = MagicMock(spec=mcp.types.CallToolResult)
         result.content = [mcp.types.TextContent(type="text", text="Operation failed")]
@@ -53,13 +57,16 @@ class TestMCPToolObservation:
         )
 
         assert observation.data["tool_name"] == "test_tool"
-        content = json.loads(observation.data["content"])
+        content = observation.data["content"]
         assert len(content) == 1
-        assert content[0]["text"] == "Operation failed"
+        assert isinstance(content[0], TextContent)
+        assert content[0].text == "Operation failed"
         assert observation.data["is_error"] is True
 
     def test_from_call_tool_result_with_image(self):
         """Test creating observation from MCP result with image content."""
+        from openhands.sdk.llm import ImageContent, TextContent
+
         # Create mock MCP result with image
         result = MagicMock(spec=mcp.types.CallToolResult)
         result.content = [
@@ -75,16 +82,19 @@ class TestMCPToolObservation:
         )
 
         assert observation.data["tool_name"] == "test_tool"
-        content = json.loads(observation.data["content"])
+        content = observation.data["content"]
         assert len(content) == 2
-        assert content[0]["text"] == "Here's the image:"
+        assert isinstance(content[0], TextContent)
+        assert content[0].text == "Here's the image:"
         # Second content should be ImageContent
-        assert "image_urls" in content[1]
-        assert content[1]["image_urls"] == ["data:image/png;base64,base64data"]
+        assert isinstance(content[1], ImageContent)
+        assert content[1].image_urls == ["data:image/png;base64,base64data"]
         assert observation.data["is_error"] is False
 
     def test_agent_observation_success(self):
         """Test agent observation formatting for success."""
+        from openhands.sdk.llm import TextContent
+
         # Create a mock MCP result for success
         result = MagicMock(spec=mcp.types.CallToolResult)
         result.content = [mcp.types.TextContent(type="text", text="Success result")]
@@ -94,16 +104,18 @@ class TestMCPToolObservation:
             tool_name="test_tool", result=result
         )
 
-        # For now, we'll just verify the data structure since agent_observation
-        # functionality may need to be implemented differently in the new system
-        assert observation.data["tool_name"] == "test_tool"
-        content = json.loads(observation.data["content"])
-        assert len(content) == 1
-        assert content[0]["text"] == "Success result"
-        assert observation.data["is_error"] is False
+        # Test agent_observation method
+        agent_content = MCPToolObservation.agent_observation(observation)
+        assert len(agent_content) == 2  # Initial message + content
+        assert isinstance(agent_content[0], TextContent)
+        assert "[Tool 'test_tool' executed.]" in agent_content[0].text
+        assert isinstance(agent_content[1], TextContent)
+        assert agent_content[1].text == "Success result"
 
     def test_agent_observation_error(self):
         """Test agent observation formatting for error."""
+        from openhands.sdk.llm import TextContent
+
         # Create a mock MCP result for error
         result = MagicMock(spec=mcp.types.CallToolResult)
         result.content = [mcp.types.TextContent(type="text", text="Error occurred")]
@@ -113,13 +125,14 @@ class TestMCPToolObservation:
             tool_name="test_tool", result=result
         )
 
-        # For now, we'll just verify the data structure since agent_observation
-        # functionality may need to be implemented differently in the new system
-        assert observation.data["tool_name"] == "test_tool"
-        content = json.loads(observation.data["content"])
-        assert len(content) == 1
-        assert content[0]["text"] == "Error occurred"
-        assert observation.data["is_error"] is True
+        # Test agent_observation method
+        agent_content = MCPToolObservation.agent_observation(observation)
+        assert len(agent_content) == 2  # Initial message + content
+        assert isinstance(agent_content[0], TextContent)
+        assert "[Tool 'test_tool' executed.]" in agent_content[0].text
+        assert "[An error occurred during execution.]" in agent_content[0].text
+        assert isinstance(agent_content[1], TextContent)
+        assert agent_content[1].text == "Error occurred"
 
 
 class TestMCPToolExecutor:
@@ -218,8 +231,8 @@ class TestMCPToolExecutor:
         assert isinstance(observation, SchemaInstance)
         assert observation.data["tool_name"] == "test_tool"
         assert observation.data["is_error"] is True
-        content = json.loads(observation.data["content"])
-        assert "Connection failed" in content[0]["text"]
+        content = observation.data["content"]
+        assert "Connection failed" in content[0].text
 
 
 class TestMCPTool:
@@ -257,10 +270,16 @@ class TestMCPTool:
         expected_schema = schema_dict.copy()
         expected_schema["properties"] = expected_schema["properties"].copy()
         expected_schema["properties"].pop("security_risk")
+        if "required" in expected_schema:
+            expected_schema["required"] = [
+                req for req in expected_schema["required"] if req != "security_risk"
+            ]
+            if not expected_schema["required"]:
+                expected_schema.pop("required")
 
         assert expected_schema == {
             "type": "object",
-            "properties": {"param": {"type": "string"}},
+            "properties": {"param": {"type": "string", "description": "Field param"}},
         }
 
     def test_mcp_tool_with_annotations(self):
