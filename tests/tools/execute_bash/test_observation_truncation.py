@@ -1,9 +1,27 @@
 """Tests for ExecuteBashObservation truncation functionality."""
 
 from openhands.sdk.llm import TextContent
+from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.execute_bash.constants import MAX_CMD_OUTPUT_SIZE
-from openhands.tools.execute_bash.definition import ExecuteBashObservation
+from openhands.tools.execute_bash.definition import (
+    ExecuteBashDataConverter,
+    make_output_schema,
+)
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+
+
+OUTPUT_SCHEMA = make_output_schema()
+CONVERTER = ExecuteBashDataConverter()
+
+
+def create_observation(**data) -> SchemaInstance:
+    """Helper to create a schema-based observation instance."""
+
+    return SchemaInstance(
+        name=OUTPUT_SCHEMA.name,
+        definition=OUTPUT_SCHEMA,
+        data=data,
+    )
 
 
 def test_execute_bash_observation_truncation_under_limit():
@@ -17,13 +35,13 @@ def test_execute_bash_observation_truncation_under_limit():
         pid=123,
     )
 
-    observation = ExecuteBashObservation(
+    observation = create_observation(
         output="Short output",
-        metadata=metadata,
+        metadata=metadata.model_dump(),
         error=False,
     )
 
-    result = observation.agent_observation
+    result = CONVERTER.agent_observation(observation)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -51,13 +69,13 @@ def test_execute_bash_observation_truncation_over_limit():
     # Create output that exceeds the limit
     long_output = "A" * (MAX_CMD_OUTPUT_SIZE + 1000)
 
-    observation = ExecuteBashObservation(
+    observation = create_observation(
         output=long_output,
-        metadata=metadata,
+        metadata=metadata.model_dump(),
         error=False,
     )
 
-    result = observation.agent_observation
+    result = CONVERTER.agent_observation(observation)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -88,13 +106,13 @@ def test_execute_bash_observation_truncation_with_error():
     # Create output that exceeds the limit
     long_output = "B" * (MAX_CMD_OUTPUT_SIZE + 500)
 
-    observation = ExecuteBashObservation(
+    observation = create_observation(
         output=long_output,
-        metadata=metadata,
+        metadata=metadata.model_dump(),
         error=True,
     )
 
-    result = observation.agent_observation
+    result = CONVERTER.agent_observation(observation)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -131,13 +149,13 @@ def test_execute_bash_observation_truncation_exact_limit():
     exact_output_size = MAX_CMD_OUTPUT_SIZE - len(metadata_text)
     exact_output = "C" * exact_output_size
 
-    observation = ExecuteBashObservation(
+    observation = create_observation(
         output=exact_output,
-        metadata=metadata,
+        metadata=metadata.model_dump(),
         error=False,
     )
 
-    result = observation.agent_observation
+    result = CONVERTER.agent_observation(observation)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text
@@ -161,13 +179,13 @@ def test_execute_bash_observation_truncation_with_prefix_suffix():
     # Create output that exceeds the limit
     long_output = "D" * (MAX_CMD_OUTPUT_SIZE + 200)
 
-    observation = ExecuteBashObservation(
+    observation = create_observation(
         output=long_output,
-        metadata=metadata,
+        metadata=metadata.model_dump(),
         error=False,
     )
 
-    result = observation.agent_observation
+    result = CONVERTER.agent_observation(observation)
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
     result = result[0].text

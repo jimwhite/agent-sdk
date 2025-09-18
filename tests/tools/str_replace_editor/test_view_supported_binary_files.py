@@ -2,9 +2,7 @@ import tempfile
 from pathlib import Path
 
 from openhands.tools.str_replace_editor import file_editor
-from openhands.tools.str_replace_editor.definition import (
-    StrReplaceEditorObservation,
-)
+from openhands.tools.str_replace_editor.editor import StrReplaceEditorObservation
 
 from .conftest import assert_successful_result
 

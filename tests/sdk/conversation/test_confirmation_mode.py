@@ -4,7 +4,6 @@ Unit tests for confirmation mode functionality.
 Tests the core behavior: pause action execution for user confirmation.
 """
 
-from collections.abc import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +22,7 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import ActionEvent, Event, MessageEvent, ObservationEvent
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm import LLM, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
@@ -69,23 +68,35 @@ class TestConfirmationMode:
                     definition=Schema(
                         name="test_tool_output",
                         fields=[
-                            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-                        ]
+                            SchemaField(
+                                name="result",
+                                type=SchemaFieldType.from_type(str),
+                                description="Result",
+                            )
+                        ],
                     ),
-                    data={"result": f"Executed: {command}"}
+                    data={"result": f"Executed: {command}"},
                 )
 
         input_schema = Schema(
             name="test_tool_input",
             fields=[
-                SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command to execute")
-            ]
+                SchemaField(
+                    name="command",
+                    type=SchemaFieldType.from_type(str),
+                    description="Command to execute",
+                )
+            ],
         )
         output_schema = Schema(
             name="test_tool_output",
             fields=[
-                SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-            ]
+                SchemaField(
+                    name="result",
+                    type=SchemaFieldType.from_type(str),
+                    description="Result",
+                )
+            ],
         )
 
         test_tool = Tool(
@@ -223,10 +234,14 @@ class TestConfirmationMode:
             definition=Schema(
                 name="test_tool_input",
                 fields=[
-                    SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command to execute")
-                ]
+                    SchemaField(
+                        name="command",
+                        type=SchemaFieldType.from_type(str),
+                        description="Command to execute",
+                    )
+                ],
             ),
-            data={"command": command}
+            data={"command": command},
         )
 
         tool_call = ChatCompletionMessageToolCall(
@@ -288,10 +303,14 @@ class TestConfirmationMode:
             definition=Schema(
                 name="test_tool_output",
                 fields=[
-                    SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-                ]
+                    SchemaField(
+                        name="result",
+                        type=SchemaFieldType.from_type(str),
+                        description="Result",
+                    )
+                ],
             ),
-            data={"result": "test result"}
+            data={"result": "test result"},
         )
 
         obs_event = ObservationEvent(

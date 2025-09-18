@@ -1,12 +1,12 @@
 import json
 
 from openhands.sdk import TextContent
+from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.execute_bash.constants import (
     CMD_OUTPUT_METADATA_PS1_REGEX,
     CMD_OUTPUT_PS1_BEGIN,
     CMD_OUTPUT_PS1_END,
 )
-from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.execute_bash.definition import (
     ExecuteBashDataConverter,
     make_output_schema,
@@ -288,7 +288,7 @@ def test_cmd_output_observation_properties():
     assert obs.data["exit_code"] == 0
     assert obs.data["metadata"]["pid"] == "123"
     assert obs.data.get("error", False) is False
-    
+
     # Test agent observation via data converter
     converter = ExecuteBashDataConverter()
     agent_obs = converter.agent_observation(obs)
@@ -315,7 +315,7 @@ def test_cmd_output_observation_properties():
     assert obs.data["metadata"]["pid"] == "456"
     assert obs.data["exit_code"] == 1
     assert obs.data["error"] is True
-    
+
     # Test agent observation via data converter
     agent_obs = converter.agent_observation(obs)
     assert len(agent_obs) == 1

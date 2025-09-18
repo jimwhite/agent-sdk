@@ -2,9 +2,8 @@
 
 import os
 import shlex
-from collections.abc import Sequence
 
-from pydantic import Field, SecretStr
+from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
@@ -18,7 +17,13 @@ from openhands.sdk import (
     Tool,
     get_logger,
 )
-from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
+from openhands.sdk.tool import (
+    Schema,
+    SchemaField,
+    SchemaInstance,
+    ToolDataConverter,
+    ToolExecutor,
+)
 from openhands.tools import (
     BashExecutor,
     ExecuteBashAction,
@@ -30,33 +35,82 @@ from openhands.tools import (
 logger = get_logger(__name__)
 
 
-# --- Action / Observation ---
+# --- Action / Observation Schemas ---
 
 
-class GrepAction(ActionBase):
-    pattern: str = Field(description="Regex to search for")
-    path: str = Field(
-        default=".", description="Directory to search (absolute or relative)"
+def make_grep_input_schema() -> Schema:
+    return Schema(
+        name="examples.grep.action",
+        fields=[
+            SchemaField.create(
+                name="pattern",
+                description="Regex to search for",
+                type=str,
+                required=True,
+            ),
+            SchemaField.create(
+                name="path",
+                description="Directory to search (absolute or relative)",
+                type=str,
+                required=False,
+                default=".",
+            ),
+            SchemaField.create(
+                name="include",
+                description="Optional glob to filter files (e.g. '*.py')",
+                type=str,
+                required=False,
+                default=None,
+            ),
+        ],
     )
-    include: str | None = Field(
-        default=None, description="Optional glob to filter files (e.g. '*.py')"
+
+
+def make_grep_output_schema() -> Schema:
+    return Schema(
+        name="examples.grep.observation",
+        fields=[
+            SchemaField.create(
+                name="matches",
+                description="List of matching lines",
+                type=list[str],
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="files",
+                description="List of files that contain matches",
+                type=list[str],
+                required=False,
+                default=None,
+            ),
+            SchemaField.create(
+                name="count",
+                description="Total number of matches",
+                type=int,
+                required=True,
+            ),
+        ],
     )
 
 
-class GrepObservation(ObservationBase):
-    matches: list[str] = Field(default_factory=list)
-    files: list[str] = Field(default_factory=list)
-    count: int = 0
+class GrepDataConverter(ToolDataConverter):
+    def agent_observation(
+        self, observation: SchemaInstance
+    ) -> list[TextContent | ImageContent]:
+        observation.validate_data()
+        count = observation.data.get("count", 0)
+        matches = list(observation.data.get("matches") or [])
+        files = list(observation.data.get("files") or [])
 
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        if not self.count:
+        if not count:
             return [TextContent(text="No matches found.")]
-        files_list = "\n".join(f"- {f}" for f in self.files[:20])
-        sample = "\n".join(self.matches[:10])
-        more = "\n..." if self.count > 10 else ""
+
+        files_list = "\n".join(f"- {f}" for f in files[:20])
+        sample = "\n".join(matches[:10])
+        more = "\n..." if count > 10 else ""
         ret = (
-            f"Found {self.count} matching lines.\n"
+            f"Found {count} matching lines.\n"
             f"Files:\n{files_list}\n"
             f"Sample:\n{sample}{more}"
         )
@@ -66,18 +120,26 @@ class GrepObservation(ObservationBase):
 # --- Executor ---
 
 
-class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
+GREP_INPUT_SCHEMA = make_grep_input_schema()
+GREP_OUTPUT_SCHEMA = make_grep_output_schema()
+
+
+class GrepExecutor(ToolExecutor):
     def __init__(self, bash: BashExecutor):
         self.bash = bash
 
-    def __call__(self, action: GrepAction) -> GrepObservation:
-        root = os.path.abspath(action.path)
-        pat = shlex.quote(action.pattern)
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
+        action.validate_data()
+        pattern = str(action.data.get("pattern", ""))
+        path = str(action.data.get("path", "."))
+        include = action.data.get("include")
+
+        root = os.path.abspath(path)
+        pat = shlex.quote(pattern)
         root_q = shlex.quote(root)
 
-        # Use grep -r; add --include when provided
-        if action.include:
-            inc = shlex.quote(action.include)
+        if include:
+            inc = shlex.quote(str(include))
             cmd = f"grep -rHnE --include {inc} {pat} {root_q} 2>/dev/null | head -100"
         else:
             cmd = f"grep -rHnE {pat} {root_q} 2>/dev/null | head -100"
@@ -87,16 +149,24 @@ class GrepExecutor(ToolExecutor[GrepAction, GrepObservation]):
         matches: list[str] = []
         files: set[str] = set()
 
-        # grep returns exit code 1 when no matches; treat as empty
-        if result.output.strip():
-            for line in result.output.strip().splitlines():
+        output = str(result.data.get("output", ""))
+
+        if output.strip():
+            for line in output.strip().splitlines():
                 matches.append(line)
-                # Expect "path:line:content" — take the file part before first ":"
                 file_path = line.split(":", 1)[0]
                 if file_path:
                     files.add(os.path.abspath(file_path))
 
-        return GrepObservation(matches=matches, files=sorted(files), count=len(matches))
+        return SchemaInstance(
+            name=GREP_OUTPUT_SCHEMA.name,
+            definition=GREP_OUTPUT_SCHEMA,
+            data={
+                "matches": matches,
+                "files": sorted(files),
+                "count": len(matches),
+            },
+        )
 
 
 # Tool description
@@ -131,9 +201,10 @@ grep_executor = GrepExecutor(bash_executor)
 grep_tool = Tool(
     name="grep",
     description=_GREP_DESCRIPTION,
-    action_type=GrepAction,
-    observation_type=GrepObservation,
+    input_schema=GREP_INPUT_SCHEMA,
+    output_schema=GREP_OUTPUT_SCHEMA,
     executor=grep_executor,
+    data_converter=GrepDataConverter(),
 )
 
 tools = [

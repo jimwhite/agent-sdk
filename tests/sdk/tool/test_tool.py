@@ -15,10 +15,16 @@ from openhands.sdk.tool import (
 )
 
 
+MOCK_ACTION_SCHEMA_NAME = "tests.mockAction.action"
+MOCK_OBSERVATION_SCHEMA_NAME = "tests.mockObservation.observation"
+MOCK_ACTION_INSTANCE_NAME = "mockAction"
+MOCK_OBSERVATION_INSTANCE_NAME = "mockObservation"
+
+
 def create_mock_action_schema() -> Schema:
     """Create mock action schema for testing."""
     return Schema(
-        name="MockAction",
+        name=MOCK_ACTION_SCHEMA_NAME,
         fields=[
             SchemaField(
                 name="command",
@@ -51,7 +57,7 @@ def create_mock_action_schema() -> Schema:
 def create_mock_observation_schema() -> Schema:
     """Create mock observation schema for testing."""
     return Schema(
-        name="MockObservation",
+        name=MOCK_OBSERVATION_SCHEMA_NAME,
         fields=[
             SchemaField(
                 name="result",
@@ -79,7 +85,7 @@ def create_mock_action(**kwargs) -> SchemaInstance:
     }
     data.update(kwargs)
     schema = create_mock_action_schema()
-    return SchemaInstance(name=schema.name, definition=schema, data=data)
+    return SchemaInstance(name=MOCK_ACTION_INSTANCE_NAME, definition=schema, data=data)
 
 
 def create_mock_observation(**kwargs) -> SchemaInstance:
@@ -90,7 +96,9 @@ def create_mock_observation(**kwargs) -> SchemaInstance:
     }
     data.update(kwargs)
     schema = create_mock_observation_schema()
-    return SchemaInstance(name=schema.name, definition=schema, data=data)
+    return SchemaInstance(
+        name=MOCK_OBSERVATION_INSTANCE_NAME, definition=schema, data=data
+    )
 
 
 class TestTool:
@@ -107,9 +115,9 @@ class TestTool:
 
         assert tool.name == "test_tool"
         assert tool.description == "A test tool"
-        assert tool.input_schema.name == "MockAction"
+        assert tool.input_schema.name == MOCK_ACTION_SCHEMA_NAME
         assert tool.output_schema is not None
-        assert tool.output_schema.name == "MockObservation"
+        assert tool.output_schema.name == MOCK_OBSERVATION_SCHEMA_NAME
         assert tool.executor is None
 
     def test_tool_creation_with_executor(self):
@@ -247,7 +255,7 @@ class TestTool:
 
         def create_complex_action_schema() -> Schema:
             return Schema(
-                name="ComplexAction",
+                name="tests.complexAction.action",
                 fields=[
                     SchemaField(
                         name="simple_field",
@@ -414,7 +422,7 @@ class TestTool:
 
         def create_complex_observation_schema() -> Schema:
             return Schema(
-                name="ComplexObservation",
+                name="tests.complexObservation.observation",
                 fields=[
                     SchemaField(
                         name="data",
@@ -438,7 +446,9 @@ class TestTool:
             }
             data.update(kwargs)
             schema = create_complex_observation_schema()
-            return SchemaInstance(name=schema.name, definition=schema, data=data)
+            return SchemaInstance(
+                name="complexObservation", definition=schema, data=data
+            )
 
         class MockComplexExecutor(ToolExecutor):
             def __call__(self, action: SchemaInstance) -> SchemaInstance:
@@ -488,7 +498,7 @@ class TestTool:
 
         def create_strict_observation_schema() -> Schema:
             return Schema(
-                name="StrictObservation",
+                name="tests.strictObservation.observation",
                 fields=[
                     SchemaField(
                         name="message",
@@ -512,7 +522,9 @@ class TestTool:
             }
             data.update(kwargs)
             schema = create_strict_observation_schema()
-            return SchemaInstance(name=schema.name, definition=schema, data=data)
+            return SchemaInstance(
+                name="strictObservation", definition=schema, data=data
+            )
 
         class ValidExecutor(ToolExecutor):
             def __call__(self, action: SchemaInstance) -> SchemaInstance:
@@ -558,7 +570,7 @@ class TestTool:
 
         def create_required_field_action_schema() -> Schema:
             return Schema(
-                name="RequiredFieldAction",
+                name="tests.requiredFieldAction.action",
                 fields=[
                     SchemaField(
                         name="required_field",
@@ -613,7 +625,7 @@ class TestTool:
 
         def create_complex_nested_action_schema() -> Schema:
             return Schema(
-                name="ComplexNestedAction",
+                name="tests.complexNestedAction.action",
                 fields=[
                     SchemaField(
                         name="simple_string",

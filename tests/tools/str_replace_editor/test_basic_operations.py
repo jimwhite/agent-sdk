@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from openhands.tools.str_replace_editor import (
+from openhands.tools.str_replace_editor import file_editor
+from openhands.tools.str_replace_editor.editor import (
+    FileEditor,
     StrReplaceEditorObservation,
-    file_editor,
 )
-from openhands.tools.str_replace_editor.editor import FileEditor
 from openhands.tools.str_replace_editor.exceptions import (
     EditorToolParameterInvalidError,
     EditorToolParameterMissingError,

@@ -96,6 +96,7 @@ def test_mcp_tool_fallback_behavior() -> None:
     assert isinstance(deserialized_tool, Tool)
     assert deserialized_tool.name == "fallback-tool"
     assert deserialized_tool.input_schema.name == "fallback-tool-input"
+    assert deserialized_tool.output_schema is not None
     assert deserialized_tool.output_schema.name == "fallback-tool-output"
 
 

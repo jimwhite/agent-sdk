@@ -1,0 +1,9 @@
+{
+  "include": ["tests"],
+  "pythonVersion": "3.12",
+  "extraPaths": [
+    "/opt/homebrew/Caskroom/mambaforge/base/lib/python3.10/site-packages"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}

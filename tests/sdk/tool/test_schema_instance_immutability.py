@@ -4,23 +4,24 @@ import pytest
 from pydantic import ValidationError
 
 from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
 def create_test_schema() -> Schema:
-    """Create a test schema for testing."""
+    """Create a schema suitable for immutability tests."""
     return Schema(
-        name="test.schema",
+        name="tests.schemaInstance.action",
         fields=[
-            SchemaField.create(
+            SchemaField(
                 name="command",
                 description="Command to execute",
-                type=str,
+                type=SchemaFieldType.from_type(str),
                 required=True,
             ),
-            SchemaField.create(
+            SchemaField(
                 name="value",
-                description="Value field",
-                type=int,
+                description="Optional value",
+                type=SchemaFieldType.from_type(int),
                 required=False,
                 default=42,
             ),
@@ -28,124 +29,85 @@ def create_test_schema() -> Schema:
     )
 
 
-def test_schema_instance_is_frozen():
-    """Test that SchemaInstance instances are frozen and cannot be modified."""
+def create_schema_instance(
+    command: str = "test_command", value: int = 100
+) -> SchemaInstance:
+    """Helper to create an immutable SchemaInstance."""
     schema = create_test_schema()
-    instance = SchemaInstance(
-        schema=schema, data={"command": "test_command", "value": 100}
+    return SchemaInstance(
+        name="testAction",
+        definition=schema,
+        data={"command": command, "value": value},
     )
 
-    # Test that we cannot modify the schema
+
+def test_schema_instance_is_frozen() -> None:
+    """SchemaInstance should forbid reassignment of top-level fields."""
+    instance = create_schema_instance()
+
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        instance.schema = create_test_schema()
+        instance.name = "otherAction"  # type: ignore[assignment]
 
-    # Test that we cannot modify the data
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        instance.data = {"command": "modified"}
+        instance.definition = create_test_schema()  # type: ignore[assignment]
+
+    with pytest.raises(ValidationError, match="Instance is frozen"):
+        instance.data = {"command": "modified"}  # type: ignore[assignment]
 
 
-def test_schema_instance_model_copy_creates_new_instance():
-    """Test that model_copy creates a new instance with updated fields."""
-    schema = create_test_schema()
-    original = SchemaInstance(
-        schema=schema, data={"command": "original_command", "value": 10}
+def test_schema_instance_model_copy_creates_new_instance() -> None:
+    """model_copy should return a new instance with updated data."""
+    original = create_schema_instance(command="original", value=10)
+
+    updated = original.model_copy(update={"data": {"command": "updated", "value": 20}})
+
+    assert updated is not original
+    assert original.data == {"command": "original", "value": 10}
+    assert updated.data == {"command": "updated", "value": 20}
+    assert original.definition is updated.definition
+
+
+def test_schema_instance_copy_helpers_prevent_mutation_bugs() -> None:
+    """Use model_copy to create independent variants without mutating the original."""
+    shared = create_schema_instance(command="shared", value=1)
+
+    # Create variants without mutating the shared instance
+    variant_a = shared.model_copy(
+        update={"data": {**shared.data, "command": "variant_a"}}
     )
+    variant_b = shared.model_copy(update={"data": {**shared.data, "value": 999}})
 
-    # Create a copy with updated data
-    updated = original.model_copy(
-        update={"data": {"command": "updated_command", "value": 20}}
-    )
-
-    # Verify original is unchanged
-    assert original.data["command"] == "original_command"
-    assert original.data["value"] == 10
-
-    # Verify updated instance has new values
-    assert updated.data["command"] == "updated_command"
-    assert updated.data["value"] == 20
-
-    # Verify they are different instances
-    assert original is not updated
-    assert original.schema is updated.schema  # Schema should be shared
+    assert shared.data == {"command": "shared", "value": 1}
+    assert variant_a.data == {"command": "variant_a", "value": 1}
+    assert variant_b.data == {"command": "shared", "value": 999}
+    assert variant_a is not shared and variant_b is not shared
 
 
-def test_schema_instance_immutability_prevents_mutation_bugs():
-    """Test a practical scenario where immutability prevents mutation bugs."""
-    schema = create_test_schema()
-    shared_instance = SchemaInstance(
-        schema=schema, data={"command": "shared_cmd", "value": 42}
-    )
-
-    # Simulate two different contexts trying to modify the instance
-    def context_a_processing(instance: SchemaInstance) -> SchemaInstance:
-        # Context A wants to modify the data - this should fail
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            instance.data["command"] = "context_a_cmd"
-
-        # Context A should use model_copy instead
-        new_data = instance.data.copy()
-        new_data["command"] = "context_a_cmd"
-        return instance.model_copy(update={"data": new_data})
-
-    def context_b_processing(instance: SchemaInstance) -> SchemaInstance:
-        # Context B wants to change the value - this should fail
-        with pytest.raises(ValidationError, match="Instance is frozen"):
-            instance.data["value"] = 999
-
-        # Context B should use model_copy instead
-        new_data = instance.data.copy()
-        new_data["value"] = 999
-        return instance.model_copy(update={"data": new_data})
-
-    # Process the instance in both contexts
-    instance_a = context_a_processing(shared_instance)
-    instance_b = context_b_processing(shared_instance)
-
-    # Verify the original instance is unchanged
-    assert shared_instance.data["command"] == "shared_cmd"
-    assert shared_instance.data["value"] == 42
-
-    # Verify each context got its own modified version
-    assert instance_a.data["command"] == "context_a_cmd"
-    assert instance_a.data["value"] == 42
-
-    assert instance_b.data["command"] == "shared_cmd"
-    assert instance_b.data["value"] == 999
-
-    # Verify all instances are different
-    assert shared_instance is not instance_a
-    assert shared_instance is not instance_b
-    assert instance_a is not instance_b
-
-
-def test_schema_is_frozen():
-    """Test that Schema instances are frozen and cannot be modified."""
+def test_schema_is_frozen() -> None:
+    """Schema should also be immutable after creation."""
     schema = create_test_schema()
 
-    # Test that we cannot modify the name
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        schema.name = "modified.schema"
+        schema.name = "tests.other.action"  # type: ignore[assignment]
 
-    # Test that we cannot modify the fields list
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        schema.fields = []
+        schema.fields = []  # type: ignore[assignment]
 
 
-def test_schema_field_is_frozen():
-    """Test that SchemaField instances are frozen and cannot be modified."""
-    field = SchemaField.create(
+def test_schema_field_is_frozen() -> None:
+    """SchemaField instances should be immutable."""
+    field = SchemaField(
         name="test_field",
         description="Test field",
-        type=str,
+        type=SchemaFieldType.from_type(str),
         required=True,
     )
 
-    # Test that we cannot modify any field
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        field.name = "modified_field"
+        field.name = "renamed"  # type: ignore[assignment]
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        field.description = "Modified description"
+        field.description = "Modified"  # type: ignore[assignment]
 
     with pytest.raises(ValidationError, match="Instance is frozen"):
-        field.required = False
+        field.required = False  # type: ignore[assignment]

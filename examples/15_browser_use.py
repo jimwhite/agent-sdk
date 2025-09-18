@@ -12,7 +12,12 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import BashTool, BrowserToolSet, FileEditorTool
+from openhands.tools import (
+    BashTool,
+    BrowserToolExecutor,
+    BrowserToolSet,
+    FileEditorTool,
+)
 
 
 logger = get_logger(__name__)
@@ -29,7 +34,8 @@ llm = LLM(
 # Tools
 cwd = os.getcwd()
 # This will create a set of browser tools with a shared executor
-browser_use_tools = BrowserToolSet.create()
+browser_executor = BrowserToolExecutor()
+browser_use_tools = BrowserToolSet.create(browser_executor)
 # If you want to customize the browser tools, you can do it like this:
 # from openhands.tools.browser_use import (
 #     BrowserToolExecutor,

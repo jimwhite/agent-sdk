@@ -33,10 +33,14 @@ class MockExecutor(ToolExecutor):
             definition=Schema(
                 name="mock_output",
                 fields=[
-                    SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Mock result")
-                ]
+                    SchemaField(
+                        name="result",
+                        type=SchemaFieldType.from_type(str),
+                        description="Mock result",
+                    )
+                ],
             ),
-            data={"result": "mock result"}
+            data={"result": "mock result"},
         )
 
 
@@ -45,14 +49,22 @@ def create_mock_tool(name: str) -> Tool:
     input_schema = Schema(
         name=f"mock_{name}_input",
         fields=[
-            SchemaField(name="input", type=SchemaFieldType.from_type(str), description="Mock input")
-        ]
+            SchemaField(
+                name="input",
+                type=SchemaFieldType.from_type(str),
+                description="Mock input",
+            )
+        ],
     )
     output_schema = Schema(
-        name=f"mock_{name}_output", 
+        name=f"mock_{name}_output",
         fields=[
-            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Mock result")
-        ]
+            SchemaField(
+                name="result",
+                type=SchemaFieldType.from_type(str),
+                description="Mock result",
+            )
+        ],
     )
     return Tool(
         name=name,

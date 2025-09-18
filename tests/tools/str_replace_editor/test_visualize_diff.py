@@ -2,7 +2,7 @@
 
 from rich.text import Text
 
-from openhands.tools.str_replace_editor.definition import StrReplaceEditorObservation
+from openhands.tools.str_replace_editor.editor import StrReplaceEditorObservation
 from openhands.tools.str_replace_editor.utils.diff import (
     get_edit_groups,
     visualize_diff,
@@ -162,7 +162,6 @@ def test_visualize_diff_caching():
     )
 
     # First call should compute and cache
-    assert observation._diff_cache is None
     assert observation.path == "/test/file.py"
     diff1 = visualize_diff(
         observation.path, observation.old_content, observation.new_content
@@ -213,7 +212,6 @@ line7"""
     )
 
     # Reset cache to test different context
-    observation._diff_cache = None
 
     # Test with 3 context lines
     diff_3_context = visualize_diff(

@@ -2,8 +2,8 @@
 
 import tempfile
 
-from openhands.tools.execute_bash import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
+from openhands.tools.execute_bash.terminal.types import ExecuteBashAction
 
 
 def test_bash_executor_with_env_provider_automatic_masking():

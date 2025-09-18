@@ -392,15 +392,14 @@ This is a repo microagent that includes MCP tools.
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
-    from fastmcp.mcp_config import MCPConfig
-
-    assert isinstance(agent.mcp_tools, MCPConfig)
-    assert "fetch" in agent.mcp_tools.mcpServers
-    fetch_server = agent.mcp_tools.mcpServers["fetch"]
-    assert hasattr(fetch_server, "command")
-    assert hasattr(fetch_server, "args")
-    assert getattr(fetch_server, "command") == "uvx"
-    assert getattr(fetch_server, "args") == ["mcp-server-fetch"]
+    assert isinstance(agent.mcp_tools, dict)
+    servers = agent.mcp_tools.get("mcpServers", {})
+    assert isinstance(servers, dict)
+    assert "fetch" in servers
+    fetch_server = servers["fetch"]
+    assert isinstance(fetch_server, dict)
+    assert fetch_server.get("command") == "uvx"
+    assert fetch_server.get("args") == ["mcp-server-fetch"]
 
 
 def test_repo_microagent_with_mcp_tools_dict_format():
@@ -438,15 +437,14 @@ This is a repo microagent that includes MCP tools in dict format.
     assert agent.mcp_tools is not None
 
     # Verify the mcp_tools configuration is correctly loaded
-    from fastmcp.mcp_config import MCPConfig
-
-    assert isinstance(agent.mcp_tools, MCPConfig)
-    assert "fetch" in agent.mcp_tools.mcpServers
-    fetch_server = agent.mcp_tools.mcpServers["fetch"]
-    assert hasattr(fetch_server, "command")
-    assert hasattr(fetch_server, "args")
-    assert getattr(fetch_server, "command") == "uvx"
-    assert getattr(fetch_server, "args") == ["mcp-server-fetch"]
+    assert isinstance(agent.mcp_tools, dict)
+    servers = agent.mcp_tools.get("mcpServers", {})
+    assert isinstance(servers, dict)
+    assert "fetch" in servers
+    fetch_server = servers["fetch"]
+    assert isinstance(fetch_server, dict)
+    assert fetch_server.get("command") == "uvx"
+    assert fetch_server.get("args") == ["mcp-server-fetch"]
 
 
 def test_repo_microagent_without_mcp_tools():

@@ -11,7 +11,7 @@ from openhands.sdk.tool.builtins import FinishTool, ThinkTool
 def test_tool_serialization_deserialization() -> None:
     """Test that Tool supports polymorphic JSON serialization/deserialization."""
     # Use FinishTool which is a simple built-in tool
-    tool = FinishTool
+    tool = FinishTool.create()
 
     # Serialize to JSON
     tool_json = tool.model_dump_json()
@@ -31,7 +31,7 @@ def test_tool_supports_polymorphic_field_json_serialization() -> None:
         tool: Tool
 
     # Create container with tool
-    tool = FinishTool
+    tool = FinishTool.create()
     container = Container(tool=tool)
 
     # Serialize to JSON
@@ -52,8 +52,8 @@ def test_tool_supports_nested_polymorphic_json_serialization() -> None:
         tools: list[Tool]
 
     # Create container with multiple tools
-    tool1 = FinishTool
-    tool2 = ThinkTool
+    tool1 = FinishTool.create()
+    tool2 = ThinkTool.create()
     container = NestedContainer(tools=[tool1, tool2])
 
     # Serialize to JSON
@@ -73,7 +73,7 @@ def test_tool_supports_nested_polymorphic_json_serialization() -> None:
 def test_tool_model_validate_json_dict() -> None:
     """Test that Tool.model_validate works with dict from JSON."""
     # Create tool
-    tool = FinishTool
+    tool = FinishTool.create()
 
     # Serialize to JSON, then parse to dict
     tool_json = tool.model_dump_json()
@@ -93,8 +93,11 @@ def test_tool_fallback_behavior_json() -> None:
     tool_dict = {
         "name": "test-tool",
         "description": "A test tool",
-        "action_type": "openhands.sdk.tool.builtins.finish.FinishAction",
-        "observation_type": None,
+        "input_schema": {
+            "name": "tests.testTool.action",
+            "fields": [],
+        },
+        "output_schema": None,
         "kind": "UnknownToolType",
     }
     tool_json = json.dumps(tool_dict)
@@ -109,7 +112,7 @@ def test_tool_fallback_behavior_json() -> None:
 def test_tool_type_annotation_works_json() -> None:
     """Test that Tool annotation works correctly with JSON."""
     # Create tool
-    tool = FinishTool
+    tool = FinishTool.create()
 
     # Use Tool annotation
     class TestModel(BaseModel):
@@ -131,7 +134,7 @@ def test_tool_type_annotation_works_json() -> None:
 def test_tool_kind_field_json() -> None:
     """Test Tool kind field is correctly set and preserved through JSON."""
     # Create tool
-    tool = FinishTool
+    tool = FinishTool.create()
 
     # Check kind field
     assert hasattr(tool, "kind")

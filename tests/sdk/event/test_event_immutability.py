@@ -23,30 +23,36 @@ from openhands.sdk.tool.schema.types import SchemaFieldType
 def create_mock_action() -> SchemaInstance:
     """Create a mock action for testing."""
     schema = Schema(
-        name="MockAction",
+        name="tests.mockAction.action",
         fields=[
-            SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command")
-        ]
+            SchemaField(
+                name="command",
+                type=SchemaFieldType.from_type(str),
+                description="Command",
+            )
+        ],
     )
     return SchemaInstance(
-        name="MockAction",
+        name="mockAction",
         definition=schema,
-        data={"command": "test_command"}
+        data={"command": "test_command"},
     )
 
 
 def create_mock_observation() -> SchemaInstance:
     """Create a mock observation for testing."""
     schema = Schema(
-        name="MockObservation",
+        name="tests.mockObservation.observation",
         fields=[
-            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-        ]
+            SchemaField(
+                name="result", type=SchemaFieldType.from_type(str), description="Result"
+            )
+        ],
     )
     return SchemaInstance(
-        name="MockObservation",
+        name="mockObservation",
         definition=schema,
-        data={"result": "test_result"}
+        data={"result": "test_result"},
     )
 
 

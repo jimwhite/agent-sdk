@@ -27,30 +27,38 @@ class MockEvent(EventBase):
 def create_mock_action() -> SchemaInstance:
     """Create a mock action for testing."""
     schema = Schema(
-        name="MockAction",
+        name="tests.mockAction.action",
         fields=[
-            SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command")
-        ]
+            SchemaField(
+                name="command",
+                type=SchemaFieldType.from_type(str),
+                description="Command",
+            )
+        ],
     )
     return SchemaInstance(
-        name="MockAction",
+        name="mockAction",
         definition=schema,
-        data={"command": "test_command"}
+        data={"command": "test_command"},
     )
 
 
 def create_mock_observation() -> SchemaInstance:
     """Create a mock observation for testing."""
     schema = Schema(
-        name="MockObservation",
+        name="tests.mockObservation.observation",
         fields=[
-            SchemaField(name="content", type=SchemaFieldType.from_type(str), description="Content")
-        ]
+            SchemaField(
+                name="content",
+                type=SchemaFieldType.from_type(str),
+                description="Content",
+            )
+        ],
     )
     return SchemaInstance(
-        name="MockObservation",
+        name="mockObservation",
         definition=schema,
-        data={"content": "mock result"}
+        data={"content": "mock result"},
     )
 
 

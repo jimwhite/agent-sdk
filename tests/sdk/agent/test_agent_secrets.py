@@ -10,8 +10,8 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import Tool
 from openhands.tools import BashTool
-from openhands.tools.execute_bash.definition import ExecuteBashAction
 from openhands.tools.execute_bash.impl import BashExecutor
+from openhands.tools.execute_bash.terminal.types import ExecuteBashAction
 
 
 # -----------------------

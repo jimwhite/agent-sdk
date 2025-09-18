@@ -5,7 +5,7 @@ from openhands.sdk.event import Event
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool.schema import Action
+from openhands.sdk.tool.schema import SchemaInstance
 from openhands.sdk.utils.discriminated_union import (
     DiscriminatedUnionMixin,
     DiscriminatedUnionType,
@@ -26,7 +26,7 @@ class SecurityAnalyzerBase(DiscriminatedUnionMixin, ABC):
     """
 
     @abstractmethod
-    def security_risk(self, action: Action) -> SecurityRisk:
+    def security_risk(self, action: SchemaInstance) -> SecurityRisk:
         """Evaluate the security risk of an action.
 
         This is the core method that analyzes an action and returns its risk level.

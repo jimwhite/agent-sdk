@@ -4,7 +4,7 @@ import functools
 import inspect
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Tuple
 
 import charset_normalizer
 from cachetools import LRUCache
@@ -48,16 +48,17 @@ class EncodingManager:
             raw_data = f.read(sample_size)
 
         # Use charset_normalizer instead of chardet
-        results = charset_normalizer.detect(raw_data)
+        results: dict[str, Any] = charset_normalizer.detect(raw_data)
+
+        confidence = results.get("confidence")
+        encoding = results.get("encoding")
 
         # Get the best match if any exists
         if (
-            results
-            and results["confidence"]
-            and results["confidence"] > self.confidence_threshold
-            and results["encoding"]
+            isinstance(confidence, (int, float))
+            and confidence > self.confidence_threshold
+            and isinstance(encoding, str)
         ):
-            encoding = results["encoding"]
             # Always use utf-8 instead of ascii for text files to support
             # non-ASCII characters. This ensures files initially containing only
             # ASCII can later accept non-ASCII content

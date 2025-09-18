@@ -1,7 +1,6 @@
 """Tests for the conversation visualizer and event visualization."""
 
 import json
-from collections.abc import Sequence
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
@@ -19,40 +18,61 @@ from openhands.sdk.event import (
     PauseEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot, TokenUsage
 from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
 from openhands.sdk.tool.schema.types import SchemaFieldType
 
 
-def create_mock_action() -> SchemaInstance:
+def _create_action_schema() -> Schema:
+    """Return a reusable schema for mock actions."""
+
+    return Schema(
+        name="tests.mockAction.action",
+        fields=[
+            SchemaField(
+                name="command",
+                type=SchemaFieldType.from_type(str),
+                description="Command",
+            ),
+            SchemaField(
+                name="working_dir",
+                type=SchemaFieldType.from_type(str),
+                description="Working directory",
+            ),
+        ],
+    )
+
+
+def create_mock_action(
+    *, command: str = "test command", working_dir: str = "/tmp"
+) -> SchemaInstance:
     """Create a mock action for testing."""
-    schema = Schema(
-        name="MockAction",
-        fields=[
-            SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command"),
-            SchemaField(name="working_dir", type=SchemaFieldType.from_type(str), description="Working directory")
-        ]
-    )
+
     return SchemaInstance(
-        name="MockAction",
-        definition=schema,
-        data={"command": "test command", "working_dir": "/tmp"}
+        name="mockAction",
+        definition=_create_action_schema(),
+        data={"command": command, "working_dir": working_dir},
     )
 
 
-def create_custom_action() -> SchemaInstance:
+def create_custom_action(*, task_list: list | None = None) -> SchemaInstance:
     """Create a custom action with task list for testing."""
+
     schema = Schema(
-        name="CustomAction",
+        name="tests.customAction.action",
         fields=[
-            SchemaField(name="task_list", type=SchemaFieldType.from_type(list), description="Task list")
-        ]
+            SchemaField(
+                name="task_list",
+                type=SchemaFieldType.from_type(list),
+                description="Task list",
+            )
+        ],
     )
     return SchemaInstance(
-        name="CustomAction",
+        name="customAction",
         definition=schema,
-        data={"task_list": []}
+        data={"task_list": task_list or []},
     )
 
 
@@ -69,16 +89,14 @@ def create_tool_call(
 
 def test_action_base_visualize():
     """Test that SchemaInstance has a visualize property."""
-    action = create_mock_action()
-    action.data["command"] = "echo hello"
-    action.data["working_dir"] = "/home"
+    action = create_mock_action(command="echo hello", working_dir="/home")
 
     result = action.visualize
     assert isinstance(result, Text)
 
     # Check that it contains action name and fields
     text_content = result.plain
-    assert "MockAction" in text_content
+    assert "mockAction" in text_content
     assert "command" in text_content
     assert "echo hello" in text_content
     assert "working_dir" in text_content
@@ -91,15 +109,15 @@ def test_custom_action_visualize():
         {"title": "Task 1", "status": "todo"},
         {"title": "Task 2", "status": "done"},
     ]
-    action = create_custom_action()
-    action.data["task_list"] = tasks
+    action = create_custom_action(task_list=tasks)
 
-    # For now, just test the default visualization since we don't have custom visualize method
+    # For now, just test the default visualization
+    # since we don't have custom visualize method
     result = action.visualize
     assert isinstance(result, Text)
 
     text_content = result.plain
-    assert "CustomAction" in text_content
+    assert "customAction" in text_content
     assert "task_list" in text_content
 
 
@@ -131,7 +149,7 @@ def test_system_prompt_event_visualize():
 
 def test_action_event_visualize():
     """Test ActionEvent visualization."""
-    action = MockAction(command="ls -la", working_dir="/tmp")
+    action = create_mock_action(command="ls -la", working_dir="/tmp")
     tool_call = create_tool_call("call_123", "bash", {"command": "ls -la"})
     event = ActionEvent(
         thought=[TextContent(text="I need to list files")],
@@ -151,28 +169,35 @@ def test_action_event_visualize():
     assert "Let me check the directory contents" in text_content
     assert "Thought:" in text_content
     assert "I need to list files" in text_content
-    assert "MockAction" in text_content
+    assert "mockAction" in text_content
     assert "ls -la" in text_content
 
 
 def test_observation_event_visualize():
     """Test ObservationEvent visualization."""
-    def create_mock_observation() -> SchemaInstance:
+
+    def create_mock_observation(content: str) -> SchemaInstance:
         """Create a mock observation for testing."""
+
         schema = Schema(
-            name="MockObservation",
+            name="tests.mockObservation.observation",
             fields=[
-                SchemaField(name="content", type=SchemaFieldType.from_type(str), description="Content")
-            ]
+                SchemaField(
+                    name="content",
+                    type=SchemaFieldType.from_type(str),
+                    description="Content",
+                )
+            ],
         )
         return SchemaInstance(
-            name="MockObservation",
+            name="mockObservation",
             definition=schema,
-            data={"content": "Command output"}
+            data={"content": content},
         )
 
-    observation = create_mock_observation()
-    observation.data["content"] = "total 4\ndrwxr-xr-x 2 user user 4096 Jan 1 12:00 ."
+    observation = create_mock_observation(
+        "total 4\ndrwxr-xr-x 2 user user 4096 Jan 1 12:00 ."
+    )
     event = ObservationEvent(
         observation=observation,
         action_id="action_123",
@@ -256,7 +281,7 @@ def test_visualizer_event_panel_creation():
     visualizer = ConversationVisualizer()
 
     # Test with a simple action event
-    action = MockAction(command="test")
+    action = create_mock_action(command="test")
     tool_call = create_tool_call("call_1", "test", {})
     event = ActionEvent(
         thought=[TextContent(text="Testing")],
@@ -277,7 +302,7 @@ def test_metrics_formatting():
     visualizer = ConversationVisualizer()
 
     # Create an event with metrics
-    action = MockAction(command="test")
+    action = create_mock_action(command="test")
     metrics = MetricsSnapshot(
         accumulated_token_usage=TokenUsage(
             prompt_tokens=1500,

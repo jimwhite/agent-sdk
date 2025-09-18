@@ -16,10 +16,16 @@ from openhands.sdk.tool import (
 )
 
 
+MOCK_ACTION_SCHEMA_NAME = "tests.mockAction.action"
+MOCK_OBSERVATION_SCHEMA_NAME = "tests.mockObservation.observation"
+MOCK_ACTION_INSTANCE_NAME = "mockAction"
+MOCK_OBSERVATION_INSTANCE_NAME = "mockObservation"
+
+
 def create_mock_action_schema() -> Schema:
     """Create mock action schema for testing."""
     return Schema(
-        name="MockAction",
+        name=MOCK_ACTION_SCHEMA_NAME,
         fields=[
             SchemaField(
                 name="command",
@@ -52,7 +58,7 @@ def create_mock_action_schema() -> Schema:
 def create_mock_observation_schema() -> Schema:
     """Create mock observation schema for testing."""
     return Schema(
-        name="MockObservation",
+        name=MOCK_OBSERVATION_SCHEMA_NAME,
         fields=[
             SchemaField(
                 name="result",
@@ -79,13 +85,21 @@ def create_mock_action(**kwargs) -> SchemaInstance:
         "array_field": [],
         **kwargs,
     }
-    return SchemaInstance(name="MockAction", data=data)
+    return SchemaInstance(
+        name=MOCK_ACTION_INSTANCE_NAME,
+        definition=create_mock_action_schema(),
+        data=data,
+    )
 
 
 def create_mock_observation(**kwargs) -> SchemaInstance:
     """Create mock observation instance."""
     data = {"result": "success", "extra_field": None, **kwargs}
-    return SchemaInstance(name="MockObservation", data=data)
+    return SchemaInstance(
+        name=MOCK_OBSERVATION_INSTANCE_NAME,
+        definition=create_mock_observation_schema(),
+        data=data,
+    )
 
 
 class TestToolImmutability:
@@ -189,8 +203,9 @@ class TestToolImmutability:
             input_schema=create_mock_action_schema(),
             output_schema=create_mock_observation_schema(),
         )
-        assert tool.input_schema.name == "MockAction"
-        assert tool.output_schema.name == "MockObservation"
+        assert tool.input_schema.name == MOCK_ACTION_SCHEMA_NAME
+        assert tool.output_schema is not None
+        assert tool.output_schema.name == MOCK_OBSERVATION_SCHEMA_NAME
 
         # Test that invalid field types are rejected
         with pytest.raises(ValidationError):

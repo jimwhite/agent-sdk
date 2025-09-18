@@ -1,7 +1,6 @@
 """Tests for events_to_messages conversion in openhands/sdk/event/base.py."""  # type: ignore
 
 import json
-from collections.abc import Sequence
 from typing import cast
 
 import pytest
@@ -24,7 +23,7 @@ from openhands.sdk.tool.schema.types import SchemaFieldType
 def create_mock_action(command: str = "test_command") -> SchemaInstance:
     """Create a mock action for testing."""
     schema = Schema(
-        name="MockAction",
+        name="tests.mockAction.action",
         fields=[
             SchemaField(
                 name="command",
@@ -34,14 +33,16 @@ def create_mock_action(command: str = "test_command") -> SchemaInstance:
         ],
     )
     return SchemaInstance(
-        name="MockAction", definition=schema, data={"command": command}
+        name="mockAction",
+        definition=schema,
+        data={"command": command},
     )
 
 
 def create_mock_observation(result: str = "test_result") -> SchemaInstance:
     """Create a mock observation for testing."""
     schema = Schema(
-        name="MockObservation",
+        name="tests.mockObservation.observation",
         fields=[
             SchemaField(
                 name="result", type=SchemaFieldType.from_type(str), description="Result"
@@ -51,11 +52,13 @@ def create_mock_observation(result: str = "test_result") -> SchemaInstance:
 
     class MockObservationInstance(SchemaInstance):
         @property
-        def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        def agent_observation(self) -> list[TextContent | ImageContent]:
             return [TextContent(text=self.data["result"])]
 
     return MockObservationInstance(
-        name="MockObservation", definition=schema, data={"result": result}
+        name="mockObservation",
+        definition=schema,
+        data={"result": result},
     )
 
 

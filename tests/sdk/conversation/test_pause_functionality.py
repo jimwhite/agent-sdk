@@ -10,7 +10,6 @@ Key requirements:
 """
 
 import threading
-from collections.abc import Sequence
 from unittest.mock import patch
 
 import pytest
@@ -27,7 +26,7 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
-from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.tool import Tool, ToolExecutor
 from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
 from openhands.sdk.tool.schema.types import SchemaFieldType
@@ -42,14 +41,18 @@ class BlockingExecutor(ToolExecutor):
         self.step_entered.set()
         command = action.data.get("command", "")
         return SchemaInstance(
-            name="test_tool_output",
+            name="testToolOutput",
             definition=Schema(
-                name="test_tool_output",
+                name="tests.blockingTool.observation",
                 fields=[
-                    SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-                ]
+                    SchemaField(
+                        name="result",
+                        type=SchemaFieldType.from_type(str),
+                        description="Result",
+                    )
+                ],
             ),
-            data={"result": f"Executed: {command}"}
+            data={"result": f"Executed: {command}"},
         )
 
 
@@ -65,27 +68,39 @@ class TestPauseFunctionality:
             def __call__(self, action: SchemaInstance) -> SchemaInstance:
                 command = action.data.get("command", "")
                 return SchemaInstance(
-                    name="test_tool_output",
+                    name="testToolOutput",
                     definition=Schema(
-                        name="test_tool_output",
+                        name="tests.testTool.observation",
                         fields=[
-                            SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-                        ]
+                            SchemaField(
+                                name="result",
+                                type=SchemaFieldType.from_type(str),
+                                description="Result",
+                            )
+                        ],
                     ),
-                    data={"result": f"Executed: {command}"}
+                    data={"result": f"Executed: {command}"},
                 )
 
         input_schema = Schema(
-            name="test_tool_input",
+            name="tests.testTool.action",
             fields=[
-                SchemaField(name="command", type=SchemaFieldType.from_type(str), description="Command to execute")
-            ]
+                SchemaField(
+                    name="command",
+                    type=SchemaFieldType.from_type(str),
+                    description="Command to execute",
+                )
+            ],
         )
         output_schema = Schema(
-            name="test_tool_output",
+            name="tests.testTool.observation",
             fields=[
-                SchemaField(name="result", type=SchemaFieldType.from_type(str), description="Result")
-            ]
+                SchemaField(
+                    name="result",
+                    type=SchemaFieldType.from_type(str),
+                    description="Result",
+                )
+            ],
         )
 
         test_tool = Tool(
@@ -243,6 +258,7 @@ class TestPauseFunctionality:
 
         # Action did not execute
         from openhands.sdk.event import ActionEvent
+
         agent_messages = [
             event
             for event in self.conversation.state.events
@@ -278,8 +294,26 @@ class TestPauseFunctionality:
         blocking_tool = Tool(
             name="test_tool",
             description="Blocking tool for pause test",
-            action_type=MockAction,
-            observation_type=MockObservation,
+            input_schema=Schema(
+                name="tests.blockingTool.action",
+                fields=[
+                    SchemaField(
+                        name="command",
+                        type=SchemaFieldType.from_type(str),
+                        description="Command",
+                    )
+                ],
+            ),
+            output_schema=Schema(
+                name="tests.blockingTool.observation",
+                fields=[
+                    SchemaField(
+                        name="result",
+                        type=SchemaFieldType.from_type(str),
+                        description="Result",
+                    )
+                ],
+            ),
             executor=BlockingExecutor(step_entered),
         )
         agent = Agent(llm=self.llm, tools=[blocking_tool])

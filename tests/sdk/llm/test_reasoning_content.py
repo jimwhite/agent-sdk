@@ -120,11 +120,25 @@ def test_action_event_with_reasoning_content():
 
     from openhands.sdk.event.llm_convertible import ActionEvent
     from openhands.sdk.llm.message import TextContent
-    from openhands.sdk.tool import ActionBase
+    from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+    from openhands.sdk.tool.schema.types import SchemaFieldType
 
-    # Create a simple action for testing
-    class TestAction(ActionBase):
-        action: str = "test"
+    # Create a simple schema-based action for testing
+    action_schema = Schema(
+        name="tests.testAction.action",
+        fields=[
+            SchemaField(
+                name="action",
+                description="Action name",
+                type=SchemaFieldType.from_type(str),
+            )
+        ],
+    )
+    action_instance = SchemaInstance(
+        name="testAction",
+        definition=action_schema,
+        data={"action": "test"},
+    )
 
     # Create a tool call
     tool_call = ChatCompletionMessageToolCall(
@@ -135,7 +149,7 @@ def test_action_event_with_reasoning_content():
 
     action_event = ActionEvent(
         thought=[TextContent(text="I need to test this")],
-        action=TestAction(),
+        action=action_instance,
         tool_name="test_tool",
         tool_call_id="test-id",
         tool_call=tool_call,
