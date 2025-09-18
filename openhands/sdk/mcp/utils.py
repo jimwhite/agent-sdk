@@ -38,7 +38,10 @@ async def _list_tools(client: MCPClient) -> list[ToolType]:
     try:
         async with client:
             if not client.is_connected():
-                logger.error("Failed to connect to MCP client - client.is_connected() returned False")
+                logger.error(
+                    "Failed to connect to MCP client - client.is_connected() "
+                    "returned False"
+                )
                 raise ConnectionError("MCP client failed to connect")
 
             logger.info("MCP client connected successfully, listing tools...")
@@ -48,14 +51,22 @@ async def _list_tools(client: MCPClient) -> list[ToolType]:
             for tool in mcp_type_tools:
                 logger.debug(f"Processing MCP tool: {tool.name} - {tool.description}")
 
-            tools = [MCPTool.create(mcp_tool=t, mcp_client=client) for t in mcp_type_tools]
+            tools = [
+                MCPTool.create(mcp_tool=t, mcp_client=client) for t in mcp_type_tools
+            ]
             logger.info(f"Successfully created {len(tools)} MCP tool wrappers")
     except Exception as e:
-        logger.error(f"Error connecting to MCP server or listing tools: {type(e).__name__}: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error connecting to MCP server or listing tools: "
+            f"{type(e).__name__}: {str(e)}",
+            exc_info=True,
+        )
         raise
 
     if client.is_connected():
-        logger.warning("MCP client still connected after context exit - this is unexpected")
+        logger.warning(
+            "MCP client still connected after context exit - this is unexpected"
+        )
 
     return tools
 
@@ -81,12 +92,18 @@ def create_mcp_tools(
         logger.info(f"Calling _list_tools with timeout={timeout}s")
         tools = client.call_async_from_sync(_list_tools, timeout=timeout, client=client)
 
-        logger.info(f"Successfully created {len(tools)} MCP tools: {[t.name for t in tools]}")
+        logger.info(
+            f"Successfully created {len(tools)} MCP tools: {[t.name for t in tools]}"
+        )
     except TimeoutError as e:
-        logger.error(f"Timeout after {timeout}s while connecting to MCP server: {str(e)}")
+        logger.error(
+            f"Timeout after {timeout}s while connecting to MCP server: {str(e)}"
+        )
         raise
     except Exception as e:
-        logger.error(f"Failed to create MCP tools: {type(e).__name__}: {str(e)}", exc_info=True)
+        logger.error(
+            f"Failed to create MCP tools: {type(e).__name__}: {str(e)}", exc_info=True
+        )
         raise
 
     return tools

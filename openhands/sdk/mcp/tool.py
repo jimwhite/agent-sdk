@@ -39,7 +39,10 @@ class MCPToolExecutor(ToolExecutor):
         try:
             async with self.client:
                 if not self.client.is_connected():
-                    error_msg = f"MCP client is not connected when trying to call tool '{self.tool_name}'"
+                    error_msg = (
+                        f"MCP client is not connected when trying to call tool "
+                        f"'{self.tool_name}'"
+                    )
                     logger.error(error_msg)
                     return MCPToolObservation(
                         content=[TextContent(text=error_msg)],
@@ -55,7 +58,9 @@ class MCPToolExecutor(ToolExecutor):
                 )
 
                 if result.isError:
-                    logger.warning(f"MCP tool '{self.tool_name}' returned an error: {result}")
+                    logger.warning(
+                        f"MCP tool '{self.tool_name}' returned an error: {result}"
+                    )
                 else:
                     logger.info(f"MCP tool '{self.tool_name}' executed successfully")
                     logger.debug(f"Tool result: {result}")
@@ -72,7 +77,9 @@ class MCPToolExecutor(ToolExecutor):
                 tool_name=self.tool_name,
             )
         except ConnectionError as e:
-            error_msg = f"Connection error calling MCP tool '{self.tool_name}': {str(e)}"
+            error_msg = (
+                f"Connection error calling MCP tool '{self.tool_name}': {str(e)}"
+            )
             logger.error(error_msg)
             return MCPToolObservation(
                 content=[TextContent(text=error_msg)],
@@ -80,7 +87,10 @@ class MCPToolExecutor(ToolExecutor):
                 tool_name=self.tool_name,
             )
         except Exception as e:
-            error_msg = f"Unexpected error calling MCP tool '{self.tool_name}': {type(e).__name__}: {str(e)}"
+            error_msg = (
+                f"Unexpected error calling MCP tool '{self.tool_name}': "
+                f"{type(e).__name__}: {str(e)}"
+            )
             logger.error(error_msg, exc_info=True)
             return MCPToolObservation(
                 content=[TextContent(text=error_msg)],
@@ -90,7 +100,9 @@ class MCPToolExecutor(ToolExecutor):
 
     def __call__(self, action: MCPActionBase) -> MCPToolObservation:
         """Execute an MCP tool call."""
-        logger.info(f"Synchronously executing MCP tool '{self.tool_name}' with 300s timeout")
+        logger.info(
+            f"Synchronously executing MCP tool '{self.tool_name}' with 300s timeout"
+        )
         try:
             result = self.client.call_async_from_sync(
                 self.call_tool, action=action, timeout=300
@@ -98,7 +110,10 @@ class MCPToolExecutor(ToolExecutor):
             logger.info(f"Sync execution of MCP tool '{self.tool_name}' completed")
             return result
         except Exception as e:
-            logger.error(f"Sync execution of MCP tool '{self.tool_name}' failed: {type(e).__name__}: {str(e)}")
+            logger.error(
+                f"Sync execution of MCP tool '{self.tool_name}' failed: "
+                f"{type(e).__name__}: {str(e)}"
+            )
             raise
 
 
