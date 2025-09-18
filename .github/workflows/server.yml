@@ -116,8 +116,8 @@ jobs:
     build-and-push-image:
         name: Build & Push
         outputs:
-            image: ${{ steps.legacy.outputs.image }}
-            short_sha: ${{ steps.legacy.outputs.short_sha }}
+            image: ${{ env.IMAGE }}
+            short_sha: ${{ steps.meta.outputs.version }}
             tags: ${{ steps.meta.outputs.tags }}
         strategy:
             fail-fast: false
@@ -184,8 +184,8 @@ jobs:
               with:
                   images: ${{ env.IMAGE }}
                   flavor: |
-                      latest=${{ github.ref == 'refs/heads/main' && matrix.name == 'python' }}
-                      suffix=${{ matrix.name != 'python' && format('-{0}', matrix.name) || '' }}
+                      latest=${{ github.ref == 'refs/heads/main' }}
+                      suffix=-${{ matrix.name }}
                   tags: |
                       type=ref,event=branch
                       type=ref,event=pr
@@ -199,17 +199,7 @@ jobs:
                       org.opencontainers.image.version=${{ steps.version.outputs.sdk_version }}
                       org.opencontainers.image.base.name=${{ env.BASE_IMAGE }}
 
-            - name: Generate legacy outputs
-              id: legacy
-              run: |
-                  # Extract values for backward compatibility
-                  SHORT_SHA="${GITHUB_SHA:0:7}"
-                  BASE_SLUG="$(echo -n "${{ env.BASE_IMAGE }}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
-                  VERSIONED_TAG="v${{ steps.version.outputs.sdk_version }}_${BASE_SLUG}"
 
-                  echo "image=${{ env.IMAGE }}" >> $GITHUB_OUTPUT
-                  echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-                  echo "versioned_tag=${VERSIONED_TAG}" >> $GITHUB_OUTPUT
 
             - name: Build and push Docker image
               uses: docker/build-push-action@v6
@@ -228,9 +218,6 @@ jobs:
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |
-                  echo "Image: ${{ steps.legacy.outputs.image }}"
-                  echo "Short SHA: ${{ steps.legacy.outputs.short_sha }}"
-                  echo "Versioned Tag: ${{ steps.legacy.outputs.versioned_tag }}"
                   echo "Generated tags:"
                   echo "${{ steps.meta.outputs.tags }}"
                   echo "Generated labels:"
