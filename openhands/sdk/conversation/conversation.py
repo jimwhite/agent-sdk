@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import (
     create_default_visualizer,
@@ -45,6 +46,7 @@ class Conversation:
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
+        stuck_detection: bool = False,
     ):
         """Initialize the conversation.
 
@@ -59,6 +61,7 @@ class Conversation:
             visualize: Whether to enable default visualization. If True, adds
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
+            stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
@@ -87,6 +90,12 @@ class Conversation:
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
+        # Initialize stuck detector
+        if stuck_detection:
+            self._stuck_detector = StuckDetector(self.state)
+        else:
+            self._stuck_detector = None
+
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
@@ -94,6 +103,11 @@ class Conversation:
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
         return self.state.id
+
+    @property
+    def stuck_detector(self) -> StuckDetector | None:
+        """Get the stuck detector instance if enabled."""
+        return self._stuck_detector
 
     def send_message(self, message: Message) -> None:
         """Sending messages to the agent."""
@@ -173,6 +187,23 @@ class Conversation:
                     AgentExecutionStatus.PAUSED,
                 ]:
                     break
+
+                # Check for stuck patterns if enabled
+                if self._stuck_detector:
+                    is_stuck = self._stuck_detector.is_stuck()
+
+                    if is_stuck:
+                        logger.warning("Stuck pattern detected.")
+                        # FIXME: or raise error
+                        stuck_intervention_message = (
+                            "I notice you might be stuck in a repetitive pattern."
+                            "Please consider doing something different."
+                        )
+                        intervention_message = Message(
+                            role="user",
+                            content=[TextContent(text=stuck_intervention_message)],
+                        )
+                        self.send_message(intervention_message)
 
                 # clear the flag before calling agent.step() (user approved)
                 if (
