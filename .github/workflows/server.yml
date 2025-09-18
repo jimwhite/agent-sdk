@@ -123,18 +123,30 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - name: amd64
+                    # Python + Node.js variant
+                    - name: python
                       runner: blacksmith-8vcpu-ubuntu-2404
-                      platforms: linux/amd64
-                    - name: arm64
-                      runner: blacksmith-8vcpu-ubuntu-2404-arm
-                      platforms: linux/arm64
+                      platforms: linux/amd64,linux/arm64
+                      base_image: nikolaik/python-nodejs:python3.12-nodejs22
+
+                    # Java variant (OpenJDK base)
+                    - name: java
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: eclipse-temurin:17-jdk
+
+                    # Golang variant (Go base)
+                    - name: golang
+                      runner: blacksmith-8vcpu-ubuntu-2404
+                      platforms: linux/amd64,linux/arm64
+                      base_image: golang:1.21-bookworm
 
         runs-on: ${{ matrix.runner }}
 
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
-            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || 'nikolaik/python-nodejs:python3.12-nodejs22' }}
+            BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
+            VARIANT_NAME: ${{ matrix.name }}
             TARGET: binary
 
         steps:
@@ -172,15 +184,25 @@ jobs:
                   # Git info
                   SHORT_SHA="${GITHUB_SHA:0:7}"
                   GIT_REF="${GITHUB_REF}"
+                  VARIANT_NAME="${{ env.VARIANT_NAME }}"
 
                   # Base slug (keep legacy format so downstream tags don't change)
                   BASE_SLUG="$(echo -n "${{ env.BASE_IMAGE }}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
                   VERSIONED_TAG="v${{ steps.version.outputs.sdk_version }}_${BASE_SLUG}"
 
-                  # Generate tags
-                  TAGS="${{ env.IMAGE }}:${SHORT_SHA},${{ env.IMAGE }}:${VERSIONED_TAG}"
-                  if [[ "${GIT_REF}" == "refs/heads/main" ]]; then
-                    TAGS="${TAGS},${{ env.IMAGE }}:latest"
+                  # Generate tags with variant suffix (except for python which is the default)
+                  if [[ "${VARIANT_NAME}" == "python" ]]; then
+                    # Python variant gets the default tags (backward compatibility)
+                    TAGS="${{ env.IMAGE }}:${SHORT_SHA},${{ env.IMAGE }}:${VERSIONED_TAG}"
+                    if [[ "${GIT_REF}" == "refs/heads/main" ]]; then
+                      TAGS="${TAGS},${{ env.IMAGE }}:latest"
+                    fi
+                  else
+                    # Other variants get suffixed tags
+                    TAGS="${{ env.IMAGE }}:${SHORT_SHA}-${VARIANT_NAME},${{ env.IMAGE }}:${VERSIONED_TAG}-${VARIANT_NAME}"
+                    if [[ "${GIT_REF}" == "refs/heads/main" ]]; then
+                      TAGS="${TAGS},${{ env.IMAGE }}:latest-${VARIANT_NAME}"
+                    fi
                   fi
 
                   # Set outputs
