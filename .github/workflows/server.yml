@@ -116,8 +116,8 @@ jobs:
     build-and-push-image:
         name: Build & Push
         outputs:
-            image: ${{ steps.meta.outputs.image }}
-            short_sha: ${{ steps.meta.outputs.short_sha }}
+            image: ${{ steps.legacy.outputs.image }}
+            short_sha: ${{ steps.legacy.outputs.short_sha }}
             tags: ${{ steps.meta.outputs.tags }}
         strategy:
             fail-fast: false
@@ -178,45 +178,38 @@ jobs:
                   echo "sdk_version=${SDK_VERSION}" >> $GITHUB_OUTPUT
                   echo "SDK version: ${SDK_VERSION}"
 
-            - name: Generate metadata
+            - name: Extract metadata
               id: meta
-              run: |
-                  # Git info
-                  SHORT_SHA="${GITHUB_SHA:0:7}"
-                  GIT_REF="${GITHUB_REF}"
-                  VARIANT_NAME="${{ env.VARIANT_NAME }}"
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.IMAGE }}
+                  flavor: |
+                      latest=${{ github.ref == 'refs/heads/main' && matrix.name == 'python' }}
+                      suffix=${{ matrix.name != 'python' && format('-{0}', matrix.name) || '' }}
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=sha,prefix={{branch}}-
+                      type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+                      type=raw,value=v${{ steps.version.outputs.sdk_version }}_{{date 'YYYYMMDD'}}_${{ hashFiles('**/uv.lock') }}
+                  labels: |
+                      org.opencontainers.image.title=OpenHands Agent Server
+                      org.opencontainers.image.description=Agent server for OpenHands (${{ matrix.name }} variant)
+                      org.opencontainers.image.vendor=All-Hands-AI
+                      org.opencontainers.image.version=${{ steps.version.outputs.sdk_version }}
+                      org.opencontainers.image.base.name=${{ env.BASE_IMAGE }}
 
-                  # Base slug (keep legacy format so downstream tags don't change)
+            - name: Generate legacy outputs
+              id: legacy
+              run: |
+                  # Extract values for backward compatibility
+                  SHORT_SHA="${GITHUB_SHA:0:7}"
                   BASE_SLUG="$(echo -n "${{ env.BASE_IMAGE }}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
                   VERSIONED_TAG="v${{ steps.version.outputs.sdk_version }}_${BASE_SLUG}"
 
-                  # Generate tags with variant suffix (except for python which is the default)
-                  if [[ "${VARIANT_NAME}" == "python" ]]; then
-                    # Python variant gets the default tags (backward compatibility)
-                    TAGS="${{ env.IMAGE }}:${SHORT_SHA},${{ env.IMAGE }}:${VERSIONED_TAG}"
-                    if [[ "${GIT_REF}" == "refs/heads/main" ]]; then
-                      TAGS="${TAGS},${{ env.IMAGE }}:latest"
-                    fi
-                  else
-                    # Other variants get suffixed tags
-                    TAGS="${{ env.IMAGE }}:${SHORT_SHA}-${VARIANT_NAME},${{ env.IMAGE }}:${VERSIONED_TAG}-${VARIANT_NAME}"
-                    if [[ "${GIT_REF}" == "refs/heads/main" ]]; then
-                      TAGS="${TAGS},${{ env.IMAGE }}:latest-${VARIANT_NAME}"
-                    fi
-                  fi
-
-                  # Set outputs
                   echo "image=${{ env.IMAGE }}" >> $GITHUB_OUTPUT
                   echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
                   echo "versioned_tag=${VERSIONED_TAG}" >> $GITHUB_OUTPUT
-                  echo "tags=${TAGS}" >> $GITHUB_OUTPUT
-
-                  # Multi-line tags output
-                  {
-                    echo 'tags_multiline<<EOF'
-                    echo "${TAGS}" | tr ',' '\n'
-                    echo 'EOF'
-                  } >> $GITHUB_OUTPUT
 
             - name: Build and push Docker image
               uses: docker/build-push-action@v6
@@ -227,6 +220,7 @@ jobs:
                   target: ${{ env.TARGET }}
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
                   build-args: |
                       BASE_IMAGE=${{ env.BASE_IMAGE }}
                   cache-from: type=gha
@@ -234,12 +228,13 @@ jobs:
 
             - name: Summary (${{ matrix.name }}) - outputs
               run: |
-                  echo "Image: ${{ steps.meta.outputs.image }}"
-                  echo "Short SHA: ${{ steps.meta.outputs.short_sha }}"
-                  echo "Versioned Tag: ${{ steps.meta.outputs.versioned_tag }}"
-                  echo "Tags: ${{ steps.meta.outputs.tags }}"
-                  echo "Multiline tags:"
-                  echo "${{ steps.meta.outputs.tags_multiline }}"
+                  echo "Image: ${{ steps.legacy.outputs.image }}"
+                  echo "Short SHA: ${{ steps.legacy.outputs.short_sha }}"
+                  echo "Versioned Tag: ${{ steps.legacy.outputs.versioned_tag }}"
+                  echo "Generated tags:"
+                  echo "${{ steps.meta.outputs.tags }}"
+                  echo "Generated labels:"
+                  echo "${{ steps.meta.outputs.labels }}"
 
     post-image-comment:
         name: Post/Update PR image comment
