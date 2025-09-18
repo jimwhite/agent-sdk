@@ -3,13 +3,17 @@
 import json
 import logging
 
-from openhands.sdk.tool import ToolExecutor
+from openhands.sdk.tool import SchemaInstance, ToolExecutor
+from openhands.sdk.utils import to_camel_case
 from openhands.sdk.utils.async_executor import AsyncExecutor
+from openhands.tools.browser_use.definition import make_browser_observation_schema
 from openhands.tools.browser_use.server import CustomBrowserUseServer
 
 
 # Suppress browser-use logging for cleaner integration
 logging.getLogger("browser_use").setLevel(logging.WARNING)
+
+RETURN_SCHEMA_INSTANCE_NAME = "BrowserObservation"
 
 
 class BrowserToolExecutor(ToolExecutor):
@@ -33,62 +37,106 @@ class BrowserToolExecutor(ToolExecutor):
         self._initialized = False
         self._async_executor = AsyncExecutor()
 
-    def __call__(self, action):
+    def __call__(self, action: SchemaInstance) -> SchemaInstance:
         """Submit an action to run in the background loop and wait for result."""
         return self._async_executor.run_async(
             self._execute_action, action, timeout=300.0
         )
 
-    async def _execute_action(self, action):
+    async def _execute_action(self, action: SchemaInstance) -> SchemaInstance:
         """Execute browser action asynchronously."""
         from openhands.tools.browser_use.definition import (
-            BrowserClickAction,
-            BrowserCloseTabAction,
-            BrowserGetContentAction,
-            BrowserGetStateAction,
-            BrowserGoBackAction,
-            BrowserListTabsAction,
-            BrowserNavigateAction,
-            BrowserObservation,
-            BrowserScrollAction,
-            BrowserSwitchTabAction,
-            BrowserTypeAction,
+            BrowserClickTool,
+            BrowserCloseTabTool,
+            BrowserGetContentTool,
+            BrowserGetStateTool,
+            BrowserGoBackTool,
+            BrowserListTabsTool,
+            BrowserNavigateTool,
+            BrowserScrollTool,
+            BrowserSwitchTabTool,
+            BrowserTypeTool,
         )
+
+        action.validate_data()
+
+        action_name = action.name.removesuffix("Action")
 
         try:
             result = ""
             # Route to appropriate method based on action type
-            if isinstance(action, BrowserNavigateAction):
-                result = await self.navigate(action.url, action.new_tab)
-            elif isinstance(action, BrowserClickAction):
-                result = await self.click(action.index, action.new_tab)
-            elif isinstance(action, BrowserTypeAction):
-                result = await self.type_text(action.index, action.text)
-            elif isinstance(action, BrowserGetStateAction):
-                return await self.get_state(action.include_screenshot)
-            elif isinstance(action, BrowserGetContentAction):
-                result = await self.get_content(
-                    action.extract_links, action.start_from_char
+
+            if action_name == to_camel_case(BrowserNavigateTool.__name__):
+                url = action.data.get("url")
+                new_tab = action.data.get("new_tab")
+                assert url is not None, "Parameter `url` is required."
+                assert new_tab is not None, "Parameter `new_tab` is required."
+                result = await self.navigate(url, new_tab)
+            elif action_name == to_camel_case(BrowserClickTool.__name__):
+                index = action.data.get("index")
+                new_tab = action.data.get("new_tab")
+                assert index is not None, "Parameter `index` is required."
+                assert new_tab is not None, "Parameter `new_tab` is required."
+                result = await self.click(index, new_tab)
+            elif action_name == to_camel_case(BrowserTypeTool.__name__):
+                index = action.data.get("index")
+                text = action.data.get("text")
+                assert index is not None, "Parameter `index` is required."
+                assert text is not None, "Parameter `text` is required."
+                result = await self.type_text(index, text)
+            elif action_name == to_camel_case(BrowserGetStateTool.__name__):
+                include_screenshot = action.data.get("include_screenshot")
+                assert include_screenshot is not None, (
+                    "Parameter `include_screenshot` is required."
                 )
-            elif isinstance(action, BrowserScrollAction):
-                result = await self.scroll(action.direction)
-            elif isinstance(action, BrowserGoBackAction):
+                return await self.get_state(include_screenshot)
+            elif action_name == to_camel_case(BrowserGetContentTool.__name__):
+                extract_links = action.data.get("extract_links")
+                start_from_char = action.data.get("start_from_char")
+                assert extract_links is not None, (
+                    "Parameter `extract_links` is required."
+                )
+                assert start_from_char is not None, (
+                    "Parameter `start_from_char` is required."
+                )
+                result = await self.get_content(extract_links, start_from_char)
+            elif action_name == to_camel_case(BrowserScrollTool.__name__):
+                direction = action.data.get("direction")
+                assert direction is not None, "Parameter `direction` is required."
+                result = await self.scroll(direction)
+            elif action_name == to_camel_case(BrowserGoBackTool.__name__):
                 result = await self.go_back()
-            elif isinstance(action, BrowserListTabsAction):
+            elif action_name == to_camel_case(BrowserListTabsTool.__name__):
                 result = await self.list_tabs()
-            elif isinstance(action, BrowserSwitchTabAction):
-                result = await self.switch_tab(action.tab_id)
-            elif isinstance(action, BrowserCloseTabAction):
-                result = await self.close_tab(action.tab_id)
+            elif action_name == to_camel_case(BrowserSwitchTabTool.__name__):
+                tab_id = action.data.get("tab_id")
+                assert tab_id is not None, "Parameter `tab_id` is required."
+                result = await self.switch_tab(tab_id)
+            elif action_name == to_camel_case(BrowserCloseTabTool.__name__):
+                tab_id = action.data.get("tab_id")
+                assert tab_id is not None, "Parameter `tab_id` is required."
+                result = await self.close_tab(tab_id)
             else:
                 error_msg = f"Unsupported action type: {type(action)}"
-                return BrowserObservation(output="", error=error_msg)
+                return SchemaInstance(
+                    name=RETURN_SCHEMA_INSTANCE_NAME,
+                    definition=make_browser_observation_schema(),
+                    data={"output": "", "error": error_msg},
+                )
 
-            return BrowserObservation(output=result)
+            return SchemaInstance(
+                name=RETURN_SCHEMA_INSTANCE_NAME,
+                definition=make_browser_observation_schema(),
+                data={"output": result},
+            )
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
             logging.error(error_msg, exc_info=True)
-            return BrowserObservation(output="", error=error_msg)
+            return SchemaInstance(
+                name=RETURN_SCHEMA_INSTANCE_NAME,
+                definition=make_browser_observation_schema(),
+                data={"output": "", "error": error_msg},
+            )
 
     async def _ensure_initialized(self):
         """Ensure browser session is initialized."""
@@ -124,10 +172,8 @@ class BrowserToolExecutor(ToolExecutor):
         await self._ensure_initialized()
         return await self._server._scroll(direction)
 
-    async def get_state(self, include_screenshot: bool = False):
+    async def get_state(self, include_screenshot: bool = False) -> SchemaInstance:
         """Get current browser state with interactive elements."""
-        from openhands.tools.browser_use.definition import BrowserObservation
-
         await self._ensure_initialized()
         result_json = await self._server._get_browser_state(include_screenshot)
 
@@ -138,14 +184,20 @@ class BrowserToolExecutor(ToolExecutor):
 
                 # Return clean JSON + separate screenshot data
                 clean_json = json.dumps(result_data, indent=2)
-                return BrowserObservation(
-                    output=clean_json, screenshot_data=screenshot_data
+                return SchemaInstance(
+                    name=RETURN_SCHEMA_INSTANCE_NAME,
+                    definition=make_browser_observation_schema(),
+                    data={"output": clean_json, "screenshot_data": screenshot_data},
                 )
             except json.JSONDecodeError:
                 # If JSON parsing fails, return as-is
                 pass
 
-        return BrowserObservation(output=result_json)
+        return SchemaInstance(
+            name=RETURN_SCHEMA_INSTANCE_NAME,
+            definition=make_browser_observation_schema(),
+            data={"output": result_json},
+        )
 
     # Tab Management
     async def list_tabs(self) -> str:

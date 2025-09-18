@@ -13,31 +13,23 @@ from openhands.sdk.tool.tool import (
 
 
 def make_input_schema() -> Schema:
+    fields = [
+        SchemaField.create(
+            name="thought",
+            description="The thought content to log.",
+            type=str,
+            required=True,
+        ),
+    ]
     return Schema(
-        name="openhands.sdk.tool.builtins.think.input",
-        fields=[
-            SchemaField.create(
-                name="thought",
-                description="The thought to log.",
-                type=str,
-                required=True,
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
-        ],
+        name=f"{__package__}.input",
+        fields=fields,
     )
 
 
 def make_output_schema() -> Schema:
     return Schema(
-        name="openhands.sdk.tool.builtins.think.output",
+        name=f"{__package__}.output",
         fields=[
             SchemaField.create(
                 name="content",
@@ -97,7 +89,8 @@ The tool simply logs your thought process for better transparency and does not e
 class ThinkExecutor(ToolExecutor):
     def __call__(self, action: SchemaInstance) -> SchemaInstance:
         return SchemaInstance(
-            schema=make_output_schema(),
+            name="ThinkObservation",
+            definition=make_output_schema(),
             data={"content": "Your thought has been logged."},
         )
 

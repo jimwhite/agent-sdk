@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import (
@@ -7,6 +8,7 @@ from pydantic import (
     ConfigDict,
     Field,
     create_model,
+    field_validator,
     model_validator,
 )
 from rich.text import Text
@@ -92,12 +94,29 @@ class Schema(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     name: str = Field(
         description="Human-readable name for the schema, "
-        "e.g. openhands.tools.str_replace_editor.input"
+        "e.g. openhands.tools.str_replace_editor.action; "
+        "should have package-like format (dot-separated, no spaces), "
+        "and ends with either .action or .observation",
     )
     fields: list[SchemaField] = Field(
         default_factory=list,
         description="List of fields in the schema",
     )
+
+    @field_validator("name")
+    def must_be_package_and_end_correctly(cls, v: str) -> str:
+        # Pattern for package-like identifiers:
+        #   - segments separated by dots
+        #   - each segment starts with a letter/underscore and
+        # followed by letters/digits/underscores
+        PACKAGE_PATTERN = re.compile(
+            r"^(?:[a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*$"
+        )
+        if not PACKAGE_PATTERN.match(v):
+            raise ValueError("Value must be a valid dotted package path")
+        if not (v.endswith(".action") or v.endswith(".observation")):
+            raise ValueError("Value must end with '.action' or '.observation'")
+        return v
 
     def to_mcp_schema(self) -> dict[str, Any]:
         props: dict[str, Any] = {}
@@ -179,14 +198,16 @@ class SchemaInstance(BaseModel):
         description="The actual data conforming to the schema",
     )
 
+    @field_validator("name")
+    def must_be_camel_case(cls, v: str) -> str:
+        CAMEL_CASE_PATTERN = re.compile(r"^[a-z]+(?:[A-Z][a-z0-9]*)*$")
+        if not CAMEL_CASE_PATTERN.match(v):
+            raise ValueError("Value must be camelCase")
+        return v
+
     def validate_data(self) -> BaseModel:
         Model = self.definition.build_args_model()
         return Model.model_validate(self.data)
-
-    @property
-    def schema(self) -> Schema:
-        """Backward compatibility property for accessing definition."""
-        return self.definition
 
     @property
     def agent_observation(self) -> list:
@@ -195,7 +216,7 @@ class SchemaInstance(BaseModel):
         import json
 
         from openhands.sdk.llm.message import TextContent
-        
+
         data_str = json.dumps(self.data, indent=2)
         return [TextContent(text=data_str)]
 

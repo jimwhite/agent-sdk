@@ -142,7 +142,7 @@ class SchemaFieldType(BaseModel):
         # Handle custom Pydantic models
         if hasattr(tp, "__module__") and hasattr(tp, "__name__"):
             # Check if it's a Pydantic model
-            if hasattr(tp, "model_fields"):
+            if isinstance(tp, BaseModel):
                 return SchemaFieldType(
                     payload=CustomType(
                         class_name=tp.__name__, module_name=tp.__module__

@@ -1,9 +1,7 @@
 """String replace editor tool implementation."""
 
 from collections.abc import Sequence
-from typing import Literal
 
-from pydantic import BaseModel
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -21,10 +19,9 @@ from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 COMMAND_LIST = ["view", "create", "str_replace", "insert", "undo_edit"]
 
 
-def make_input_schema(workspace_root: str | None = None) -> Schema:
-    workspace_path = workspace_root or "/workspace"
+def make_input_schema(workspace_path: str) -> Schema:
     return Schema(
-        name="openhands.tools.str_replace_editor.input",
+        name=f"{__package__}.action",
         fields=[
             SchemaField.create(
                 name="command",
@@ -43,7 +40,8 @@ def make_input_schema(workspace_root: str | None = None) -> Schema:
             ),
             SchemaField.create(
                 name="file_text",
-                description="Required for `create`: content of the file to be created.",
+                description="Required parameter of `create` command, with the content"
+                " of the file to be created.",
                 type=str,
                 required=False,
                 default=None,
@@ -53,41 +51,38 @@ def make_input_schema(workspace_root: str | None = None) -> Schema:
                 type=str,
                 required=False,
                 default=None,
-                description="Required for `str_replace`: the string in `path` "
-                "to replace (must match exactly).",
+                description="Required parameter of `str_replace` command containing "
+                "the string in `path` to replace.",
             ),
             SchemaField.create(
                 name="new_str",
-                description="Optional for `str_replace` (the replacement); "
-                "required for `insert` (the string to insert).",
+                description="Optional parameter of `str_replace` command containing "
+                "the new string (if not given, no string will be added). "
+                "Required parameter of `insert` command containing the "
+                "string to insert.",
                 type=str,
                 required=False,
                 default=None,
             ),
             SchemaField.create(
                 name="insert_line",
-                description="Required for `insert`: insert AFTER this "
-                "1-based line number.",
+                description="Required parameter of `insert` command. The `new_str` "
+                "will be inserted AFTER the line `insert_line` of `path`.",
                 type=int,
                 required=False,
                 default=None,
             ),
             SchemaField.create(
                 name="view_range",
-                description="Optional for `view` when `path` is a file: "
-                "[start, end], end=-1 means to EOF.",
+                description="Optional parameter of `view` command when `path` points "
+                "to a file. If none is given, the full file is shown. "
+                "If provided, the file will be shown in the indicated line number "
+                "range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to "
+                "start. Setting `[start_line, -1]` shows all lines from `start_line` "
+                "to the end of the file.",
                 type=list[int],
                 required=False,
                 default=None,
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
             ),
         ],
     )
@@ -95,7 +90,7 @@ def make_input_schema(workspace_root: str | None = None) -> Schema:
 
 def make_output_schema() -> Schema:
     return Schema(
-        name="openhands.tools.str_replace_editor.output",
+        name=f"{__package__}.observation",
         fields=[
             SchemaField.create(
                 name="command",
@@ -167,7 +162,7 @@ class StrReplaceEditorDataConverter(ToolDataConverter):
         Shows diff visualization for meaningful changes (file creation, successful
         edits), otherwise falls back to agent observation.
         """
-        assert observation.validate_data()
+        observation.validate_data()
 
         if not self._has_meaningful_diff(observation):
             return super().visualize_observation(observation)
@@ -223,7 +218,7 @@ TOOL_DESCRIPTION = """Custom editing tool for viewing, creating and editing file
 * State is persistent across command calls and discussions with the user
 * If `path` is a text file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
 * The following binary file extensions can be viewed in Markdown format: [".xlsx", ".pptx", ".wav", ".mp3", ".m4a", ".flac", ".pdf", ".docx"]. IT DOES NOT HANDLE IMAGES.
-* The `create` command cannot be used if the Schemaified `path` already exists as a file
+* The `create` command cannot be used if the specified `path` already exists as a file
 * If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 * The `undo_edit` command will revert the last edit made to the file at `path`
 * This tool can be used for creating and editing files in plain-text format.
@@ -271,7 +266,7 @@ class FileEditorTool(Tool):
         workspace_path = workspace_root if workspace_root else "/workspace"
 
         # Create input and output schemas
-        input_schema = make_input_schema(workspace_root=workspace_root)
+        input_schema = make_input_schema(workspace_path=workspace_path)
         output_schema = make_output_schema()
 
         # Initialize the executor
@@ -293,34 +288,3 @@ class FileEditorTool(Tool):
             executor=executor,
             data_converter=StrReplaceEditorDataConverter(),
         )
-
-
-# Compatibility classes for impl system
-
-
-CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
-
-
-class StrReplaceEditorAction(BaseModel):
-    """Compatibility class for impl system."""
-
-    command: CommandLiteral
-    path: str
-    file_text: str | None = None
-    view_range: list[int] | None = None
-    old_str: str | None = None
-    new_str: str | None = None
-    insert_line: int | None = None
-
-
-class StrReplaceEditorObservation(BaseModel):
-    """Compatibility class for impl system."""
-
-    command: CommandLiteral
-    output: str
-    error: str | None = None
-    path: str | None = None
-    old_content: str | None = None
-    new_content: str | None = None
-    prev_exist: bool | None = None
-    _diff_cache: str | None = None

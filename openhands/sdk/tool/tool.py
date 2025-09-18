@@ -3,7 +3,6 @@ from typing import Any, Sequence
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     computed_field,
@@ -13,6 +12,7 @@ from rich.text import Text
 from openhands.sdk.llm import ImageContent, TextContent, content_to_str
 from openhands.sdk.tool.annotations import ToolAnnotations
 from openhands.sdk.tool.schema import Schema, SchemaInstance
+from openhands.sdk.utils.discriminated_union import DiscriminatedUnionMixin
 from openhands.sdk.utils.visualize import display_dict
 
 
@@ -82,7 +82,7 @@ class ToolDataConverter(ABC):
         return content
 
 
-class Tool(BaseModel):
+class Tool(DiscriminatedUnionMixin):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.

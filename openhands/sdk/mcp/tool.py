@@ -1,9 +1,7 @@
 """Utility functions for MCP integration."""
 
-import re
-
 import mcp.types
-from pydantic import Field, ValidationError, computed_field
+from pydantic import Field, ValidationError
 
 from openhands.sdk.llm import TextContent
 from openhands.sdk.logger import get_logger
@@ -11,6 +9,7 @@ from openhands.sdk.mcp import MCPToolObservation
 from openhands.sdk.mcp.client import MCPClient
 from openhands.sdk.tool import Tool, ToolAnnotations, ToolExecutor
 from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.utils import to_camel_case
 
 
 logger = get_logger(__name__)
@@ -19,11 +18,6 @@ logger = get_logger(__name__)
 # NOTE: We don't define MCPToolAction because it
 # will be a pydantic BaseModel dynamically created from the MCP tool schema.
 # It will be available as "tool.action_type".
-
-
-def to_camel_case(s: str) -> str:
-    parts = re.split(r"[_\-\s]+", s)
-    return "".join(word.capitalize() for word in parts if word)
 
 
 def mcp_schema_to_schema(name: str, mcp_schema: dict) -> Schema:
@@ -105,7 +99,8 @@ class MCPToolExecutor(ToolExecutor):
                 from openhands.sdk.mcp.definition import make_mcp_observation_schema
 
                 return SchemaInstance(
-                    schema=make_mcp_observation_schema(),
+                    name=f"MCP{to_camel_case(self.tool_name)}Observation",
+                    definition=make_mcp_observation_schema(),
                     data={
                         "content": [TextContent(text=error_msg)],
                         "is_error": True,
@@ -124,12 +119,6 @@ class MCPTool(Tool):
     """MCP Tool that wraps an MCP client and provides tool functionality."""
 
     mcp_tool: mcp.types.Tool = Field(description="The MCP tool definition.")
-
-    @computed_field(return_type=str)
-    @property
-    def kind(self) -> str:
-        """Return the fully qualified class name."""
-        return f"{self.__class__.__module__}.{self.__class__.__name__}"
 
     @classmethod
     def create(

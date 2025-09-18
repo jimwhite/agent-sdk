@@ -3,15 +3,12 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import get_args
+from typing import Literal, get_args
 
 from binaryornot.check import is_binary
+from pydantic import BaseModel, Field
 
 from openhands.sdk.utils.truncate import maybe_truncate
-from openhands.tools.str_replace_editor.definition import (
-    CommandLiteral,
-    StrReplaceEditorObservation,
-)
 from openhands.tools.str_replace_editor.exceptions import (
     EditorToolParameterInvalidError,
     EditorToolParameterMissingError,
@@ -31,6 +28,81 @@ from openhands.tools.str_replace_editor.utils.encoding import (
 )
 from openhands.tools.str_replace_editor.utils.history import FileHistoryManager
 from openhands.tools.str_replace_editor.utils.shell import run_shell_cmd
+
+
+CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
+
+
+class StrReplaceEditorAction(BaseModel):
+    """Schema for string replace editor operations.
+
+    This is internal to the str_replace_editor tool and should not be used directly.
+    """
+
+    command: CommandLiteral = Field(
+        description="The commands to run. Allowed options are: `view`, `create`, "
+        "`str_replace`, `insert`, `undo_edit`."
+    )
+    path: str = Field(
+        description="Absolute path to file or directory, e.g. `/workspace/file.py` "
+        "or `/workspace`."
+    )
+    file_text: str | None = Field(
+        default=None,
+        description="Required parameter of `create` command, with the content of "
+        "the file to be created.",
+    )
+    old_str: str | None = Field(
+        default=None,
+        description="Required parameter of `str_replace` command containing the "
+        "string in `path` to replace.",
+    )
+    new_str: str | None = Field(
+        default=None,
+        description="Optional parameter of `str_replace` command containing the "
+        "new string (if not given, no string will be added). Required parameter "
+        "of `insert` command containing the string to insert.",
+    )
+    insert_line: int | None = Field(
+        default=None,
+        description="Required parameter of `insert` command. The `new_str` will "
+        "be inserted AFTER the line `insert_line` of `path`.",
+    )
+    view_range: list[int] | None = Field(
+        default=None,
+        description="Optional parameter of `view` command when `path` points to a "
+        "file. If none is given, the full file is shown. If provided, the file "
+        "will be shown in the indicated line number range, e.g. [11, 12] will "
+        "show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, "
+        "-1]` shows all lines from `start_line` to the end of the file.",
+    )
+
+
+class StrReplaceEditorObservation(BaseModel):
+    """A ToolResult that can be rendered as a CLI output.
+
+    This is internal to the str_replace_editor tool and should not be used directly.
+    """
+
+    command: CommandLiteral = Field(
+        description="The commands to run. Allowed options are: `view`, `create`, "
+        "`str_replace`, `insert`, `undo_edit`."
+    )
+    output: str = Field(
+        default="", description="The output message from the tool for the LLM to see."
+    )
+    path: str | None = Field(default=None, description="The file path that was edited.")
+    prev_exist: bool = Field(
+        default=True,
+        description="Indicates if the file previously existed. If not, it was created.",
+    )
+    old_content: str | None = Field(
+        default=None, description="The content of the file before the edit."
+    )
+    new_content: str | None = Field(
+        default=None, description="The content of the file after the edit."
+    )
+    error: str | None = Field(default=None, description="Error message if any.")
 
 
 class FileEditor:
@@ -306,8 +378,8 @@ class FileEditor:
                 stdout = "\n".join(msg)
             return StrReplaceEditorObservation(
                 command="view",
-                output=stdout if not stderr else "",
-                error=stderr if stderr else None,
+                output=stdout,
+                error=stderr,
                 path=str(path),
                 prev_exist=True,
             )

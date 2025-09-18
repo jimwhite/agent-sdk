@@ -13,31 +13,23 @@ from openhands.sdk.tool.tool import (
 
 
 def make_input_schema() -> Schema:
+    fields = [
+        SchemaField.create(
+            name="message",
+            description="Final message to send to the user.",
+            type=str,
+            required=True,
+        ),
+    ]
     return Schema(
-        name="openhands.sdk.tool.builtins.finish.input",
-        fields=[
-            SchemaField.create(
-                name="message",
-                description="Final message to send to the user.",
-                type=str,
-                required=True,
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
-        ],
+        name=f"{__package__}.input",
+        fields=fields,
     )
 
 
 def make_output_schema() -> Schema:
     return Schema(
-        name="openhands.sdk.tool.builtins.finish.output",
+        name=f"{__package__}.output",
         fields=[
             SchemaField.create(
                 name="message",
@@ -88,7 +80,8 @@ class FinishExecutor(ToolExecutor):
     def __call__(self, action: SchemaInstance) -> SchemaInstance:
         message = action.data.get("message", "")
         return SchemaInstance(
-            schema=make_output_schema(),
+            name="FinishObservation",
+            definition=make_output_schema(),
             data={"message": message},
         )
 

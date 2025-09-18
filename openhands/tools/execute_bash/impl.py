@@ -5,11 +5,13 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.execute_bash.definition import (
-    ExecuteBashAction,
-    ExecuteBashObservation,
     make_output_schema,
 )
 from openhands.tools.execute_bash.terminal.factory import create_terminal_session
+from openhands.tools.execute_bash.terminal.types import (
+    ExecuteBashAction,
+    ExecuteBashObservation,
+)
 
 
 logger = get_logger(__name__)

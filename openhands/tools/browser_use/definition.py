@@ -94,15 +94,6 @@ def make_browser_navigate_input_schema() -> Schema:
                 required=False,
                 default=False,
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
@@ -168,15 +159,6 @@ def make_browser_click_input_schema() -> Schema:
                 required=False,
                 default=False,
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
@@ -235,15 +217,6 @@ def make_browser_type_input_schema() -> Schema:
                 type=str,
                 required=True,
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
@@ -299,16 +272,7 @@ def make_browser_get_state_input_schema() -> Schema:
                 type=bool,
                 required=False,
                 default=False,
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
+            )
         ],
     )
 
@@ -368,15 +332,6 @@ def make_browser_get_content_input_schema() -> Schema:
                 required=False,
                 default=0,
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
@@ -426,15 +381,6 @@ def make_browser_scroll_input_schema() -> Schema:
                 default="down",
                 enum=["up", "down"],
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
@@ -477,17 +423,7 @@ class BrowserScrollTool(Tool):
 def make_browser_go_back_input_schema() -> Schema:
     return Schema(
         name="openhands.tools.browser_use.go_back.input",
-        fields=[
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
-        ],
+        fields=[],
     )
 
 
@@ -526,17 +462,7 @@ class BrowserGoBackTool(Tool):
 def make_browser_list_tabs_input_schema() -> Schema:
     return Schema(
         name="openhands.tools.browser_use.list_tabs.input",
-        fields=[
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
-        ],
+        fields=[],
     )
 
 
@@ -584,16 +510,7 @@ def make_browser_switch_tab_input_schema() -> Schema:
                 ),
                 type=str,
                 required=True,
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
+            )
         ],
     )
 
@@ -643,15 +560,6 @@ def make_browser_close_tab_input_schema() -> Schema:
                 ),
                 type=str,
                 required=True,
-            ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
             ),
         ],
     )

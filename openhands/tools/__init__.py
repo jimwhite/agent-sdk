@@ -61,15 +61,8 @@ if TYPE_CHECKING:
     from openhands.tools.execute_bash import (
         BashExecutor,
         BashTool,
-        ExecuteBashAction,
-        ExecuteBashObservation,
     )
-    from openhands.tools.str_replace_editor import (
-        FileEditorExecutor,
-        FileEditorTool,
-        StrReplaceEditorAction,
-        StrReplaceEditorObservation,
-    )
+    from openhands.tools.str_replace_editor import FileEditorExecutor, FileEditorTool
     from openhands.tools.task_tracker import (
         TaskTrackerExecutor,
         TaskTrackerTool,
@@ -79,12 +72,8 @@ if TYPE_CHECKING:
         "BrowserToolSet",
         "BashExecutor",
         "BashTool",
-        "ExecuteBashAction",
-        "ExecuteBashObservation",
         "FileEditorExecutor",
         "FileEditorTool",
-        "StrReplaceEditorAction",
-        "StrReplaceEditorObservation",
         "TaskTrackerExecutor",
         "TaskTrackerTool",
     ]

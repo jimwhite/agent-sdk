@@ -4,7 +4,6 @@ import os
 from collections.abc import Sequence
 from typing import Callable, Literal
 
-from pydantic import BaseModel, field_validator
 from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
@@ -352,55 +351,3 @@ class BashTool(Tool):
             executor=executor,
             data_converter=ExecuteBashDataConverter(),
         )
-
-
-# Compatibility classes for terminal system
-
-
-class ExecuteBashAction(BaseModel):
-    """Compatibility class for terminal system."""
-
-    command: str
-    is_input: bool = False
-    timeout: int | None = None
-
-
-class ExecuteBashObservation(BaseModel):
-    """Compatibility class for terminal system."""
-
-    output: str
-    command: str | None = None
-    exit_code: int | None = None
-    error: bool = False
-    timeout: bool = False
-    metadata: dict | None = None
-
-    @field_validator("metadata", mode="before")
-    @classmethod
-    def validate_metadata(cls, v):
-        """Convert CmdOutputMetadata to dict if needed."""
-        if isinstance(v, CmdOutputMetadata):
-            return v.model_dump()
-        return v
-
-    @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
-        """Convert to agent observation format for compatibility."""
-        # Create a data converter to format the observation
-        converter = ExecuteBashDataConverter()
-
-        # Create a SchemaInstance with our data
-        schema_instance = SchemaInstance(
-            name="openhands.tools.execute_bash.output",
-            definition=make_output_schema(),
-            data={
-                "output": self.output,
-                "command": self.command,
-                "exit_code": self.exit_code,
-                "error": self.error,
-                "timeout": self.timeout,
-                "metadata": self.metadata,
-            },
-        )
-
-        return converter.agent_observation(schema_instance)

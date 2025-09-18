@@ -3,7 +3,7 @@
 import os
 from abc import ABC, abstractmethod
 
-from openhands.tools.execute_bash.definition import (
+from openhands.tools.execute_bash.terminal.types import (
     ExecuteBashAction,
     ExecuteBashObservation,
 )

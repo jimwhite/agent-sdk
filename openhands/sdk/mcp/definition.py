@@ -9,6 +9,7 @@ from rich.text import Text
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.schema import Schema, SchemaField, SchemaInstance
+from openhands.sdk.utils import to_camel_case
 from openhands.sdk.utils.visualize import display_dict
 
 
@@ -24,7 +25,7 @@ def make_mcp_observation_schema() -> Schema:
     from typing import Union
 
     return Schema(
-        name="openhands.sdk.mcp.observation",
+        name=f"{__package__}.observation",
         fields=[
             SchemaField.create(
                 name="content",
@@ -75,7 +76,7 @@ class MCPToolObservation:
                 )
 
         return SchemaInstance(
-            name=f"mcp_tool_observation_{tool_name}",
+            name=f"MCP{to_camel_case(tool_name)}Observation",
             definition=make_mcp_observation_schema(),
             data={
                 "content": converted_content,

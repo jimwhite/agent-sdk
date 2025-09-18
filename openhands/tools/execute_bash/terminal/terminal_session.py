@@ -11,14 +11,14 @@ from openhands.tools.execute_bash.constants import (
     POLL_INTERVAL,
     TIMEOUT_MESSAGE_TEMPLATE,
 )
-from openhands.tools.execute_bash.definition import (
-    ExecuteBashAction,
-    ExecuteBashObservation,
-)
 from openhands.tools.execute_bash.metadata import CmdOutputMetadata
 from openhands.tools.execute_bash.terminal.interface import (
     TerminalInterface,
     TerminalSessionBase,
+)
+from openhands.tools.execute_bash.terminal.types import (
+    ExecuteBashAction,
+    ExecuteBashObservation,
 )
 from openhands.tools.execute_bash.utils.command import (
     escape_bash_special_chars,
@@ -185,7 +185,7 @@ class TerminalSession(TerminalSessionBase):
         return ExecuteBashObservation(
             output=command_output,
             command=command,
-            metadata=metadata.model_dump() if metadata else None,
+            metadata=metadata,
         )
 
     def _handle_nochange_timeout_command(
@@ -219,7 +219,7 @@ class TerminalSession(TerminalSessionBase):
         return ExecuteBashObservation(
             output=command_output,
             command=command,
-            metadata=metadata.model_dump() if metadata else None,
+            metadata=metadata,
         )
 
     def _handle_hard_timeout_command(
@@ -255,7 +255,7 @@ class TerminalSession(TerminalSessionBase):
         return ExecuteBashObservation(
             output=command_output,
             command=command,
-            metadata=metadata.model_dump() if metadata else None,
+            metadata=metadata,
         )
 
     def _ready_for_next_command(self) -> None:
@@ -312,13 +312,11 @@ class TerminalSession(TerminalSessionBase):
                 return ExecuteBashObservation(
                     output="ERROR: No previous running command to retrieve logs from.",
                     error=True,
-                    metadata={"exit_code": -1, "prefix": "", "suffix": ""},
                 )
             if is_input:
                 return ExecuteBashObservation(
                     output="ERROR: No previous running command to interact with.",
                     error=True,
-                    metadata={"exit_code": -1, "prefix": "", "suffix": ""},
                 )
 
         # Check if the command is a single command or multiple commands
@@ -385,7 +383,7 @@ class TerminalSession(TerminalSessionBase):
             obs = ExecuteBashObservation(
                 output=command_output,
                 command=command,
-                metadata=metadata.model_dump() if metadata else None,
+                metadata=metadata,
             )
             logger.debug(f"RETURNING OBSERVATION (previous-command): {obs}")
             return obs

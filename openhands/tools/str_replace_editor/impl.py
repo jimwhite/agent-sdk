@@ -1,12 +1,16 @@
+from typing import get_args
+
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.tool.schema import SchemaInstance
 from openhands.tools.str_replace_editor.definition import (
-    CommandLiteral,
-    StrReplaceEditorAction,
-    StrReplaceEditorObservation,
     make_output_schema,
 )
-from openhands.tools.str_replace_editor.editor import FileEditor
+from openhands.tools.str_replace_editor.editor import (
+    CommandLiteral,
+    FileEditor,
+    StrReplaceEditorAction,
+    StrReplaceEditorObservation,
+)
 from openhands.tools.str_replace_editor.exceptions import ToolError
 
 
@@ -25,10 +29,18 @@ class FileEditorExecutor(ToolExecutor):
         if isinstance(action, StrReplaceEditorAction):
             editor_action = action
         else:
+            action.validate_data()
+            command = action.data.get("command")
+            path = action.data.get("path")
+            assert command is not None, "Parameter `command` is required."
+            assert command in get_args(CommandLiteral), (
+                f"Invalid command: {command}. Must be one of {get_args(CommandLiteral)}"
+            )
+            assert path is not None, "Parameter `path` is required."
             # Convert SchemaInstance to StrReplaceEditorAction for editor system
             editor_action = StrReplaceEditorAction(
-                command=action.data.get("command"),
-                path=action.data.get("path"),
+                command=command,
+                path=path,
                 file_text=action.data.get("file_text"),
                 view_range=action.data.get("view_range"),
                 old_str=action.data.get("old_str"),
@@ -55,7 +67,7 @@ class FileEditorExecutor(ToolExecutor):
 
         # Convert StrReplaceEditorObservation back to SchemaInstance
         return SchemaInstance(
-            name="str_replace_editor_output",
+            name="StrReplaceEditorObservation",
             definition=make_output_schema(),
             data={
                 "command": result.command,
@@ -96,8 +108,6 @@ def file_editor(
             insert_line=insert_line,
         )
     except ToolError as e:
-        result = StrReplaceEditorObservation(
-            command=command, output="", error=e.message
-        )
+        result = StrReplaceEditorObservation(command=command, error=e.message)
     assert result is not None, "file_editor should always return a result"
     return result

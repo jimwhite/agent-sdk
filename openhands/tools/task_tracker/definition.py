@@ -34,7 +34,7 @@ class TaskItem(BaseModel):
 
 def make_input_schema() -> Schema:
     return Schema(
-        name="openhands.tools.task_tracker.input",
+        name=f"{__package__}.action",
         fields=[
             SchemaField.create(
                 name="command",
@@ -53,22 +53,13 @@ def make_input_schema() -> Schema:
                 required=False,
                 default=[],
             ),
-            SchemaField.create(
-                name="security_risk",
-                description="The LLM's assessment of the safety risk of this "
-                "action. See the SECURITY_RISK_ASSESSMENT section in the system "
-                "prompt for risk level definitions.",
-                type=str,
-                required=True,
-                enum=["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
-            ),
         ],
     )
 
 
 def make_output_schema() -> Schema:
     return Schema(
-        name="openhands.tools.task_tracker.output",
+        name=f"{__package__}.observation",
         fields=[
             SchemaField.create(
                 name="content",
@@ -134,15 +125,7 @@ class TaskTrackerDataConverter(ToolDataConverter):
         task_list_data = observation.data.get("task_list", [])
 
         # Convert task list data to TaskItem objects for processing
-        task_list = []
-        for task_data in task_list_data:
-            if isinstance(task_data, dict):
-                try:
-                    task_list.append(TaskItem.model_validate(task_data))
-                except ValidationError:
-                    # Skip invalid task items
-                    continue
-
+        task_list = [TaskItem.model_validate(task) for task in task_list_data]
         if task_list:
             # Count tasks by status
             todo_count = sum(1 for task in task_list if task.status == "todo")
@@ -201,6 +184,8 @@ class TaskTrackerDataConverter(ToolDataConverter):
 class TaskTrackerExecutor(ToolExecutor):
     """Executor for the task tracker tool."""
 
+    OUTPUT_NAME = "TaskTrackerObservation"
+
     def __init__(self, save_dir: str | None = None):
         """Initialize TaskTrackerExecutor.
 
@@ -224,14 +209,7 @@ class TaskTrackerExecutor(ToolExecutor):
 
         if command == "plan":
             # Convert task list data to TaskItem objects
-            task_list = []
-            for task_data in task_list_data:
-                if isinstance(task_data, dict):
-                    try:
-                        task_list.append(TaskItem.model_validate(task_data))
-                    except ValidationError as e:
-                        logger.warning(f"Invalid task item: {task_data}, error: {e}")
-                        continue
+            task_list = [TaskItem.model_validate(task) for task in task_list_data]
 
             # Update the task list
             self._task_list = task_list
@@ -240,7 +218,7 @@ class TaskTrackerExecutor(ToolExecutor):
                 self._save_tasks()
 
             return SchemaInstance(
-                name="openhands.tools.task_tracker.output",
+                name=self.OUTPUT_NAME,
                 definition=make_output_schema(),
                 data={
                     "content": (
@@ -255,7 +233,7 @@ class TaskTrackerExecutor(ToolExecutor):
             # Return the current task list
             if not self._task_list:
                 return SchemaInstance(
-                    name="openhands.tools.task_tracker.output",
+                    name=self.OUTPUT_NAME,
                     definition=make_output_schema(),
                     data={
                         "content": (
@@ -267,7 +245,7 @@ class TaskTrackerExecutor(ToolExecutor):
                 )
             content = self._format_task_list(self._task_list)
             return SchemaInstance(
-                name="openhands.tools.task_tracker.output",
+                name=self.OUTPUT_NAME,
                 definition=make_output_schema(),
                 data={
                     "content": content,
@@ -277,7 +255,7 @@ class TaskTrackerExecutor(ToolExecutor):
             )
         else:
             return SchemaInstance(
-                name="openhands.tools.task_tracker.output",
+                name=self.OUTPUT_NAME,
                 definition=make_output_schema(),
                 data={
                     "content": f"Unknown command: {command}. "

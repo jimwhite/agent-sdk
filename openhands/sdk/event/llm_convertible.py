@@ -152,7 +152,7 @@ class ActionEvent(LLMConvertibleEvent):
             if len(thought_text) > N_CHAR_PREVIEW
             else thought_text
         )
-        action_name = self.action.schema.name
+        action_name = self.action.name
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
 
@@ -195,7 +195,6 @@ class ObservationEvent(LLMConvertibleEvent):
     def __str__(self) -> str:
         """Plain text string representation for ObservationEvent."""
         base_str = f"{self.__class__.__name__} ({self.source})"
-        # For now, just use the raw data as string representation
         content_str = str(self.observation.data)
         obs_preview = (
             content_str[:N_CHAR_PREVIEW] + "..."

@@ -31,12 +31,11 @@ from openhands.sdk.llm import (
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     BUILT_IN_TOOLS,
+    FinishTool,
     SchemaInstance,
     Tool,
 )
-
-
-# FinishAction is no longer needed - we check tool name instead
+from openhands.sdk.utils import to_camel_case
 
 
 logger = get_logger(__name__)
@@ -352,7 +351,7 @@ class Agent(AgentBase):
         try:
             action_data = json.loads(tool_call.function.arguments)
             action = SchemaInstance(
-                name=f"{tool.name}_input",
+                name=f"{to_camel_case(tool.name)}Action",
                 definition=tool.input_schema,
                 data=action_data,
             )
@@ -418,6 +417,6 @@ class Agent(AgentBase):
         on_event(obs_event)
 
         # Set conversation state
-        if tool.name == "finish":
+        if tool.name == FinishTool.name:
             state.agent_status = AgentExecutionStatus.FINISHED
         return obs_event
