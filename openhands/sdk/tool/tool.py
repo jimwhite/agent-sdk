@@ -43,8 +43,12 @@ class ToolDataConverter(ABC):
     def agent_observation(
         self, observation: SchemaInstance
     ) -> Sequence[TextContent | ImageContent]:
-        """Convert SchemaInstance to a string observation for the LLM."""
-        raise NotImplementedError("Subclasses must implement agent_observation")
+        """Convert SchemaInstance to a string observation for the LLM.
+
+        Default implementation returns the raw data as a JSON string.
+        """
+        observation.validate_data()
+        return [TextContent(text=str(observation.data))]
 
     def visualize_action(self, action: SchemaInstance) -> Text:
         """Return Rich Text representation of this action.
@@ -103,8 +107,8 @@ class Tool(DiscriminatedUnionMixin):
 
     # runtime-only; always hidden on dumps
     executor: ToolExecutor | None = Field(default=None, repr=False, exclude=True)
-    data_converter: ToolDataConverter | None = Field(
-        default=None, repr=False, exclude=True
+    data_converter: ToolDataConverter = Field(
+        default_factory=ToolDataConverter, repr=False, exclude=True
     )
 
     @classmethod
