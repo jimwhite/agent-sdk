@@ -246,7 +246,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if model_val.startswith("openhands/"):
             model_name = model_val.removeprefix("openhands/")
             d["model"] = f"litellm_proxy/{model_name}"
-            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
+            d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
 
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
@@ -298,7 +298,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Public API
     # =========================================================================
     @property
-    def metrics(self) -> Metrics | None:
+    def metrics(self) -> Metrics:
+        assert self._metrics is not None, (
+            "Metrics should be initialized after model validation"
+        )
         return self._metrics
 
     def completion(

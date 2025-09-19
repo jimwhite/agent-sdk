@@ -24,7 +24,11 @@ agent-sdk/
 │   ├── 08_mcp_with_oauth.py            # MCP integration with OAuth
 │   ├── 09_pause_example.py             # Pause and resume agent execution
 │   ├── 10_persistence.py               # Conversation persistence
-│   └── 11_async.py                     # Async agent usage
+│   ├── 11_async.py                     # Async agent usage
+│   ├── 12_custom_secrets.py            # Custom secrets management
+│   ├── 13_get_llm_metrics.py           # LLM metrics and monitoring
+│   ├── 14_context_condenser.py         # Context condensation
+│   └── 15_llm_security_analyzer.py     # LLM security analysis
 ├── openhands/              # Main SDK packages
 │   ├── sdk/                # Core SDK functionality
 │   │   ├── agent/          # Agent implementations
@@ -271,6 +275,98 @@ context = AgentContext(
     system_message_suffix="Always finish your response with the word 'yay!'",
     user_message_suffix="The first character of your response should be 'I'",
 )
+```
+
+## Spec System
+
+The OpenHands Agent SDK includes a powerful specification system that allows you to define and instantiate agents, tools, and condensers using declarative configuration. This system provides a clean, serializable way to configure complex agent setups.
+
+### Agent Specifications
+
+Define complete agent configurations using `AgentSpec`:
+
+```python
+from openhands.sdk.agent import AgentSpec
+from openhands.sdk.tool import ToolSpec
+from openhands.sdk.context.condenser import LLMSummarizingCondenser
+
+# Define an agent specification
+agent_spec = AgentSpec(
+    llm={
+        "model": "gpt-4",
+        "api_key": "your-api-key",
+        "base_url": "https://api.openai.com/v1"
+    },
+    tools=[
+        ToolSpec(name="BashTool", params={"working_dir": "/workspace"}),
+        ToolSpec(name="FileEditorTool"),
+    ],
+    condenser=LLMSummarizingCondenser(
+        llm={"model": "gpt-4", "api_key": "your-api-key"},
+        max_size=80,
+        keep_first=10
+    ),
+    agent_context={
+        "system_message_suffix": "Always be helpful and concise."
+    }
+)
+
+# Create agent from specification
+agent = AgentBase.from_spec(agent_spec)
+```
+
+### Tool Specifications
+
+Configure tools with `ToolSpec`:
+
+```python
+from openhands.sdk.tool import ToolSpec
+
+# Simple tool specification
+bash_spec = ToolSpec(name="BashTool", params={"working_dir": "/app"})
+
+# Tool with complex parameters
+editor_spec = ToolSpec(
+    name="FileEditorTool",
+    params={
+        "max_file_size": 1000000,
+        "allowed_extensions": [".py", ".js", ".md"]
+    }
+)
+```
+
+### Benefits of the Spec System
+
+1. **Serializable Configuration**: Specs can be easily serialized to/from JSON, YAML, or other formats
+2. **Validation**: Built-in validation ensures configurations are correct before instantiation
+3. **Reusability**: Share and reuse agent configurations across different environments
+4. **Version Control**: Track agent configurations alongside your code
+5. **Dynamic Loading**: Load agent configurations from external sources at runtime
+
+### Example: Configuration File
+
+```python
+import json
+from openhands.sdk.agent import AgentSpec, AgentBase
+
+# Save configuration to file
+config = {
+    "llm": {"model": "gpt-4", "api_key": "your-key"},
+    "tools": [
+        {"name": "BashTool", "params": {"working_dir": "/workspace"}},
+        {"name": "FileEditorTool"}
+    ]
+}
+
+with open("agent_config.json", "w") as f:
+    json.dump(config, f)
+
+# Load and create agent from file
+with open("agent_config.json", "r") as f:
+    config = json.load(f)
+
+agent_spec = AgentSpec(**config)
+agent = AgentBase.from_spec(agent_spec)
 ```
 
 ## Documentation
