@@ -15,11 +15,11 @@ from openhands.agent_server.conversation_service import (
 from openhands.agent_server.event_router import (
     router as conversation_event_router,
 )
-from openhands.agent_server.health_router import health_router
 from openhands.agent_server.middleware import (
     LocalhostCORSMiddleware,
     ValidateSessionAPIKeyMiddleware,
 )
+from openhands.agent_server.server_details_router import server_details_router
 
 
 @asynccontextmanager
@@ -42,7 +42,7 @@ config = get_default_config()
 # Add routers
 api.include_router(conversation_event_router)
 api.include_router(conversation_router)
-api.include_router(health_router)
+api.include_router(server_details_router)
 
 # Add middleware
 api.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
