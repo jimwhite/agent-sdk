@@ -32,13 +32,13 @@ class StuckDetector:
         events = list(self.state.events)
 
         # Only look at history after the last user message
-        # FIXME: MessageEvent could be either from "agent" or "user"
         last_user_msg_index = next(
             (
                 i
                 for i in reversed(range(len(events)))
-                if isinstance(events[i], MessageEvent)
-            )
+                if isinstance(events[i], MessageEvent) and events[i].source == "user"
+            ),
+            -1,  # Default to -1 if no user message found
         )
         events = events[last_user_msg_index + 1 :]
 
@@ -47,6 +47,9 @@ class StuckDetector:
             return False
 
         logger.debug(f"Checking for stuck patterns in {len(events)} events")
+        logger.debug(
+            f"Events after last user message: {[type(e).__name__ for e in events]}"
+        )
 
         # the first few scenarios detect 3 or 4 repeated steps
         # prepare the last 4 actions and observations, to check them out
@@ -100,6 +103,7 @@ class StuckDetector:
 
         # Check for a loop of 4 identical action-observation pairs
         if len(last_actions) == 4 and len(last_observations) == 4:
+            logger.debug("Found 4 actions and 4 observations, checking for equality")
             actions_equal = all(
                 self._event_eq(last_actions[0], action) for action in last_actions
             )
@@ -107,10 +111,19 @@ class StuckDetector:
                 self._event_eq(last_observations[0], observation)
                 for observation in last_observations
             )
+            logger.debug(
+                f"Actions equal: {actions_equal}, "
+                f"Observations equal: {observations_equal}"
+            )
 
             if actions_equal and observations_equal:
                 logger.warning("Action, Observation loop detected")
                 return True
+        else:
+            logger.debug(
+                f"Not enough actions/observations: {len(last_actions)} actions,"
+                f" {len(last_observations)} observations"
+            )
 
         return False
 
@@ -138,14 +151,13 @@ class StuckDetector:
         # check for repeated MessageActions with source=AGENT
         # see if the agent is engaged in a good old monologue, telling
         # itself the same thing over and over
-        if len(events) < 6:
+        if len(events) < 3:
             return False
 
         # Look for 3 consecutive agent messages without user interruption
-        recent_events = events[-6:]
         agent_message_count = 0
 
-        for event in reversed(recent_events):
+        for event in reversed(events):
             if isinstance(event, MessageEvent):
                 if event.source == "agent":
                     agent_message_count += 1
@@ -216,7 +228,44 @@ class StuckDetector:
         Compare two events for equality, ignoring irrelevant
         details like ids, metrics.
         """
-        # TODO: how to compare actions and observations properly?
+        # Must be same type
+        if type(event1) is not type(event2):
+            return False
 
-        # this is the default comparison
+        # For ActionEvents, compare the action content, ignoring IDs
+        if isinstance(event1, ActionEvent) and isinstance(event2, ActionEvent):
+            return (
+                event1.source == event2.source
+                and event1.thought == event2.thought
+                and event1.action == event2.action
+                and event1.tool_name == event2.tool_name
+                # Ignore tool_call_id, llm_response_id, action_id as they vary
+            )
+
+        # For ObservationEvents, compare the observation content, ignoring IDs
+        if isinstance(event1, ObservationEvent) and isinstance(
+            event2, ObservationEvent
+        ):
+            return (
+                event1.source == event2.source
+                and event1.observation == event2.observation
+                and event1.tool_name == event2.tool_name
+                # Ignore action_id, tool_call_id as they vary
+            )
+
+        # For AgentErrorEvents, compare the error content
+        if isinstance(event1, AgentErrorEvent) and isinstance(event2, AgentErrorEvent):
+            return (
+                event1.source == event2.source and event1.error == event2.error
+                # Ignore action_id as it varies
+            )
+
+        # For MessageEvents, compare the message content
+        if isinstance(event1, MessageEvent) and isinstance(event2, MessageEvent):
+            return (
+                event1.source == event2.source
+                and event1.llm_message == event2.llm_message
+            )
+
+        # Default fallback
         return event1 == event2
