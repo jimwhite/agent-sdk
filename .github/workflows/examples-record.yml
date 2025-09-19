@@ -56,7 +56,6 @@ jobs:
                     - model_name: anthropic/claude-3-5-sonnet-20241022
                       litellm_params:
                         model: anthropic/claude-3-5-sonnet-20241022
-                        api_key: "os.environ/ANTHROPIC_API_KEY"
                   YAML
                   sed -i "s/TTL_PLACEHOLDER/$TTL_SEC/g" litellm-config.yaml
 

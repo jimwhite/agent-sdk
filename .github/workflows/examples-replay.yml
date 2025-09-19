@@ -51,6 +51,7 @@ jobs:
                         model: anthropic/claude-3-5-sonnet-20241022
                   general_settings:
                     master_key: sk-dummy
+                    cache_responses: true
                   YAML
 
             - name: Start LiteLLM Proxy (cache-only)
