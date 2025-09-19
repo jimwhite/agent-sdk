@@ -20,7 +20,7 @@ class StuckDetector:
     1. Repeating action-observation cycles
     2. Repeating action-error cycles
     3. Agent monologue (repeated messages without user input)
-    4. Specific repetitive patterns (like repeated file edits)
+    4. Repeating alternating action-observation patterns
     5. Context window errors indicating memory issues
     """
 
@@ -220,7 +220,7 @@ class StuckDetector:
         The pattern is repeated AgentCondensationObservation events without any other
         events between them.
         """
-        # TODO: check new condenser events
+        # TODO: blocked by https://github.com/All-Hands-AI/agent-sdk/issues/282
         return False
 
     def _event_eq(self, event1: Event, event2: Event) -> bool:
