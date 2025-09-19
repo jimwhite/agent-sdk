@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
@@ -105,18 +106,21 @@ def test_llm_completion_with_tools(mock_completion):
 
     # Test completion with tools
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                },
-            },
-        }
+
+    from pydantic import Field
+
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
+
+    class ArgsCompletionTools(ActionBase):
+        param: str = Field(description="param")
+
+    tools = [
+        Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=ArgsCompletionTools,
+        )
     ]
 
     response = llm.completion(
@@ -323,7 +327,24 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     assert llm.should_mock_tool_calls(tools)
 
     # Call completion - this should go through the prompt-based tool calling path
-    response = llm.completion(messages=messages, tools=tools)
+    # For completion, pass Tool objects (dict used only for should_mock_tool_calls)
+    from pydantic import Field
+
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
+
+    class ArgsNonFnMode(ActionBase):
+        param: str = Field(description="param")
+
+    tool_objs = [
+        Tool(
+            name="test_tool",
+            description="A test tool for non-function call mode",
+            action_type=ArgsNonFnMode,
+        )
+    ]
+
+    response = llm.completion(messages=messages, tools=tool_objs)
 
     # Verify the response
     assert response is not None
@@ -347,19 +368,22 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                },
-            },
-        }
+    from pydantic import Field
+
+    from openhands.sdk.tool.schema import ActionBase
+    from openhands.sdk.tool.tool import Tool
+
+    class ArgsFCMode(ActionBase):
+        param: str | None = Field(default=None, description="param")
+
+    tools = [
+        Tool(
+            name="test_tool",
+            description="A test tool",
+            action_type=ArgsFCMode,
+        )
     ]
+
     messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
     # Test with native function calling enabled (default behavior for gpt-4o)
@@ -375,7 +399,17 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     # Verify function calling is active
     assert llm_native.is_function_calling_active()
     # Should not mock tools when native function calling is active
-    assert not llm_native.should_mock_tool_calls(tools)
+    # Use dict-shaped tools for this type-only helper
+    typed_dict_tools: list[ChatCompletionToolParam] = [
+        ChatCompletionToolParam(
+            type="function",
+            function=ChatCompletionToolParamFunctionChunk(
+                name="test_tool",
+                parameters={"type": "object"},
+            ),
+        )
+    ]
+    assert not llm_native.should_mock_tool_calls(typed_dict_tools)
 
     # Test with native function calling disabled
     llm_non_native = LLM(
@@ -390,7 +424,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     # Verify function calling is not active
     assert not llm_non_native.is_function_calling_active()
     # Should mock tools when native function calling is disabled but tools are provided
-    assert llm_non_native.should_mock_tool_calls(tools)
+    assert llm_non_native.should_mock_tool_calls(typed_dict_tools)
 
     # Call both and verify different behavior
     mock_completion.reset_mock()
@@ -409,7 +443,10 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # But the underlying calls should be different:
     # Native mode should pass tools to the LLM
-    assert native_call_kwargs.get("tools") == tools
+    native_tools = native_call_kwargs.get("tools")
+    assert isinstance(native_tools, list) and len(native_tools) == 1
+    assert native_tools[0]["type"] == "function"
+    assert native_tools[0]["function"]["name"] == "test_tool"
 
     # Non-native mode should not pass tools (they're handled via prompts)
     assert non_native_call_kwargs.get("tools") is None

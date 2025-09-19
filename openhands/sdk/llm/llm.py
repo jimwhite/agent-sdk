@@ -73,7 +73,7 @@ from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.tool import Tool
+    from openhands.sdk.tool import ToolBase
 
 logger = get_logger(__name__)
 CallKind = Literal["chat", "responses"]
@@ -375,7 +375,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         kind: CallKind,
         messages: list[dict[str, Any]] | list[Message] | None,
         input: str | list[dict[str, Any]] | None,
-        tools: Sequence[dict[str, Any] | "Tool" | ChatCompletionToolParam] | None,
+        tools: Sequence["ToolBase"] | None,
+        add_security_risk_prediction: bool = False,
     ) -> tuple[
         list[dict[str, Any]] | None,
         str | list[dict[str, Any]] | None,
@@ -386,7 +387,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         Returns (messages, input, tools) normalized for the selected path.
         """
         # Local import to avoid TYPE_CHECKING branch issues
-        from openhands.sdk.tool import Tool
+        from openhands.sdk.tool import ToolBase
 
         if kind == "chat":
             # Messages: ensure list[dict]
@@ -398,11 +399,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             # Tools: Tool -> ChatCompletionToolParam
             tools_cc: list[ChatCompletionToolParam] = []
             if tools:
-                first = tools[0]
-                if isinstance(first, Tool):
-                    tools_cc = [cast(Tool, t).to_openai_tool() for t in tools]  # type: ignore[arg-type]
-                else:
-                    tools_cc = cast(list[ChatCompletionToolParam], list(tools))
+                tools_cc = [
+                    cast(ToolBase, t).to_openai_tool(
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                    for t in tools
+                ]  # type: ignore[arg-type]
             return messages, None, tools_cc
 
         # kind == "responses"
@@ -429,42 +431,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         tools_dicts: list[dict[str, Any]] = []
         if tools:
             for t in tools:
-                if isinstance(t, Tool):
-                    tools_dicts.append(cast(Any, t).to_responses_tool())
-                    continue
-                if isinstance(t, dict):
-                    # If provided in Chat Completions shape, flatten to Responses
-                    if "function" in t:
-                        fn = cast(dict, t.get("function") or {})
-                        item: dict[str, Any] = {
-                            "type": "function",
-                            "name": fn.get("name"),
-                        }
-                        desc = fn.get("description")
-                        if desc is not None:
-                            item["description"] = desc
-                        params = fn.get("parameters")
-                        if params is not None:
-                            item["parameters"] = params
-                        tools_dicts.append(item)
-                    else:
-                        tools_dicts.append(cast(dict, t))
-                    continue
-                # Fallback for ChatCompletionToolParam-like objects
-                fn_obj = getattr(t, "function", None)
-                if fn_obj is None:
-                    continue
-                item2: dict[str, Any] = {
-                    "type": "function",
-                    "name": getattr(fn_obj, "name"),
-                }
-                desc2 = getattr(fn_obj, "description", None)
-                if desc2 is not None:
-                    item2["description"] = desc2
-                params2 = getattr(fn_obj, "parameters", None)
-                if params2 is not None:
-                    item2["parameters"] = params2
-                tools_dicts.append(item2)
+                tools_dicts.append(
+                    cast(Any, t).to_responses_tool(
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                )
 
         return None, input, tools_dicts
 
@@ -487,8 +458,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: list[ChatCompletionToolParam] | list["Tool"] | None = None,
+        tools: Sequence["ToolBase"] | None = None,
         return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         """Get a completion from the LLM.
@@ -502,7 +474,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Decide route once, then pre-normalize for unified engine
         kind = self._select_kind(kwargs, tools)
         msgs, inp, ttools = self._pre_normalize(
-            kind=kind, messages=messages, input=None, tools=tools
+            kind=kind,
+            messages=messages,
+            input=None,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
         )
         return self._unified_request(
             kind=kind,
@@ -516,8 +492,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[dict[str, Any]] | list[Message] | str | None = None,
         input: str | list[dict[str, Any]] | None = None,
-        tools: Sequence[dict[str, Any] | "Tool" | ChatCompletionToolParam]
-        | None = None,
+        tools: Sequence[ToolBase] | None = None,
+        add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
         if not get_features(self.model).supports_responses_api:
@@ -534,6 +510,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             messages=cast(list[dict[str, Any]] | list[Message], messages),
             input=input,
             tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
         )
 
         return self._unified_request(

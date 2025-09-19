@@ -264,13 +264,24 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
             ),
         )
 
-    def to_responses_tool(self) -> dict[str, Any]:
+    def to_responses_tool(
+        self, add_security_risk_prediction: bool = False
+    ) -> dict[str, Any]:
         """Convert this tool to an OpenAI Responses API tool dict."""
+        # We only add security_risk if the tool is not read-only
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
+        params = (
+            _create_action_type_with_risk(self.action_type).to_mcp_schema()
+            if add_security_risk_prediction
+            else self.action_type.to_mcp_schema()
+        )
         return {
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": self.action_type.to_mcp_schema(),
+            "parameters": params,
         }
 
     @classmethod
