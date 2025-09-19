@@ -143,7 +143,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     openrouter_app_name: str = Field(default="OpenHands")
 
     num_retries: int = Field(default=5)
-    retry_multiplier: float = Field(default=8)
+    retry_multiplier: float = Field(default=8.0)
     retry_min_wait: int = Field(default=8)
     retry_max_wait: int = Field(default=64)
 
@@ -302,7 +302,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if model_val.startswith("openhands/"):
             model_name = model_val.removeprefix("openhands/")
             d["model"] = f"litellm_proxy/{model_name}"
-            d.setdefault("base_url", "https://llm-proxy.app.all-hands.dev/")
+            d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
 
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
@@ -357,14 +357,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _select_kind(self, kwargs: dict[str, Any], tools: Any | None) -> CallKind:
         """Decide which transport to use for a completion-style request.
 
-        - Use Responses API when model supports it, function-calling is active,
-          and caller did not force Chat Completions.
+        - Prefer Responses API for models that support it unless explicitly forced.
         - Otherwise, use Chat Completions.
         """
+        feats = get_features(self.model)
         if (
-            get_features(self.model).supports_responses_api
+            feats.supports_responses_api
+            and feats.supports_reasoning_effort
             and not kwargs.get("force_chat_completions", False)
-            and self.is_function_calling_active()
         ):
             return "responses"
         return "chat"
@@ -478,7 +478,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Public API
     # =========================================================================
     @property
-    def metrics(self) -> Metrics | None:
+    def metrics(self) -> Metrics:
+        assert self._metrics is not None, (
+            "Metrics should be initialized after model validation"
+        )
         return self._metrics
 
     def completion(

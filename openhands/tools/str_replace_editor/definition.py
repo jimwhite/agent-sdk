@@ -8,6 +8,7 @@ from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
+from openhands.sdk.tool.tool import ToolBase
 from openhands.tools.str_replace_editor.utils.diff import visualize_diff
 
 
@@ -21,10 +22,7 @@ class StrReplaceEditorAction(ActionBase):
         description="The commands to run. Allowed options are: `view`, `create`, "
         "`str_replace`, `insert`, `undo_edit`."
     )
-    path: str = Field(
-        description="Absolute path to file or directory, e.g. `/workspace/file.py` "
-        "or `/workspace`."
-    )
+    path: str = Field(description="Absolute path to file or directory.")
     file_text: str | None = Field(
         default=None,
         description="Required parameter of `create` command, with the content of "
@@ -195,7 +193,7 @@ str_replace_editor_tool = Tool(
 )
 
 
-class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
+class FileEditorTool(ToolBase[StrReplaceEditorAction, StrReplaceEditorObservation]):
     """A Tool subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
@@ -209,16 +207,6 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         # Import here to avoid circular imports
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
-        # Determine the workspace path for examples
-        workspace_path = workspace_root if workspace_root else "/workspace"
-
-        # Create a dynamic action type with updated path description
-        class DynamicStrReplaceEditorAction(StrReplaceEditorAction):
-            path: str = Field(
-                description=f"Absolute path to file or directory, e.g. "
-                f"`{workspace_path}/file.py` or `{workspace_path}`."
-            )
-
         # Initialize the executor
         executor = FileEditorExecutor(workspace_root=workspace_root)
 
@@ -226,7 +214,7 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         return cls(
             name=str_replace_editor_tool.name,
             description=TOOL_DESCRIPTION,
-            action_type=DynamicStrReplaceEditorAction,
+            action_type=StrReplaceEditorAction,
             observation_type=StrReplaceEditorObservation,
             annotations=str_replace_editor_tool.annotations,
             executor=executor,
