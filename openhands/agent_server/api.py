@@ -15,6 +15,7 @@ from openhands.agent_server.conversation_service import (
 from openhands.agent_server.event_router import (
     router as conversation_event_router,
 )
+from openhands.agent_server.health_router import health_router
 from openhands.agent_server.middleware import (
     LocalhostCORSMiddleware,
     ValidateSessionAPIKeyMiddleware,
@@ -28,13 +29,20 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
         yield
 
 
-api = FastAPI(description="OpenHands Local Server", lifespan=api_lifespan)
+api = FastAPI(
+    title="OpenHands Agent Server",
+    description=(
+        "OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent"
+    ),
+    lifespan=api_lifespan,
+)
 config = get_default_config()
 
 
 # Add routers
 api.include_router(conversation_event_router)
 api.include_router(conversation_router)
+api.include_router(health_router)
 
 # Add middleware
 api.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
