@@ -7,7 +7,7 @@ on:
             model:
                 description: Model to use via LiteLLM Proxy
                 required: false
-                default: anthropic/claude-3-5-sonnet-20241022
+                default: anthropic/claude-sonnet-4-20250514
             ttl_days:
                 description: Disk cache TTL in days
                 required: false
@@ -53,9 +53,9 @@ jobs:
                       disk_cache_dir: ./.litellm_cache
                       ttl: TTL_PLACEHOLDER
                   model_list:
-                    - model_name: anthropic/claude-3-5-sonnet-20241022
+                    - model_name: anthropic/claude-sonnet-4-20250514
                       litellm_params:
-                        model: anthropic/claude-3-5-sonnet-20241022
+                        model: anthropic/claude-sonnet-4-20250514
                   YAML
                   sed -i "s/TTL_PLACEHOLDER/$TTL_SEC/g" litellm-config.yaml
 
