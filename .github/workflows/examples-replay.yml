@@ -46,9 +46,9 @@ jobs:
                       disk_cache_dir: ./.litellm_cache
                       ttl: 2592000 # 30 days
                   model_list:
-                    - model_name: anthropic/claude-3-5-sonnet-20241022
+                    - model_name: anthropic/claude-sonnet-4-20250514
                       litellm_params:
-                        model: anthropic/claude-3-5-sonnet-20241022
+                        model: anthropic/claude-sonnet-4-20250514
                   general_settings:
                     master_key: sk-dummy
                     cache_responses: true
