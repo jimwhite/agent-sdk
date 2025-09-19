@@ -68,6 +68,7 @@ jobs:
               env:
                   LITELLM_API_KEY: dummy
                   LITELLM_BASE_URL: http://127.0.0.1:4000
+                  LITELLM_MODEL: litellm_proxy/anthropic/claude-sonnet-4-20250514
               run: |
                   set -e
                   for f in examples/*.py; do
