@@ -23,10 +23,9 @@ from openhands.sdk.event.llm_convertible import (
     MessageEvent,
     ObservationEvent,
 )
-from openhands.tools import (
-    BashExecutor,
+from openhands.tools.execute_bash import BashExecutor, execute_bash_tool
+from openhands.tools.str_replace_editor import (
     FileEditorExecutor,
-    execute_bash_tool,
     str_replace_editor_tool,
 )
 

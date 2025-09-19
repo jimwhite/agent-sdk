@@ -1,7 +1,7 @@
 """Runtime tools package."""
 
-from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
+
 
 try:
     __version__ = version("openhands-tools")

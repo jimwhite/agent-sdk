@@ -19,12 +19,12 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.tool import ActionBase, ObservationBase, ToolExecutor
-from openhands.tools import (
+from openhands.tools.execute_bash import (
     BashExecutor,
     ExecuteBashAction,
-    FileEditorTool,
     execute_bash_tool,
 )
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)

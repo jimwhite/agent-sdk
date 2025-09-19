@@ -9,7 +9,7 @@ import tempfile
 from unittest.mock import Mock
 
 from openhands.sdk import Agent, Conversation
-from openhands.tools import BashExecutor, execute_bash_tool
+from openhands.tools.execute_bash import BashExecutor, execute_bash_tool
 
 
 def test_conversation_close_calls_executor_close(mock_llm):

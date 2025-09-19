@@ -13,9 +13,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-)
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)

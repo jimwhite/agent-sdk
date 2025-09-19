@@ -14,7 +14,8 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 def test_conversation_state_basic_serialization():

@@ -14,7 +14,8 @@ from openhands.sdk import (
     create_mcp_tools,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool
+from openhands.tools.execute_bash import BashTool
+from openhands.tools.str_replace_editor import FileEditorTool
 
 
 logger = get_logger(__name__)

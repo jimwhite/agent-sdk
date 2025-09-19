@@ -17,10 +17,12 @@ from openhands.sdk.context import (
     KnowledgeMicroagent,
     RepoMicroagent,
 )
-from openhands.tools import (
+from openhands.tools.execute_bash import (
     BashExecutor,
-    FileEditorExecutor,
     execute_bash_tool,
+)
+from openhands.tools.str_replace_editor import (
+    FileEditorExecutor,
     str_replace_editor_tool,
 )
 

@@ -10,7 +10,9 @@ from openhands.sdk.llm.llm import LLM
 
 def get_default_tools(working_dir: str) -> list[Tool]:
     """Get the default set of tools including MCP tools if configured."""
-    from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
 
     tools = [
         BashTool.create(working_dir=working_dir),
