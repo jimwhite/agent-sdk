@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 
 from .docker_service import (
     RuntimeNotFoundError,
@@ -19,6 +20,11 @@ api = FastAPI(
     title="OpenHands Runtime Server",
     description="Lightweight REST API for managing Docker runtimes",
 )
+
+
+@api.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
 
 
 @api.post("/start", response_model=RuntimeStartResponse, status_code=201)

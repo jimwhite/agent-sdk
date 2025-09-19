@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import uvicorn
 
 
-def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
+def _get_env(name: str, default: str) -> str:
     value = os.environ.get(name)
     return value if value is not None else default
 
