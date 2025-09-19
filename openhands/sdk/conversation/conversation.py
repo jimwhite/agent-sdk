@@ -109,8 +109,17 @@ class Conversation:
         """Get the stuck detector instance if enabled."""
         return self._stuck_detector
 
-    def send_message(self, message: Message) -> None:
-        """Sending messages to the agent."""
+    def send_message(self, message: str | Message) -> None:
+        """Send a message to the agent.
+
+        Args:
+            message: Either a string (which will be converted to a user message)
+                    or a Message object
+        """
+        # Convert string to Message if needed
+        if isinstance(message, str):
+            message = Message(role="user", content=[TextContent(text=message)])
+
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
