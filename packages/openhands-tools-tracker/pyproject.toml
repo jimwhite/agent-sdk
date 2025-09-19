@@ -1,0 +1,22 @@
+[project]
+name = "openhands-tools-tracker"
+version = "1.0.0"
+description = "OpenHands Task Tracker Tool - Track and manage development tasks"
+requires-python = ">=3.12"
+dependencies = [
+    "openhands-tools-core",
+]
+
+[project.entry-points."openhands.tools"]
+tracker = "openhands.tools.tracker:TaskTrackerTool"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["openhands*"]
+
+[tool.setuptools.package-dir]
+"" = "."

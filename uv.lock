@@ -11,6 +11,12 @@ members = [
     "openhands-agent-server",
     "openhands-sdk",
     "openhands-tools",
+    "openhands-tools-bash",
+    "openhands-tools-browser",
+    "openhands-tools-core",
+    "openhands-tools-editor",
+    "openhands-tools-legacy",
+    "openhands-tools-tracker",
 ]
 
 [manifest.dependency-groups]
@@ -1704,6 +1710,112 @@ provides-extras = ["boto3"]
 [[package]]
 name = "openhands-tools"
 version = "1.0.0"
+source = { editable = "packages/openhands-tools" }
+dependencies = [
+    { name = "openhands-tools-core" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "openhands-tools-bash" },
+    { name = "openhands-tools-browser" },
+    { name = "openhands-tools-editor" },
+    { name = "openhands-tools-tracker" },
+]
+bash = [
+    { name = "openhands-tools-bash" },
+]
+browser = [
+    { name = "openhands-tools-browser" },
+]
+editor = [
+    { name = "openhands-tools-editor" },
+]
+tracker = [
+    { name = "openhands-tools-tracker" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openhands-tools-bash", marker = "extra == 'all'", editable = "packages/openhands-tools-bash" },
+    { name = "openhands-tools-bash", marker = "extra == 'bash'", editable = "packages/openhands-tools-bash" },
+    { name = "openhands-tools-browser", marker = "extra == 'all'", editable = "packages/openhands-tools-browser" },
+    { name = "openhands-tools-browser", marker = "extra == 'browser'", editable = "packages/openhands-tools-browser" },
+    { name = "openhands-tools-core", editable = "packages/openhands-tools-core" },
+    { name = "openhands-tools-editor", marker = "extra == 'all'", editable = "packages/openhands-tools-editor" },
+    { name = "openhands-tools-editor", marker = "extra == 'editor'", editable = "packages/openhands-tools-editor" },
+    { name = "openhands-tools-tracker", marker = "extra == 'all'", editable = "packages/openhands-tools-tracker" },
+    { name = "openhands-tools-tracker", marker = "extra == 'tracker'", editable = "packages/openhands-tools-tracker" },
+]
+provides-extras = ["bash", "editor", "tracker", "browser", "all"]
+
+[[package]]
+name = "openhands-tools-bash"
+version = "1.0.0"
+source = { editable = "packages/openhands-tools-bash" }
+dependencies = [
+    { name = "bashlex" },
+    { name = "libtmux" },
+    { name = "openhands-tools-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bashlex", specifier = ">=0.18" },
+    { name = "libtmux", specifier = ">=0.46.2" },
+    { name = "openhands-tools-core", editable = "packages/openhands-tools-core" },
+]
+
+[[package]]
+name = "openhands-tools-browser"
+version = "1.0.0"
+source = { editable = "packages/openhands-tools-browser" }
+dependencies = [
+    { name = "browser-use" },
+    { name = "openhands-tools-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "browser-use", specifier = ">=0.1.0" },
+    { name = "openhands-tools-core", editable = "packages/openhands-tools-core" },
+]
+
+[[package]]
+name = "openhands-tools-core"
+version = "1.0.0"
+source = { editable = "packages/openhands-tools-core" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "openhands-sdk" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cachetools" },
+    { name = "openhands-sdk", editable = "openhands/sdk" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+]
+
+[[package]]
+name = "openhands-tools-editor"
+version = "1.0.0"
+source = { editable = "packages/openhands-tools-editor" }
+dependencies = [
+    { name = "binaryornot" },
+    { name = "openhands-tools-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "binaryornot", specifier = ">=0.4.4" },
+    { name = "openhands-tools-core", editable = "packages/openhands-tools-core" },
+]
+
+[[package]]
+name = "openhands-tools-legacy"
+version = "1.0.0"
 source = { editable = "openhands/tools" }
 dependencies = [
     { name = "bashlex" },
@@ -1725,6 +1837,17 @@ requires-dist = [
     { name = "openhands-sdk", editable = "openhands/sdk" },
     { name = "pydantic", specifier = ">=2.11.7" },
 ]
+
+[[package]]
+name = "openhands-tools-tracker"
+version = "1.0.0"
+source = { editable = "packages/openhands-tools-tracker" }
+dependencies = [
+    { name = "openhands-tools-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "openhands-tools-core", editable = "packages/openhands-tools-core" }]
 
 [[package]]
 name = "packaging"

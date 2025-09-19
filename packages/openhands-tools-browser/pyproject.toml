@@ -1,0 +1,23 @@
+[project]
+name = "openhands-tools-browser"
+version = "1.0.0"
+description = "OpenHands Browser Tool - Interact with web pages using browser automation"
+requires-python = ">=3.12"
+dependencies = [
+    "openhands-tools-core",
+    "browser-use>=0.1.0",
+]
+
+[project.entry-points."openhands.tools"]
+browser = "openhands.tools.browser:BrowserTool"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["openhands*"]
+
+[tool.setuptools.package-dir]
+"" = "."

@@ -1,0 +1,27 @@
+[project]
+name = "openhands-tools"
+version = "1.0.0"
+description = "OpenHands Tools - Meta package for easy installation of tool collections"
+requires-python = ">=3.12"
+dependencies = [
+    "openhands-tools-core",
+]
+
+[project.optional-dependencies]
+bash = ["openhands-tools-bash"]
+editor = ["openhands-tools-editor"]
+tracker = ["openhands-tools-tracker"]
+browser = ["openhands-tools-browser"]
+all = [
+    "openhands-tools-bash",
+    "openhands-tools-editor", 
+    "openhands-tools-tracker",
+    "openhands-tools-browser",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []
