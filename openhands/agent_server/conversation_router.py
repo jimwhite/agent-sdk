@@ -39,8 +39,8 @@ START_CONVERSATION_EXAMPLES = [
         ),
         tools=[
             ToolSpec(name="BashTool", params={"working_dir": config.workspace_path}),
-            ToolSpec(name="FileEditor", params={"working_dir": config.workspace_path}),
-            ToolSpec(name="TaskTracker", params={"working_dir": config.workspace_path}),
+            ToolSpec(name="FileEditor"),
+            ToolSpec(name="TaskTracker"),
         ],
         initial_message=SendMessageRequest(
             role="user", content=[TextContent(text="Flip a coin!")]
