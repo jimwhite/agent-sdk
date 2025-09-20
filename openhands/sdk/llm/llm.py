@@ -390,11 +390,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         from openhands.sdk.tool import ToolBase
 
         if kind == "chat":
-            # Messages: ensure list[dict]
-            if messages and isinstance(messages[0], Message):
-                messages = self.format_messages_for_llm(cast(list[Message], messages))
-            else:
-                messages = cast(list[dict[str, Any]] | None, messages)
+            # completion() now guarantees messages is list[Message]
+            assert messages is not None and (
+                isinstance(messages, list)
+                and (not messages or isinstance(messages[0], Message))
+            ), "chat path expects list[Message]"
+            messages = self.format_messages_for_llm(cast(list[Message], messages))
 
             # Tools: Tool -> ChatCompletionToolParam
             tools_cc: list[ChatCompletionToolParam] = []
