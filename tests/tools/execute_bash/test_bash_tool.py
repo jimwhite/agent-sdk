@@ -34,10 +34,10 @@ def test_bash_tool_execution():
         tool = BashTool.create(working_dir=temp_dir)
 
         # Create an action
-        action = ExecuteBashAction(command="echo 'Hello, World!'", security_risk="LOW")
+        action = ExecuteBashAction(command="echo 'Hello, World!'")
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check the result
         assert result is not None
@@ -51,10 +51,10 @@ def test_bash_tool_working_directory():
         tool = BashTool.create(working_dir=temp_dir)
 
         # Create an action to check current directory
-        action = ExecuteBashAction(command="pwd", security_risk="LOW")
+        action = ExecuteBashAction(command="pwd")
 
         # Execute the action
-        result = tool.call(action)
+        result = tool(action)
 
         # Check that the working directory is correct
         assert isinstance(result, ExecuteBashObservation)
