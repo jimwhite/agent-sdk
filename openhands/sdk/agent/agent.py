@@ -1,12 +1,8 @@
 import json
 from typing import cast
 
-from litellm.types.utils import (
-    ChatCompletionMessageToolCall,
-    Choices,
-    Message as LiteLLMMessage,
-)
-from pydantic import ValidationError
+from litellm.types.utils import ChatCompletionMessageToolCall
+from pydantic import ValidationError, field_validator
 
 import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
@@ -24,7 +20,7 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
-    Message,
+    MetricsSnapshot,
     TextContent,
     get_llm_metadata,
 )
@@ -178,7 +174,7 @@ class Agent(AgentBase):
         )
 
         try:
-            response = self.llm.completion(
+            completion_result = self.llm.completion(
                 messages=_messages,
                 tools=list(self.tools_map.values()),
                 extra_body={
@@ -206,9 +202,9 @@ class Agent(AgentBase):
             else:
                 raise e
 
-        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
-        message = Message.from_litellm_message(llm_message)
+        # CompletionResult already contains the converted message and metrics snapshot
+        message = completion_result.message
+        metrics = completion_result.metrics
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -240,7 +236,7 @@ class Agent(AgentBase):
                 action_event = self._get_action_event(
                     state,
                     tool_call,
-                    llm_response_id=response.id,
+                    llm_response_id=completion_result.raw_response.id,
                     on_event=on_event,
                     thought=thought_content
                     if i == 0

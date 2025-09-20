@@ -1,3 +1,4 @@
+from openhands.sdk.llm.completion_result import CompletionResult
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.llm.message import ImageContent, Message, TextContent, content_to_str
@@ -12,6 +13,7 @@ from openhands.sdk.llm.utils.verified_models import VERIFIED_MODELS
 
 
 __all__ = [
+    "CompletionResult",
     "LLM",
     "LLMRegistry",
     "RouterLLM",
