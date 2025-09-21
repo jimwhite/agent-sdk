@@ -24,6 +24,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
@@ -451,6 +452,24 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     # Routing + pre-normalization helpers
 
+    # Serializers
+    # =========================================================================
+    @field_serializer(
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+    )
+    def _serialize_secrets(self, v: SecretStr | None, info):
+        """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
+        if v is None:
+            return None
+
+        # Check if the 'expose_secrets' flag is in the serialization context
+        if info.context and info.context.get("expose_secrets"):
+            return v.get_secret_value()
+
+        # Let Pydantic handle the default masking
+        return v
+
+    # =========================================================================
     # Public API
     # =========================================================================
     @property
