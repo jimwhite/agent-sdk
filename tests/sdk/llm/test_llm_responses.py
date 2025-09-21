@@ -261,9 +261,11 @@ def test_responses_method_parameter_normalization(mock_litellm_responses):
     call_args = mock_litellm_responses.call_args
     kwargs = call_args[1]
 
-    # Should have reasoning_effort for o1 models
-    assert "reasoning_effort" in kwargs
-    assert kwargs["reasoning_effort"] == "medium"
+    # Responses API should use nested reasoning.effort
+    assert "reasoning" in kwargs
+    assert isinstance(kwargs["reasoning"], dict)
+    assert kwargs["reasoning"].get("effort") == "medium"
+    assert "reasoning_effort" not in kwargs
 
     # Should have max_output_tokens
     assert "max_output_tokens" in kwargs

@@ -713,10 +713,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Responses API specific!
         if kind == "responses":
-            out.setdefault(
-                "reasoning",
-                {"effort": out.get("reasoning_effort", "low"), "summary": "detailed"},
-            )
+            effort_val = None
+            if get_features(self.model).supports_reasoning_effort:
+                if self.reasoning_effort not in (None, "none"):
+                    effort_val = self.reasoning_effort
+                else:
+                    effort_val = "low"
+            if effort_val is not None:
+                out.setdefault(
+                    "reasoning",
+                    {"effort": effort_val, "summary": "detailed"},
+                )
             out.pop("reasoning_effort", None)
             out.setdefault("store", True)
 
