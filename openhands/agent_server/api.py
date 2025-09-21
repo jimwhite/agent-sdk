@@ -20,6 +20,7 @@ from openhands.agent_server.middleware import (
     ValidateSessionAPIKeyMiddleware,
 )
 from openhands.agent_server.server_details_router import server_details_router
+from openhands.agent_server.tool_router import router as tool_router
 
 
 @asynccontextmanager
@@ -43,6 +44,7 @@ config = get_default_config()
 api.include_router(conversation_event_router)
 api.include_router(conversation_router)
 api.include_router(server_details_router)
+api.include_router(tool_router)
 
 # Add middleware
 api.add_middleware(LocalhostCORSMiddleware, allow_origins=config.allow_cors_origins)
