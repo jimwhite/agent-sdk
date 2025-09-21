@@ -18,10 +18,8 @@ from openhands.agent_server.models import (
     StartConversationRequest,
     Success,
 )
+from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.message import TextContent
-from openhands.sdk.tool.spec import ToolSpec
 
 
 router = APIRouter(prefix="/conversations")
@@ -32,16 +30,20 @@ config = get_default_config()
 
 START_CONVERSATION_EXAMPLES = [
     StartConversationRequest(
-        llm=LLM(
-            model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-            base_url="https://llm-proxy.app.all-hands.dev",
-            api_key=SecretStr("secret"),
+        agent=Agent(
+            llm=LLM(
+                model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                base_url="https://llm-proxy.app.all-hands.dev",
+                api_key=SecretStr("secret"),
+            ),
+            tools=[
+                ToolSpec(
+                    name="BashTool", params={"working_dir": config.workspace_path}
+                ),
+                ToolSpec(name="FileEditor"),
+                ToolSpec(name="TaskTracker"),
+            ],
         ),
-        tools=[
-            ToolSpec(name="BashTool", params={"working_dir": config.workspace_path}),
-            ToolSpec(name="FileEditor"),
-            ToolSpec(name="TaskTracker"),
-        ],
         initial_message=SendMessageRequest(
             role="user", content=[TextContent(text="Flip a coin!")]
         ),
