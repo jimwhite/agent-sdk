@@ -2,7 +2,7 @@
 
 import os
 import tempfile
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import patch
 
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
@@ -34,8 +34,8 @@ class TestHelloWorld:
         """Set up test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.logger = get_logger(__name__)
-        self.collected_events: List[EventBase] = []
-        self.llm_messages: List[Dict[str, Any]] = []
+        self.collected_events: list[EventBase] = []
+        self.llm_messages: list[dict[str, Any]] = []
 
         # Clean up any existing hello.py files
         import os
