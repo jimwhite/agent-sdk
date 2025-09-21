@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from pydantic import SecretStr
 
@@ -16,7 +16,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.tools import BashTool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -53,9 +53,9 @@ def main() -> None:
     llm = LLM(model=model, base_url=base_url, api_key=SecretStr(api_key))
 
     # Tools: bash in current repo directory
-    tools = [BashTool.create(working_dir=os.getcwd())]
+    tools: Sequence[Any] = [BashTool.create(working_dir=os.getcwd())]
 
-    agent = Agent(llm=llm, tools=tools)
+    agent = Agent(llm=llm, tools=tools)  # type: ignore[arg-type]
 
     events_out: list[dict[str, Any]] = []
 
