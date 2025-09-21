@@ -11,7 +11,6 @@ from typing import (
     Any,
     Callable,
     Literal,
-    Sequence,
     Union,
     cast,
     get_args,
@@ -380,7 +379,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         kind: CallKind,
         messages: list[dict[str, Any]] | list[Message] | None,
         input: str | list[dict[str, Any]] | None,
-        tools: Sequence["ToolBase"] | None,
+        tools: list["ToolBase"] | None,
         add_security_risk_prediction: bool = False,
     ) -> tuple[
         list[dict[str, Any]] | None,
@@ -464,7 +463,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: Sequence["ToolBase"] | None = None,
+        tools: list["ToolBase"] | None = None,
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
@@ -498,7 +497,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[dict[str, Any]] | list[Message] | str | None = None,
         input: str | list[dict[str, Any]] | None = None,
-        tools: Sequence[ToolBase] | None = None,
+        tools: list[ToolBase] | None = None,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> ModelResponse:
