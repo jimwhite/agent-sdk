@@ -164,11 +164,9 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        # Pass ToolBase instances through; LLM will convert and inject risk field
-        tools = list(self.tools_map.values())
         response = self.llm.completion(
             messages=_messages,
-            tools=tools,
+            tools=list(self.tools_map.values()),
             add_security_risk_prediction=self._add_security_risk_prediction,
             extra_body={
                 "metadata": get_llm_metadata(

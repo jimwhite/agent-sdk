@@ -31,6 +31,10 @@ from pydantic import (
 )
 from pydantic.json_schema import SkipJsonSchema
 
+
+if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
+    from openhands.sdk.tool.tool import ToolBase
+
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
@@ -80,6 +84,7 @@ logger = get_logger(__name__)
 CallKind = Literal["chat", "responses"]
 
 __all__ = ["LLM"]
+
 
 # Exceptions we retry on
 LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -483,7 +488,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: Sequence["ToolBase"] | None = None,
+        tools: Sequence[ToolBase] | None = None,
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
