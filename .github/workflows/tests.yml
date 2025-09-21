@@ -40,6 +40,20 @@ jobs:
               if: steps.changed.outputs.any_changed == 'true'
               run: uv sync --frozen --group dev
 
+            - name: Check for openhands.tools imports in SDK tests
+              if: steps.changed.outputs.any_changed == 'true'
+              run: |
+                  # Check that no files in tests/sdk import openhands.tools
+                  if find tests/sdk -name "*.py" -exec grep -l "^[[:space:]]*import.*openhands\.tools\|^[[:space:]]*from.*openhands\.tools" {} \; | grep -q .; then
+                    echo "ERROR: Found openhands.tools imports in tests/sdk directory!"
+                    echo "These tests should be moved to tests/cross instead."
+                    echo "Files with openhands.tools imports:"
+                    find tests/sdk -name "*.py" -exec grep -l "^[[:space:]]*import.*openhands\.tools\|^[[:space:]]*from.*openhands\.tools" {} \;
+                    exit 1
+                  else
+                    echo "✓ No openhands.tools imports found in tests/sdk directory"
+                  fi
+
             - name: Run sdk tests with coverage
               if: steps.changed.outputs.any_changed == 'true'
               run: |
