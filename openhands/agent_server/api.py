@@ -19,7 +19,7 @@ from openhands.agent_server.middleware import (
     LocalhostCORSMiddleware,
     ValidateSessionAPIKeyMiddleware,
 )
-from openhands.agent_server.server_details_router import server_details_router
+from openhands.agent_server.server_details_router import router as server_details_router
 from openhands.agent_server.tool_router import router as tool_router
 
 

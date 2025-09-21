@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 
-server_details_router = APIRouter(prefix="")
+router = APIRouter(prefix="")
 _start_time = time.time()
 _last_event_time = time.time()
 
@@ -19,17 +19,17 @@ def update_last_execution_time():
     _last_event_time = time.time()
 
 
-@server_details_router.get("/alive")
+@router.get("/alive")
 async def alive():
     return {"status": "ok"}
 
 
-@server_details_router.get("/health")
+@router.get("/health")
 async def health() -> str:
     return "OK"
 
 
-@server_details_router.get("/server_info")
+@router.get("/server_info")
 async def get_server_info() -> ServerInfo:
     now = time.time()
     return ServerInfo(
