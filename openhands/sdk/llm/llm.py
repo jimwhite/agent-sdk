@@ -693,7 +693,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Reasoning-model quirks
         if get_features(self.model).supports_reasoning_effort:
-            if self.reasoning_effort is not None:
+            # Only include top-level reasoning_effort for chat.
+            # Responses API uses reasoning.effort
+            if kind == "chat" and self.reasoning_effort is not None:
                 out["reasoning_effort"] = (
                     self.reasoning_effort
                     if self.reasoning_effort not in (None, "none")
@@ -715,6 +717,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "reasoning",
                 {"effort": out.get("reasoning_effort", "low"), "summary": "detailed"},
             )
+            out.pop("reasoning_effort", None)
             out.setdefault("store", True)
 
         # Mistral / Gemini safety
