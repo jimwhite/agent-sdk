@@ -1,4 +1,3 @@
-import asyncio
 import os
 import subprocess
 import sys
@@ -119,10 +118,7 @@ class ManagedAPIServer:
             print("API server stopped.")
 
 
-async def main():
-    """Main async function demonstrating RemoteConversation usage."""
-
-    # Configure LLM
+if __name__ == "__main__":
     api_key = os.getenv("LITELLM_API_KEY")
     assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
@@ -167,7 +163,7 @@ async def main():
 
             # Wait a bit to ensure the first task is fully finished
             print("⏳ Waiting for first task to fully complete...")
-            await asyncio.sleep(3)
+            time.sleep(2)
 
             # Send second message and run
             print("\n📝 Sending second message...")
@@ -249,11 +245,3 @@ async def main():
             # Clean up
             print("\n🧹 Cleaning up conversation...")
             conversation.close()
-
-    print("\n" + "=" * 80)
-    print("✅ RemoteConversation example completed successfully!")
-    print("=" * 80)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
