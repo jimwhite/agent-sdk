@@ -58,10 +58,13 @@ conversation.send_message(
 
 # Handle security analyzer blocking high-risk actions
 # Run conversation with security confirmation handling
-while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
+while conversation._state.agent_status != AgentExecutionStatus.FINISHED:
     # Check if agent is waiting for confirmation due to security analyzer
-    if conversation.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
-        pending_actions = get_unmatched_actions(conversation.state.events)
+    if (
+        conversation._state.agent_status
+        == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+    ):
+        pending_actions = get_unmatched_actions(conversation._state.events)
 
         if pending_actions:
             # Show the pending actions that were blocked
@@ -92,7 +95,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
                 if user_input in ("yes", "y"):
                     print("✅ Approved — executing high-risk actions...")
                     # If user wants to proceed, set agent state to idle
-                    conversation.state.agent_status = AgentExecutionStatus.IDLE
+                    conversation._state.agent_status = AgentExecutionStatus.IDLE
                     break
                 elif user_input in ("no", "n"):
                     print("❌ Rejected — skipping high-risk actions...")
@@ -111,7 +114,7 @@ while conversation.state.agent_status != AgentExecutionStatus.FINISHED:
             print(
                 "⚠️ Agent is waiting for confirmation but no pending actions were found."
             )
-            conversation.state.agent_status = AgentExecutionStatus.IDLE
+            conversation._state.agent_status = AgentExecutionStatus.IDLE
 
     print("▶️  Running conversation.run()...")
     conversation.run()
