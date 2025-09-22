@@ -16,6 +16,7 @@ from openhands.sdk import (
     EventBase,
     LocalFileStore,
     Message,
+    get_logger
 )
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
@@ -23,6 +24,7 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 
+logger = get_logger(__name__)
 
 @dataclass
 class EventService:
@@ -36,6 +38,7 @@ class EventService:
     working_dir: Path
     _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub = field(default_factory=PubSub, init=False)
+    _run_task: asyncio.Task | None = field(default=None, init=False)
 
     async def load_meta(self):
         meta_file = self.file_store_path / "meta.json"
@@ -186,6 +189,46 @@ class EventService:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._conversation.run)
+
+    async def start_background_run(self):
+        """Start running the conversation in the background."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        
+        # Check if already running
+        if self._run_task and not self._run_task.done():
+            raise ValueError("conversation_already_running")
+        
+        # Start new background task
+        self._run_task = asyncio.create_task(self._background_run())
+        return self._run_task
+
+    async def _background_run(self):
+        """Internal method to run conversation in background."""
+        try:
+            await self.run()
+        except Exception as e:
+            logger.exception(f"Background run failed for conversation {self.stored.id}: {e}")
+            raise
+
+    def is_running(self) -> bool:
+        """Check if a background run task is currently active."""
+        return self._run_task is not None and not self._run_task.done()
+
+    async def stop_background_run(self) -> bool:
+        """Stop the currently running background task if any.
+        
+        Returns:
+            bool: True if a task was stopped, False if no task was running.
+        """
+        if self._run_task and not self._run_task.done():
+            self._run_task.cancel()
+            try:
+                await self._run_task
+            except asyncio.CancelledError:
+                pass
+            return True
+        return False
 
     async def respond_to_confirmation(self, request: ConfirmationResponseRequest):
         if request.accept:

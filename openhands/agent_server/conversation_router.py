@@ -169,14 +169,47 @@ async def delete_conversation(conversation_id: UUID) -> Success:
 
 
 @router.post(
-    "/{conversation_id}/run", responses={404: {"description": "Item not found"}}
+    "/{conversation_id}/run",
+    responses={
+        404: {"description": "Item not found"},
+        409: {"description": "Conversation is already running"},
+    },
 )
 async def run_conversation(conversation_id: UUID) -> Success:
-    """Run the conversation until the agent finishes or pauses."""
+    """Start running the conversation in the background."""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    await event_service.run()
+
+    try:
+        await event_service.start_background_run()
+    except ValueError as e:
+        if str(e) == "conversation_already_running":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Conversation already running. Wait for completion or pause first."
+                ),
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/stop",
+    responses={
+        404: {"description": "Item not found"},
+        200: {"description": "Task stopped or no task was running"},
+    },
+)
+async def stop_conversation(conversation_id: UUID) -> Success:
+    """Stop the currently running background conversation task."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+    await event_service.stop_background_run()
     return Success()
 
 
