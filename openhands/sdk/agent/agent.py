@@ -284,7 +284,6 @@ class Agent(AgentBase):
             response_output_text as ro_text,
             response_reasoning_item as ro_reason,
         )
-        from openai.types.responses.response_output_item import ImageGenerationCall
 
         assert isinstance(resp, ResponsesAPIResponse)
         assistant_text_parts: list[str] = []
@@ -334,11 +333,14 @@ class Agent(AgentBase):
         assert self.llm.metrics is not None
         # Append any image outputs collected from Responses items
         image_contents: list[ImageContent] = []
+        from openai.types.responses.response_output_item import ImageGenerationCall
+
         for item in resp.output or []:
-            if getattr(item, "type", None) == "image_generation_call" and isinstance(
-                item, ImageGenerationCall
+            if (
+                isinstance(item, ImageGenerationCall)
+                and item.type == "image_generation_call"
             ):
-                if (item.status == "completed") and item.result:
+                if item.status == "completed" and item.result:
                     image_contents.append(ImageContent(image_urls=[item.result]))
 
         if image_contents:

@@ -36,7 +36,7 @@ def _send_simple_user_msg(conv: Conversation):
 
 
 def test_routes_chat_path_when_unsupported(agent_and_conversation):
-    agent, conv = agent_and_conversation
+    agent, conv, _ = agent_and_conversation
 
     with patch("openhands.sdk.llm.llm.litellm_completion") as mock_completion:
         # Mock a plain text response
@@ -74,6 +74,10 @@ def test_routes_responses_path_for_gpt5(agent_and_conversation):
             "id": "resp_1",
             "created_at": 0,
             "model": "gpt-5-test",
+            "parallel_tool_calls": True,
+            "tool_choice": "auto",
+            "tools": [],
+            "top_p": 1.0,
             "output": [
                 {
                     "type": "message",

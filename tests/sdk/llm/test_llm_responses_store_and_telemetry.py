@@ -17,6 +17,10 @@ def test_store_true_default_and_telemetry_called():
             "id": "resp_meta",
             "created_at": 0,
             "model": "gpt-5-test",
+            "parallel_tool_calls": False,
+            "tool_choice": "none",
+            "tools": [],
+            "top_p": 1.0,
             "output": [],
             "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
         }
