@@ -184,6 +184,7 @@ class Conversation:
                 if self.state.agent_status in [
                     AgentExecutionStatus.FINISHED,
                     AgentExecutionStatus.PAUSED,
+                    AgentExecutionStatus.STUCK,
                 ]:
                     break
 
@@ -193,8 +194,8 @@ class Conversation:
 
                     if is_stuck:
                         logger.warning("Stuck pattern detected.")
-                        # FIXME: raise error or handle differently?
-                        break
+                        self.state.agent_status = AgentExecutionStatus.STUCK
+                        continue
 
                 # clear the flag before calling agent.step() (user approved)
                 if (

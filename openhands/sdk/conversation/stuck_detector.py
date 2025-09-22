@@ -42,6 +42,7 @@ class StuckDetector:
         )
         if last_user_msg_index == -1:
             logger.warning("No user message found in history, skipping stuck detection")
+            return False
 
         events = events[last_user_msg_index + 1 :]
 
