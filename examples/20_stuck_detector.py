@@ -44,10 +44,9 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    stuck_detection=True,
 )
 
-# Send a reasonable task
+# Send a task that will be caught by stuck detection
 conversation.send_message(
     Message(
         role="user",
