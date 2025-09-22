@@ -147,9 +147,6 @@ async def main():
             host=server.base_url,
         )
         assert isinstance(conversation, RemoteConversation)
-        import pdb
-
-        pdb.set_trace()
 
         print("=" * 80)
         print("Starting conversation with RemoteConversation...")
