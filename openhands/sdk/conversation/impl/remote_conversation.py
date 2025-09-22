@@ -1,5 +1,6 @@
 import time
 import uuid
+from typing import TYPE_CHECKING, SupportsIndex, overload
 
 import httpx
 
@@ -10,6 +11,98 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.utils.protocol import ListLike
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.event.base import EventBase
+
+
+class RemoteEventsList(ListLike["EventBase"]):
+    """A list-like interface for accessing events from a remote conversation."""
+
+    def __init__(self, client: httpx.Client, conversation_id: str):
+        self._client = client
+        self._conversation_id = conversation_id
+        self._cached_events: list["EventBase"] | None = None
+
+    def _fetch_all_events(self) -> list["EventBase"]:
+        """Fetch all events from the remote API."""
+        if self._cached_events is not None:
+            return self._cached_events
+
+        events = []
+        page_id = None
+
+        while True:
+            params = {"limit": 100}
+            if page_id:
+                params["page_id"] = page_id
+
+            resp = self._client.get(
+                f"/conversations/{self._conversation_id}/events/search", params=params
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            events.extend(data["items"])
+
+            if not data.get("next_page_id"):
+                break
+            page_id = data["next_page_id"]
+
+        self._cached_events = events
+        return events
+
+    def __len__(self) -> int:
+        return len(self._fetch_all_events())
+
+    @overload
+    def __getitem__(self, index: SupportsIndex, /) -> "EventBase": ...
+
+    @overload
+    def __getitem__(self, index: slice, /) -> list["EventBase"]: ...
+
+    def __getitem__(
+        self,
+        index: SupportsIndex | slice,
+        /,
+    ) -> "EventBase" | list["EventBase"]:
+        events = self._fetch_all_events()
+        return events[index]
+
+    def __iter__(self):
+        return iter(self._fetch_all_events())
+
+    def append(self, event: "EventBase") -> None:
+        # For remote conversations, events are added via API calls
+        # This method is here for interface compatibility but shouldn't be used directly
+        raise NotImplementedError(
+            "Cannot directly append events to remote conversation"
+        )
+
+    def clear_cache(self) -> None:
+        """Clear the cached events to force a fresh fetch on next access."""
+        self._cached_events = None
+
+
+class RemoteState:
+    """A state-like interface for accessing remote conversation state."""
+
+    def __init__(self, client: httpx.Client, conversation_id: str):
+        self._client = client
+        self._conversation_id = conversation_id
+        self._events = RemoteEventsList(client, conversation_id)
+
+    @property
+    def events(self) -> RemoteEventsList:
+        """Access to the events list."""
+        return self._events
+
+    @property
+    def id(self) -> ConversationID:
+        """The conversation ID."""
+        return uuid.UUID(self._conversation_id)
 
 
 class RemoteConversation(BaseConversation):
@@ -44,7 +137,7 @@ class RemoteConversation(BaseConversation):
 
         if conversation_id is None:
             payload = {
-                "agent": agent.model_dump(mode='json'),
+                "agent": agent.model_dump(mode="json"),
                 "confirmation_mode": self._confirmation_mode,
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
@@ -66,16 +159,17 @@ class RemoteConversation(BaseConversation):
             r = self._client.get(f"/conversations/{self._id}")
             r.raise_for_status()
 
+        # Initialize the remote state
+        self._state = RemoteState(self._client, str(self._id))
+
     @property
     def id(self) -> ConversationID:
         return self._id
 
-    # RemoteConversation does not expose a local ConversationState
     @property
-    def state(self):  # type: ignore[override]
-        raise AttributeError(
-            "RemoteConversation does not expose local state; use server APIs"
-        )
+    def state(self) -> RemoteState:
+        """Access to remote conversation state."""
+        return self._state
 
     def send_message(self, message: str | Message) -> None:
         if isinstance(message, str):

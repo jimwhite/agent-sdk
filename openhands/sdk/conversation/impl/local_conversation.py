@@ -63,7 +63,7 @@ class LocalConversation(BaseConversation):
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
-        self.state = ConversationState.create(
+        self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
             file_store=self._persist_filestore,
@@ -92,6 +92,11 @@ class LocalConversation(BaseConversation):
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
         return self.state.id
+
+    @property
+    def state(self) -> ConversationState:
+        """Get the conversation state."""
+        return self._state
 
     def send_message(self, message: str | Message) -> None:
         """Send a message to the agent.
