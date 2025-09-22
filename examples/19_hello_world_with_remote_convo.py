@@ -58,6 +58,7 @@ class ManagedAPIServer:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env={"LOG_JSON": "true", **os.environ},
         )
 
         # Start threads to stream stdout and stderr
