@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 from unittest.mock import patch
 
@@ -26,6 +28,10 @@ def test_parse_text_and_reasoning_and_tool_calls():
             "id": "resp_2",
             "created_at": 0,
             "model": "gpt-5-test",
+            "parallel_tool_calls": True,
+            "tool_choice": "auto",
+            "tools": [],
+            "top_p": 1.0,
             "output": [
                 {
                     "type": "reasoning",
@@ -76,6 +82,10 @@ def test_parse_no_tools_message_only_reasoning():
             "id": "resp_3",
             "created_at": 0,
             "model": "gpt-5-test",
+            "parallel_tool_calls": False,
+            "tool_choice": "none",
+            "tools": [],
+            "top_p": 1.0,
             "output": [
                 {
                     "type": "reasoning",
@@ -103,3 +113,46 @@ def test_parse_no_tools_message_only_reasoning():
     from openhands.sdk.conversation.state import AgentExecutionStatus
 
     assert conv.state.agent_status == AgentExecutionStatus.FINISHED
+
+
+def test_parse_image_generation_output():
+    agent = _mk_agent()
+    conv = Conversation(agent=agent, callbacks=[])
+
+    with patch("openhands.sdk.llm.llm.litellm_responses") as mock_responses:
+        payload: dict[str, Any] = {
+            "id": "resp_img",
+            "created_at": 0,
+            "model": "gpt-5-test",
+            "parallel_tool_calls": False,
+            "tool_choice": "none",
+            "tools": [],
+            "top_p": 1.0,
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": "here is an image"}],
+                },
+                {
+                    "type": "image_generation_call",
+                    "id": "img1",
+                    "status": "completed",
+                    "result": "https://example.com/image.png",
+                },
+            ],
+            "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+        }
+        mock_responses.return_value = ResponsesAPIResponse(**payload)
+
+        # Drive the conversation
+        _run(conv)
+
+        # Check last event: message with image surfaced
+        from openhands.sdk.event.llm_convertible import MessageEvent
+
+        last = conv.state.events[-1]
+        assert isinstance(last, MessageEvent)
+        msg = last.llm_message
+        assert any(getattr(c, "type", None) == "image" for c in msg.content)

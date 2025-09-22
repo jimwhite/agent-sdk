@@ -24,6 +24,7 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
+    ImageContent,
     Message,
     MetricsSnapshot,
     TextContent,
@@ -283,6 +284,7 @@ class Agent(AgentBase):
             response_output_text as ro_text,
             response_reasoning_item as ro_reason,
         )
+        from openai.types.responses.response_output_item import ImageGenerationCall
 
         assert isinstance(resp, ResponsesAPIResponse)
         assistant_text_parts: list[str] = []
@@ -319,16 +321,29 @@ class Agent(AgentBase):
                     if text:
                         reasoning_parts.append(text)
 
+        content_seq: list[TextContent | ImageContent] = []
+        if assistant_text_parts:
+            content_seq.append(TextContent(text="\n\n".join(assistant_text_parts)))
         message = Message(
             role="assistant",
-            content=[TextContent(text="\n\n".join(assistant_text_parts))]
-            if assistant_text_parts
-            else [],
+            content=content_seq,
             tool_calls=tool_calls or None,
             reasoning_content="\n\n".join(reasoning_parts) if reasoning_parts else None,
         )
 
         assert self.llm.metrics is not None
+        # Append any image outputs collected from Responses items
+        image_contents: list[ImageContent] = []
+        for item in resp.output or []:
+            if getattr(item, "type", None) == "image_generation_call" and isinstance(
+                item, ImageGenerationCall
+            ):
+                if (item.status == "completed") and item.result:
+                    image_contents.append(ImageContent(image_urls=[item.result]))
+
+        if image_contents:
+            message.content = list(message.content) + image_contents
+
         metrics = self.llm.metrics.get_snapshot()
         return message, resp.id, metrics
 
