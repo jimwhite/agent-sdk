@@ -148,17 +148,6 @@ async def pause_conversation(conversation_id: UUID) -> Success:
     return Success()
 
 
-@router.post(
-    "/{conversation_id}/resume", responses={404: {"description": "Item not found"}}
-)
-async def resume_conversation(conversation_id: UUID) -> Success:
-    """Resume a paused conversation."""
-    resumed = await conversation_service.resume_conversation(conversation_id)
-    if not resumed:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST)
-    return Success()
-
-
 @router.delete("/{conversation_id}", responses={404: {"description": "Item not found"}})
 async def delete_conversation(conversation_id: UUID) -> Success:
     """Permanently delete a conversation."""
