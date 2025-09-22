@@ -37,11 +37,15 @@ START_CONVERSATION_EXAMPLES = [
                 api_key=SecretStr("secret"),
             ),
             tools=[
+                ToolSpec(name="BashTool", params={"working_dir": config.project_path}),
                 ToolSpec(
-                    name="BashTool", params={"working_dir": config.workspace_path}
+                    name="FileEditorTool",
+                    params={"workspace_root": config.project_path},
                 ),
-                ToolSpec(name="FileEditor"),
-                ToolSpec(name="TaskTracker"),
+                ToolSpec(
+                    name="TaskTrackerTool",
+                    params={"save_dir": f"{config.workspace_path}/.openhands"},
+                ),
             ],
         ),
         initial_message=SendMessageRequest(
