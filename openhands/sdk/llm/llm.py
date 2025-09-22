@@ -64,6 +64,7 @@ from litellm.utils import (
     supports_vision,
     token_counter,
 )
+from openai.types.responses.tool_param import ToolParam
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.message import Message
@@ -124,7 +125,7 @@ class ResponsesCtx(_BaseCtxModel):
     kind: Literal["responses"]
     input: ResponseInputParam | str
     # tools used only in responses path
-    tools: list[dict[str, Any]] = Field(default_factory=list)
+    tools: list[ToolParam] = Field(default_factory=list)
 
 
 ReqCtx = Annotated[Union[ChatCtx, ResponsesCtx], Field(discriminator="kind")]
@@ -393,7 +394,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     ) -> tuple[
         list[AllMessageValues] | None,
         str | ResponseInputParam | None,
-        list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
+        list[ToolParam] | list[ChatCompletionToolParam] | None,
     ]:
         """Prepare payload for the unified request based on kind.
 
@@ -445,8 +446,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             # already a typed ResponseInputParam
             pass
 
-        # Tools: normalize to Responses tool dicts
-        tools_dicts: list[dict[str, Any]] = []
+        # Tools: normalize to Responses tool definitions
+        tools_dicts: list[ToolParam] = []
         if tools:
             for t in tools:
                 tools_dicts.append(
@@ -562,7 +563,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             messages=msgs,
             input=inp,
             tools=cast(
-                list[dict[str, Any]] | list[ChatCompletionToolParam] | None, tools_dicts
+                list[ToolParam] | list[ChatCompletionToolParam] | None, tools_dicts
             ),
             **kwargs,
         )
@@ -577,7 +578,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         kind: CallKind,
         messages: list[AllMessageValues] | None = None,
         input: str | ResponseInputParam | None = None,
-        tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None = None,
+        tools: list[ToolParam] | list[ChatCompletionToolParam] | None = None,
         **kwargs,
     ) -> ModelResponse:
         assert self._telemetry is not None
@@ -635,7 +636,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         kind: CallKind,
         messages: list[AllMessageValues] | None,
         input: str | ResponseInputParam | None,
-        tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
+        tools: list[ToolParam] | list[ChatCompletionToolParam] | None,
         opts: dict[str, Any],
     ) -> ReqCtx:
         # Mock tools for non-native function-calling
@@ -695,7 +696,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 input=cast(ResponseInputParam | str, input or []),
                 call_kwargs=call_kwargs,
                 log_ctx=log_ctx,
-                tools=cast(list[dict[str, Any]], tools or []),
+                tools=cast(list[ToolParam], tools or []),
             )
 
     def _normalize_kwargs(self, kind: CallKind, opts: dict, *, has_tools: bool) -> dict:

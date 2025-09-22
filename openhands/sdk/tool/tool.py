@@ -2,6 +2,8 @@ from abc import ABC
 from typing import Any, Generic, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+from openai.types.responses.function_tool_param import FunctionToolParam
+from openai.types.responses.tool_param import ToolParam
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -266,8 +268,8 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
 
     def to_responses_tool(
         self, add_security_risk_prediction: bool = False
-    ) -> dict[str, Any]:
-        """Convert this tool to an OpenAI Responses API tool dict."""
+    ) -> ToolParam:
+        """Convert this tool to an OpenAI Responses API tool definition (typed)."""
         # We only add security_risk if the tool is not read-only
         add_security_risk_prediction = add_security_risk_prediction and (
             self.annotations is None or (not self.annotations.readOnlyHint)
@@ -277,12 +279,13 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
             if add_security_risk_prediction
             else self.action_type.to_mcp_schema()
         )
-        return {
-            "type": "function",
-            "name": self.name,
-            "description": self.description,
-            "parameters": params,
-        }
+        return FunctionToolParam(
+            type="function",
+            name=self.name,
+            description=self.description,
+            parameters=params,
+            strict=True,
+        )
 
     @classmethod
     def resolve_kind(cls, kind: str) -> type:
