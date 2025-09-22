@@ -6,13 +6,13 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool
+from openhands.sdk.preset.default import get_default_tools
 
 
 logger = get_logger(__name__)
@@ -27,10 +27,7 @@ llm = LLM(
 )
 
 # Tools
-tools = [
-    BashTool.create(working_dir=os.getcwd()),
-    FileEditorTool.create(),
-]
+tools = get_default_tools(working_dir=os.getcwd(), enable_browser=False)
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -38,7 +35,7 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
