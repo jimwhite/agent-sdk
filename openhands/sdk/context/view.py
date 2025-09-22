@@ -121,7 +121,10 @@ class View(BaseModel):
         """Extract tool_call_ids from ObservationEvents."""
         tool_call_ids = set()
         for event in events:
-            if isinstance(event, ActionEvent) and event.tool_call_id is not None:
+            if (
+                isinstance(event, ObservationBaseEvent)
+                and event.tool_call_id is not None
+            ):
                 tool_call_ids.add(event.tool_call_id)
         return tool_call_ids
 
