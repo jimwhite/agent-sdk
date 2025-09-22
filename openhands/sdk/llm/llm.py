@@ -43,7 +43,9 @@ with warnings.catch_warnings():
     import litellm
 
 from litellm import (
+    AllMessageValues,
     ChatCompletionToolParam,
+    ResponseInputParam,
     completion as litellm_completion,
     responses as litellm_responses,
 )
@@ -109,7 +111,7 @@ class _BaseCtxModel(BaseModel):
 
 class ChatCtx(_BaseCtxModel):
     kind: Literal["chat"]
-    messages: list[dict[str, Any]]
+    messages: list[AllMessageValues]
     # tools used only in chat path
     tools: list[ChatCompletionToolParam] = Field(default_factory=list)
 
@@ -120,7 +122,7 @@ class ChatCtx(_BaseCtxModel):
 
 class ResponsesCtx(_BaseCtxModel):
     kind: Literal["responses"]
-    input: str | list[dict[str, Any]]
+    input: ResponseInputParam | str
     # tools used only in responses path
     tools: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -384,13 +386,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[Message] | str | None,
-        input: str | list[dict[str, Any]] | None,
-        tools: Sequence["ToolBase"] | None,
+        messages: list[Message] | None,
+        input: str | ResponseInputParam | None,
+        tools: Sequence[ToolBase] | None,
         add_security_risk_prediction: bool = False,
     ) -> tuple[
-        list[dict[str, Any]] | None,
-        str | list[dict[str, Any]] | None,
+        list[AllMessageValues] | None,
+        str | ResponseInputParam | None,
         list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
     ]:
         """Prepare payload for the unified request based on kind.
@@ -401,12 +403,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         from openhands.sdk.tool import ToolBase
 
         if kind == "chat":
-            # completion() now guarantees messages is list[Message]
+            # Messages: ensure list[Message]
             assert messages is not None and (
                 isinstance(messages, list)
                 and (not messages or isinstance(messages[0], Message))
             ), "chat path expects list[Message]"
-            msgs_dict: list[dict[str, Any]] = self.format_messages_for_llm(
+            converted_messages = self.format_messages_for_llm(
                 cast(list[Message], messages)
             )
 
@@ -419,30 +421,29 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     )
                     for t in tools
                 ]  # type: ignore[arg-type]
-            return msgs_dict, None, tools_cc
+            return converted_messages, None, tools_cc
 
-        # kind == "responses"
+        assert kind == "responses"
         # Input/messages handling
         if input is None:
-            if messages is not None:
-                # Allow a direct string to be used as input
-                if isinstance(messages, str):
-                    input = messages
-                else:
-                    if isinstance(messages, list) and len(messages) == 0:
-                        raise ValueError("messages cannot be an empty list")
-                    msgs_dict: list[dict[str, Any]]
-                    if messages and isinstance(messages[0], Message):
-                        msgs_dict = self.format_messages_for_llm(
-                            cast(list[Message], messages)
-                        )
-                    else:
-                        # With simplified API, messages should be list[Message] or str.
-                        # Fallback kept to satisfy type checker if list[dict] sneaks in.
-                        msgs_dict = cast(list[dict[str, Any]], messages or [])
-                    input = messages_to_responses_items(msgs_dict)
-            else:
+            # If messages is None, we cannot build a request
+            if messages is None:
                 raise ValueError("Either messages or input must be provided")
+            assert isinstance(messages, list)
+            if len(messages) == 0:
+                raise ValueError("messages cannot be an empty list")
+            converted_messages = self.format_messages_for_llm(
+                cast(list[Message], messages)
+            )
+            input = cast(
+                ResponseInputParam, messages_to_responses_items(converted_messages)
+            )
+        elif isinstance(input, str):
+            # pass through
+            pass
+        else:
+            # already a typed ResponseInputParam
+            pass
 
         # Tools: normalize to Responses tool dicts
         tools_dicts: list[dict[str, Any]] = []
@@ -526,7 +527,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def responses(
         self,
         messages: list[Message] | str | None = None,
-        input: str | None = None,
+        input: str | ResponseInputParam | None = None,
         tools: Sequence[ToolBase] | None = None,
         add_security_risk_prediction: bool = False,
         **kwargs,
@@ -539,20 +540,27 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported in responses() method")
 
+        # Normalize simple string messages to input
+        if isinstance(messages, str) and input is None:
+            input = messages
+            messages = None
+        # Guard: require either messages or input
+        if messages is None and input is None:
+            raise ValueError("Either messages or input must be provided")
+
         # Use unified pre-normalization for responses
         msgs, inp, tools_dicts = self._pre_normalize(
             kind="responses",
-            messages=cast(list[Message] | str | None, messages),
+            messages=cast(list[Message] | None, messages),
             input=input,
             tools=tools,
             add_security_risk_prediction=add_security_risk_prediction,
         )
 
-        # inp is str | list[dict[str, Any]] here; _unified_request expects the same
         return self._unified_request(
             kind="responses",
             messages=msgs,
-            input=cast(str | list[dict[str, Any]] | None, inp),
+            input=inp,
             tools=cast(
                 list[dict[str, Any]] | list[ChatCompletionToolParam] | None, tools_dicts
             ),
@@ -567,8 +575,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[dict[str, Any]] | None = None,
-        input: str | list[dict[str, Any]] | None = None,
+        messages: list[AllMessageValues] | None = None,
+        input: str | ResponseInputParam | None = None,
         tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None = None,
         **kwargs,
     ) -> ModelResponse:
@@ -625,13 +633,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[dict[str, Any]] | None,
-        input: str | list[dict[str, Any]] | None,
+        messages: list[AllMessageValues] | None,
+        input: str | ResponseInputParam | None,
         tools: list[dict[str, Any]] | list[ChatCompletionToolParam] | None,
         opts: dict[str, Any],
     ) -> ReqCtx:
         # Mock tools for non-native function-calling
-        nonfn_msgs = copy.deepcopy(messages or [])
+        nonfn_msgs: list[dict[str, Any]] | None = None
         use_mock_tools = False
         if kind == "chat":
             use_mock_tools = self.should_mock_tool_calls(
@@ -642,8 +650,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "LLM.completion: mocking function-calling via prompt "
                 f"for model {self.model}"
             )
+
+            # When mocking, we need raw dict messages; convert AllMessageValues to dict
+            def _to_raw_dict(x: AllMessageValues | dict[str, Any]) -> dict[str, Any]:
+                if isinstance(x, dict):
+                    return cast(dict[str, Any], x)
+                # x is a Pydantic message model; convert to dict
+                return cast(dict[str, Any], cast(Any, x).model_dump())
+
+            raw_msgs: list[dict[str, Any]] = [_to_raw_dict(m) for m in (messages or [])]
             nonfn_msgs, opts = self.pre_request_prompt_mock(
-                messages or [], cast(list[ChatCompletionToolParam], tools) or [], opts
+                raw_msgs, cast(list[ChatCompletionToolParam], tools) or [], opts
             )
 
         has_tools = bool(tools) and (kind == "chat") and not use_mock_tools
@@ -675,7 +692,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             log_ctx["input"] = input if input is not None else []
             return ResponsesCtx(
                 kind="responses",
-                input=cast(str | list[dict[str, Any]], input or []),
+                input=cast(ResponseInputParam | str, input or []),
                 call_kwargs=call_kwargs,
                 log_ctx=log_ctx,
                 tools=cast(list[dict[str, Any]], tools or []),
@@ -792,7 +809,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         timeout=self.timeout,
                         drop_params=self.drop_params,
                         seed=self.seed,
-                        messages=ctx.messages,  # type: ignore[attr-defined]
+                        messages=ctx.messages,
                         **ctx.call_kwargs,
                     )
                     assert isinstance(ret, ModelResponse)
@@ -807,7 +824,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         api_base=self.base_url,
                         api_version=self.api_version,
                         timeout=self.timeout,
-                        input=ctx.input,  # type: ignore[attr-defined]
+                        input=ctx.input,
                         drop_params=self.drop_params,
                         custom_llm_provider=(
                             self.model.split("/")[1]
@@ -1007,7 +1024,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
+    def format_messages_for_llm(
+        self, messages: list[Message]
+    ) -> list[AllMessageValues]:
         """Formats Message objects for LLM consumption."""
 
         messages = copy.deepcopy(messages)

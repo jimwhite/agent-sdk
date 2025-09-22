@@ -1,7 +1,14 @@
 from collections.abc import Sequence
 from typing import Any, Literal, cast
 
-from litellm import ChatCompletionMessageToolCall
+from litellm import (
+    AllMessageValues,
+    ChatCompletionAssistantMessage,
+    ChatCompletionMessageToolCall,
+    ChatCompletionSystemMessage,
+    ChatCompletionToolMessage,
+    ChatCompletionUserMessage,
+)
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -99,7 +106,7 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> dict[str, Any]:
+    def to_llm_dict(self) -> AllMessageValues:
         """Serialize message for LLM API consumption.
 
         This method chooses the appropriate serialization format based on the message
@@ -116,7 +123,16 @@ class Message(BaseModel):
             # single string
             message_dict = self._string_serializer()
 
-        return message_dict
+        if self.role == "assistant":
+            return ChatCompletionAssistantMessage(**message_dict)
+        elif self.role == "user":
+            return ChatCompletionUserMessage(**message_dict)
+        elif self.role == "system":
+            return ChatCompletionSystemMessage(**message_dict)
+        elif self.role == "tool":
+            return ChatCompletionToolMessage(**message_dict)
+        else:
+            raise ValueError(f"Unsupported role: {self.role}")
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
@@ -130,33 +146,20 @@ class Message(BaseModel):
 
     def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
-        role_tool_with_prompt_caching = False
 
         for item in self.content:
             # Serialize with the subclass-specific return type
             raw = item.to_llm_dict()
-            # We have to remove cache_prompt for tool content and move it up to the
-            # message level
-            # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
             if isinstance(item, TextContent):
                 d = cast(dict[str, Any], raw)
-                if self.role == "tool" and item.cache_prompt:
-                    role_tool_with_prompt_caching = True
-                    d.pop("cache_control", None)
                 content.append(d)
 
             elif isinstance(item, ImageContent) and self.vision_enabled:
                 # ImageContent.model_dump() always returns a list of dicts
                 d_list = cast(list[dict[str, Any]], raw)
-                if self.role == "tool" and item.cache_prompt:
-                    role_tool_with_prompt_caching = True
-                    for elem in d_list:
-                        elem.pop("cache_control", None)
                 content.extend(d_list)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
-        if role_tool_with_prompt_caching:
-            message_dict["cache_control"] = {"type": "ephemeral"}
 
         return self._add_tool_call_keys(message_dict)
 
@@ -181,11 +184,7 @@ class Message(BaseModel):
 
         # an observation message with tool response
         if self.tool_call_id is not None:
-            assert self.name is not None, (
-                "name is required when tool_call_id is not None"
-            )
             message_dict["tool_call_id"] = self.tool_call_id
-            message_dict["name"] = self.name
 
         return message_dict
 

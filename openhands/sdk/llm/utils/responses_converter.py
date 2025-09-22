@@ -1,7 +1,10 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
-from typing import Any
+from typing import Any, cast
 
+from litellm import (
+    AllMessageValues as ChatCompletionMessageValues,
+)
 from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.responses.main import (
     GenericResponseOutputItem,
@@ -22,48 +25,40 @@ logger = get_logger(__name__)
 
 
 def messages_to_responses_items(
-    messages: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+    messages: list[ChatCompletionMessageValues] | list[dict],
+) -> list[dict]:
     """Convert Chat Completions-style messages into Responses API input items.
 
-    Args:
-        messages: List of chat completion messages in dict format. Each message
-            should conform to one of the ChatCompletion message types from
-            litellm.types.llms.openai (ChatCompletionUserMessage,
-            ChatCompletionAssistantMessage, ChatCompletionToolMessage, etc.)
-            but is passed as dict for flexible access patterns.
-
-    Mapping rules:
-    - user/system/assistant text -> {type: 'message', role, content}
-    - user/system/assistant images -> {type: 'input_image', image_url}
-    - assistant tool_calls -> for each call ->
-      {type: 'function_call', call_id, name, arguments}
-    - tool messages -> {type: 'function_call_output', call_id: tool_call_id, output}
+    Output schema is a dict list shaped per tests:
+    - For user/system/assistant: {"role": <role>, "content": <text>}
+    - For assistant.tool_calls: {"type":"function_call", ...}
+    - For tool: {"type":"function_call_output", ...}
+    - For images: {"type":"input_image", "image_url": <url>}
     """
     if not messages:
         return []
 
-    dict_messages = messages
+    # Normalize to dicts for flexible access across LiteLLM pydantic models or raw dicts
+    def as_dict(m: Any) -> dict:
+        if isinstance(m, dict):
+            return m
+        try:
+            return cast(Any, m).model_dump()
+        except Exception:
+            return cast(dict, m)  # best-effort
 
-    def _extract_content_items(content: Any) -> list[dict[str, Any]]:
-        """Extract both text and image content items from message content.
+    dict_messages = [as_dict(m) for m in messages]
 
-        Returns a list of items where each item is either:
-        - {"type": "text", "content": "..."}
-        - {"type": "input_image", "image_url": "..."}
-        """
-        items: list[dict[str, Any]] = []
-
+    def _extract_items(role: str, content: Any) -> list[dict]:
+        items: list[dict] = []
         if isinstance(content, str):
             if content:
-                items.append({"type": "text", "content": content})
+                items.append({"role": role, "content": content})
         elif isinstance(content, list):
             for seg in content:
                 if isinstance(seg, dict):
-                    # Handle text content
                     if seg.get("type") == "text" and seg.get("text"):
-                        items.append({"type": "text", "content": seg["text"]})
-                    # Handle image content - convert from Chat Completions to Responses
+                        items.append({"role": role, "content": seg["text"]})
                     elif seg.get("type") == "image_url" and seg.get("image_url"):
                         image_url_obj = seg["image_url"]
                         if isinstance(image_url_obj, dict) and image_url_obj.get("url"):
@@ -74,77 +69,53 @@ def messages_to_responses_items(
                                 }
                             )
         elif content is not None:
-            content_str = str(content)
-            if content_str:
-                items.append({"type": "text", "content": content_str})
-
+            items.append({"role": role, "content": str(content)})
         return items
 
-    def _to_text(content: Any) -> str:
-        """Extract only text content for backward compatibility."""
-        items = _extract_content_items(content)
-        text_parts = [item["content"] for item in items if item["type"] == "text"]
-        return "".join(text_parts)
-
-    out: list[dict[str, Any]] = []
+    out: list[dict] = []
     for msg in dict_messages:
         role = str(msg.get("role", ""))
-        # 1) Tool outputs -> function_call_output items
         if role == "tool":
-            try:
-                call_id = str(msg["tool_call_id"])  # Chat Completions tool message key
-                output_text = _to_text(msg.get("content", ""))
-                if output_text is not None:
-                    out.append(
-                        {
-                            "type": "function_call_output",
-                            "call_id": call_id,
-                            "output": output_text,
-                        }
-                    )
-            except Exception as e:
-                logger.debug(
-                    f"Skipping malformed tool output message: {msg!r}; error: {e}"
-                )
-            continue
-
-        # 2) Assistant with tool_calls -> function_call items (and optional text)
-        if role == "assistant" and isinstance(msg.get("tool_calls"), list):
-            # Put assistant text before tool_calls to satisfy ordering
-            text = _to_text(msg.get("content", ""))
-            if text:
-                out.append({"role": "assistant", "content": text})
+            call_id = str(msg.get("tool_call_id", ""))
+            output_text = ""
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                output_text = content
+            elif isinstance(content, list):
+                for seg in content:
+                    if (
+                        isinstance(seg, dict)
+                        and seg.get("type") == "text"
+                        and seg.get("text")
+                    ):
+                        output_text = seg["text"]
+                        break
+            out.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": output_text,
+                }
+            )
+        elif role == "assistant":
+            # emit assistant text first (if any)
+            out.extend(_extract_items("assistant", msg.get("content", "")))
             tool_calls = msg.get("tool_calls") or []
             for tc in tool_calls:
-                try:
-                    fn = tc.get("function")
-                    out.append(
-                        {
-                            "type": "function_call",
-                            "call_id": str(tc.get("id")),
-                            "name": str(fn.get("name")),
-                            "arguments": str(fn.get("arguments")),
-                        }
-                    )
-                except Exception as e:
-                    logger.debug(f"Skipping malformed tool_call: {tc!r}; error: {e}")
-                    pass
-            continue
-
-        # 3) Messages with text and/or image content
-        content_items = _extract_content_items(msg.get("content", ""))
-        if role in {"user", "system", "assistant", "developer"}:
-            # Add each content item as a separate Responses API item
-            for item in content_items:
-                if item["type"] == "text":
-                    out.append({"role": role, "content": item["content"]})
-                elif item["type"] == "input_image":
-                    out.append({"type": "input_image", "image_url": item["image_url"]})
+                fn = tc.get("function", {})
+                out.append(
+                    {
+                        "type": "function_call",
+                        "call_id": str(tc.get("id", "")),
+                        "name": str(fn.get("name", "")),
+                        "arguments": str(fn.get("arguments", "")),
+                    }
+                )
+        elif role in {"user", "system", "developer"}:
+            out.extend(_extract_items(role, msg.get("content", "")))
         else:
-            # For unknown roles, treat as user and only add text content
-            text = _to_text(msg.get("content", ""))
-            if text:
-                out.append({"role": "user", "content": text})
+            raise ValueError(f"Unsupported message role: {role}")
+
     return out
 
 
