@@ -134,7 +134,9 @@ class RemoteConversation(BaseConversation):
 
         if conversation_id is None:
             payload = {
-                "agent": agent.model_dump(mode="json"),
+                "agent": agent.model_dump(
+                    mode="json", context={"expose_secrets": True}
+                ),
                 "confirmation_mode": self._confirmation_mode,
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
