@@ -636,11 +636,26 @@ def main():
         logger.error("LITELLM_API_KEY environment variable is required")
         return 1
 
-    # Configure LLM
+    # Load config to get LLM settings
+    config = {}
+    if args.config:
+        try:
+            with open(args.config, "r") as f:
+                config = json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load config file: {e}")
+
+    # Configure LLM from config or use defaults
+    llm_config = config.get("llm_config", {})
+    model = llm_config.get("model", "litellm_proxy/anthropic/claude-sonnet-4-20250514")
+    base_url = llm_config.get("base_url", "https://llm-proxy.eval.all-hands.dev")
+
     llm = LLM(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
+        model=model,
+        base_url=base_url,
         api_key=SecretStr(api_key),
+        temperature=llm_config.get("temperature", 0.0),
+        max_output_tokens=llm_config.get("max_tokens", 64000),
     )
 
     # Create and run the TODO manager
