@@ -38,7 +38,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         # Mock successful API response
         mock_response = Mock()
@@ -79,7 +79,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         # Mock successful API response
         mock_response = Mock()
@@ -109,8 +109,8 @@ class TestN8nIntegration:
         assert len(result["data"]) == 2
         assert result["data"][0]["id"] == "exec-1"
 
-    @patch("examples.n8n_integration.agent")
-    @patch("examples.n8n_integration.Conversation")
+    @patch("examples.n8n_integration_wrapper.agent")
+    @patch("examples.n8n_integration_wrapper.Conversation")
     def test_n8n_integration_process_webhook_data(
         self, mock_conversation_class, mock_agent
     ):
@@ -121,7 +121,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         # Create integration instance
         integration = N8nIntegration("http://localhost:5678")
@@ -145,9 +145,9 @@ class TestN8nIntegration:
         # Set the global agent variable to our mock
         mock_agent.return_value = mock_agent_instance
         # Also set it directly since it's used as a global variable
-        import examples.n8n_integration
+        import examples.n8n_integration_wrapper
 
-        examples.n8n_integration.agent = mock_agent_instance
+        examples.n8n_integration_wrapper.agent = mock_agent_instance
 
         # Mock conversation
         from openhands.sdk.event import MessageEvent
@@ -201,7 +201,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         # Create integration instance
         integration = N8nIntegration("http://localhost:5678")
@@ -239,14 +239,16 @@ class TestN8nIntegration:
         mock_app.test_client.return_value.__enter__.return_value = mock_client
 
         # Mock the integration processing
-        with patch("examples.n8n_integration.n8n_integration") as mock_integration:
+        with patch(
+            "examples.n8n_integration_wrapper.n8n_integration"
+        ) as mock_integration:
             mock_integration.process_webhook_data.return_value = {
                 "success": True,
                 "response": "Test response",
                 "processed_data": {"test": "data"},
             }
 
-            with patch("examples.n8n_integration.app", mock_app):
+            with patch("examples.n8n_integration_wrapper.app", mock_app):
                 # Create test client
                 with mock_app.test_client() as client:  # type: ignore
                     # Test webhook endpoint
@@ -286,10 +288,12 @@ class TestN8nIntegration:
         mock_app.test_client.return_value.__enter__.return_value = mock_client
 
         # Mock the integration processing
-        with patch("examples.n8n_integration.n8n_integration") as mock_integration:
+        with patch(
+            "examples.n8n_integration_wrapper.n8n_integration"
+        ) as mock_integration:
             mock_integration.trigger_workflow.return_value = {"executionId": "test-123"}
 
-            with patch("examples.n8n_integration.app", mock_app):
+            with patch("examples.n8n_integration_wrapper.app", mock_app):
                 # Create test client
                 with mock_app.test_client() as client:  # type: ignore
                     # Test trigger endpoint
@@ -331,7 +335,7 @@ class TestN8nIntegration:
         mock_client.get.return_value = mock_response
         mock_app.test_client.return_value.__enter__.return_value = mock_client
 
-        with patch("examples.n8n_integration.app", mock_app):
+        with patch("examples.n8n_integration_wrapper.app", mock_app):
             # Create test client
             with mock_app.test_client() as client:  # type: ignore
                 # Test health endpoint
@@ -353,7 +357,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         # Mock API error
         mock_post.side_effect = Exception("Connection error")
@@ -373,7 +377,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         # Test with API key
         integration_with_key = N8nIntegration("http://localhost:5678", "test-key")
@@ -389,8 +393,8 @@ class TestN8nIntegration:
         integration_trailing_slash = N8nIntegration("http://localhost:5678/")
         assert integration_trailing_slash.base_url == "http://localhost:5678"
 
-    @patch("examples.n8n_integration.agent")
-    @patch("examples.n8n_integration.Conversation")
+    @patch("examples.n8n_integration_wrapper.agent")
+    @patch("examples.n8n_integration_wrapper.Conversation")
     def test_n8n_integration_webhook_data_processing_variations(
         self, mock_conversation_class, mock_agent
     ):
@@ -401,7 +405,7 @@ class TestN8nIntegration:
 
         sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "examples"))
 
-        from examples.n8n_integration import N8nIntegration
+        from examples.n8n_integration_wrapper import N8nIntegration
 
         integration = N8nIntegration("http://localhost:5678")
 
@@ -424,9 +428,9 @@ class TestN8nIntegration:
         # Set the global agent variable to our mock
         mock_agent.return_value = mock_agent_instance
         # Also set it directly since it's used as a global variable
-        import examples.n8n_integration
+        import examples.n8n_integration_wrapper
 
-        examples.n8n_integration.agent = mock_agent_instance
+        examples.n8n_integration_wrapper.agent = mock_agent_instance
 
         # Mock conversation
         from openhands.sdk.event import MessageEvent
