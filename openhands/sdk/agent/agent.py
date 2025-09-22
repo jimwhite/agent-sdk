@@ -158,28 +158,27 @@ class Agent(AgentBase):
                 [e for e in state.events if isinstance(e, LLMConvertibleEvent)],
             )
 
-        # Get LLM Response (Action)
+        # Format messages once
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
         logger.debug(
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        response = self.llm.completion(
-            messages=_messages,
-            tools=list(self.tools_map.values()),
-            add_security_risk_prediction=self._add_security_risk_prediction,
-            extra_body={
-                "metadata": get_llm_metadata(
-                    model_name=self.llm.model, agent_name=self.name
-                )
-            },
-        )
-        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
-        message = Message.from_litellm_message(llm_message)
 
-        assert self.llm.metrics is not None, "LLM metrics should not be None"
-        metrics = self.llm.metrics.get_snapshot()  # take a snapshot of metrics
+        # Route to Responses API for supported models; else use Chat Completions
+        add_sec = self._add_security_risk_prediction
+        if self.llm.supports_responses_api():
+            message, response_id, metrics = self._call_responses(
+                _messages,
+                list(self.tools_map.values()),
+                add_security_risk_prediction=add_sec,
+            )
+        else:
+            message, response_id, metrics = self._call_chat(
+                _messages,
+                list(self.tools_map.values()),
+                add_security_risk_prediction=add_sec,
+            )
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -211,13 +210,10 @@ class Agent(AgentBase):
                 action_event = self._get_action_events(
                     state,
                     tool_call,
-                    llm_response_id=response.id,
+                    llm_response_id=response_id,
                     on_event=on_event,
-                    thought=thought_content
-                    if i == 0
-                    else [],  # Only first gets thought
+                    thought=thought_content if i == 0 else [],
                     metrics=metrics if i == len(tool_calls) - 1 else None,
-                    # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
                 )
                 if action_event is None:
@@ -230,7 +226,6 @@ class Agent(AgentBase):
 
             if action_events:
                 self._execute_actions(state, action_events, on_event)
-
         else:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_status = AgentExecutionStatus.FINISHED
@@ -240,6 +235,102 @@ class Agent(AgentBase):
                 metrics=metrics,
             )
             on_event(msg_event)
+
+    def _call_chat(
+        self,
+        messages: list[Message],
+        tools: list,  # Sequence[ToolBase]
+        *,
+        add_security_risk_prediction: bool,
+    ) -> tuple[Message, str, MetricsSnapshot | None]:
+        response = self.llm.completion(
+            messages=messages,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
+            extra_body={
+                "metadata": get_llm_metadata(
+                    model_name=self.llm.model, agent_name=self.name
+                )
+            },
+        )
+        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
+        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
+        message = Message.from_litellm_message(llm_message)
+        assert self.llm.metrics is not None
+        metrics = self.llm.metrics.get_snapshot()
+        return message, response.id, metrics
+
+    def _call_responses(
+        self,
+        messages: list[Message] | None,
+        tools: list,  # Sequence[ToolBase]
+        *,
+        add_security_risk_prediction: bool,
+    ) -> tuple[Message, str, MetricsSnapshot | None]:
+        resp = self.llm.responses(
+            messages=messages,
+            tools=tools,
+            add_security_risk_prediction=add_security_risk_prediction,
+            metadata=get_llm_metadata(model_name=self.llm.model, agent_name=self.name),
+        )
+        # Parse ResponsesAPIResponse.output to build a Message
+        from litellm.types.llms.openai import (
+            ResponsesAPIResponse,
+        )
+        from openai.types.responses import (
+            response_function_tool_call as ro_fncall,
+            response_output_message as ro_msg,
+            response_output_text as ro_text,
+            response_reasoning_item as ro_reason,
+        )
+
+        assert isinstance(resp, ResponsesAPIResponse)
+        assistant_text_parts: list[str] = []
+        tool_calls: list = []  # list[ChatCompletionMessageToolCall]
+        reasoning_parts: list[str] = []
+
+        for item in resp.output or []:
+            t = getattr(item, "type", None)
+            if t == "message" and isinstance(item, ro_msg.ResponseOutputMessage):
+                for seg in item.content or []:
+                    if isinstance(seg, ro_text.ResponseOutputText):
+                        assistant_text_parts.append(seg.text or "")
+            elif t == "function_call" and isinstance(
+                item, ro_fncall.ResponseFunctionToolCall
+            ):
+                # Convert to ChatCompletionMessageToolCall shape we already use
+                tc = ChatCompletionMessageToolCall(
+                    id=item.call_id or item.id or "tool_call",
+                    type="function",
+                    function={
+                        "name": item.name or "",
+                        "arguments": item.arguments or "{}",
+                    },
+                )
+                tool_calls.append(tc)
+            elif t == "reasoning" and isinstance(item, ro_reason.ResponseReasoningItem):
+                # Aggregate reasoning content and/or summary
+                for seg in item.content or []:
+                    text = getattr(seg, "text", None)
+                    if text:
+                        reasoning_parts.append(text)
+                for seg in item.summary or []:
+                    text = getattr(seg, "text", None)
+                    if text:
+                        reasoning_parts.append(text)
+
+        message = Message(
+            role="assistant",
+            content=[TextContent(text="\n\n".join(assistant_text_parts))]
+            if assistant_text_parts
+            else [],
+            tool_calls=tool_calls or None,
+            reasoning_content="\n\n".join(reasoning_parts) if reasoning_parts else None,
+        )
+
+        assert self.llm.metrics is not None
+        metrics = self.llm.metrics.get_snapshot()
+        return message, resp.id, metrics
 
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]
