@@ -137,10 +137,20 @@ if __name__ == "__main__":
             cli_mode=True,  # Disable browser tools for simplicity
         )
 
-        # Create RemoteConversation
+        # Define callbacks to test the WebSocket functionality
+        received_events = []
+
+        def event_callback(event):
+            """Callback to capture events for testing."""
+            event_type = type(event).__name__
+            print(f"🔔 Callback received event: {event_type}")
+            received_events.append(event)
+
+        # Create RemoteConversation with callbacks
         conversation = Conversation(
             agent=agent,
             host=server.base_url,
+            callbacks=[event_callback],
         )
         assert isinstance(conversation, RemoteConversation)
 
@@ -240,6 +250,26 @@ if __name__ == "__main__":
 
                 timestamp = getattr(event, "timestamp", "Unknown")
                 print(f"  {i}. [{event_type}] {content} at {timestamp}")
+
+            # Show callback results
+            print("\n" + "=" * 50)
+            print("📡 WebSocket Callback Results")
+            print("=" * 50)
+            print(f"📊 Total events received via callbacks: {len(received_events)}")
+
+            if received_events:
+                print("\n🔍 Event types received via callbacks:")
+                callback_event_types = set()
+                for event in received_events:
+                    event_type = type(event).__name__
+                    callback_event_types.add(event_type)
+                for event_type in sorted(callback_event_types):
+                    count = sum(
+                        1 for e in received_events if type(e).__name__ == event_type
+                    )
+                    print(f"  - {event_type}: {count}")
+            else:
+                print("⚠️  No events received via callbacks")
 
         finally:
             # Clean up

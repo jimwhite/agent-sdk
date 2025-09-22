@@ -1,8 +1,13 @@
+import asyncio
+import json
+import threading
 import time
 import uuid
 from typing import SupportsIndex, overload
+from urllib.parse import urlparse
 
 import httpx
+import websockets
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -11,8 +16,137 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.protocol import ListLike
+
+
+logger = get_logger(__name__)
+
+
+class WebSocketCallbackClient:
+    """WebSocket client that connects to agent server and forwards events."""
+
+    def __init__(
+        self,
+        host: str,
+        conversation_id: str,
+        callbacks: list[ConversationCallbackType],
+    ):
+        self.host = host
+        self.conversation_id = conversation_id
+        self.callbacks = callbacks
+        self._websocket = None
+        self._task = None
+        self._loop = None
+        self._thread = None
+        self._stop_event = threading.Event()
+
+    def start(self) -> None:
+        """Start the WebSocket client in a background thread."""
+        if self._thread is not None:
+            return  # Already started
+
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run_in_thread, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        """Stop the WebSocket client."""
+        if self._thread is None:
+            return  # Not started
+
+        self._stop_event.set()
+
+        # Cancel the task if it exists
+        if self._task and self._loop:
+            self._loop.call_soon_threadsafe(self._task.cancel)
+
+        # Wait for thread to finish
+        self._thread.join(timeout=5.0)
+        self._thread = None
+
+    def _run_in_thread(self) -> None:
+        """Run the WebSocket client in a separate thread with its own event loop."""
+        try:
+            # Create a new event loop for this thread
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+
+            # Run the WebSocket client
+            self._task = self._loop.create_task(self._websocket_client())
+            self._loop.run_until_complete(self._task)
+        except asyncio.CancelledError:
+            logger.debug("WebSocket client task was cancelled")
+        except Exception as e:
+            logger.error(f"WebSocket client error: {e}", exc_info=True)
+        finally:
+            if self._loop:
+                self._loop.close()
+
+    async def _websocket_client(self) -> None:
+        """Main WebSocket client coroutine."""
+        # Convert HTTP URL to WebSocket URL
+        parsed = urlparse(self.host)
+        ws_scheme = "wss" if parsed.scheme == "https" else "ws"
+        ws_url = f"{ws_scheme}://{parsed.netloc}/conversations/{self.conversation_id}/events/socket"
+
+        logger.debug(f"Connecting to WebSocket: {ws_url}")
+
+        max_retries = 5
+        retry_delay = 1.0
+
+        for attempt in range(max_retries):
+            if self._stop_event.is_set():
+                break
+
+            try:
+                async with websockets.connect(ws_url) as websocket:
+                    self._websocket = websocket
+                    logger.debug("WebSocket connected successfully")
+
+                    # Listen for events
+                    async for message in websocket:
+                        if self._stop_event.is_set():
+                            break
+
+                        try:
+                            # Parse the event
+                            event_data = json.loads(message)
+                            event = EventBase.model_validate(event_data)
+
+                            # Forward to all callbacks
+                            for callback in self.callbacks:
+                                try:
+                                    callback(event)
+                                except Exception as e:
+                                    logger.error(
+                                        f"Error in callback: {e}", exc_info=True
+                                    )
+
+                        except Exception as e:
+                            logger.error(
+                                f"Error processing WebSocket message: {e}",
+                                exc_info=True,
+                            )
+
+            except websockets.exceptions.ConnectionClosed:
+                logger.debug("WebSocket connection closed")
+                break
+            except Exception as e:
+                logger.warning(
+                    f"WebSocket connection attempt {attempt + 1} failed: {e}"
+                )
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = min(
+                        retry_delay * 2, 30.0
+                    )  # Exponential backoff, max 30s
+                else:
+                    logger.error("Max WebSocket connection retries exceeded")
+                    break
+            finally:
+                self._websocket = None
 
 
 class RemoteEventsList(ListLike[EventBase]):
@@ -161,6 +295,16 @@ class RemoteConversation(BaseConversation):
         # Initialize the remote state
         self._state = RemoteState(self._client, str(self._id))
 
+        # Initialize WebSocket client for callbacks if provided
+        self._ws_client = None
+        if self._callbacks:
+            self._ws_client = WebSocketCallbackClient(
+                host=self._host,
+                conversation_id=str(self._id),
+                callbacks=self._callbacks,
+            )
+            self._ws_client.start()
+
     @property
     def id(self) -> ConversationID:
         return self._id
@@ -242,6 +386,14 @@ class RemoteConversation(BaseConversation):
         resp.raise_for_status()
 
     def close(self) -> None:
+        try:
+            # Stop WebSocket client if it exists
+            if self._ws_client:
+                self._ws_client.stop()
+                self._ws_client = None
+        except Exception:
+            pass
+
         try:
             self._client.close()
         except Exception:
