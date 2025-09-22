@@ -8,6 +8,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Message, get_logger
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
+from openhands.sdk.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -28,7 +29,7 @@ class ManagedAPIServer:
         
         # Start the server process
         self.process = subprocess.Popen(
-            ["python", "-m", "openhands.agent_server.main", "--port", str(self.port), "--host", self.host],
+            ["python", "-m", "openhands.agent_server", "--port", str(self.port), "--host", self.host, "--no-reload"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
@@ -84,72 +85,54 @@ async def main():
     
     # Use managed API server
     with ManagedAPIServer(port=8001) as server:
-        # Create RemoteConversation
-        conversation = RemoteConversation(
-            base_url=server.base_url,
+        # Create agent
+        agent = get_default_agent(
             llm=llm,
             working_dir=Path.cwd(),
             cli_mode=True,  # Disable browser tools for simplicity
+        )
+        
+        # Create RemoteConversation
+        conversation = RemoteConversation(
+            agent=agent,
+            host=server.base_url,
         )
         
         print("=" * 80)
         print("Starting conversation with RemoteConversation...")
         print("=" * 80)
         
-        # Start the conversation
-        await conversation.start()
-        
         try:
             # Send first message and run
             print("\n📝 Sending first message...")
-            await conversation.send_message(
-                Message(
-                    role="user",
-                    content="Read the current repo and write 3 facts about the project into FACTS.txt."
-                )
+            conversation.send_message(
+                "Read the current repo and write 3 facts about the project into FACTS.txt."
             )
             
             print("🚀 Running conversation...")
-            await conversation.run()
+            conversation.run()
             
-            # Wait a bit for completion
-            print("⏳ Waiting for task completion...")
-            await asyncio.sleep(2)
+            print("✅ First task completed!")
             
-            # Check status
-            status = await conversation.get_status()
-            print(f"📊 Current status: {status}")
+            # Wait a bit to ensure the first task is fully finished
+            print("⏳ Waiting for first task to fully complete...")
+            await asyncio.sleep(3)
             
             # Send second message and run
             print("\n📝 Sending second message...")
-            await conversation.send_message(
-                Message(role="user", content="Great! Now delete that file.")
-            )
+            conversation.send_message("Great! Now delete that file.")
             
             print("🚀 Running conversation again...")
-            await conversation.run()
+            conversation.run()
             
-            # Wait for completion
-            await asyncio.sleep(2)
+            print("✅ Second task completed!")
             
-            # Get final status
-            final_status = await conversation.get_status()
-            print(f"📊 Final status: {final_status}")
-            
-            # Get conversation history
-            print("\n📜 Getting conversation history...")
-            events = await conversation.get_events()
-            print(f"📈 Total events: {len(events)}")
-            
-            # Show some recent events
-            print("\n🔍 Recent events:")
-            for i, event in enumerate(events[-5:]):  # Show last 5 events
-                print(f"  {i+1}. {event.__class__.__name__}: {str(event)[:100]}...")
+            print(f"\n📋 Conversation ID: {conversation.id}")
         
         finally:
             # Clean up
             print("\n🧹 Cleaning up conversation...")
-            await conversation.close()
+            conversation.close()
     
     print("\n" + "=" * 80)
     print("✅ RemoteConversation example completed successfully!")
