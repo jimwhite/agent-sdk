@@ -68,7 +68,7 @@ from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
-from openhands.sdk.llm.utils.telemetry import Telemetry
+from openhands.sdk.llm.utils.telemetry import HasUsageAndId, Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
@@ -436,7 +436,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            self._telemetry.on_response(
+                cast(HasUsageAndId, resp), raw_resp=cast(HasUsageAndId | None, raw_resp)
+            )
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
@@ -548,7 +550,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             final_request = {**request, **retry_kwargs}
             resp = litellm_responses(**final_request)
-            self._telemetry.on_response(cast(ModelResponse, resp))
+            # Telemetry accepts HasUsageAndId Protocol; pass resp directly
+            self._telemetry.on_response(cast(HasUsageAndId, resp))
             return resp
 
         return _one_attempt()
