@@ -27,11 +27,12 @@ def main():
     print()
 
     uvicorn.run(
-        "openhands.agent_server.api:api",
+        "openhands.agent_server.api:build_app",
         host=args.host,
         port=args.port,
         reload=args.reload,
         reload_excludes=["workspace"],
+        factory=True,
     )
 
 
