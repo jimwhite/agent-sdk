@@ -1,6 +1,6 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
-from typing import Any, cast
+from typing import Any, Literal, TypedDict, cast
 
 from litellm import (
     AllMessageValues as ChatCompletionMessageValues,
@@ -20,32 +20,33 @@ from openai.types.responses.response_output_text import ResponseOutputText
 from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 
 
-def messages_to_responses_items(
-    messages: list[ChatCompletionMessageValues] | list[dict],
-) -> ResponseInputParam:
-    """Convert Chat Completions-style messages into Responses API input items.
+class _ImageUrlValue(TypedDict):
+    url: str
 
-    Output schema is a dict list shaped per tests:
+
+class _ImageUrlBlock(TypedDict):
+    type: Literal["image_url"]
+    image_url: _ImageUrlValue
+
+
+def messages_to_responses_items(
+    messages: list[ChatCompletionMessageValues],
+) -> ResponseInputParam:
+    """Convert typed Chat Completions messages into Responses API input items.
+
+    Accepts a list of AllMessageValues (TypedDicts) and produces Responses API
+    input items.
+
+    Output schema is a list of dict items compatible with OpenAI Responses API:
     - For user/system/assistant: {"role": <role>, "content": <text>}
     - For assistant.tool_calls: {"type":"function_call", ...}
     - For tool: {"type":"function_call_output", ...}
-    - For images: {"type":"input_image", "image_url": <url>}
+    - For images: {"type": "input_image", "image_url": <url>}
     """
     if not messages:
         return []
 
-    # Normalize to dicts for flexible access across LiteLLM pydantic models or raw dicts
-    def as_dict(m: Any) -> dict:
-        if isinstance(m, dict):
-            return m
-        try:
-            return cast(Any, m).model_dump()
-        except Exception:
-            return cast(dict, m)  # best-effort
-
-    dict_messages = [as_dict(m) for m in messages]
-
-    def _extract_items(role: str, content: Any) -> list[dict]:
+    def _text_and_image_items(role: str, content: Any) -> list[dict]:
         items: list[dict] = []
         if isinstance(content, str):
             if content:
@@ -69,7 +70,9 @@ def messages_to_responses_items(
         return items
 
     out: list[dict] = []
-    for msg in dict_messages:
+
+    for m in messages:
+        msg = dict(m)
         role = str(msg.get("role", ""))
         if role == "tool":
             call_id = str(msg.get("tool_call_id", ""))
@@ -93,24 +96,31 @@ def messages_to_responses_items(
                     "output": output_text,
                 }
             )
-        elif role == "assistant":
-            # emit assistant text first (if any)
-            out.extend(_extract_items("assistant", msg.get("content", "")))
-            tool_calls = msg.get("tool_calls") or []
-            for tc in tool_calls:
-                fn = tc.get("function", {})
-                out.append(
-                    {
-                        "type": "function_call",
-                        "call_id": str(tc.get("id", "")),
-                        "name": str(fn.get("name", "")),
-                        "arguments": str(fn.get("arguments", "")),
-                    }
-                )
-        elif role in {"user", "system", "developer"}:
-            out.extend(_extract_items(role, msg.get("content", "")))
-        else:
-            raise ValueError(f"Unsupported message role: {role}")
+            continue
+
+        if role == "assistant":
+            out.extend(_text_and_image_items("assistant", msg.get("content", "")))
+            tool_calls = msg.get("tool_calls")
+            if isinstance(tool_calls, list):
+                for tc in tool_calls:
+                    if not isinstance(tc, dict):
+                        continue
+                    fn = tc.get("function", {})
+                    out.append(
+                        {
+                            "type": "function_call",
+                            "call_id": str(tc.get("id", "")),
+                            "name": str(fn.get("name", "")),
+                            "arguments": str(fn.get("arguments", "")),
+                        }
+                    )
+            continue
+
+        if role in {"user", "system", "developer"}:
+            out.extend(_text_and_image_items(role, msg.get("content", "")))
+            continue
+
+        raise ValueError(f"Unsupported message role: {role}")
 
     return cast(ResponseInputParam, out)
 
