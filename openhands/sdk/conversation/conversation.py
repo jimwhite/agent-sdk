@@ -1,10 +1,13 @@
-from typing import Iterable
+from typing import Iterable, Union
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.impl import LocalConversation, RemoteConversation
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
+
+
+ConversationType = Union[LocalConversation, RemoteConversation]
 
 
 logger = get_logger(__name__)
@@ -39,7 +42,7 @@ class Conversation:
         stuck_detection: bool = True,
         visualize: bool = True,
         host: str | None = None,
-    ):
+    ) -> ConversationType:
         if host:
             return RemoteConversation(
                 agent=agent,
