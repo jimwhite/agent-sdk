@@ -2,8 +2,8 @@
 
 ARG BASE_IMAGE=nikolaik/python-nodejs:python3.12-nodejs22
 ARG USERNAME=openhands
-ARG UID=10001
-ARG GID=10001
+ARG UID=1000
+ARG GID=1000
 ARG PORT=8000
 
 ############################
