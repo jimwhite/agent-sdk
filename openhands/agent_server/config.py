@@ -67,11 +67,6 @@ class Config(BaseModel):
         ),
     )
     workspace_path: Path = Field(
-        default=Path("workspace"),
-        description="The location of the agent workspace that will be persisted"
-        " across server restarts. Defaults to 'workspace'.",
-    )
-    project_path: Path = Field(
         default=Path("workspace/project"),
         description=(
             "The location of the project directory where the agent reads/writes. "

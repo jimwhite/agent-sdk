@@ -37,14 +37,18 @@ START_CONVERSATION_EXAMPLES = [
                 api_key=SecretStr("secret"),
             ),
             tools=[
-                ToolSpec(name="BashTool", params={"working_dir": config.project_path}),
+                ToolSpec(
+                    name="BashTool", params={"working_dir": config.workspace_path}
+                ),
                 ToolSpec(
                     name="FileEditorTool",
-                    params={"workspace_root": config.project_path},
+                    params={"workspace_root": config.workspace_path},
                 ),
                 ToolSpec(
                     name="TaskTrackerTool",
-                    params={"save_dir": f"{config.workspace_path}/.openhands"},
+                    # task tracker json is a type of metadata,
+                    # so we save it in conversations_path
+                    params={"save_dir": f"{config.conversations_path}"},
                 ),
             ],
         ),
