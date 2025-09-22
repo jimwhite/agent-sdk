@@ -163,9 +163,6 @@ class ActionEvent(LLMConvertibleEvent):
 
 class ObservationBaseEvent(LLMConvertibleEvent):
     source: SourceType = "environment"
-    action_id: EventID = Field(
-        ..., description="The action id that this observation is responding to"
-    )
     tool_name: str = Field(
         ..., description="The tool name that this observation is responding to"
     )
@@ -177,6 +174,9 @@ class ObservationBaseEvent(LLMConvertibleEvent):
 class ObservationEvent(ObservationBaseEvent):
     observation: ObservationBase = Field(
         ..., description="The observation (tool call) sent to LLM"
+    )
+    action_id: EventID = Field(
+        ..., description="The action id that this observation is responding to"
     )
 
     @property
