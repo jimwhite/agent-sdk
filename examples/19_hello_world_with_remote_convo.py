@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, get_logger
+from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
 
@@ -106,10 +106,11 @@ async def main():
         )
 
         # Create RemoteConversation
-        conversation = RemoteConversation(
+        conversation = Conversation(
             agent=agent,
             host=server.base_url,
         )
+        assert isinstance(conversation, RemoteConversation)
 
         print("=" * 80)
         print("Starting conversation with RemoteConversation...")

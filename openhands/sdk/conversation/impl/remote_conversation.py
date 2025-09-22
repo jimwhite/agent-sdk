@@ -1,6 +1,6 @@
 import time
 import uuid
-from typing import TYPE_CHECKING, SupportsIndex, overload
+from typing import SupportsIndex, overload
 
 import httpx
 
@@ -9,24 +9,21 @@ from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.event.base import EventBase
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.protocol import ListLike
 
 
-if TYPE_CHECKING:
-    from openhands.sdk.event.base import EventBase
-
-
-class RemoteEventsList(ListLike["EventBase"]):
+class RemoteEventsList(ListLike[EventBase]):
     """A list-like interface for accessing events from a remote conversation."""
 
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
-        self._cached_events: list["EventBase"] | None = None
+        self._cached_events: list[EventBase] | None = None
 
-    def _fetch_all_events(self) -> list["EventBase"]:
+    def _fetch_all_events(self) -> list[EventBase]:
         """Fetch all events from the remote API."""
         if self._cached_events is not None:
             return self._cached_events
@@ -58,23 +55,23 @@ class RemoteEventsList(ListLike["EventBase"]):
         return len(self._fetch_all_events())
 
     @overload
-    def __getitem__(self, index: SupportsIndex, /) -> "EventBase": ...
+    def __getitem__(self, index: SupportsIndex, /) -> EventBase: ...
 
     @overload
-    def __getitem__(self, index: slice, /) -> list["EventBase"]: ...
+    def __getitem__(self, index: slice, /) -> list[EventBase]: ...
 
     def __getitem__(
         self,
         index: SupportsIndex | slice,
         /,
-    ) -> "EventBase" | list["EventBase"]:
+    ) -> EventBase | list[EventBase]:
         events = self._fetch_all_events()
         return events[index]
 
     def __iter__(self):
         return iter(self._fetch_all_events())
 
-    def append(self, event: "EventBase") -> None:
+    def append(self, event: EventBase) -> None:
         # For remote conversations, events are added via API calls
         # This method is here for interface compatibility but shouldn't be used directly
         raise NotImplementedError(

@@ -40,22 +40,20 @@ class Conversation:
         host: str | None = None,
         confirmation_mode: bool | None = None,
     ):
-        if cls is Conversation:
-            if host:
-                return RemoteConversation(
-                    agent=agent,
-                    host=host,
-                    conversation_id=conversation_id,
-                    callbacks=callbacks,
-                    max_iteration_per_run=max_iteration_per_run,
-                    confirmation_mode=confirmation_mode,
-                )
-            return LocalConversation(
+        if host:
+            return RemoteConversation(
                 agent=agent,
-                persist_filestore=persist_filestore,
+                host=host,
                 conversation_id=conversation_id,
                 callbacks=callbacks,
                 max_iteration_per_run=max_iteration_per_run,
-                visualize=visualize,
+                confirmation_mode=confirmation_mode,
             )
-        return super().__new__(cls)
+        return LocalConversation(
+            agent=agent,
+            persist_filestore=persist_filestore,
+            conversation_id=conversation_id,
+            callbacks=callbacks,
+            max_iteration_per_run=max_iteration_per_run,
+            visualize=visualize,
+        )
