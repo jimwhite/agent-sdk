@@ -40,6 +40,9 @@ class StuckDetector:
             ),
             -1,  # Default to -1 if no user message found
         )
+        if last_user_msg_index == -1:
+            logger.warning("No user message found in history, skipping stuck detection")
+
         events = events[last_user_msg_index + 1 :]
 
         # it takes 3 actions minimum to detect a loop, otherwise nothing to do here
