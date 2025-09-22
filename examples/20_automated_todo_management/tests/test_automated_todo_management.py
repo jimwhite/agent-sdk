@@ -11,14 +11,14 @@ from unittest.mock import Mock, patch
 import pytest
 
 
-# Add the examples directory to the path
-examples_dir = Path(__file__).parent.parent.parent / "examples"
-sys.path.insert(0, str(examples_dir))
+# Add the project root to the path so we can import openhands.sdk
+project_root = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 # Import the module directly
 spec = importlib.util.spec_from_file_location(
     "automated_todo_management",
-    examples_dir / "20_automated_todo_management" / "20_automated_todo_management.py",
+    Path(__file__).parent.parent / "20_automated_todo_management.py",
 )
 assert spec is not None, "Could not load module spec"
 assert spec.loader is not None, "Module spec has no loader"
