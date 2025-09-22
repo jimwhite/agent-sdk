@@ -10,28 +10,21 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.llm import LLM
 
 
-def test_default_security_policy_filename():
-    """Test that Agent uses default security policy filename."""
+def test_security_policy_in_system_message():
+    """Test that security policy is included in system message."""
     agent = Agent(
         llm=LLM(
             model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
         )
     )
-    assert agent.security_policy_filename == "security_policy.j2"
+    system_message = agent.system_message
+
+    # Verify that security policy section is present
+    assert "<SECURITY_RISK_ASSESSMENT>" in system_message
+    assert "Security Risk Policy" in system_message
 
 
-def test_custom_security_policy_filename():
-    """Test that Agent accepts custom security policy filename."""
-    agent = Agent(
-        llm=LLM(
-            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
-        ),
-        security_policy_filename="custom_policy.j2",
-    )
-    assert agent.security_policy_filename == "custom_policy.j2"
-
-
-def test_custom_security_policy_in_system_message(monkeypatch):
+def test_custom_security_policy_in_system_message():
     """Test that custom security policy filename is used in system message."""
     # Create a temporary directory for test files
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -44,34 +37,34 @@ def test_custom_security_policy_in_system_message(monkeypatch):
         )
         custom_policy_path.write_text(custom_policy_content)
 
-        # Create agent with custom security policy
+        # Copy required template files to temp directory
+        system_prompt_path = Path(temp_dir) / "system_prompt.j2"
+        original_prompt_dir = (
+            Path(__file__).parent.parent.parent.parent
+            / "openhands"
+            / "sdk"
+            / "agent"
+            / "prompts"
+        )
+        original_system_prompt = original_prompt_dir / "system_prompt.j2"
+        shutil.copy2(original_system_prompt, system_prompt_path)
+
+        security_risk_assessment_path = Path(temp_dir) / "security_risk_assessment.j2"
+        original_security_risk_assessment = (
+            original_prompt_dir / "security_risk_assessment.j2"
+        )
+        shutil.copy2(original_security_risk_assessment, security_risk_assessment_path)
+
+        # Create agent with custom security policy using absolute paths for both
         agent = Agent(
             llm=LLM(
                 model="test-model",
                 api_key=SecretStr("test-key"),
                 base_url="http://test",
             ),
-            security_policy_filename="custom_policy.j2",
+            system_prompt_filename=str(system_prompt_path),
+            security_policy_filename=str(custom_policy_path),
         )
-
-        # Mock the prompt_dir property to point to our temp directory
-        original_prompt_dir = agent.prompt_dir
-
-        def mock_prompt_dir(self):
-            return temp_dir
-
-        monkeypatch.setattr(Agent, "prompt_dir", property(mock_prompt_dir))
-
-        # Copy required template files to temp directory
-        system_prompt_path = Path(temp_dir) / "system_prompt.j2"
-        original_system_prompt = Path(original_prompt_dir) / "system_prompt.j2"
-        shutil.copy2(original_system_prompt, system_prompt_path)
-
-        security_risk_assessment_path = Path(temp_dir) / "security_risk_assessment.j2"
-        original_security_risk_assessment = (
-            Path(original_prompt_dir) / "security_risk_assessment.j2"
-        )
-        shutil.copy2(original_security_risk_assessment, security_risk_assessment_path)
 
         # Get system message - this should include our custom policy
         system_message = agent.system_message
