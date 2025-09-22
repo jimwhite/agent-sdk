@@ -384,7 +384,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         *,
         kind: CallKind,
-        messages: list[dict[str, Any]] | list[Message] | None,
+        messages: list[Message] | str | None,
         input: str | list[dict[str, Any]] | None,
         tools: Sequence["ToolBase"] | None,
         add_security_risk_prediction: bool = False,
@@ -406,7 +406,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 isinstance(messages, list)
                 and (not messages or isinstance(messages[0], Message))
             ), "chat path expects list[Message]"
-            messages = self.format_messages_for_llm(cast(list[Message], messages))
+            msgs_dict: list[dict[str, Any]] = self.format_messages_for_llm(
+                cast(list[Message], messages)
+            )
 
             # Tools: Tool -> ChatCompletionToolParam
             tools_cc: list[ChatCompletionToolParam] = []
@@ -417,7 +419,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     )
                     for t in tools
                 ]  # type: ignore[arg-type]
-            return messages, None, tools_cc
+            return msgs_dict, None, tools_cc
 
         # kind == "responses"
         # Input/messages handling
@@ -429,13 +431,16 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 else:
                     if isinstance(messages, list) and len(messages) == 0:
                         raise ValueError("messages cannot be an empty list")
+                    msgs_dict: list[dict[str, Any]]
                     if messages and isinstance(messages[0], Message):
-                        messages = self.format_messages_for_llm(
+                        msgs_dict = self.format_messages_for_llm(
                             cast(list[Message], messages)
                         )
-                    input = messages_to_responses_items(
-                        cast(list[dict[str, Any]], messages or [])
-                    )
+                    else:
+                        # With simplified API, messages should be list[Message] or str.
+                        # Fallback kept to satisfy type checker if list[dict] sneaks in.
+                        msgs_dict = cast(list[dict[str, Any]], messages or [])
+                    input = messages_to_responses_items(msgs_dict)
             else:
                 raise ValueError("Either messages or input must be provided")
 
@@ -520,8 +525,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     def responses(
         self,
-        messages: list[dict[str, Any]] | list[Message] | str | None = None,
-        input: str | list[dict[str, Any]] | None = None,
+        messages: list[Message] | str | None = None,
+        input: str | None = None,
         tools: Sequence[ToolBase] | None = None,
         add_security_risk_prediction: bool = False,
         **kwargs,
@@ -535,18 +540,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Streaming is not supported in responses() method")
 
         # Use unified pre-normalization for responses
-        msgs, input, tools_dicts = self._pre_normalize(
+        msgs, inp, tools_dicts = self._pre_normalize(
             kind="responses",
-            messages=cast(list[dict[str, Any]] | list[Message], messages),
+            messages=cast(list[Message] | str | None, messages),
             input=input,
             tools=tools,
             add_security_risk_prediction=add_security_risk_prediction,
         )
 
+        # inp is str | list[dict[str, Any]] here; _unified_request expects the same
         return self._unified_request(
             kind="responses",
             messages=msgs,
-            input=input,
+            input=cast(str | list[dict[str, Any]] | None, inp),
             tools=cast(
                 list[dict[str, Any]] | list[ChatCompletionToolParam] | None, tools_dicts
             ),
