@@ -159,9 +159,17 @@ def test_security_policy_filename_in_system_message(
     else:
         # Create a minimal system prompt for testing
         system_prompt_path.write_text(
-            "Test system prompt\n<SECURITY_RISK_ASSESSMENT>\n"
-            "{% include security_policy_filename %}\n</SECURITY_RISK_ASSESSMENT>"
+            "Test system prompt\n<SECURITY>\n"
+            "{% include security_policy_filename %}\n</SECURITY>"
         )
+
+    # Copy security_risk_assessment.j2 to temp directory
+    security_risk_assessment_path = Path(temp_dir) / "security_risk_assessment.j2"
+    original_security_risk_assessment = (
+        Path(original_prompt_dir) / "security_risk_assessment.j2"
+    )
+    if original_security_risk_assessment.exists():
+        shutil.copy2(original_security_risk_assessment, security_risk_assessment_path)
 
     # Get system message - this should include our custom policy
     system_message = agent.system_message
@@ -208,6 +216,16 @@ def test_configurable_security_policy_filename(test_llm, monkeypatch):
         original_system_prompt = Path(original_prompt_dir) / "system_prompt.j2"
         if original_system_prompt.exists():
             shutil.copy2(original_system_prompt, system_prompt_path)
+
+        # Copy security_risk_assessment.j2 to temp directory
+        security_risk_assessment_path = Path(temp_dir) / "security_risk_assessment.j2"
+        original_security_risk_assessment = (
+            Path(original_prompt_dir) / "security_risk_assessment.j2"
+        )
+        if original_security_risk_assessment.exists():
+            shutil.copy2(
+                original_security_risk_assessment, security_risk_assessment_path
+            )
 
         # Get system message - this should include our custom policy
         system_message = agent.system_message
