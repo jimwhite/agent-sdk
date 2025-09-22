@@ -23,12 +23,13 @@ def test_messages_to_responses_input_image_parity():
     assert items[0]["type"] == "message"
     content = items[0]["content"]
     assert isinstance(content, list)
-    # Should contain input_text and input_image blocks
+    # If vision is active expect input_image; otherwise expect only input_text
     kinds = [c.get("type") for c in content]
     assert "input_text" in kinds
-    assert "input_image" in kinds
-    # Image shapes mirrored
-    for c in content:
-        if c.get("type") == "input_image":
-            iu = c.get("image_url", {})
-            assert isinstance(iu, dict) and "url" in iu
+    if llm.vision_is_active():
+        assert "input_image" in kinds
+        # Image shapes mirrored
+        for c in content:
+            if c.get("type") == "input_image":
+                iu = c.get("image_url", {})
+                assert isinstance(iu, dict) and "url" in iu

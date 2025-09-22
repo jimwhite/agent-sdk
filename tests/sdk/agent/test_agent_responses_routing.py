@@ -26,7 +26,7 @@ def agent_and_conversation(tmp_path):
     llm = LLM(model="claude-sonnet-4", api_key=SecretStr("test"))
     agent = Agent(llm=llm, tools=tool_specs)
     conv = Conversation(agent=agent, callbacks=[])
-    return agent, conv
+    return agent, conv, tool_specs
 
 
 def _send_simple_user_msg(conv: Conversation):
@@ -60,9 +60,12 @@ def test_routes_chat_path_when_unsupported(agent_and_conversation):
 
 
 def test_routes_responses_path_for_gpt5(agent_and_conversation):
-    agent, conv = agent_and_conversation
-    # Switch model to gpt-5* to enable Responses path
-    agent.llm = agent.llm.model_copy(update={"model": "openai/gpt-5-test"})
+    agent, conv, tool_specs = agent_and_conversation
+    # Recreate agent with gpt-5* model and same tools to respect frozen model
+    agent = Agent(
+        llm=LLM(model="openai/gpt-5-test", api_key=SecretStr("x")), tools=tool_specs
+    )
+    conv = Conversation(agent=agent, callbacks=[])
 
     # Patch litellm.responses used in LLM.responses
     with patch("openhands.sdk.llm.llm.litellm_responses") as mock_responses:
@@ -75,6 +78,7 @@ def test_routes_responses_path_for_gpt5(agent_and_conversation):
                 {
                     "type": "message",
                     "role": "assistant",
+                    "status": "completed",
                     "content": [{"type": "output_text", "text": "ok from responses"}],
                 }
             ],

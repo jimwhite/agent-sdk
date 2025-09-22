@@ -29,12 +29,16 @@ def test_parse_text_and_reasoning_and_tool_calls():
             "output": [
                 {
                     "type": "reasoning",
+                    "id": "r",
+                    "status": "completed",
                     "content": [{"type": "output_text", "text": "think 1"}],
-                    "summary": [{"type": "output_text", "text": "sum"}],
+                    "summary": [{"type": "summary_text", "text": "sum"}],
                 },
                 {
                     "type": "message",
+                    "id": "m",
                     "role": "assistant",
+                    "status": "completed",
                     "content": [
                         {"type": "output_text", "text": "final text"},
                         {"type": "output_text", "text": "more"},
@@ -75,11 +79,15 @@ def test_parse_no_tools_message_only_reasoning():
             "output": [
                 {
                     "type": "reasoning",
+                    "id": "r2",
+                    "status": "completed",
                     "content": [{"type": "output_text", "text": "internal"}],
                 },
                 {
                     "type": "message",
+                    "id": "m2",
                     "role": "assistant",
+                    "status": "completed",
                     "content": [
                         {"type": "output_text", "text": "hello"},
                     ],
