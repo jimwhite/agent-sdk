@@ -173,7 +173,7 @@ class StuckDetector:
         return agent_message_count >= 3
 
     def _is_stuck_alternating_action_observation(self, events: list[Event]) -> bool:
-        # scenario 2: alternating action-observation loop
+        # scenario 4: alternating action-observation loop
         # needs 6 actions and 6 observations to detect the ping-pong pattern
 
         last_actions: list[Event] = []
