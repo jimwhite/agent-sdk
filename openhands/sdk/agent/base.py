@@ -103,13 +103,23 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
-    system_prompt_filename: str = Field(default="system_prompt.j2")
+    system_prompt_filename: str = Field(
+        default="system_prompt.j2",
+        description=(
+            "Filename or absolute path of the system prompt template. "
+            "If a filename is provided, it will be looked up in the prompt directory. "
+            "If an absolute path is provided, it will be used directly."
+        ),
+        examples=["system_prompt.j2", "/path/to/custom_system_prompt.j2"],
+    )
     security_policy_filename: str = Field(
         default="security_policy.j2",
         description=(
-            "Filename of the security policy template to include in the system prompt."
+            "Filename or absolute path of the security policy template to include in the system prompt. "  # noqa: E501
+            "If a filename is provided, it will be looked up in the prompt directory. "
+            "If an absolute path is provided, it will be used directly."
         ),
-        examples=["security_policy.j2", "custom_security_policy.j2"],
+        examples=["security_policy.j2", "/path/to/custom_security_policy.j2"],
     )
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
