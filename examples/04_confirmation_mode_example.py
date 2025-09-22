@@ -1,6 +1,7 @@
 """OpenHands Agent SDK — Confirmation Mode Example"""
 
 import os
+import signal
 from typing import Callable
 
 from pydantic import SecretStr
@@ -10,6 +11,10 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
+
+
+# Make ^C a clean exit instead of a stack trace
+signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
 
 
 def _print_action_preview(pending_actions) -> None:
