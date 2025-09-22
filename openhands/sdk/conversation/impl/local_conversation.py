@@ -2,7 +2,7 @@ import uuid
 from typing import Iterable
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -66,15 +66,17 @@ class LocalConversation(BaseConversation):
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
-        self.state = ConversationState.create(
+        self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
             file_store=self._persist_filestore,
+            max_iterations=max_iteration_per_run,
+            stuck_detection=stuck_detection,
         )
 
         # Default callback: persist every event to state
         def _default_callback(e):
-            self.state.events.append(e)
+            self._state.events.append(e)
 
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
@@ -89,15 +91,20 @@ class LocalConversation(BaseConversation):
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector
-        self._stuck_detector = StuckDetector(self.state) if stuck_detection else None
+        self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
-        with self.state:
-            self.agent.init_state(self.state, on_event=self._on_event)
+        with self._state:
+            self.agent.init_state(self._state, on_event=self._on_event)
 
     @property
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
-        return self.state.id
+        return self._state.id
+
+    @property
+    def state(self) -> ConversationStateProtocol:
+        """Get the conversation state."""
+        return self._state
 
     @property
     def stuck_detector(self) -> StuckDetector | None:
@@ -118,9 +125,9 @@ class LocalConversation(BaseConversation):
         assert message.role == "user", (
             "Only user messages are allowed to be sent to the agent."
         )
-        with self.state:
-            if self.state.agent_status == AgentExecutionStatus.FINISHED:
-                self.state.agent_status = (
+        with self._state:
+            if self._state.agent_status == AgentExecutionStatus.FINISHED:
+                self._state.agent_status = (
                     AgentExecutionStatus.IDLE
                 )  # now we have a new message
 
@@ -133,10 +140,10 @@ class LocalConversation(BaseConversation):
                 ctx = self.agent.agent_context.get_user_message_suffix(
                     user_message=message,
                     # We skip microagents that were already activated
-                    skip_microagent_names=self.state.activated_knowledge_microagents,
+                    skip_microagent_names=self._state.activated_knowledge_microagents,
                 )
                 # TODO(calvin): we need to update
-                # self.state.activated_knowledge_microagents
+                # self._state.activated_knowledge_microagents
                 # so condenser can work
                 if ctx:
                     content, activated_microagent_names = ctx
@@ -145,7 +152,7 @@ class LocalConversation(BaseConversation):
                         f"activated microagents: {activated_microagent_names}"
                     )
                     extended_content.append(content)
-                    self.state.activated_knowledge_microagents.extend(
+                    self._state.activated_knowledge_microagents.extend(
                         activated_microagent_names
                     )
 
@@ -170,18 +177,18 @@ class LocalConversation(BaseConversation):
         Can be paused between steps
         """
 
-        with self.state:
-            if self.state.agent_status == AgentExecutionStatus.PAUSED:
-                self.state.agent_status = AgentExecutionStatus.RUNNING
+        with self._state:
+            if self._state.agent_status == AgentExecutionStatus.PAUSED:
+                self._state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
-            with self.state:
+            with self._state:
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
                 # Ensure step conditions are checked when lock is already acquired
-                if self.state.agent_status in [
+                if self._state.agent_status in [
                     AgentExecutionStatus.FINISHED,
                     AgentExecutionStatus.PAUSED,
                     AgentExecutionStatus.STUCK,
@@ -194,21 +201,24 @@ class LocalConversation(BaseConversation):
 
                     if is_stuck:
                         logger.warning("Stuck pattern detected.")
-                        self.state.agent_status = AgentExecutionStatus.STUCK
+                        self._state.agent_status = AgentExecutionStatus.STUCK
                         continue
 
                 # clear the flag before calling agent.step() (user approved)
                 if (
-                    self.state.agent_status
+                    self._state.agent_status
                     == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                 ):
-                    self.state.agent_status = AgentExecutionStatus.RUNNING
+                    self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
-                self.agent.step(self.state, on_event=self._on_event)
+                self.agent.step(self._state, on_event=self._on_event)
 
             # In confirmation mode, stop after one iteration if waiting for confirmation
-            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
+            if (
+                self._state.agent_status
+                == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+            ):
                 break
 
             iteration += 1
@@ -217,8 +227,8 @@ class LocalConversation(BaseConversation):
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         """Set the confirmation policy and store it in conversation state."""
-        with self.state:
-            self.state.confirmation_policy = policy
+        with self._state:
+            self._state.confirmation_policy = policy
         logger.info(f"Confirmation policy set to: {policy}")
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
@@ -227,12 +237,15 @@ class LocalConversation(BaseConversation):
         This is a non-invasive method to reject actions between run() calls.
         Also clears the agent_waiting_for_confirmation flag.
         """
-        pending_actions = get_unmatched_actions(self.state.events)
+        pending_actions = get_unmatched_actions(self._state.events)
 
-        with self.state:
+        with self._state:
             # Always clear the agent_waiting_for_confirmation flag
-            if self.state.agent_status == AgentExecutionStatus.WAITING_FOR_CONFIRMATION:
-                self.state.agent_status = AgentExecutionStatus.IDLE
+            if (
+                self._state.agent_status
+                == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+            ):
+                self._state.agent_status = AgentExecutionStatus.IDLE
 
             if not pending_actions:
                 logger.warning("No pending actions to reject")
@@ -260,16 +273,16 @@ class LocalConversation(BaseConversation):
         effect until the current LLM call completes.
         """
 
-        if self.state.agent_status == AgentExecutionStatus.PAUSED:
+        if self._state.agent_status == AgentExecutionStatus.PAUSED:
             return
 
-        with self.state:
+        with self._state:
             # Only pause when running or idle
             if (
-                self.state.agent_status == AgentExecutionStatus.IDLE
-                or self.state.agent_status == AgentExecutionStatus.RUNNING
+                self._state.agent_status == AgentExecutionStatus.IDLE
+                or self._state.agent_status == AgentExecutionStatus.RUNNING
             ):
-                self.state.agent_status = AgentExecutionStatus.PAUSED
+                self._state.agent_status = AgentExecutionStatus.PAUSED
                 pause_event = PauseEvent()
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")
@@ -283,7 +296,7 @@ class LocalConversation(BaseConversation):
                      when a command references the secret key.
         """
 
-        secrets_manager = self.state.secrets_manager
+        secrets_manager = self._state.secrets_manager
         secrets_manager.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
 
