@@ -206,7 +206,7 @@ async def update_conversation_secrets(
 
 
 @router.post(
-    "/{conversation_id}/confirmation-policy",
+    "/{conversation_id}/confirmation_policy",
     responses={404: {"description": "Item not found"}},
 )
 async def set_conversation_confirmation_policy(

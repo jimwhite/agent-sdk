@@ -27,10 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 def _compose_conversation_info(
-    stored: StoredConversation, state: ConversationState | None
+    stored: StoredConversation, state: ConversationState
 ) -> ConversationInfo:
     return ConversationInfo(
-        **state.model_dump() if state else {},
+        **state.model_dump(),
         metrics=stored.metrics,
         created_at=stored.created_at,
         updated_at=stored.updated_at,
