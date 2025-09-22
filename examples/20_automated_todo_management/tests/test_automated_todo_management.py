@@ -1,20 +1,29 @@
 """Simplified tests for the automated TODO management example."""
 
 import importlib.util
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 
-# Import the module directly
+# Mock the openhands modules before importing
+sys.modules["openhands"] = MagicMock()
+sys.modules["openhands.sdk"] = MagicMock()
+sys.modules["openhands.tools"] = MagicMock()
+sys.modules["openhands.tools.execute_bash"] = MagicMock()
+sys.modules["openhands.tools.str_replace_editor"] = MagicMock()
+
+# Add the example directory to Python path
+example_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(example_dir))
+
+
 spec = importlib.util.spec_from_file_location(
     "automated_todo_management",
-    Path(__file__).parent.parent.parent
-    / "examples"
-    / "20_automated_todo_management"
-    / "20_automated_todo_management.py",
+    example_dir / "20_automated_todo_management.py",
 )
 assert spec is not None, "Could not load module spec"
 assert spec.loader is not None, "Module spec has no loader"
