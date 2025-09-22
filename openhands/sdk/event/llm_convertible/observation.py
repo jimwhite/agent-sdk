@@ -70,6 +70,9 @@ class UserRejectObservation(ObservationBaseEvent):
         default="User rejected the action",
         description="Reason for rejecting the action",
     )
+    action_id: EventID = Field(
+        ..., description="The action id that this observation is responding to"
+    )
 
     @property
     def visualize(self) -> Text:
