@@ -102,6 +102,7 @@ uv run python examples/01_hello_world.py
 ### Hello World Example
 
 ```python
+import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Conversation
 from openhands.sdk.preset.default import get_default_agent
@@ -139,6 +140,7 @@ Agents are the central orchestrators that coordinate between LLMs and tools. The
 #### Using Default Presets (Recommended)
 
 ```python
+import os
 from openhands.sdk.preset.default import get_default_agent
 
 # Get a fully configured agent with default tools and settings
