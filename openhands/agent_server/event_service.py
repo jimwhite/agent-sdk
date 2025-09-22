@@ -11,20 +11,16 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import (
-    Agent,
-    EventBase,
-    LocalFileStore,
-    Message,
-    get_logger
-)
+from openhands.sdk import Agent, EventBase, LocalFileStore, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 
+
 logger = get_logger(__name__)
+
 
 @dataclass
 class EventService:
@@ -194,11 +190,11 @@ class EventService:
         """Start running the conversation in the background."""
         if not self._conversation:
             raise ValueError("inactive_service")
-        
+
         # Check if already running
         if self._run_task and not self._run_task.done():
             raise ValueError("conversation_already_running")
-        
+
         # Start new background task
         self._run_task = asyncio.create_task(self._background_run())
         return self._run_task
@@ -208,7 +204,9 @@ class EventService:
         try:
             await self.run()
         except Exception as e:
-            logger.exception(f"Background run failed for conversation {self.stored.id}: {e}")
+            logger.exception(
+                f"Background run failed for conversation {self.stored.id}: {e}"
+            )
             raise
 
     def is_running(self) -> bool:
@@ -217,7 +215,7 @@ class EventService:
 
     async def stop_background_run(self) -> bool:
         """Stop the currently running background task if any.
-        
+
         Returns:
             bool: True if a task was stopped, False if no task was running.
         """
