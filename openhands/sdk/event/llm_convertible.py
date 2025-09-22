@@ -162,6 +162,11 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class ObservationBaseEvent(LLMConvertibleEvent):
+    """Base class for anything as a response to a tool call.
+
+    Examples include tool execution, error, user reject.
+    """
+
     source: SourceType = "environment"
     tool_name: str = Field(
         ..., description="The tool name that this observation is responding to"
