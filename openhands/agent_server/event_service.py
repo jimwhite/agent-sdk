@@ -200,10 +200,6 @@ class EventService:
         self._run_task = asyncio.create_task(self._run())
         return self._run_task
 
-    def is_running(self) -> bool:
-        """Check if a background run task is currently active."""
-        return self._run_task is not None and not self._run_task.done()
-
     async def stop_background_run(self) -> bool:
         """Stop the currently running background task if any.
 
