@@ -13,7 +13,6 @@ from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import (
     Agent,
-    Conversation,
     EventBase,
     LocalFileStore,
     Message,
@@ -161,24 +160,20 @@ class EventService:
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
         # Type cast since Conversation factory returns LocalConversation for local usage
-        from typing import cast
 
-        conversation = cast(
-            LocalConversation,
-            Conversation(
-                agent=agent,
-                persist_filestore=LocalFileStore(
-                    str(self.file_store_path)
-                    # inside Conversation, events will be saved to
-                    # "file_store_path/{convo_id}/events"
-                ),
-                conversation_id=conversation_id,
-                callbacks=[
-                    AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
-                ],
-                max_iteration_per_run=self.stored.max_iterations,
-                visualize=False,
+        conversation = LocalConversation(
+            agent=agent,
+            persist_filestore=LocalFileStore(
+                str(self.file_store_path)
+                # inside Conversation, events will be saved to
+                # "file_store_path/{convo_id}/events"
             ),
+            conversation_id=conversation_id,
+            callbacks=[
+                AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
+            ],
+            max_iteration_per_run=self.stored.max_iterations,
+            visualize=False,
         )
 
         # Set confirmation mode if enabled
