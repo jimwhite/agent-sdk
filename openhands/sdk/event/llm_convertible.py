@@ -161,12 +161,8 @@ class ActionEvent(LLMConvertibleEvent):
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
 
-class ObservationEvent(LLMConvertibleEvent):
+class ObservationBaseEvent(LLMConvertibleEvent):
     source: SourceType = "environment"
-    observation: ObservationBase = Field(
-        ..., description="The observation (tool call) sent to LLM"
-    )
-
     action_id: EventID = Field(
         ..., description="The action id that this observation is responding to"
     )
@@ -175,6 +171,12 @@ class ObservationEvent(LLMConvertibleEvent):
     )
     tool_call_id: ToolCallID = Field(
         ..., description="The tool call id that this observation is responding to"
+    )
+
+
+class ObservationEvent(ObservationBaseEvent):
+    observation: ObservationBase = Field(
+        ..., description="The observation (tool call) sent to LLM"
     )
 
     @property
@@ -207,6 +209,87 @@ class ObservationEvent(LLMConvertibleEvent):
             else content_str
         )
         return f"{base_str}\n  Tool: {self.tool_name}\n  Result: {obs_preview}"
+
+
+class UserRejectObservation(ObservationBaseEvent):
+    """Observation when user rejects an action in confirmation mode."""
+
+    rejection_reason: str = Field(
+        default="User rejected the action",
+        description="Reason for rejecting the action",
+    )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this user rejection event."""
+        content = Text()
+        content.append("Tool: ", style="bold")
+        content.append(self.tool_name)
+        content.append("\n\nRejection Reason:\n", style="bold")
+        content.append(self.rejection_reason)
+        return content
+
+    def to_llm_message(self) -> Message:
+        return Message(
+            role="tool",
+            content=[TextContent(text=f"Action rejected: {self.rejection_reason}")],
+            name=self.tool_name,
+            tool_call_id=self.tool_call_id,
+        )
+
+    def __str__(self) -> str:
+        """Plain text string representation for UserRejectObservation."""
+        base_str = f"{self.__class__.__name__} ({self.source})"
+        reason_preview = (
+            self.rejection_reason[:N_CHAR_PREVIEW] + "..."
+            if len(self.rejection_reason) > N_CHAR_PREVIEW
+            else self.rejection_reason
+        )
+        return f"{base_str}\n  Tool: {self.tool_name}\n  Reason: {reason_preview}"
+
+
+class AgentErrorEvent(ObservationBaseEvent):
+    """Error triggered by the agent.
+
+    Note: This event should not contain model "thought" or "reasoning_content". It
+    represents an error produced by the agent/scaffold, not model output.
+    """
+
+    source: SourceType = "agent"
+    error: str = Field(..., description="The error message from the scaffold")
+    metrics: MetricsSnapshot | None = Field(
+        default=None,
+        description=(
+            "Snapshot of LLM metrics (token counts and costs). Only attached "
+            "to the last action when multiple actions share the same LLM response."
+        ),
+    )
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this agent error event."""
+        content = Text()
+        content.append("Error Details:\n", style="bold")
+        content.append(self.error)
+        return content
+
+    def to_llm_message(self) -> Message:
+        return Message(
+            role="tool",
+            content=[TextContent(text=self.error)],
+            name=self.tool_name,
+            tool_call_id=self.tool_call_id,
+        )
+
+    def __str__(self) -> str:
+        """Plain text string representation for AgentErrorEvent."""
+        base_str = f"{self.__class__.__name__} ({self.source})"
+        error_preview = (
+            self.error[:N_CHAR_PREVIEW] + "..."
+            if len(self.error) > N_CHAR_PREVIEW
+            else self.error
+        )
+        return f"{base_str}\n  Error: {error_preview}"
 
 
 class MessageEvent(LLMConvertibleEvent):
@@ -298,112 +381,3 @@ class MessageEvent(LLMConvertibleEvent):
             return f"{base_str}\n  {message.role}: {content_preview}{microagent_info}"
         else:
             return f"{base_str}\n  {message.role}: [no text content]"
-
-
-class UserRejectObservation(LLMConvertibleEvent):
-    """Observation when user rejects an action in confirmation mode."""
-
-    source: SourceType = "user"
-    action_id: EventID = Field(
-        ..., description="The action id that this rejection is responding to"
-    )
-    tool_name: str = Field(
-        ..., description="The tool name that this rejection is responding to"
-    )
-    tool_call_id: ToolCallID = Field(
-        ..., description="The tool call id that this rejection is responding to"
-    )
-    rejection_reason: str = Field(
-        default="User rejected the action",
-        description="Reason for rejecting the action",
-    )
-
-    @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation of this user rejection event."""
-        content = Text()
-        content.append("Tool: ", style="bold")
-        content.append(self.tool_name)
-        content.append("\n\nRejection Reason:\n", style="bold")
-        content.append(self.rejection_reason)
-        return content
-
-    def to_llm_message(self) -> Message:
-        return Message(
-            role="tool",
-            content=[TextContent(text=f"Action rejected: {self.rejection_reason}")],
-            name=self.tool_name,
-            tool_call_id=self.tool_call_id,
-        )
-
-    def __str__(self) -> str:
-        """Plain text string representation for UserRejectObservation."""
-        base_str = f"{self.__class__.__name__} ({self.source})"
-        reason_preview = (
-            self.rejection_reason[:N_CHAR_PREVIEW] + "..."
-            if len(self.rejection_reason) > N_CHAR_PREVIEW
-            else self.rejection_reason
-        )
-        return f"{base_str}\n  Tool: {self.tool_name}\n  Reason: {reason_preview}"
-
-
-class AgentErrorEvent(LLMConvertibleEvent):
-    """Error triggered by the agent.
-
-    Note: This event should not contain model "thought" or "reasoning_content". It
-    represents an error produced by the agent/scaffold, not model output.
-    """
-
-    source: SourceType = "agent"
-    error: str = Field(..., description="The error message from the scaffold")
-    tool_name: str | None = Field(
-        default=None,
-        description="The tool name that this error is associated with, if any",
-    )
-    tool_call_id: ToolCallID | None = Field(
-        default=None,
-        description="The tool call id that this error is associated with, if any",
-    )
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description=(
-            "Snapshot of LLM metrics (token counts and costs). Only attached "
-            "to the last action when multiple actions share the same LLM response."
-        ),
-    )
-
-    @property
-    def visualize(self) -> Text:
-        """Return Rich Text representation of this agent error event."""
-        content = Text()
-        content.append("Error Details:\n", style="bold")
-        content.append(self.error)
-        return content
-
-    def to_llm_message(self) -> Message:
-        return Message(
-            role="tool",
-            content=[TextContent(text=self.error)],
-            name=self.tool_name,
-            tool_call_id=self.tool_call_id,
-        )
-
-    def __str__(self) -> str:
-        """Plain text string representation for AgentErrorEvent."""
-        base_str = f"{self.__class__.__name__} ({self.source})"
-        error_preview = (
-            self.error[:N_CHAR_PREVIEW] + "..."
-            if len(self.error) > N_CHAR_PREVIEW
-            else self.error
-        )
-        return f"{base_str}\n  Error: {error_preview}"
-
-
-ToolCallEventType = ActionEvent
-"""Type alias for all action events produced by LLM's tool call."""
-
-ToolObservationEventType = ObservationEvent | UserRejectObservation | AgentErrorEvent
-"""Type alias for all observation events produced as a result of tool calls.
-
-Either a normal observation, or user rejection, or an agent error.
-"""
