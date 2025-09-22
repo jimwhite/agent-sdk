@@ -25,8 +25,7 @@ Out of scope for this PRD
 
 3) Routing rules (Agent)
 - Call Responses API only when:
-  - llm.supports_responses_api() is True (derives from model_features.get_features), and
-  - force_chat_completions is not set (when present in call options).
+  - llm.supports_responses_api() is True (derives from model_features.get_features).
 - Otherwise call completion().
 
 4) Typed API surface
@@ -103,10 +102,9 @@ Both helpers:
   - The UI already supports image outputs; surface image outputs from Responses the same way as in the Chat path. We still don’t derive Actions from images, but they should be displayed in the UI.
 
 7) Store/metadata and stateful vs stateless
-- By default, set store=True on Responses path.
-- Provide an Agent-level option to request store=False for stateless mode.
+- By default, set store=True on Responses path (no override option for now).
 - Telemetry will record raw Responses payloads when enabled (log_completions=True).
-- Future: Optional stateful mode. When an AgentSpec-like option (e.g., agent.options.stateful=true) is enabled, Agent should persist the last Responses response_id in conversation state and pass previous_response_id on subsequent responses() calls. This must be persisted with other conversation state so reloading a conversation restores the previous_response_id chain.
+- Future: Optional stateful mode. When enabled in the future, Agent should persist the last Responses response_id in conversation state and pass previous_response_id on subsequent responses() calls. This must be persisted with other conversation state so reloading a conversation restores the previous_response_id chain.
 
 8) Event model changes for reasoning
 - Reuse existing Message.reasoning_content: str | None. Concatenate Responses “reasoning” segments and any summary segments into a single string for display before Thought.

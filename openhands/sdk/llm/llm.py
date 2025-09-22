@@ -63,6 +63,11 @@ logger = get_logger(__name__)
 __all__ = ["LLM"]
 
 
+def _supports_responses_api_for_model(model: str) -> bool:
+    """Helper: whether model supports the Responses API per features table."""
+    return get_features(model).supports_responses_api
+
+
 # Exceptions we retry on
 LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     APIConnectionError,
@@ -76,6 +81,9 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
+
+    def supports_responses_api(self) -> bool:
+        return _supports_responses_api_for_model(self.model)
 
     # =========================================================================
     # Config fields
