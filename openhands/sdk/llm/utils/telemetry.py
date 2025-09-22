@@ -237,8 +237,8 @@ class Telemetry(BaseModel):
             if raw_resp:
                 data["raw_response"] = raw_resp
             # pop duplicated tools
-            if "tool" in data and "tool" in data.get("kwargs", {}):
-                data["kwargs"].pop("tool")
+            if "tools" in data and "tools" in data.get("kwargs", {}):
+                data["kwargs"].pop("tools")
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:

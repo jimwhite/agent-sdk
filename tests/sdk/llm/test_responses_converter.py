@@ -16,20 +16,30 @@ def test_messages_to_responses_input_empty():
 
 
 def test_messages_to_responses_order_assistant_text_before_function_call():
-    msgs = [
-        {
-            "role": "assistant",
-            "content": "thinking...",
-            "tool_calls": [
-                {
-                    "id": "call_1",
-                    "function": {"name": "echo", "arguments": '{"s":"hi"}'},
-                }
+    from openhands.sdk.llm.message import Message, TextContent
+
+    msgs_typed = [
+        Message(
+            role="assistant",
+            content=[TextContent(text="thinking...")],
+            tool_calls=[
+                __import__("typing").cast(
+                    Any,
+                    __import__("litellm").types.utils.ChatCompletionMessageToolCall(
+                        id="call_1",
+                        type="function",
+                        function=__import__("litellm").types.utils.Function(
+                            name="echo", arguments='{"s":"hi"}'
+                        ),
+                    ),
+                )
             ],
-        },
-        {"role": "tool", "tool_call_id": "call_1", "content": "hi"},
+        ).to_llm_dict(),
+        Message(
+            role="tool", content=[TextContent(text="hi")], tool_call_id="call_1"
+        ).to_llm_dict(),
     ]
-    items = messages_to_responses_items(msgs)
+    items = messages_to_responses_items(msgs_typed)
     items = cast(list[dict[str, Any]], items)
     # Expect ordering: assistant text, then function_call, then function_call_output
     assert items[0] == {"role": "assistant", "content": "thinking..."}
@@ -38,20 +48,30 @@ def test_messages_to_responses_order_assistant_text_before_function_call():
         items[2]["type"] == "function_call_output" and items[2]["call_id"] == "call_1"
     )
 
-    msgs = [
-        {
-            "role": "assistant",
-            "content": "thinking...",
-            "tool_calls": [
-                {
-                    "id": "call_1",
-                    "function": {"name": "echo", "arguments": '{"s":"hi"}'},
-                }
+    from openhands.sdk.llm.message import Message, TextContent
+
+    msgs_typed = [
+        Message(
+            role="assistant",
+            content=[TextContent(text="thinking...")],
+            tool_calls=[
+                __import__("typing").cast(
+                    Any,
+                    __import__("litellm").types.utils.ChatCompletionMessageToolCall(
+                        id="call_1",
+                        type="function",
+                        function=__import__("litellm").types.utils.Function(
+                            name="echo", arguments='{"s":"hi"}'
+                        ),
+                    ),
+                )
             ],
-        },
-        {"role": "tool", "tool_call_id": "call_1", "content": "hi"},
+        ).to_llm_dict(),
+        Message(
+            role="tool", content=[TextContent(text="hi")], tool_call_id="call_1"
+        ).to_llm_dict(),
     ]
-    items = messages_to_responses_items(msgs)
+    items = messages_to_responses_items(msgs_typed)
     items = cast(list[dict[str, Any]], items)
     # Expect ordering: assistant text, then function_call, then function_call_output
     assert items[0] == {"role": "assistant", "content": "thinking..."}
@@ -61,13 +81,15 @@ def test_messages_to_responses_order_assistant_text_before_function_call():
     )
 
 
-def test_messages_to_responses_input_dict_messages():
-    msgs = [
-        {"role": "system", "content": "S"},
-        {"role": "user", "content": "U"},
-        {"role": "assistant", "content": "A"},
+def test_messages_to_responses_input_typed_messages():
+    from openhands.sdk.llm.message import Message, TextContent
+
+    msgs_typed = [
+        Message(role="system", content=[TextContent(text="S")]).to_llm_dict(),
+        Message(role="user", content=[TextContent(text="U")]).to_llm_dict(),
+        Message(role="assistant", content=[TextContent(text="A")]).to_llm_dict(),
     ]
-    assert messages_to_responses_items(msgs) == [
+    assert messages_to_responses_items(msgs_typed) == [
         {"role": "system", "content": "S"},
         {"role": "user", "content": "U"},
         {"role": "assistant", "content": "A"},
@@ -75,18 +97,25 @@ def test_messages_to_responses_input_dict_messages():
 
 
 def test_messages_to_responses_input_with_tool_message():
+    from litellm.types.utils import ChatCompletionMessageToolCall, Function
+
+    from openhands.sdk.llm.message import Message, TextContent
+
     msgs = [
-        {
-            "role": "assistant",
-            "content": "",
-            "tool_calls": [
-                {
-                    "id": "call_1",
-                    "function": {"name": "f", "arguments": '{"a":1}'},
-                }
+        Message(
+            role="assistant",
+            content=[TextContent(text="")],
+            tool_calls=[
+                ChatCompletionMessageToolCall(
+                    id="call_1",
+                    type="function",
+                    function=Function(name="f", arguments='{"a":1}'),
+                )
             ],
-        },
-        {"role": "tool", "tool_call_id": "call_1", "content": "out"},
+        ).to_llm_dict(),
+        Message(
+            role="tool", content=[TextContent(text="out")], tool_call_id="call_1"
+        ).to_llm_dict(),
     ]
     items = messages_to_responses_items(msgs)
     items = cast(list[dict[str, Any]], items)
@@ -104,9 +133,11 @@ def test_messages_to_responses_input_with_tool_message():
 
 
 def test_messages_to_responses_input_message_objects():
+    from openhands.sdk.llm.message import Message, TextContent
+
     msgs = [
-        {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
-        {"role": "assistant", "content": [{"type": "text", "text": "Hi"}]},
+        Message(role="user", content=[TextContent(text="Hello")]).to_llm_dict(),
+        Message(role="assistant", content=[TextContent(text="Hi")]).to_llm_dict(),
     ]
     assert messages_to_responses_items(msgs) == [
         {"role": "user", "content": "Hello"},
@@ -116,17 +147,17 @@ def test_messages_to_responses_input_message_objects():
 
 def test_messages_to_responses_input_with_images():
     """Test conversion of messages with image content to Responses format."""
+    from openhands.sdk.llm.message import ImageContent, Message, TextContent
+
     msgs = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "What's in this image?"},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "data:image/png;base64,abc123"},
-                },
+        Message(
+            role="user",
+            content=[
+                TextContent(text="What's in this image?"),
+                ImageContent(image_urls=["data:image/png;base64,abc123"]),
             ],
-        }
+            vision_enabled=True,
+        ).to_llm_dict()
     ]
     items = messages_to_responses_items(msgs)
     items = cast(list[dict[str, Any]], items)
@@ -142,22 +173,23 @@ def test_messages_to_responses_input_with_images():
 
 def test_messages_to_responses_input_with_multiple_images():
     """Test conversion of messages with multiple images."""
+    from openhands.sdk.llm.message import ImageContent, Message, TextContent
+
     msgs = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Compare these images:"},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "data:image/png;base64,image1"},
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "data:image/jpeg;base64,image2"},
-                },
-                {"type": "text", "text": "Which is better?"},
+        Message(
+            role="user",
+            content=[
+                TextContent(text="Compare these images:"),
+                ImageContent(
+                    image_urls=[
+                        "data:image/png;base64,image1",
+                        "data:image/jpeg;base64,image2",
+                    ]
+                ),
+                TextContent(text="Which is better?"),
             ],
-        }
+            vision_enabled=True,
+        ).to_llm_dict()
     ]
     items = messages_to_responses_items(msgs)
     items = cast(list[dict[str, Any]], items)
@@ -178,16 +210,14 @@ def test_messages_to_responses_input_with_multiple_images():
 
 def test_messages_to_responses_input_image_only():
     """Test conversion of messages with only image content."""
+    from openhands.sdk.llm.message import ImageContent, Message
+
     msgs = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "https://example.com/image.jpg"},
-                }
-            ],
-        }
+        Message(
+            role="user",
+            content=[ImageContent(image_urls=["https://example.com/image.jpg"])],
+            vision_enabled=True,
+        ).to_llm_dict()
     ]
     items = messages_to_responses_items(msgs)
     items = cast(list[dict[str, Any]], items)
@@ -202,31 +232,37 @@ def test_messages_to_responses_input_image_only():
 
 def test_messages_to_responses_input_mixed_content_with_tools():
     """Test conversion with mixed text/image content and tool calls."""
+    from litellm.types.utils import ChatCompletionMessageToolCall, Function
+
+    from openhands.sdk.llm.message import ImageContent, Message, TextContent
+
     msgs = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Analyze this image and get weather data:"},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "data:image/png;base64,weather_map"},
-                },
+        Message(
+            role="user",
+            content=[
+                TextContent(text="Analyze this image and get weather data:"),
+                ImageContent(image_urls=["data:image/png;base64,weather_map"]),
             ],
-        },
-        {
-            "role": "assistant",
-            "content": "I'll analyze the image and get weather data.",
-            "tool_calls": [
-                {
-                    "id": "call_1",
-                    "function": {
-                        "name": "get_weather",
-                        "arguments": '{"location":"NYC"}',
-                    },
-                }
+            vision_enabled=True,
+        ).to_llm_dict(),
+        Message(
+            role="assistant",
+            content=[TextContent(text="I'll analyze the image and get weather data.")],
+            tool_calls=[
+                ChatCompletionMessageToolCall(
+                    id="call_1",
+                    type="function",
+                    function=Function(
+                        name="get_weather", arguments='{"location":"NYC"}'
+                    ),
+                )
             ],
-        },
-        {"role": "tool", "tool_call_id": "call_1", "content": "Sunny, 75°F"},
+        ).to_llm_dict(),
+        Message(
+            role="tool",
+            content=[TextContent(text="Sunny, 75°F")],
+            tool_call_id="call_1",
+        ).to_llm_dict(),
     ]
     items = messages_to_responses_items(msgs)
     items = cast(list[dict[str, Any]], items)
