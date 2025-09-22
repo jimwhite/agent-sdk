@@ -15,14 +15,28 @@ from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationS
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
-from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.sdk.tool import ActionBase, Tool, ToolSpec, register_tool
 
 
-# Register tools for ToolSpec usage in conversation tests
-register_tool("BashTool", BashTool)
-register_tool("FileEditorTool", FileEditorTool)
+# Register lightweight SDK tool factories for tests (avoid importing openhands.tools)
+class _BashArgs(ActionBase):
+    pass
+
+
+class _EditorArgs(ActionBase):
+    pass
+
+
+def _bash_tool_factory(working_dir: str | None = None, **kwargs):
+    return Tool(name="BashTool", description="bash", action_type=_BashArgs)
+
+
+def _file_editor_tool_factory(**kwargs):
+    return Tool(name="FileEditorTool", description="edit", action_type=_EditorArgs)
+
+
+register_tool("BashTool", _bash_tool_factory)
+register_tool("FileEditorTool", _file_editor_tool_factory)
 
 
 def test_conversation_state_basic_serialization():
@@ -272,7 +286,7 @@ def test_conversation_with_different_agent_tools_raises_error():
 
         # Create and save conversation with original agent
         original_tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
@@ -293,9 +307,7 @@ def test_conversation_with_different_agent_tools_raises_error():
         del conversation
 
         # Try to create new conversation with different tools (only bash tool)
-        different_tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir})
-        ]  # Missing FileEditorTool
+        different_tools = [ToolSpec(name="BashTool")]  # Missing FileEditorTool
         llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
         different_agent = Agent(llm=llm2, tools=different_tools)
 
@@ -318,7 +330,7 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create and save conversation
         tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
@@ -340,7 +352,7 @@ def test_conversation_with_same_agent_succeeds():
 
         # Create new conversation with same agent configuration
         same_tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm2 = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
@@ -383,7 +395,7 @@ def test_conversation_persistence_lifecycle(mock_completion, mock_responses):
     with tempfile.TemporaryDirectory() as temp_dir:
         file_store = LocalFileStore(temp_dir)
         tools = [
-            ToolSpec(name="BashTool", params={"working_dir": temp_dir}),
+            ToolSpec(name="BashTool"),
             ToolSpec(name="FileEditorTool"),
         ]
         llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"))
