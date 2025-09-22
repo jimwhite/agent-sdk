@@ -4,7 +4,6 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
-    Agent,
     Conversation,
     EventBase,
     LLMConvertibleEvent,
@@ -12,7 +11,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.preset.default import get_default_tools
+from openhands.sdk.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -26,13 +25,9 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Tools
-tools = get_default_tools(working_dir=os.getcwd(), enable_browser=False)
+agent = get_default_agent(llm=llm, working_dir=os.getcwd())
 
-# Agent
-agent = Agent(llm=llm, tools=tools)
-
-llm_messages = []  # collect raw LLM messages
+llm_messages = []
 
 
 def conversation_callback(event: EventBase):
@@ -44,6 +39,8 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
+    # This is by default True, shown here for clarity of the example
+    stuck_detection=True,
 )
 
 # Send a task that will be caught by stuck detection
