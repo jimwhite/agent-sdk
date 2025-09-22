@@ -141,7 +141,72 @@ async def main():
 
             print("✅ Second task completed!")
 
-            print(f"\n📋 Conversation ID: {conversation.id}")
+            print(f"\n📋 Conversation ID: {conversation.state.id}")
+
+            # Demonstrate state.events functionality
+            print("\n" + "=" * 50)
+            print("📊 Demonstrating State Events API")
+            print("=" * 50)
+
+            # Count total events using state.events
+            total_events = len(conversation.state.events)
+            print(f"📈 Total events in conversation: {total_events}")
+
+            # Get recent events (last 5) using state.events
+            print("\n🔍 Getting last 5 events using state.events...")
+            all_events = conversation.state.events
+            recent_events = all_events[-5:] if len(all_events) >= 5 else all_events
+
+            for i, event in enumerate(recent_events, 1):
+                event_type = type(event).__name__
+                timestamp = getattr(event, "timestamp", "Unknown")
+                print(f"  {i}. {event_type} at {timestamp}")
+
+            # Let's see what the actual event types are
+            print("\n🔍 Event types found:")
+            event_types = set()
+            for event in recent_events:
+                event_type = type(event).__name__
+                event_types.add(event_type)
+            for event_type in sorted(event_types):
+                print(f"  - {event_type}")
+
+            # Filter message events from state.events
+            print("\n💬 Finding message events in state.events...")
+            message_events = []
+            for event in conversation.state.events:
+                if hasattr(event, "llm_message") or "Message" in type(event).__name__:
+                    message_events.append(event)
+
+            print(f"📝 Found {len(message_events)} message-related events:")
+            for i, event in enumerate(message_events[:2], 1):  # Show first 2
+                event_type = type(event).__name__
+
+                # Try to extract message content
+                content = "No content available"
+                if hasattr(event, "llm_message") and event.llm_message:
+                    llm_message = event.llm_message
+
+                    # Get content from the message
+                    if hasattr(llm_message, "content") and llm_message.content:
+                        content_list = llm_message.content
+                        if isinstance(content_list, list) and len(content_list) > 0:
+                            first_content = content_list[0]
+                            if hasattr(first_content, "text"):
+                                content = first_content.text
+                            elif isinstance(first_content, dict):
+                                content = first_content.get("text", "No text content")
+                            else:
+                                content = str(first_content)
+                elif hasattr(event, "content"):
+                    content = str(event.content)
+
+                # Truncate long content
+                if len(content) > 100:
+                    content = content[:100] + "..."
+
+                timestamp = getattr(event, "timestamp", "Unknown")
+                print(f"  {i}. [{event_type}] {content} at {timestamp}")
 
         finally:
             # Clean up
