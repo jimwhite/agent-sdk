@@ -7,8 +7,6 @@ from openhands.sdk import (
     Conversation,
     EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
 from openhands.sdk.preset.default import get_default_agent
@@ -45,17 +43,8 @@ conversation = Conversation(
 
 # Send a task that will be caught by stuck detection
 conversation.send_message(
-    Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Please execute 'ls' command 5 times, each in its own "
-                    "action without any thought and then exit at the 6th step."
-                )
-            )
-        ],
-    )
+    "Please execute 'ls' command 5 times, each in its own "
+    "action without any thought and then exit at the 6th step."
 )
 
 # Run the conversation - stuck detection happens automatically
