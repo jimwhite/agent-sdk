@@ -15,8 +15,10 @@ from openhands.agent_server.models import (
     ConversationPage,
     ConversationSortOrder,
     SendMessageRequest,
+    SetConfirmationPolicyRequest,
     StartConversationRequest,
     Success,
+    UpdateSecretsRequest,
 )
 from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
@@ -163,4 +165,51 @@ async def delete_conversation(conversation_id: UUID) -> Success:
     deleted = await conversation_service.delete_conversation(conversation_id)
     if not deleted:
         raise HTTPException(status.HTTP_400_BAD_REQUEST)
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/run", responses={404: {"description": "Item not found"}}
+)
+async def run_conversation(conversation_id: UUID) -> Success:
+    """Run the conversation until the agent finishes or pauses."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    await event_service.run()
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/secrets", responses={404: {"description": "Item not found"}}
+)
+async def update_conversation_secrets(
+    conversation_id: UUID, request: UpdateSecretsRequest
+) -> Success:
+    """Update secrets for a conversation."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    # Strings are valid SecretValue (SecretValue = str | SecretProvider)
+    from typing import cast
+
+    from openhands.sdk.conversation.secrets_manager import SecretValue
+
+    secrets = cast(dict[str, SecretValue], request.secrets)
+    await event_service.update_secrets(secrets)
+    return Success()
+
+
+@router.post(
+    "/{conversation_id}/confirmation-policy",
+    responses={404: {"description": "Item not found"}},
+)
+async def set_conversation_confirmation_policy(
+    conversation_id: UUID, request: SetConfirmationPolicyRequest
+) -> Success:
+    """Set the confirmation policy for a conversation."""
+    event_service = await conversation_service.get_event_service(conversation_id)
+    if event_service is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    await event_service.set_confirmation_policy(request.policy)
     return Success()

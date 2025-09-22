@@ -112,3 +112,17 @@ class Success(BaseModel):
 class EventPage(OpenHandsModel):
     items: list[EventBase]
     next_page_id: str | None = None
+
+
+class UpdateSecretsRequest(BaseModel):
+    """Payload to update secrets in a conversation."""
+
+    secrets: dict[str, str] = Field(
+        description="Dictionary mapping secret keys to values"
+    )
+
+
+class SetConfirmationPolicyRequest(BaseModel):
+    """Payload to set confirmation policy for a conversation."""
+
+    policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")

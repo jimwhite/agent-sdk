@@ -92,11 +92,8 @@ class RemoteConversation(BaseConversation):
         resp.raise_for_status()
 
     def run(self) -> None:
-        # Trigger a run on the server
-        resp = self._client.post(
-            f"/conversations/{self._id}/events/respond_to_confirmation",
-            json={"accept": True, "reason": "User accepted"},
-        )
+        # Trigger a run on the server using the dedicated run endpoint
+        resp = self._client.post(f"/conversations/{self._id}/run")
         resp.raise_for_status()
 
         # Poll for terminal states similar to local .run() behavior
@@ -117,10 +114,11 @@ class RemoteConversation(BaseConversation):
             time.sleep(0.1)
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
-        raise NotImplementedError(
-            "RemoteConversation: set_confirmation_policy after start is not yet "
-            "supported; set it on initialization instead."
+        payload = {"policy": policy.model_dump()}
+        resp = self._client.post(
+            f"/conversations/{self._id}/confirmation-policy", json=payload
         )
+        resp.raise_for_status()
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         # Equivalent to rejecting confirmation: pause
@@ -134,10 +132,21 @@ class RemoteConversation(BaseConversation):
         resp = self._client.post(f"/conversations/{self._id}/pause")
         resp.raise_for_status()
 
-    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:  # noqa: ARG002
-        raise NotImplementedError(
-            "RemoteConversation: update_secrets is not yet supported in remote mode."
-        )
+    def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
+        # Convert SecretValue to strings for JSON serialization
+        # SecretValue can be str or callable, we need to handle both
+        serializable_secrets = {}
+        for key, value in secrets.items():
+            if callable(value):
+                # If it's a callable, call it to get the actual secret
+                serializable_secrets[key] = value()
+            else:
+                # If it's already a string, use it directly
+                serializable_secrets[key] = value
+
+        payload = {"secrets": serializable_secrets}
+        resp = self._client.post(f"/conversations/{self._id}/secrets", json=payload)
+        resp.raise_for_status()
 
     def close(self) -> None:
         try:

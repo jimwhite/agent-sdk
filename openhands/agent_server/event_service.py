@@ -18,7 +18,10 @@ from openhands.sdk import (
     LocalFileStore,
     Message,
 )
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 
 
@@ -32,7 +35,7 @@ class EventService:
     stored: StoredConversation
     file_store_path: Path
     working_dir: Path
-    _conversation: Conversation | None = field(default=None, init=False)
+    _conversation: LocalConversation | None = field(default=None, init=False)
     _pub_sub: PubSub = field(default_factory=PubSub, init=False)
 
     async def load_meta(self):
@@ -157,19 +160,25 @@ class EventService:
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
-        conversation = Conversation(
-            agent=agent,
-            persist_filestore=LocalFileStore(
-                str(self.file_store_path)
-                # inside Conversation, events will be saved to
-                # "file_store_path/{convo_id}/events"
+        # Type cast since Conversation factory returns LocalConversation for local usage
+        from typing import cast
+
+        conversation = cast(
+            LocalConversation,
+            Conversation(
+                agent=agent,
+                persist_filestore=LocalFileStore(
+                    str(self.file_store_path)
+                    # inside Conversation, events will be saved to
+                    # "file_store_path/{convo_id}/events"
+                ),
+                conversation_id=conversation_id,
+                callbacks=[
+                    AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
+                ],
+                max_iteration_per_run=self.stored.max_iterations,
+                visualize=False,
             ),
-            conversation_id=conversation_id,
-            callbacks=[
-                AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
-            ],
-            max_iteration_per_run=self.stored.max_iterations,
-            visualize=False,
         )
 
         # Set confirmation mode if enabled
@@ -181,7 +190,7 @@ class EventService:
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        loop.run_in_executor(None, self._conversation.run)
+        await loop.run_in_executor(None, self._conversation.run)
 
     async def respond_to_confirmation(self, request: ConfirmationResponseRequest):
         if request.accept:
@@ -192,7 +201,23 @@ class EventService:
     async def pause(self):
         if self._conversation:
             loop = asyncio.get_running_loop()
-            loop.run_in_executor(None, self._conversation.pause)
+            await loop.run_in_executor(None, self._conversation.pause)
+
+    async def update_secrets(self, secrets: dict[str, SecretValue]):
+        """Update secrets in the conversation."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._conversation.update_secrets, secrets)
+
+    async def set_confirmation_policy(self, policy: ConfirmationPolicyBase):
+        """Set the confirmation policy for the conversation."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None, self._conversation.set_confirmation_policy, policy
+        )
 
     async def close(self):
         await self._pub_sub.close()
