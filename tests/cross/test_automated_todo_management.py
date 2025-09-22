@@ -17,7 +17,8 @@ sys.path.insert(0, str(examples_dir))
 
 # Import the module directly
 spec = importlib.util.spec_from_file_location(
-    "automated_todo_management", examples_dir / "20_automated_todo_management.py"
+    "automated_todo_management",
+    examples_dir / "20_automated_todo_management" / "20_automated_todo_management.py",
 )
 assert spec is not None, "Could not load module spec"
 assert spec.loader is not None, "Module spec has no loader"
