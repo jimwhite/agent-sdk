@@ -54,7 +54,6 @@ class ManagedAPIServer:
                 str(self.port),
                 "--host",
                 self.host,
-                "--no-reload",
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
