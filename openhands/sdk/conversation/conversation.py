@@ -44,7 +44,7 @@ class Conversation:
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         visualize: bool = True,
-        stuck_detection: bool = False,
+        stuck_detection: bool = True,
     ):
         """Initialize the conversation.
 
