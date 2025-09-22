@@ -1,5 +1,6 @@
 """Browser-use tool implementation for web automation."""
 
+import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
@@ -8,16 +9,12 @@ from pydantic import Field
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase, Tool, ToolAnnotations
 from openhands.sdk.tool.tool import ToolBase
-from openhands.sdk.utils import maybe_truncate
+from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
 
 # Lazy import to avoid hanging during module import
 if TYPE_CHECKING:
     from openhands.tools.browser_use.impl import BrowserToolExecutor
-
-
-# Maximum output size for browser observations
-MAX_BROWSER_OUTPUT_SIZE = 50000
 
 
 class BrowserObservation(ObservationBase):
@@ -34,9 +31,14 @@ class BrowserObservation(ObservationBase):
         if self.error:
             return [TextContent(text=f"Error: {self.error}")]
 
-        content: list[TextContent | ImageContent] = [
-            TextContent(text=maybe_truncate(self.output, MAX_BROWSER_OUTPUT_SIZE))
-        ]
+        # Use enhanced truncation with file saving, fallback to current working dir
+        truncated_text = maybe_truncate(
+            content=self.output,
+            truncate_after=DEFAULT_TEXT_CONTENT_LIMIT,
+            save_dir=os.getcwd(),
+            tool_prefix="browser",
+        )
+        content: list[TextContent | ImageContent] = [TextContent(text=truncated_text)]
 
         if self.screenshot_data:
             # Convert base64 to data URL format for ImageContent

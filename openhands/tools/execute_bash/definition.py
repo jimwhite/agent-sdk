@@ -99,7 +99,15 @@ class ExecuteBashObservation(ObservationBase):
             ret += f"\n[Command finished with exit code {self.metadata.exit_code}]"
         if self.error:
             ret = f"[There was an error during command execution.]\n{ret}"
-        return [TextContent(text=maybe_truncate(ret, MAX_CMD_OUTPUT_SIZE))]
+
+        # Use enhanced truncation with file saving if working directory is available
+        truncated_text = maybe_truncate(
+            content=ret,
+            truncate_after=MAX_CMD_OUTPUT_SIZE,
+            save_dir=self.metadata.working_dir,
+            tool_prefix="bash",
+        )
+        return [TextContent(text=truncated_text)]
 
     @property
     def visualize(self) -> Text:
