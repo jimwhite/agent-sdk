@@ -1,6 +1,6 @@
 """Tests for responses converter utilities."""
 
-from typing import cast
+from typing import Any, cast
 
 from litellm.types.llms.openai import ResponsesAPIResponse as Response
 from litellm.types.utils import ModelResponse
@@ -30,6 +30,7 @@ def test_messages_to_responses_order_assistant_text_before_function_call():
         {"role": "tool", "tool_call_id": "call_1", "content": "hi"},
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
     # Expect ordering: assistant text, then function_call, then function_call_output
     assert items[0] == {"role": "assistant", "content": "thinking..."}
     assert items[1]["type"] == "function_call" and items[1]["call_id"] == "call_1"
@@ -51,6 +52,7 @@ def test_messages_to_responses_order_assistant_text_before_function_call():
         {"role": "tool", "tool_call_id": "call_1", "content": "hi"},
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
     # Expect ordering: assistant text, then function_call, then function_call_output
     assert items[0] == {"role": "assistant", "content": "thinking..."}
     assert items[1]["type"] == "function_call" and items[1]["call_id"] == "call_1"
@@ -87,6 +89,7 @@ def test_messages_to_responses_input_with_tool_message():
         {"role": "tool", "tool_call_id": "call_1", "content": "out"},
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
     assert {
         "type": "function_call",
         "call_id": "call_1",
@@ -126,6 +129,7 @@ def test_messages_to_responses_input_with_images():
         }
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
 
     # Should produce two items: one text message and one image input
     assert len(items) == 2
@@ -156,6 +160,7 @@ def test_messages_to_responses_input_with_multiple_images():
         }
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
 
     # Should produce four items: text, image, image, text
     assert len(items) == 4
@@ -185,6 +190,7 @@ def test_messages_to_responses_input_image_only():
         }
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
 
     # Should produce one image input item
     assert len(items) == 1
@@ -223,6 +229,7 @@ def test_messages_to_responses_input_mixed_content_with_tools():
         {"role": "tool", "tool_call_id": "call_1", "content": "Sunny, 75°F"},
     ]
     items = messages_to_responses_items(msgs)
+    items = cast(list[dict[str, Any]], items)
 
     # Should produce: user text, image, assistant text, function_call, function_output
     assert len(items) == 5
