@@ -7,6 +7,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
+from openhands.sdk.conversation.impl import LocalConversation
 from openhands.sdk.conversation.visualizer import ConversationVisualizer
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm import LLM, Message, TextContent
@@ -34,6 +35,7 @@ def test_conversation_with_visualize_true(mock_agent):
         conversation = Conversation(agent=mock_agent, visualize=True)
 
         # Should have a visualizer
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is not None
         assert isinstance(conversation._visualizer, ConversationVisualizer)
 
@@ -53,6 +55,7 @@ def test_conversation_with_visualize_false(mock_agent):
         conversation = Conversation(agent=mock_agent, visualize=False)
 
         # Should not have a visualizer
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is None
 
         # Agent should still be initialized with callbacks (just not visualizer)
@@ -71,6 +74,7 @@ def test_conversation_default_visualize_is_true(mock_agent):
         conversation = Conversation(agent=mock_agent)
 
         # Should have a visualizer by default
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is not None
         assert isinstance(conversation._visualizer, ConversationVisualizer)
 
@@ -86,6 +90,7 @@ def test_conversation_with_custom_callbacks_and_visualize_true(mock_agent):
         )
 
         # Should have a visualizer
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is not None
 
         # Test that callbacks are composed correctly by triggering an event
@@ -115,6 +120,7 @@ def test_conversation_with_custom_callbacks_and_visualize_false(mock_agent):
         )
 
         # Should not have a visualizer
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is None
 
         # Test that callbacks are composed correctly
@@ -182,6 +188,7 @@ def test_conversation_no_callbacks_with_visualize_true(mock_agent):
         conversation = Conversation(agent=mock_agent, callbacks=None, visualize=True)
 
         # Should have a visualizer
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is not None
 
         # Should still work with just visualizer and state persistence
@@ -203,6 +210,7 @@ def test_conversation_no_callbacks_with_visualize_false(mock_agent):
         conversation = Conversation(agent=mock_agent, callbacks=None, visualize=False)
 
         # Should not have a visualizer
+        assert isinstance(conversation, LocalConversation)
         assert conversation._visualizer is None
 
         # Should still work with just state persistence
