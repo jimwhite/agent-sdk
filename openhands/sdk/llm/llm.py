@@ -33,7 +33,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 
 if TYPE_CHECKING:  # type hints only, avoid runtime import cycle
-    from openhands.sdk.tool.tool import ToolBase
+    from openhands.sdk.tool import ToolBase
 
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
@@ -80,8 +80,7 @@ from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
-if TYPE_CHECKING:
-    from openhands.sdk.tool import ToolBase
+# TYPE_CHECKING ToolBase imported above to avoid import cycles
 
 logger = get_logger(__name__)
 CallKind = Literal["chat", "responses"]
@@ -368,7 +367,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Routing + pre-normalization helpers
     # =========================================================================
-    def _select_kind(self, kwargs: dict[str, Any], tools: Any | None) -> CallKind:
+    def _select_kind(self, kwargs: dict[str, Any]) -> CallKind:
         """Decide which transport to use for a completion-style request.
 
         - Prefer Responses API for models that support it unless explicitly forced.
@@ -509,7 +508,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise ValueError("Streaming is not supported")
 
         # Decide route once, then pre-normalize for unified engine
-        kind = self._select_kind(kwargs, tools)
+        kind = self._select_kind(kwargs)
         msgs, inp, ttools = self._pre_normalize(
             kind=kind,
             messages=messages,
@@ -822,9 +821,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         if self.api_key
                         else None,
                         base_url=self.base_url,
-                        api_base=self.base_url,
                         api_version=self.api_version,
                         timeout=self.timeout,
+                        seed=self.seed,
                         input=ctx.input,
                         drop_params=self.drop_params,
                         custom_llm_provider=(
