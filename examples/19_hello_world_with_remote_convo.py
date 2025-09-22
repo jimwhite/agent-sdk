@@ -1,6 +1,8 @@
 import asyncio
 import os
 import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 
@@ -14,6 +16,19 @@ from openhands.sdk.preset.default import get_default_agent
 logger = get_logger(__name__)
 
 
+def _stream_output(stream, prefix, target_stream):
+    """Stream output from subprocess to target stream with prefix."""
+    try:
+        for line in iter(stream.readline, ""):
+            if line:
+                target_stream.write(f"[{prefix}] {line}")
+                target_stream.flush()
+    except Exception as e:
+        print(f"Error streaming {prefix}: {e}", file=sys.stderr)
+    finally:
+        stream.close()
+
+
 class ManagedAPIServer:
     """Context manager for subprocess-managed OpenHands API server."""
 
@@ -22,6 +37,8 @@ class ManagedAPIServer:
         self.host = host
         self.process = None
         self.base_url = f"http://{host}:{port}"
+        self.stdout_thread = None
+        self.stderr_thread = None
 
     def __enter__(self):
         """Start the API server subprocess."""
@@ -44,6 +61,21 @@ class ManagedAPIServer:
             text=True,
         )
 
+        # Start threads to stream stdout and stderr
+        self.stdout_thread = threading.Thread(
+            target=_stream_output,
+            args=(self.process.stdout, "SERVER", sys.stdout),
+            daemon=True,
+        )
+        self.stderr_thread = threading.Thread(
+            target=_stream_output,
+            args=(self.process.stderr, "SERVER", sys.stderr),
+            daemon=True,
+        )
+
+        self.stdout_thread.start()
+        self.stderr_thread.start()
+
         # Wait for server to be ready
         max_retries = 30
         for i in range(max_retries):
@@ -59,10 +91,9 @@ class ManagedAPIServer:
 
             if self.process.poll() is not None:
                 # Process has terminated
-                stdout, stderr = self.process.communicate()
                 raise RuntimeError(
-                    f"Server process terminated unexpectedly:\n"
-                    f"STDOUT: {stdout}\nSTDERR: {stderr}"
+                    "Server process terminated unexpectedly. "
+                    "Check the server logs above for details."
                 )
 
             time.sleep(1)
@@ -80,6 +111,11 @@ class ManagedAPIServer:
                 print("Force killing API server...")
                 self.process.kill()
                 self.process.wait()
+
+            # Wait for streaming threads to finish (they're daemon threads,
+            # so they'll stop automatically)
+            # But give them a moment to flush any remaining output
+            time.sleep(0.5)
             print("API server stopped.")
 
 
@@ -111,6 +147,9 @@ async def main():
             host=server.base_url,
         )
         assert isinstance(conversation, RemoteConversation)
+        import pdb
+
+        pdb.set_trace()
 
         print("=" * 80)
         print("Starting conversation with RemoteConversation...")
