@@ -89,10 +89,7 @@ class Conversation:
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector
-        if stuck_detection:
-            self._stuck_detector = StuckDetector(self.state)
-        else:
-            self._stuck_detector = None
+        self._stuck_detector = StuckDetector(self.state) if stuck_detection else None
 
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
