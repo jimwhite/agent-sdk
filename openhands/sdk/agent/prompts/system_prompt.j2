@@ -62,12 +62,11 @@ Your primary role is to assist users by executing commands, modifying code, and 
 </PROBLEM_SOLVING_WORKFLOW>
 
 <SECURITY>
-* Only use GITHUB_TOKEN and other credentials in ways the user has explicitly requested and would expect.
-* Use APIs to work with GitHub or other platforms, unless the user asks otherwise or your task requires browsing.
+{% include security_policy_filename %}
 </SECURITY>
 
 <SECURITY_RISK_ASSESSMENT>
-{% include security_policy_filename %}
+{% include 'security_risk_assessment.j2' %}
 </SECURITY_RISK_ASSESSMENT>
 
 <EXTERNAL_SERVICES>
