@@ -38,7 +38,8 @@ agent-sdk/
 │   ├── 14_context_condenser.py         # Context condensation
 │   ├── 15_browser_use.py               # Browser automation tools
 │   ├── 16_llm_security_analyzer.py     # LLM security analysis
-│   └── 17_image_input.py               # Image input and vision support
+│   ├── 17_image_input.py               # Image input and vision support
+│   └── 18_send_message_while_processing.py # Send messages while processing
 ├── openhands/              # Main SDK packages
 │   ├── agent_server/       # REST API and WebSocket server
 │   │   ├── api.py          # FastAPI application
@@ -101,7 +102,6 @@ uv run python examples/01_hello_world.py
 ### Hello World Example
 
 ```python
-import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Conversation
 from openhands.sdk.preset.default import get_default_agent
@@ -116,10 +116,9 @@ llm = LLM(
 )
 
 # Create agent with default tools and configuration
-cwd = os.getcwd()
 agent = get_default_agent(
     llm=llm,
-    working_dir=cwd,
+    working_dir=os.getcwd(),
     cli_mode=True,  # Disable browser tools for CLI environments
 )
 
@@ -297,16 +296,9 @@ context = AgentContext(
 
 The SDK includes a REST API and WebSocket server for remote agent interactions:
 
-```python
-from openhands.agent_server import create_app
-import uvicorn
-
-# Create FastAPI application
-app = create_app()
-
-# Run server
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+```bash
+# Start the local Agent Server (REST + WebSocket)
+uv run python -m openhands.agent_server --host 0.0.0.0 --port 8000
 ```
 
 The agent server provides:
@@ -317,10 +309,13 @@ The agent server provides:
 
 ### API Endpoints
 
+- `GET /conversations/search` - List/search conversations
 - `POST /conversations` - Create new conversation
-- `GET /conversations/{id}` - Get conversation details
-- `POST /conversations/{id}/messages` - Send message to conversation
-- `WebSocket /ws/{conversation_id}` - Real-time conversation updates
+- `GET /conversations/{conversation_id}` - Get conversation details
+- `DELETE /conversations/{conversation_id}` - Delete a conversation
+- `GET /conversations/{conversation_id}/events/search` - List/search events
+- `POST /conversations/{conversation_id}/events` - Send a message to the agent
+- `WebSocket /conversations/{conversation_id}/events/socket` - Real-time event stream
 
 ## Documentation
 
