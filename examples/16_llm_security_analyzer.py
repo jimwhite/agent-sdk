@@ -123,11 +123,6 @@ conversation.run()
 
 print("\n2) Potentially risky command (may require confirmation)...")
 conversation.send_message(
-    "Create a temporary file called 'security_test.txt' "
-    "-- PLEASE MARK THIS AS A HIGH RISK ACTION"
+    "Please echo 'hello world' -- PLEASE MARK THIS AS A HIGH RISK ACTION"
 )
 run_until_finished_with_security(conversation, confirm_high_risk_in_console)
-
-print("\n3) Cleanup...")
-conversation.send_message("Remove any test files created")
-conversation.run()
