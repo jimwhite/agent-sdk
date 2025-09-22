@@ -5,6 +5,7 @@ from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event import (
@@ -41,6 +42,7 @@ class LocalConversation(BaseConversation):
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        stuck_detection: bool = True,
         visualize: bool = True,
         **_: object,
     ):
@@ -57,13 +59,14 @@ class LocalConversation(BaseConversation):
             visualize: Whether to enable default visualization. If True, adds
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
+            stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
         self._persist_filestore = persist_filestore
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
-        self._state = ConversationState.create(
+        self.state = ConversationState.create(
             id=desired_id,
             agent=agent,
             file_store=self._persist_filestore,
@@ -85,6 +88,9 @@ class LocalConversation(BaseConversation):
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
+        # Initialize stuck detector
+        self._stuck_detector = StuckDetector(self.state) if stuck_detection else None
+
         with self.state:
             self.agent.init_state(self.state, on_event=self._on_event)
 
@@ -94,9 +100,9 @@ class LocalConversation(BaseConversation):
         return self.state.id
 
     @property
-    def state(self) -> ConversationState:
-        """Get the conversation state."""
-        return self._state
+    def stuck_detector(self) -> StuckDetector | None:
+        """Get the stuck detector instance if enabled."""
+        return self._stuck_detector
 
     def send_message(self, message: str | Message) -> None:
         """Send a message to the agent.
@@ -178,8 +184,18 @@ class LocalConversation(BaseConversation):
                 if self.state.agent_status in [
                     AgentExecutionStatus.FINISHED,
                     AgentExecutionStatus.PAUSED,
+                    AgentExecutionStatus.STUCK,
                 ]:
                     break
+
+                # Check for stuck patterns if enabled
+                if self._stuck_detector:
+                    is_stuck = self._stuck_detector.is_stuck()
+
+                    if is_stuck:
+                        logger.warning("Stuck pattern detected.")
+                        self.state.agent_status = AgentExecutionStatus.STUCK
+                        continue
 
                 # clear the flag before calling agent.step() (user approved)
                 if (

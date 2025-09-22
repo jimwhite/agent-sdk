@@ -36,9 +36,9 @@ class Conversation:
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        stuck_detection: bool = True,
         visualize: bool = True,
         host: str | None = None,
-        confirmation_mode: bool | None = None,
     ):
         if host:
             return RemoteConversation(
@@ -47,7 +47,7 @@ class Conversation:
                 conversation_id=conversation_id,
                 callbacks=callbacks,
                 max_iteration_per_run=max_iteration_per_run,
-                confirmation_mode=confirmation_mode,
+                stuck_detection=stuck_detection,
             )
         return LocalConversation(
             agent=agent,
@@ -55,5 +55,6 @@ class Conversation:
             conversation_id=conversation_id,
             callbacks=callbacks,
             max_iteration_per_run=max_iteration_per_run,
+            stuck_detection=stuck_detection,
             visualize=visualize,
         )
