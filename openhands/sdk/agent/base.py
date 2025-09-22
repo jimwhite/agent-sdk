@@ -104,6 +104,13 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         ],
     )
     system_prompt_filename: str = Field(default="system_prompt.j2")
+    security_policy_filename: str = Field(
+        default="security_policy.j2",
+        description=(
+            "Filename of the security policy template to include in the system prompt."
+        ),
+        examples=["security_policy.j2", "custom_security_policy.j2"],
+    )
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
@@ -155,6 +162,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         template_kwargs = dict(self.system_prompt_kwargs)
         if hasattr(self, "cli_mode"):
             template_kwargs["cli_mode"] = getattr(self, "cli_mode")
+
+        # Add security_policy_filename to template kwargs
+        template_kwargs["security_policy_filename"] = self.security_policy_filename
 
         system_message = render_template(
             prompt_dir=self.prompt_dir,
