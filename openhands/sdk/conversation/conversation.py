@@ -36,8 +36,8 @@ class Conversation:
     @overload
     def __new__(
         cls: type[Self],
-        *,
         agent: AgentBase,
+        *,
         persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -49,8 +49,8 @@ class Conversation:
     @overload
     def __new__(
         cls: type[Self],
-        *,
         agent: AgentBase,
+        *,
         host: str,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -61,8 +61,8 @@ class Conversation:
 
     def __new__(
         cls: type[Self],
-        *,
         agent: AgentBase,
+        *,
         persist_filestore: FileStore | None = None,
         host: str | None = None,
         conversation_id: ConversationID | None = None,
