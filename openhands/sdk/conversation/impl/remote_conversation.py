@@ -1,7 +1,6 @@
 import asyncio
 import json
 import threading
-import time
 import uuid
 from typing import SupportsIndex, overload
 from urllib.parse import urlparse
@@ -14,6 +13,7 @@ from openhands.sdk.conversation.base import BaseConversation, ConversationStateP
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
@@ -280,6 +280,7 @@ class RemoteConversation(BaseConversation):
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         confirmation_mode: bool | None = None,
+        visualize: bool = False,
         **_: object,
     ) -> None:
         """Remote conversation proxy that talks to an agent server.
@@ -300,6 +301,13 @@ class RemoteConversation(BaseConversation):
         self._confirmation_mode = (
             bool(confirmation_mode) if confirmation_mode else False
         )
+
+        # Add default visualizer if requested
+        if visualize:
+            self._visualizer = create_default_visualizer()
+            self._callbacks.append(self._visualizer.on_event)
+        else:
+            self._visualizer = None
 
         if conversation_id is None:
             payload = {
@@ -367,26 +375,18 @@ class RemoteConversation(BaseConversation):
         current_status = self.state.agent_status
         if current_status != AgentExecutionStatus.RUNNING:
             # Trigger a run on the server using the dedicated run endpoint
-            resp = self._client.post(f"/api/conversations/{self._id}/run")
-            resp.raise_for_status()
-        else:
-            logger.debug("Conversation is already running; skipping run trigger")
-
-        # 120 * 0.5 = 60s timeout per iteration
-        max_iterations = self.max_iteration_per_run * 120
-        for i in range(max_iterations):
-            current_status = self.state.agent_status
-            if current_status != AgentExecutionStatus.RUNNING:
-                # Add a small delay to ensure background task cleanup is complete
-                time.sleep(0.5)
-                break
-            time.sleep(0.5)
-        else:
-            # If we exit the loop without breaking, we timed out
-            raise TimeoutError(
-                f"Agent did not reach terminal state within {max_iterations * 0.5}s. "
-                f"Current status: {self.state.agent_status}"
+            resp = self._client.post(
+                f"/api/conversations/{self._id}/run",
+                # Allow long timeout for run requests
+                # Ideally we would use async and websockets for this
+                # but this is more like a PoC for now
+                timeout=1800,
             )
+            resp.raise_for_status()
+            logger.info(f"Conversation run triggered: {resp.json()}")
+        else:
+            logger.info("Conversation is already running; skipping run trigger")
+        logger.info("run() completed")
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}

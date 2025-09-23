@@ -51,6 +51,7 @@ class Conversation:
                 callbacks=callbacks,
                 max_iteration_per_run=max_iteration_per_run,
                 stuck_detection=stuck_detection,
+                visualize=visualize,
             )
         return LocalConversation(
             agent=agent,
