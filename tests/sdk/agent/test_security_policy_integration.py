@@ -16,7 +16,8 @@ def test_security_policy_in_system_message():
     agent = Agent(
         llm=LLM(
             model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
-        )
+        ),
+        security_analyzer=LLMSecurityAnalyzer(),
     )
     system_message = agent.system_message
 
