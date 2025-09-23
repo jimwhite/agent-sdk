@@ -9,7 +9,8 @@ import httpx
 import websockets
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
+from openhands.sdk.conversation.base import ConversationStateProtocol
+from openhands.sdk.conversation.conversation import Conversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -275,7 +276,7 @@ class RemoteState(ConversationStateProtocol):
         pass
 
 
-class RemoteConversation(BaseConversation):
+class RemoteConversation(Conversation):
     def __init__(
         self,
         agent: AgentBase,
@@ -283,6 +284,7 @@ class RemoteConversation(BaseConversation):
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
+        stuck_detection: bool = True,
         visualize: bool = False,
         **_: object,
     ) -> None:
@@ -308,6 +310,7 @@ class RemoteConversation(BaseConversation):
                 ),
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
+                "stuck_detection": stuck_detection,
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()

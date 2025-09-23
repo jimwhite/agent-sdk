@@ -2,7 +2,7 @@ import uuid
 from typing import Iterable
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.conversation import Conversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -34,7 +34,7 @@ def compose_callbacks(
     return composed
 
 
-class LocalConversation(BaseConversation):
+class LocalConversation(Conversation):
     def __init__(
         self,
         agent: AgentBase,
