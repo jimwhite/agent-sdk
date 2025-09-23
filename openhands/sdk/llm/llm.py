@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import time
 import warnings
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
@@ -581,21 +582,98 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     category=DeprecationWarning,
                 )
                 # Some providers need renames handled in _normalize_call_kwargs.
-                ret = litellm_completion(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    drop_params=self.drop_params,
-                    seed=self.seed,
-                    messages=messages,
-                    **kwargs,
+                try:
+                    ret = litellm_completion(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        messages=messages,
+                        **kwargs,
+                    )
+                    assert isinstance(ret, ModelResponse), (
+                        f"Expected ModelResponse, got {type(ret)}"
+                    )
+                    return ret
+                except Exception as e:
+                    # Check if this model only supports responses API
+                    error_msg = str(e).lower()
+                    if "only supported in v1/responses" in error_msg:
+                        logger.info(
+                            f"Model {self.model} requires responses API, "
+                            "falling back..."
+                        )
+                        return self._fallback_to_responses_api(messages, **kwargs)
+                    raise
+
+    def _fallback_to_responses_api(
+        self, messages: list[dict[str, Any]], **kwargs
+    ) -> ModelResponse:
+        """Fallback to responses API when completion API is not supported."""
+        # Convert messages to input text (simple approach for now)
+        input_text = ""
+        instructions = ""
+
+        for msg in messages:
+            content = msg.get("content", "")
+            # Handle both string and list content formats
+            if isinstance(content, list):
+                content = " ".join(
+                    item.get("text", "") if isinstance(item, dict) else str(item)
+                    for item in content
                 )
-                assert isinstance(ret, ModelResponse), (
-                    f"Expected ModelResponse, got {type(ret)}"
-                )
-                return ret
+
+            if msg.get("role") == "system":
+                instructions = content
+            elif msg.get("role") == "user":
+                input_text += content + "\n"
+            elif msg.get("role") == "assistant":
+                input_text += "Assistant: " + content + "\n"
+
+        # Call responses API (filter out unsupported parameters)
+        responses_kwargs = {}
+        if "max_output_tokens" in kwargs:
+            responses_kwargs["max_output_tokens"] = kwargs["max_output_tokens"]
+
+        responses_result = self.responses(
+            input_text=input_text.strip(), instructions=instructions, **responses_kwargs
+        )
+
+        # Convert ResponsesAPIResponse to ModelResponse format
+        from litellm.types.utils import Choices, Message, ModelResponse
+
+        # Extract content from responses API result
+        content = ""
+        if hasattr(responses_result, "output") and responses_result.output:
+            for item in responses_result.output:
+                if hasattr(item, "type") and item.type == "message":
+                    if hasattr(item, "content") and item.content:
+                        for content_item in item.content:
+                            if hasattr(content_item, "text"):
+                                content += content_item.text
+
+        # Create ModelResponse in the expected format
+        choice = Choices(
+            finish_reason="stop",
+            index=0,
+            message=Message(content=content, role="assistant"),
+        )
+
+        model_response = ModelResponse(
+            id=getattr(responses_result, "id", "responses-fallback"),
+            choices=[choice],
+            created=int(time.time()),
+            model=self.model,
+            object="chat.completion",
+            usage=getattr(responses_result, "usage", None),
+        )
+
+        return model_response
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):
