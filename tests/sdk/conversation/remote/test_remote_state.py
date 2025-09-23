@@ -33,7 +33,7 @@ class TestRemoteState:
             "agent_status": "running",
             "confirmation_policy": {"kind": "NeverConfirm"},
             "activated_knowledge_microagents": [],
-            "agent": agent.model_dump(),
+            "agent": agent.model_dump(mode="json"),
         }
         default_info.update(overrides)
         return default_info
@@ -316,7 +316,7 @@ class TestRemoteState:
         assert result == conversation_info
 
     def test_remote_state_model_dump_json(self):
-        """Test RemoteState model_dump_json method."""
+        """Test RemoteState model_dump_json method returns JSON string."""
         # Mock events API call
         mock_events_response = Mock()
         mock_events_response.raise_for_status.return_value = None
@@ -330,11 +330,9 @@ class TestRemoteState:
 
         state = RemoteState(self.mock_client, self.conversation_id)
 
-        # This should raise an error due to SecretStr not being JSON serializable
-        with pytest.raises(
-            TypeError, match="Object of type SecretStr is not JSON serializable"
-        ):
-            state.model_dump_json()
+        # Should serialize to JSON without raising
+        json_str = state.model_dump_json()
+        assert isinstance(json_str, str) and json_str.startswith("{")
 
     def test_remote_state_context_manager(self):
         """Test RemoteState context manager functionality."""

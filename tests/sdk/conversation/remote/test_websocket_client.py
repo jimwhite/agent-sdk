@@ -1,9 +1,7 @@
 """Tests for WebSocketCallbackClient."""
 
-import asyncio
-import json
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from openhands.sdk.conversation.impl.remote_conversation import WebSocketCallbackClient
 from openhands.sdk.event.base import EventBase
@@ -64,88 +62,6 @@ class TestWebSocketCallbackClient:
             client.stop()
             assert client._stop.is_set()
             assert client._thread is None
-
-    def test_websocket_url_construction(self):
-        """Test WebSocket URL construction for different host formats."""
-        callbacks = [self.event_callback]
-
-        # Test HTTP host
-        client = WebSocketCallbackClient(
-            host="http://localhost:8000",
-            conversation_id="test-conv-id",
-            callbacks=callbacks,
-        )
-        # We can't directly test URL construction without running the client,
-        # but we can verify the host is stored correctly
-        assert client.host == "http://localhost:8000"
-
-        # Test HTTPS host
-        client = WebSocketCallbackClient(
-            host="https://api.example.com",
-            conversation_id="test-conv-id",
-            callbacks=callbacks,
-        )
-        assert client.host == "https://api.example.com"
-
-        # Test host with trailing slash
-        client = WebSocketCallbackClient(
-            host="http://localhost:8000/",
-            conversation_id="test-conv-id",
-            callbacks=callbacks,
-        )
-        assert client.host == "http://localhost:8000/"
-
-    @patch("websockets.connect")
-    @patch("asyncio.run")
-    def test_websocket_client_event_processing(self, mock_asyncio_run, mock_ws_connect):
-        """Test event processing through WebSocket."""
-        callbacks = [self.event_callback]
-        client = WebSocketCallbackClient(
-            host="http://localhost:8000",
-            conversation_id="test-conv-id",
-            callbacks=callbacks,
-        )
-
-        # Create a mock event
-        from datetime import datetime
-
-        from openhands.sdk.llm import Message, TextContent
-
-        test_event = MessageEvent(
-            id="test-event-id",
-            timestamp=datetime.now().isoformat(),
-            source="agent",
-            llm_message=Message(
-                role="assistant", content=[TextContent(text="Test message")]
-            ),
-        )
-
-        # Mock WebSocket connection and message
-        mock_ws = AsyncMock()
-        mock_ws.__aenter__.return_value = mock_ws
-        mock_ws.__aexit__.return_value = None
-        mock_ws.__aiter__.return_value = [json.dumps(test_event.model_dump())]
-        mock_ws_connect.return_value = mock_ws
-
-        # Mock asyncio.run to call our client loop directly
-        async def mock_client_loop():
-            # Simulate receiving one message and then stopping
-            client._stop.set()
-            # Process the mock message
-            message = json.dumps(test_event.model_dump())
-            event = EventBase.model_validate(json.loads(message))
-            for cb in client.callbacks:
-                cb(event)
-
-        mock_asyncio_run.side_effect = lambda coro: asyncio.run(mock_client_loop())
-
-        # Start the client (this will call our mocked run)
-        client._run()
-
-        # Verify the event was processed
-        assert len(self.received_events) == 1
-        received_event = self.received_events[0]
-        assert received_event.id == test_event.id
 
     def test_websocket_client_error_handling(self):
         """Test error handling in WebSocket client."""

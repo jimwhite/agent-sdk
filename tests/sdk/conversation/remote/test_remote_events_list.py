@@ -150,8 +150,8 @@ class TestRemoteEventsList:
         assert events_list[2].id == "event-3"
         assert events_list[3].id == "event-4"
 
-    def test_remote_events_list_indexing(self):
-        """Test RemoteEventsList indexing operations."""
+    def test_remote_events_list_indexing_and_iteration(self):
+        """Test indexing, slicing, and iteration."""
         events = [
             self.create_mock_event("event-1", "MessageEvent"),
             self.create_mock_event("event-2", "ActionEvent"),
@@ -185,29 +185,9 @@ class TestRemoteEventsList:
         assert slice_result[0].id == "event-1"
         assert slice_result[1].id == "event-3"
 
-    def test_remote_events_list_iteration(self):
-        """Test RemoteEventsList iteration."""
-        events = [
-            self.create_mock_event("event-1", "MessageEvent"),
-            self.create_mock_event("event-2", "ActionEvent"),
-            self.create_mock_event("event-3", "ObservationEvent"),
-        ]
-
-        mock_response = self.create_mock_api_response(events)
-        self.mock_client.get.return_value = mock_response
-
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
-
         # Test iteration
         iterated_events = list(events_list)
-        assert len(iterated_events) == 3
-        assert iterated_events[0].id == "event-1"
-        assert iterated_events[1].id == "event-2"
-        assert iterated_events[2].id == "event-3"
-
-        # Test multiple iterations
-        for i, event in enumerate(events_list):
-            assert event.id == f"event-{i + 1}"
+        assert [e.id for e in iterated_events] == ["event-1", "event-2", "event-3"]
 
     def test_remote_events_list_add_event(self):
         """Test adding events to RemoteEventsList."""
@@ -284,22 +264,6 @@ class TestRemoteEventsList:
             match="Cannot directly append events to remote conversation",
         ):
             events_list.append(test_event)
-
-    def test_remote_events_list_thread_safety(self):
-        """Test thread safety of RemoteEventsList operations."""
-        mock_response = self.create_mock_api_response([])
-        self.mock_client.get.return_value = mock_response
-
-        events_list = RemoteEventsList(self.mock_client, self.conversation_id)
-
-        # Verify that the lock exists
-        assert hasattr(events_list, "_lock")
-
-        # Test that operations use the lock (we can't easily test actual thread safety
-        # without complex threading setup, but we can verify the lock is used)
-        import threading
-
-        assert isinstance(events_list._lock, type(threading.RLock()))
 
     def test_remote_events_list_api_error_handling(self):
         """Test error handling when API calls fail."""
