@@ -172,17 +172,6 @@ if __name__ == "__main__":
             conversation.run()
 
             print("✅ First task completed!")
-
-            # Wait for agent to be idle before starting next task
-            print("⏳ Waiting for first task to fully complete...")
-            from openhands.sdk.conversation.state import AgentExecutionStatus
-
-            while conversation.state.agent_status not in [
-                AgentExecutionStatus.IDLE,
-                AgentExecutionStatus.FINISHED,
-                AgentExecutionStatus.ERROR,
-            ]:
-                time.sleep(0.5)
             print(f"Agent status: {conversation.state.agent_status}")
 
             # Wait for events to stop coming (no events for 2 seconds)

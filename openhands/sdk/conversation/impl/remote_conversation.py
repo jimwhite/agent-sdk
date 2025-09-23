@@ -369,23 +369,29 @@ class RemoteConversation(BaseConversation):
         resp.raise_for_status()
 
         # Poll for terminal states similar to local .run() behavior
-        terminal = {
-            AgentExecutionStatus.FINISHED.value,
-            AgentExecutionStatus.WAITING_FOR_CONFIRMATION.value,
-            AgentExecutionStatus.PAUSED.value,
-            AgentExecutionStatus.IDLE.value,
-            AgentExecutionStatus.ERROR.value,
+        terminal_states = {
+            AgentExecutionStatus.FINISHED,
+            AgentExecutionStatus.WAITING_FOR_CONFIRMATION,
+            AgentExecutionStatus.PAUSED,
+            AgentExecutionStatus.IDLE,
+            AgentExecutionStatus.ERROR,
         }
-        # Simple polling loop with backoff
-        for i in range(60):  # up to ~6s
-            info = self._client.get(f"/api/conversations/{self._id}")
-            info.raise_for_status()
-            status = info.json().get("agent_status", "idle")
-            if status in terminal:
+        
+        # Poll until agent reaches a terminal state
+        max_iterations = 600  # up to ~60s with 0.1s intervals
+        for i in range(max_iterations):
+            current_status = self.state.agent_status
+            if current_status in terminal_states:
                 # Add a small delay to ensure background task cleanup is complete
                 time.sleep(0.5)
                 break
             time.sleep(0.1)
+        else:
+            # If we exit the loop without breaking, we timed out
+            raise TimeoutError(
+                f"Agent did not reach terminal state within {max_iterations * 0.1}s. "
+                f"Current status: {self.state.agent_status}"
+            )
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}
