@@ -13,8 +13,10 @@ from openhands.tools.str_replace_editor import FileEditorTool
 
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY") or os.getenv("LITELLM_API_KEY")
+assert api_key is not None, (
+    "LLM_API_KEY or LITELLM_API_KEY environment variable is not set."
+)
 llm = LLM(
     model="claude-sonnet-4-20250514",
     api_key=SecretStr(api_key),
