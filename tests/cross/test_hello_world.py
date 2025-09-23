@@ -16,6 +16,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
@@ -429,7 +430,7 @@ class TestHelloWorld:
             side_effect=capture_completion_fidelity,
         ):
             # Create conversation and send a message
-            conversation = Conversation(agent=agent)
+            conversation = LocalConversation(agent=agent)
             conversation.send_message(
                 message=Message(
                     role="user",
@@ -521,7 +522,7 @@ class TestHelloWorld:
             side_effect=capture_completion_non_func,
         ):
             # Create conversation and send a message
-            conversation = Conversation(agent=agent)
+            conversation = LocalConversation(agent=agent)
             conversation.send_message(
                 message=Message(
                     role="user",
