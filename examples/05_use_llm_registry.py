@@ -6,17 +6,15 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
     LLMRegistry,
     Message,
     TextContent,
     get_logger,
 )
-from openhands.tools import (
-    BashTool,
-    FileEditorTool,
-)
+from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.tools.execute_bash import BashTool
 
 
 logger = get_logger(__name__)
@@ -41,10 +39,8 @@ llm = llm_registry.get("main_agent")
 
 # Tools
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-]
+register_tool("BashTool", BashTool)
+tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -52,24 +48,14 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text="Hello! Can you create a new Python file named "
-                "hello_registry.py that prints 'Hello from LLM Registry!'?"
-            )
-        ],
-    )
-)
+conversation.send_message("Please echo 'Hello!'")
 conversation.run()
 
 print("=" * 100)
@@ -86,7 +72,9 @@ print(f"Same LLM instance: {llm is same_llm}")
 
 # Demonstrate requesting a completion directly from an LLM
 completion_response = llm.completion(
-    messages=[{"role": "user", "content": "Say hello in one word."}]
+    messages=[
+        Message(role="user", content=[TextContent(text="Say hello in one word.")])
+    ]
 )
 # Access the response content
 if completion_response.choices and completion_response.choices[0].message:  # type: ignore

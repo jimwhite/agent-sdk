@@ -10,7 +10,7 @@ class EditGroup(BaseModel):
 
 
 def get_edit_groups(
-    old_content: str, new_content: str, n_context_lines: int = 2
+    old_content: str | None, new_content: str | None, n_context_lines: int = 2
 ) -> list[EditGroup]:
     """Get the edit groups showing changes between old and new content.
 
@@ -112,7 +112,7 @@ def visualize_diff(
     op_type = "edit" if change_applied else "ATTEMPTED edit"
     for i, cur_edit_group in enumerate(edit_groups):
         if i != 0:
-            content.append("-------------------------", style="dim")
+            content.append("\n-------------------------\n")
         content.append(f"[begin of {op_type} {i + 1} / {len(edit_groups)}]\n")
         content.append(f"(content before {op_type})\n")
         for line in cur_edit_group.before_edits:

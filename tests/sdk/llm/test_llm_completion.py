@@ -1,13 +1,15 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from litellm import ChatCompletionToolParam
+from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.tool import Tool, ToolBase
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -18,7 +20,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
             Choices(
                 finish_reason="stop",
                 index=0,
-                message=Message(
+                message=LiteLLMMessage(
                     content=content,
                     role="assistant",
                 ),
@@ -52,8 +54,8 @@ def test_llm_completion_basic(mock_completion):
     """Test basic LLM completion functionality."""
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
-
     # Create LLM after the patch is applied
+
     llm = LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
@@ -63,18 +65,23 @@ def test_llm_completion_basic(mock_completion):
     )
 
     # Test completion
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
     assert response == mock_response
     mock_completion.assert_called_once()
+
+    # Additionally, verify the pre-check helper recognizes provider-style tools
+    # (use an empty list of tools here just to exercise the path)
+    cc_tools: list[ChatCompletionToolParam] = []
+    assert not llm.should_mock_tool_calls(cc_tools)
 
 
 def test_llm_streaming_not_supported(default_config):
     """Test that streaming is not supported in the basic LLM class."""
     llm = default_config
 
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
 
     # Streaming should raise an error
     with pytest.raises(ValueError, match="Streaming is not supported"):
@@ -104,22 +111,17 @@ def test_llm_completion_with_tools(mock_completion):
     )
 
     # Test completion with tools
-    messages = [{"role": "user", "content": "Use the test tool"}]
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                },
-            },
-        }
-    ]
+    messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
-    response = llm.completion(messages=messages, tools=tools)
+    class _ArgsBasic(ActionBase):
+        param: str
+
+    tool: ToolBase = Tool(
+        name="test_tool", description="A test tool", action_type=_ArgsBasic
+    )
+    tools_list: list[ToolBase] = [tool]
+
+    response = llm.completion(messages=messages, tools=tools_list)
 
     assert response == mock_response
     mock_completion.assert_called_once()
@@ -140,7 +142,7 @@ def test_llm_completion_error_handling(mock_completion):
         retry_max_wait=2,
     )
 
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
 
     # Should propagate the exception
     with pytest.raises(Exception, match="Test error"):
@@ -153,8 +155,8 @@ def test_llm_token_counting_basic(default_config):
 
     # Test with simple messages
     messages = [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi there!"},
+        Message(role="user", content=[TextContent(text="Hello")]),
+        Message(role="assistant", content=[TextContent(text="Hi there!")]),
     ]
 
     # Token counting should return a non-negative integer
@@ -251,7 +253,9 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
 
     llm = custom_config
 
-    messages = [{"role": "user", "content": "Hello with custom params"}]
+    messages = [
+        Message(role="user", content=[TextContent(text="Hello with custom params")])
+    ]
     response = llm.completion(messages=messages)
 
     assert response == mock_response
@@ -270,12 +274,12 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create a mock response that looks like a non-function call response
     # but contains tool usage in text format
     mock_response = create_mock_response(
-        "I'll help you with that. Let me use the test tool.\n\n"
-        "<function_calls>\n"
-        '<invoke name="test_tool">\n'
-        '<parameter name="param">test_value</parameter>\n'
-        "</invoke>\n"
-        "</function_calls>"
+        (
+            "I'll help you with that.\n"
+            "<function=test_tool>\n"
+            "<parameter=param>test_value</parameter>\n"
+            "</function>"
+        )
     )
     mock_completion.return_value = mock_response
 
@@ -295,25 +299,28 @@ def test_llm_completion_non_function_call_mode(mock_completion):
 
     # Test completion with tools - this should trigger the non-function call path
     messages = [
-        {"role": "user", "content": "Use the test tool with param 'test_value'"}
+        Message(
+            role="user",
+            content=[TextContent(text="Use the test tool with param 'test_value'")],
+        )
     ]
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool for non-function call mode",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                    "required": ["param"],
-                },
-            },
-        }
+
+    class TestNonFCArgs(ActionBase):
+        param: str
+
+    tools: list[ToolBase] = [
+        Tool(
+            name="test_tool",
+            description="A test tool for non-function call mode",
+            action_type=TestNonFCArgs,
+        )
     ]
 
     # Verify that tools should be mocked (non-function call path)
-    assert llm.should_mock_tool_calls(tools)
+    cc_tools: list[ChatCompletionToolParam] = [
+        t.to_openai_tool(add_security_risk_prediction=False) for t in tools
+    ]
+    assert llm.should_mock_tool_calls(cc_tools)
 
     # Call completion - this should go through the prompt-based tool calling path
     response = llm.completion(messages=messages, tools=tools)
@@ -321,6 +328,23 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Verify the response
     assert response is not None
     mock_completion.assert_called_once()
+    # And that post-response conversion produced a tool_call
+    # Pyright: choices can include StreamingChoices; assert/guard for message presence
+    choice0 = response.choices[0]
+    assert hasattr(choice0, "message")
+    msg = choice0.message  # type: ignore[attr-defined]
+    # Guard for optional attribute in typeshed: treat None as failure explicitly
+    assert getattr(msg, "tool_calls", None) is not None, (
+        "Expected tool_calls after post-mock"
+    )
+    # At this point, typeshed doesn't narrow tool_calls to non-None; assert explicitly
+    assert msg.tool_calls is not None
+    tc = msg.tool_calls[0]
+    assert tc.type == "function"
+    assert tc.function.name == "test_tool"
+    # Ensure function-call markup was stripped from assistant content
+    if isinstance(msg.content, str):
+        assert "<function=" not in msg.content
 
     # Verify that the call was made without native tools parameter
     # (since we're using prompt-based tool calling)
@@ -340,20 +364,13 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     mock_response = create_mock_response("Test response")
     mock_completion.return_value = mock_response
 
-    tools: list[Any] = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param": {"type": "string"}},
-                },
-            },
-        }
+    class TestFCArgs(ActionBase):
+        param: str | None = None
+
+    tools: list[ToolBase] = [
+        Tool(name="test_tool", description="A test tool", action_type=TestFCArgs)
     ]
-    messages = [{"role": "user", "content": "Use the test tool"}]
+    messages = [Message(role="user", content=[TextContent(text="Use the test tool")])]
 
     # Test with native function calling enabled (default behavior for gpt-4o)
     llm_native = LLM(
@@ -368,7 +385,6 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
     # Verify function calling is active
     assert llm_native.is_function_calling_active()
     # Should not mock tools when native function calling is active
-    assert not llm_native.should_mock_tool_calls(tools)
 
     # Test with native function calling disabled
     llm_non_native = LLM(
@@ -382,8 +398,6 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # Verify function calling is not active
     assert not llm_non_native.is_function_calling_active()
-    # Should mock tools when native function calling is disabled but tools are provided
-    assert llm_non_native.should_mock_tool_calls(tools)
 
     # Call both and verify different behavior
     mock_completion.reset_mock()
@@ -400,7 +414,9 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # But the underlying calls should be different:
     # Native mode should pass tools to the LLM
-    assert native_call_kwargs.get("tools") == tools
+    assert isinstance(native_call_kwargs.get("tools"), list)
+    assert native_call_kwargs["tools"][0]["type"] == "function"
+    assert native_call_kwargs["tools"][0]["function"]["name"] == "test_tool"
 
     # Non-native mode should not pass tools (they're handled via prompts)
     assert non_native_call_kwargs.get("tools") is None

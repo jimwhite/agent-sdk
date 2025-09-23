@@ -6,20 +6,15 @@ from openhands.sdk.context.microagents.microagent import (
     TaskMicroagent,
     load_microagents_from_dir,
 )
-from openhands.sdk.context.microagents.types import (
-    MicroagentKnowledge,
-    MicroagentMetadata,
-    MicroagentType,
-)
+from openhands.sdk.context.microagents.types import MicroagentKnowledge, MicroagentType
 
 
 __all__ = [
     "BaseMicroagent",
     "KnowledgeMicroagent",
+    "MicroagentType",
     "RepoMicroagent",
     "TaskMicroagent",
-    "MicroagentMetadata",
-    "MicroagentType",
     "MicroagentKnowledge",
     "load_microagents_from_dir",
     "MicroagentValidationError",

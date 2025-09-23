@@ -36,6 +36,11 @@ def test_llm_init_with_default_config(default_llm):
     assert default_llm.metrics.model_name == "gpt-4o"
 
 
+def test_base_url_for_openhands_provider():
+    llm = LLM(model="openhands/claude-sonnet-4-20250514", api_key=SecretStr("test-key"))
+    assert llm.base_url == "https://llm-proxy.app.all-hands.dev/"
+
+
 def test_token_usage_add():
     """Test that TokenUsage instances can be added together."""
     # Create two TokenUsage instances
@@ -159,7 +164,7 @@ def test_llm_completion_with_mock(mock_completion):
     )
 
     # Test completion
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
     assert response == mock_response
@@ -190,7 +195,7 @@ def test_llm_retry_on_rate_limit(mock_completion):
     )
 
     # Test completion with retry
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
     response = llm.completion(messages=messages)
 
     assert response == mock_response
@@ -217,8 +222,8 @@ def test_llm_token_counting(default_llm):
 
     # Test with dict messages
     messages = [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi there!"},
+        Message(role="user", content=[TextContent(text="Hello")]),
+        Message(role="assistant", content=[TextContent(text="Hi there!")]),
     ]
 
     # Token counting might return 0 if model not supported, but should not error
@@ -408,7 +413,7 @@ def test_llm_no_response_error(mock_completion):
     )
 
     # Test that empty response raises LLMNoResponseError
-    messages = [{"role": "user", "content": "Hello"}]
+    messages = [Message(role="user", content=[TextContent(text="Hello")])]
     with pytest.raises(LLMNoResponseError):
         llm.completion(messages=messages)
 

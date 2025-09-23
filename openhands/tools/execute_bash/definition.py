@@ -1,6 +1,8 @@
 """Execute bash tool implementation."""
 
-from typing import Literal
+import os
+from collections.abc import Sequence
+from typing import Callable, Literal
 
 from pydantic import Field
 from rich.text import Text
@@ -27,6 +29,7 @@ class ExecuteBashAction(ActionBase):
     )
     timeout: float | None = Field(
         default=None,
+        ge=0,
         description=f"Optional. Sets a maximum time limit (in seconds) for running the command. If the command takes longer than this limit, you’ll be asked whether to continue or stop it. If you don’t set a value, the command will instead pause and ask for confirmation when it produces no new output for {NO_CHANGE_TIMEOUT_SECONDS} seconds. Use a higher value if the command is expected to take a long time (like installation or testing), or if it has a known fixed duration (like sleep).",  # noqa
     )
 
@@ -42,16 +45,16 @@ class ExecuteBashAction(ActionBase):
         if self.command:
             content.append(self.command, style="white")
         else:
-            content.append("[empty command]", style="dim italic")
+            content.append("[empty command]", style="italic")
 
         # Add metadata if present
         if self.is_input:
             content.append(" ", style="white")
-            content.append("(input to running process)", style="dim yellow")
+            content.append("(input to running process)", style="yellow")
 
         if self.timeout is not None:
             content.append(" ", style="white")
-            content.append(f"[timeout: {self.timeout}s]", style="dim cyan")
+            content.append(f"[timeout: {self.timeout}s]", style="cyan")
 
         return content
 
@@ -86,7 +89,7 @@ class ExecuteBashObservation(ObservationBase):
         return self.metadata.pid
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         ret = f"{self.metadata.prefix}{self.output}{self.metadata.suffix}"
         if self.metadata.working_dir:
             ret += f"\n[Current working directory: {self.metadata.working_dir}]"
@@ -125,7 +128,7 @@ class ExecuteBashObservation(ObservationBase):
                     ):
                         content.append(line, style="yellow")
                     elif line.startswith("+ "):  # bash -x output
-                        content.append(line, style="dim cyan")
+                        content.append(line, style="cyan")
                     else:
                         content.append(line, style="white")
                 content.append("\n")
@@ -135,14 +138,14 @@ class ExecuteBashObservation(ObservationBase):
             if self.metadata.working_dir:
                 content.append("\n📁 ", style="blue")
                 content.append(
-                    f"Working directory: {self.metadata.working_dir}", style="dim blue"
+                    f"Working directory: {self.metadata.working_dir}", style="blue"
                 )
 
             if self.metadata.py_interpreter_path:
                 content.append("\n🐍 ", style="green")
                 content.append(
                     f"Python interpreter: {self.metadata.py_interpreter_path}",
-                    style="dim green",
+                    style="green",
                 )
 
             if (
@@ -218,6 +221,8 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         username: str | None = None,
         no_change_timeout_seconds: int | None = None,
         terminal_type: Literal["tmux", "subprocess"] | None = None,
+        env_provider: Callable[[str], dict[str, str]] | None = None,
+        env_masker: Callable[[str], str] | None = None,
     ) -> "BashTool":
         """Initialize BashTool with executor parameters.
 
@@ -230,9 +235,18 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
                          If None, auto-detect based on system capabilities:
                          - On Windows: PowerShell if available, otherwise subprocess
                          - On Unix-like: tmux if available, otherwise subprocess
+            env_provider: Optional callable that maps a command string to
+                          environment variables (key -> value) to export before
+                          running that command.
+            env_masker: Optional callable that returns current secret values
+                        for masking purposes. This ensures consistent masking
+                        even when env_provider calls fail.
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
+
+        if not os.path.isdir(working_dir):
+            raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
 
         # Initialize the executor
         executor = BashExecutor(
@@ -240,6 +254,8 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             username=username,
             no_change_timeout_seconds=no_change_timeout_seconds,
             terminal_type=terminal_type,
+            env_provider=env_provider,
+            env_masker=env_masker,
         )
 
         # Initialize the parent Tool with the executor

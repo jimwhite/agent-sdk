@@ -4,15 +4,12 @@ from pydantic import SecretStr
 
 from openhands.sdk import (
     LLM,
-    Agent,
     Conversation,
-    Event,
+    EventBase,
     LLMConvertibleEvent,
-    Message,
-    TextContent,
     get_logger,
 )
-from openhands.tools import BashTool, FileEditorTool, TaskTrackerTool
+from openhands.sdk.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -26,21 +23,40 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Tools
 cwd = os.getcwd()
-tools = [
-    BashTool.create(working_dir=cwd),
-    FileEditorTool.create(),
-    TaskTrackerTool.create(save_dir=cwd),
-]
+agent = get_default_agent(
+    llm=llm,
+    working_dir=cwd,
+    # CLI mode will disable any browser tools
+    # which requires dependency like playwright that may not be
+    # available in all environments.
+    cli_mode=True,
+)
+# # Alternatively, you can manually register tools and provide ToolSpecs to Agent.
+# from openhands.sdk import Agent
+# from openhands.sdk.tool.registry import register_tool
+# from openhands.sdk.tool.spec import ToolSpec
+# from openhands.tools.execute_bash import BashTool
+# from openhands.tools.str_replace_editor import FileEditorTool
+# from openhands.tools.task_tracker import TaskTrackerTool
+# register_tool("BashTool", BashTool)
+# register_tool("FileEditorTool", FileEditorTool)
+# register_tool("TaskTrackerTool", TaskTrackerTool)
 
-# Agent
-agent = Agent(llm=llm, tools=tools)
+# # Provide ToolSpec so Agent can lazily materialize tools at runtime.
+# agent = Agent(
+#     llm=llm,
+#     tools=[
+#         ToolSpec(name="BashTool", params={"working_dir": cwd}),
+#         ToolSpec(name="FileEditorTool"),
+#         ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+#     ],
+# )
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: Event):
+def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -48,26 +64,11 @@ def conversation_callback(event: Event):
 conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
 conversation.send_message(
-    message=Message(
-        role="user",
-        content=[
-            TextContent(
-                text=(
-                    "Hello! Can you create a new Python file named hello.py"
-                    " that prints 'Hello, World!'? Use task tracker to plan your steps."
-                )
-            )
-        ],
-    )
+    "Read the current repo and write 3 facts about the project into FACTS.txt."
 )
 conversation.run()
 
-conversation.send_message(
-    message=Message(
-        role="user",
-        content=[TextContent(text=("Great! Now delete that file."))],
-    )
-)
+conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
 

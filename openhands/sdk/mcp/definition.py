@@ -1,13 +1,20 @@
 """MCPTool definition and implementation."""
 
+import json
+from collections.abc import Sequence
+from typing import Any
+
 import mcp.types
 from pydantic import Field
+from rich.text import Text
 
 from openhands.sdk.llm import ImageContent, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool import (
     ObservationBase,
 )
+from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.utils.visualize import display_dict
 
 
 logger = get_logger(__name__)
@@ -15,6 +22,30 @@ logger = get_logger(__name__)
 
 # NOTE: We don't define MCPToolAction because it
 # will be dynamically created from the MCP tool schema.
+
+
+class MCPToolAction(ActionBase):
+    """Schema for MCP input action.
+
+    It is just a thin wrapper around raw JSON and does
+    not do any validation.
+
+    Validation will be performed by MCPTool.__call__
+    by constructing dynamically created Pydantic model
+    from the MCP tool input schema.
+    """
+
+    data: dict[str, Any] = Field(
+        default_factory=dict, description="Dynamic data fields from the tool call"
+    )
+
+    def to_mcp_arguments(self) -> dict:
+        """Return the data field as MCP tool call arguments.
+
+        This is used to convert this action to MCP tool call arguments.
+        The data field contains the dynamic fields from the tool call.
+        """
+        return self.data
 
 
 class MCPToolObservation(ObservationBase):
@@ -44,10 +75,6 @@ class MCPToolObservation(ObservationBase):
                 convrted_content.append(
                     ImageContent(
                         image_urls=[f"data:{block.mimeType};base64,{block.data}"],
-                        # ImageContent is inherited from mcp.types.ImageContent
-                        # so we need to pass these fields
-                        data=block.data,
-                        mimeType=block.mimeType,
                     )
                 )
             else:
@@ -61,9 +88,29 @@ class MCPToolObservation(ObservationBase):
         )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Format the observation for agent display."""
         initial_message = f"[Tool '{self.tool_name}' executed.]\n"
         if self.is_error:
             initial_message += "[An error occurred during execution.]\n"
         return [TextContent(text=initial_message)] + self.content
+
+    @property
+    def visualize(self) -> Text:
+        """Return Rich Text representation of this observation."""
+        content = Text()
+        content.append(f"[MCP Tool '{self.tool_name}' Observation]\n", style="bold")
+        if self.is_error:
+            content.append("[Error during execution]\n", style="bold red")
+        for block in self.content:
+            if isinstance(block, TextContent):
+                # try to see if block.text is a JSON
+                try:
+                    parsed = json.loads(block.text)
+                    content.append(display_dict(parsed))
+                    continue
+                except (json.JSONDecodeError, TypeError):
+                    content.append(block.text + "\n")
+            elif isinstance(block, ImageContent):
+                content.append(f"[Image with {len(block.image_urls)} URLs]\n")
+        return content

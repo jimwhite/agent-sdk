@@ -1,8 +1,9 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from rich.text import Text
 
 from openhands.sdk import ImageContent, TextContent
@@ -56,7 +57,7 @@ class TaskTrackerAction(ActionBase):
 
         # Show task count if planning
         if self.command == "plan" and self.task_list:
-            content.append(f" ({len(self.task_list)} tasks)", style="dim")
+            content.append(f" ({len(self.task_list)} tasks)")
 
         return content
 
@@ -73,7 +74,7 @@ class TaskTrackerObservation(ObservationBase):
     )
 
     @property
-    def agent_observation(self) -> list[TextContent | ImageContent]:
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.content)]
 
     @property
@@ -123,11 +124,15 @@ class TaskTrackerObservation(ObservationBase):
                 # Task title
                 content.append(f"{i}. {task.title}", style="white")
 
+                # NEW: show notes under the title if present
+                if task.notes:
+                    content.append("\n   Notes: " + task.notes, style="italic")
+
                 if i < len(self.task_list):
                     content.append("\n")
         else:
             content.append("📝 ", style="blue")
-            content.append("Task list is empty", style="dim")
+            content.append("Task list is empty")
 
         return content
 
@@ -143,6 +148,7 @@ class TaskTrackerExecutor(ToolExecutor):
                      persisted to save_dir/TASKS.md
         """
         self.save_dir = Path(save_dir) if save_dir else None
+        logger.info(f"TaskTrackerExecutor initialized with save_dir: {self.save_dir}")
         self._task_list: list[TaskItem] = []
 
         # Load existing tasks if save_dir is provided and file exists
@@ -216,7 +222,7 @@ class TaskTrackerExecutor(ToolExecutor):
         try:
             with open(tasks_file, "r", encoding="utf-8") as f:
                 self._task_list = [TaskItem.model_validate(d) for d in json.load(f)]
-        except (OSError, json.JSONDecodeError) as e:
+        except (OSError, json.JSONDecodeError, TypeError, ValidationError) as e:
             logger.warning(
                 f"Failed to load tasks from {tasks_file}: {e}. Starting with "
                 "an empty task list."
