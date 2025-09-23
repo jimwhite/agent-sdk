@@ -3,9 +3,9 @@
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
 
-from openhands.sdk.event import ActionEvent, PauseEvent
+from openhands.sdk.event import ActionEvent
 from openhands.sdk.llm import TextContent
-from openhands.sdk.security.analyzer import SecurityAnalyzerBase
+from openhands.sdk.security.analyzer import PerActionSecurityAnalyzer
 from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
@@ -16,7 +16,7 @@ class TestSecurityAnalyzerMockAction(ActionBase):
     command: str = "test_command"
 
 
-class TestSecurityAnalyzer(SecurityAnalyzerBase):
+class TestSecurityAnalyzer(PerActionSecurityAnalyzer):
     """Test implementation of SecurityAnalyzer with controllable security_risk
     method.
     """
@@ -30,15 +30,6 @@ class TestSecurityAnalyzer(SecurityAnalyzerBase):
         """Return configurable risk level for testing."""
         self.security_risk_calls.append(action)
         return self.risk_return_value
-
-    def handle_api_request(self, request_data: dict) -> dict:
-        """Mock implementation - not tested as it's going away."""
-        self.handle_api_request_calls.append(request_data)
-        return {"status": "ok"}
-
-    def close(self) -> None:
-        """Mock implementation - not tested as it's going away."""
-        self.close_calls.append(True)
 
 
 def create_mock_action_event(action: ActionBase) -> ActionEvent:
@@ -63,21 +54,11 @@ def test_analyze_event_with_action_event():
     action = TestSecurityAnalyzerMockAction(command="test")
     action_event = create_mock_action_event(action)
 
-    result = analyzer.analyze_event(action_event)
+    result = analyzer.security_risk(action_event)
 
     assert result == SecurityRisk.MEDIUM
     assert len(analyzer.security_risk_calls) == 1
     assert analyzer.security_risk_calls[0] == action_event
-
-
-def test_analyze_event_with_non_action_event():
-    """Test analyze_event with non-ActionEvent returns None."""
-    analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.HIGH)
-
-    result = analyzer.analyze_event(PauseEvent())
-
-    assert result is None
-    assert len(analyzer.security_risk_calls) == 0
 
 
 def test_analyze_pending_actions_success():
@@ -91,11 +72,14 @@ def test_analyze_pending_actions_success():
 
     pending_actions = [action_event1, action_event2]
 
-    result = analyzer.analyze_pending_actions(pending_actions)
+    result = analyzer.analyze_pending_actions([], pending_actions)
 
     assert len(result) == 2
-    assert result[0] == (action_event1, SecurityRisk.MEDIUM)
-    assert result[1] == (action_event2, SecurityRisk.MEDIUM)
+
+    risks = list(result.values())
+
+    assert risks[0] == SecurityRisk.MEDIUM
+    assert risks[1] == SecurityRisk.MEDIUM
     assert len(analyzer.security_risk_calls) == 2
 
 
@@ -103,8 +87,7 @@ def test_analyze_pending_actions_empty_list():
     """Test analyze_pending_actions with empty list."""
     analyzer = TestSecurityAnalyzer(risk_return_value=SecurityRisk.LOW)
 
-    result = analyzer.analyze_pending_actions([])
-
+    result = analyzer.analyze_pending_actions([], [])
     assert result == []
     assert len(analyzer.security_risk_calls) == 0
 
@@ -121,10 +104,13 @@ def test_analyze_pending_actions_with_exception():
     action = TestSecurityAnalyzerMockAction(command="failing_action")
     action_event = create_mock_action_event(action)
 
-    result = analyzer.analyze_pending_actions([action_event])
+    result = analyzer.analyze_pending_actions([], [action_event])
 
     assert len(result) == 1
-    assert result[0] == (action_event, SecurityRisk.HIGH)
+
+    risks = list(result.values())
+
+    assert risks[0] == SecurityRisk.HIGH
     assert len(analyzer.security_risk_calls) == 1
 
 
@@ -149,12 +135,15 @@ def test_analyze_pending_actions_mixed_risks() -> None:
     actions = [TestSecurityAnalyzerMockAction(command=f"action{i}") for i in range(3)]
     action_events = [create_mock_action_event(action) for action in actions]
 
-    result = analyzer.analyze_pending_actions(action_events)
+    result = analyzer.analyze_pending_actions([], action_events)
 
     assert len(result) == 3
-    assert result[0][1] == SecurityRisk.LOW
-    assert result[1][1] == SecurityRisk.HIGH
-    assert result[2][1] == SecurityRisk.MEDIUM
+
+    risks = list(result.values())
+
+    assert risks[0] == SecurityRisk.LOW
+    assert risks[1] == SecurityRisk.HIGH
+    assert risks[2] == SecurityRisk.MEDIUM
 
 
 def test_analyze_pending_actions_partial_failure():
@@ -183,10 +172,13 @@ def test_analyze_pending_actions_partial_failure():
         create_mock_action_event(action3),
     ]
 
-    result = analyzer.analyze_pending_actions(action_events)
+    result = analyzer.analyze_pending_actions([], action_events)
 
     assert len(result) == 3
-    assert result[0][1] == SecurityRisk.LOW
-    assert result[1][1] == SecurityRisk.HIGH  # Failed analysis defaults to HIGH
-    assert result[2][1] == SecurityRisk.LOW
+
+    risks = list(result.values())
+
+    assert risks[0] == SecurityRisk.LOW
+    assert risks[1] == SecurityRisk.HIGH  # Failed analysis defaults to HIGH
+    assert risks[2] == SecurityRisk.LOW
     assert len(analyzer.security_risk_calls) == 3
