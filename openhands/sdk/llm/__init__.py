@@ -1,11 +1,6 @@
+from litellm.types.llms.openai import ResponsesAPIResponse
+
 from openhands.sdk.llm.llm import LLM
-
-
-# Import ResponsesAPIResponse if available
-try:
-    from litellm.types.llms.openai import ResponsesAPIResponse
-except ImportError:
-    ResponsesAPIResponse = None
 from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 from openhands.sdk.llm.message import ImageContent, Message, TextContent, content_to_str
 from openhands.sdk.llm.metadata import get_llm_metadata

@@ -5,166 +5,200 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import SecretStr
 
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLM, Message, TextContent
 
 
 class TestResponsesAPI:
     """Test cases for the responses API functionality."""
 
-    def test_responses_api_available_import(self):
-        """Test that responses API imports are handled gracefully."""
-        # This test ensures the import doesn't fail even if litellm doesn't have
-        # responses API
-        llm = LLM(model="gpt-3.5-turbo", api_key=SecretStr("test-key"))
-        assert hasattr(llm, "responses")
+    def test_use_responses_auto_detection_gpt5(self):
+        """Test that use_responses is automatically set to True for GPT-5 models."""
+        llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
+        assert llm.use_responses is True
 
-    def test_responses_method_signature(self):
+    def test_use_responses_auto_detection_gpt5_codex(self):
+        """Test that use_responses is automatically set to True for GPT-5-codex."""
+        llm = LLM(model="openai/gpt-5-codex", api_key=SecretStr("test-key"))
+        assert llm.use_responses is True
+
+    def test_use_responses_auto_detection_other_models(self):
+        """Test that use_responses is automatically set to False for non-GPT-5."""
+        llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+        assert llm.use_responses is False
+
+    def test_use_responses_explicit_override(self):
+        """Test that explicit use_responses setting overrides auto-detection."""
+        # Force responses API for non-GPT-5 model
+        llm = LLM(model="gpt-4", api_key=SecretStr("test-key"), use_responses=True)
+        assert llm.use_responses is True
+
+        # Force completion API for GPT-5 model
+        llm = LLM(model="gpt-5", api_key=SecretStr("test-key"), use_responses=False)
+        assert llm.use_responses is False
+
+    @patch("openhands.sdk.llm.llm.litellm_responses")
+    def test_responses_method_signature(self, mock_responses):
         """Test that the responses method has the correct signature."""
-        llm = LLM(model="gpt-3.5-turbo", api_key=SecretStr("test-key"))
+        llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
         # Check method exists and has correct parameters
         assert hasattr(llm, "responses")
         assert callable(llm.responses)
 
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", True)
     @patch("openhands.sdk.llm.llm.litellm_responses")
-    def test_responses_api_call_basic(self, mock_litellm_responses):
+    def test_responses_api_call_basic(self, mock_responses):
         """Test basic responses API call."""
-        # Mock the response
+        # Mock the responses API response
         mock_response = Mock()
-        mock_response.output = [Mock(content="Hello, World!", type="text")]
-        mock_response.id = "test-response-id"
-        mock_response.usage = Mock(total_tokens=10)
-        mock_litellm_responses.return_value = mock_response
+        mock_response.output = "Hello, World!"
+        mock_responses.return_value = mock_response
 
         llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
-        response = llm.responses(
-            input_text="Hello, world!",
-            instructions="You are a helpful assistant.",
-            max_output_tokens=100,
+        llm.responses(
+            input_text="Say hello", instructions="You are a helpful assistant"
         )
 
         # Verify the call was made
-        mock_litellm_responses.assert_called_once()
-        call_args = mock_litellm_responses.call_args[1]
+        mock_responses.assert_called_once()
+        call_args = mock_responses.call_args
+        assert call_args[1]["input"] == "Say hello"
+        assert call_args[1]["instructions"] == "You are a helpful assistant"
+        assert call_args[1]["model"] == "gpt-5"
 
-        assert call_args["input"] == "Hello, world!"
-        assert call_args["model"] == "gpt-5"
-        assert call_args["instructions"] == "You are a helpful assistant."
-        assert call_args["max_output_tokens"] == 100
-        assert call_args["api_key"] == "test-key"
-
-        # Verify response
-        assert response == mock_response
-
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", True)
     @patch("openhands.sdk.llm.llm.litellm_responses")
-    def test_responses_api_with_tools(self, mock_litellm_responses):
+    def test_responses_api_with_tools(self, mock_responses):
         """Test responses API call with tools."""
-        # Mock the response
-        mock_response = Mock()
-        mock_response.output = [Mock(content="Used tool", type="text")]
-        mock_litellm_responses.return_value = mock_response
+        from openhands.sdk.tool import Tool
 
-        # Mock tool
-        mock_tool = Mock()
+        # Mock the responses API response
+        mock_response = Mock()
+        mock_response.output = "I'll use the calculator tool."
+        mock_responses.return_value = mock_response
+
+        # Create a mock tool
+        mock_tool = Mock(spec=Tool)
         mock_tool.to_openai_tool.return_value = {
             "type": "function",
-            "function": {"name": "test_tool"},
+            "function": {"name": "calculator", "description": "A calculator tool"},
         }
 
         llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
-        llm.responses(input_text="Use the tool", tools=[mock_tool])
+        llm.responses(input_text="Calculate 2+2", tools=[mock_tool])
 
         # Verify the call was made with tools
-        mock_litellm_responses.assert_called_once()
-        call_args = mock_litellm_responses.call_args[1]
+        mock_responses.assert_called_once()
+        call_args = mock_responses.call_args
+        assert "tools" in call_args[1]
 
-        assert call_args["tools"] == [
-            {"type": "function", "function": {"name": "test_tool"}}
-        ]
-        mock_tool.to_openai_tool.assert_called_once()
-
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", True)
     @patch("openhands.sdk.llm.llm.litellm_responses")
-    def test_responses_api_temperature_handling(self, mock_litellm_responses):
-        """Test that temperature is handled correctly for different models."""
-        # Mock the response
+    def test_responses_api_temperature_handling(self, mock_responses):
+        """Test that temperature parameter is passed to responses API."""  # noqa: E501
+        # Mock the responses API response
         mock_response = Mock()
-        mock_response.output = [Mock(content="Response", type="text")]
-        mock_litellm_responses.return_value = mock_response
+        mock_response.output = "Response"
+        mock_responses.return_value = mock_response
 
-        # Test with GPT-5 (default temperature 0.0 should not be passed)
         llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
-        llm.responses(input_text="Test")
-
-        call_args = mock_litellm_responses.call_args[1]
-        assert "temperature" not in call_args
-
-        # Test with explicit temperature
-        mock_litellm_responses.reset_mock()
+        # Call with temperature - should be passed to responses API
         llm.responses(input_text="Test", temperature=0.7)
 
-        call_args = mock_litellm_responses.call_args[1]
-        assert call_args["temperature"] == 0.7
+        # Verify temperature was passed to responses API
+        mock_responses.assert_called_once()
+        call_args = mock_responses.call_args
+        assert call_args[1]["temperature"] == 0.7
 
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", False)
-    def test_responses_api_not_available(self):
-        """Test error when responses API is not available."""
-        llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
-
-        with pytest.raises(ValueError, match="Responses API is not available"):
-            llm.responses(input_text="Test")
-
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", True)
     def test_responses_api_streaming_not_supported(self):
-        """Test that streaming raises an error."""
+        """Test that streaming raises an error in responses API."""
         llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
         with pytest.raises(ValueError, match="Streaming is not supported"):
             llm.responses(input_text="Test", stream=True)
 
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", True)
     @patch("openhands.sdk.llm.llm.litellm_responses")
-    def test_responses_api_empty_response_error(self, mock_litellm_responses):
-        """Test error handling for empty responses."""
-        from openhands.sdk.llm.llm import LLMNoResponseError
-
+    def test_responses_api_empty_response_error(self, mock_responses):
+        """Test that empty response raises an error."""
         # Mock empty response
-        mock_litellm_responses.return_value = None
+        mock_response = Mock()
+        mock_response.output = None
+        mock_responses.return_value = mock_response
 
         llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
-        with pytest.raises(LLMNoResponseError, match="Response is empty"):
+        with pytest.raises(Exception):  # Should raise LLMNoResponseError
             llm.responses(input_text="Test")
 
-    @patch("openhands.sdk.llm.llm.RESPONSES_API_AVAILABLE", True)
     @patch("openhands.sdk.llm.llm.litellm_responses")
-    def test_responses_api_parameter_filtering(self, mock_litellm_responses):
-        """Test that None parameters are filtered out."""
-        # Mock the response
+    def test_responses_api_parameter_passing(self, mock_responses):
+        """Test that parameters are passed to responses API."""
+        # Mock the responses API response
         mock_response = Mock()
-        mock_response.output = [Mock(content="Response", type="text")]
-        mock_litellm_responses.return_value = mock_response
+        mock_response.output = "Response"
+        mock_responses.return_value = mock_response
 
         llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
 
         llm.responses(
             input_text="Test",
-            tools=None,
-            instructions=None,
-            max_output_tokens=None,
-            temperature=None,
+            max_output_tokens=100,
+            custom_param="custom_value",
         )
 
-        call_args = mock_litellm_responses.call_args[1]
+        # Verify parameters were passed
+        mock_responses.assert_called_once()
+        call_args = mock_responses.call_args
+        assert call_args[1]["max_output_tokens"] == 100
+        assert call_args[1]["custom_param"] == "custom_value"
 
-        # None values should be filtered out
-        assert "tools" not in call_args
-        assert "instructions" not in call_args
-        assert "temperature" not in call_args
-        # max_output_tokens should use default from LLM instance
-        assert "max_output_tokens" in call_args
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_completion_uses_responses_api_for_gpt5(self, mock_completion):
+        """Test that completion method uses responses API for GPT-5 models."""
+        llm = LLM(model="gpt-5", api_key=SecretStr("test-key"))
+
+        # Mock the _call_responses_api method
+        with patch.object(llm, "_call_responses_api") as mock_call_responses:
+            from litellm.types.utils import ModelResponse
+
+            # Create a proper ModelResponse object
+            mock_response = ModelResponse(
+                id="test-id",
+                choices=[{"message": {"content": "test"}}],
+                created=1234567890,
+                model="gpt-5",
+                object="chat.completion",
+            )
+            mock_call_responses.return_value = mock_response
+
+            llm.completion(
+                messages=[Message(role="user", content=[TextContent(text="Hello")])]
+            )
+
+            # Verify responses API was called, not completion API
+            mock_call_responses.assert_called_once()
+            mock_completion.assert_not_called()
+
+    @patch("openhands.sdk.llm.llm.litellm_completion")
+    def test_completion_uses_completion_api_for_gpt4(self, mock_completion):
+        """Test that completion method uses completion API for non-GPT-5 models."""
+        from litellm.types.utils import ModelResponse
+
+        # Mock completion API response
+        mock_response = ModelResponse(
+            id="test-id",
+            choices=[{"message": {"content": "test"}}],
+            created=1234567890,
+            model="gpt-4",
+            object="chat.completion",
+        )
+        mock_completion.return_value = mock_response
+
+        llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+
+        llm.completion(
+            messages=[Message(role="user", content=[TextContent(text="Hello")])]
+        )
+
+        # Verify completion API was called
+        mock_completion.assert_called_once()

@@ -32,7 +32,12 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+# Import responses API
+from litellm import (
+    ChatCompletionToolParam,
+    completion as litellm_completion,
+    responses as litellm_responses,
+)
 from litellm.exceptions import (
     APIConnectionError,
     BadRequestError,
@@ -44,19 +49,6 @@ from litellm.exceptions import (
     Timeout as LiteLLMTimeout,
 )
 from litellm.types.utils import ModelResponse
-
-
-# Import responses API
-try:
-    from litellm import responses as litellm_responses
-    from litellm.types.llms.openai import ResponsesAPIResponse
-
-    RESPONSES_API_AVAILABLE = True
-except ImportError:
-    litellm_responses = None
-    ResponsesAPIResponse = None
-    RESPONSES_API_AVAILABLE = False
-
 from litellm.utils import (
     create_pretrained_tokenizer,
     get_model_info,
@@ -203,6 +195,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
+    use_responses: bool | None = Field(
+        default=None,
+        description="Whether to use OpenAI's responses API instead of completion API. "
+        "If None, automatically set to True for GPT-5 models, False otherwise.",
+    )
 
     # =========================================================================
     # Internal fields (excluded from dumps)
@@ -314,6 +311,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Tokenizer
         if self.custom_tokenizer:
             self._tokenizer = create_pretrained_tokenizer(self.custom_tokenizer)
+
+        # Set use_responses based on model if not explicitly set
+        if self.use_responses is None:
+            self.use_responses = (
+                "gpt5" in self.model.lower() or "gpt-5" in self.model.lower()
+            )
 
         # Capabilities + model info
         self._init_model_info_and_caps()
@@ -479,14 +482,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ResponsesAPIResponse: The response from the responses API
 
         Raises:
-            ValueError: If responses API is not available or streaming is requested
+            ValueError: If streaming is requested
             LLMNoResponseError: If the response is empty or malformed
         """
-        if not RESPONSES_API_AVAILABLE:
-            raise ValueError(
-                "Responses API is not available. Please update litellm to a version "
-                "that supports the responses API."
-            )
 
         # Check if streaming is requested
         if kwargs.get("stream", False):
@@ -582,7 +580,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     category=DeprecationWarning,
                 )
                 # Some providers need renames handled in _normalize_call_kwargs.
-                try:
+                if self.use_responses:
+                    return self._call_responses_api(messages, **kwargs)
+                else:
                     ret = litellm_completion(
                         model=self.model,
                         api_key=self.api_key.get_secret_value()
@@ -600,21 +600,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         f"Expected ModelResponse, got {type(ret)}"
                     )
                     return ret
-                except Exception as e:
-                    # Check if this model only supports responses API
-                    error_msg = str(e).lower()
-                    if "only supported in v1/responses" in error_msg:
-                        logger.info(
-                            f"Model {self.model} requires responses API, "
-                            "falling back..."
-                        )
-                        return self._fallback_to_responses_api(messages, **kwargs)
-                    raise
 
-    def _fallback_to_responses_api(
+    def _call_responses_api(
         self, messages: list[dict[str, Any]], **kwargs
     ) -> ModelResponse:
-        """Fallback to responses API when completion API is not supported."""
+        """Call the responses API and convert the result to ModelResponse format."""
         # Convert messages to input text (simple approach for now)
         input_text = ""
         instructions = ""
