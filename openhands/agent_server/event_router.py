@@ -15,7 +15,6 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from fastapi.websockets import WebSocketState
 
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
@@ -151,26 +150,20 @@ async def socket(
         _WebSocketSubscriber(websocket)
     )
     try:
-        while websocket.application_state == WebSocketState.CONNECTED:
+        while True:
             try:
                 data = await websocket.receive_json()
                 message = Message.model_validate(data)
                 await event_service.send_message(message)
             except WebSocketDisconnect:
-                logger.debug("WebSocket disconnected normally")
-                break
-            except RuntimeError as e:
-                if "disconnect message has been received" in str(e):
-                    logger.debug("WebSocket already disconnected")
-                    break
-                else:
-                    logger.exception(
-                        "RuntimeError in WebSocket handling", stack_info=True
-                    )
-                    break
-            except Exception:
+                # Exit the loop when websocket disconnects
+                return
+            except Exception as e:
                 logger.exception("error_in_subscription", stack_info=True)
-                break
+                # For critical errors that indicate the websocket is broken, exit
+                if isinstance(e, (RuntimeError, ConnectionError)):
+                    raise
+                # For other exceptions, continue the loop
     finally:
         await event_service.unsubscribe_from_events(subscriber_id)
 
@@ -181,18 +174,7 @@ class _WebSocketSubscriber(Subscriber):
 
     async def __call__(self, event: EventBase):
         try:
-            # Check if WebSocket is still connected before sending
-            if self.websocket.application_state == WebSocketState.CONNECTED:
-                dumped = event.model_dump()
-                await self.websocket.send_json(dumped)
-            else:
-                logger.debug("Skipping event send - WebSocket not connected")
-        except WebSocketDisconnect:
-            logger.debug("WebSocket disconnected while sending event")
-        except RuntimeError as e:
-            if "disconnect message has been received" in str(e):
-                logger.debug("WebSocket already disconnected while sending event")
-            else:
-                logger.exception("RuntimeError while sending event", stack_info=True)
+            dumped = event.model_dump()
+            await self.websocket.send_json(dumped)
         except Exception:
-            logger.exception("error_sending_event", stack_info=True)
+            logger.exception("error_sending_event:{event}", stack_info=True)
