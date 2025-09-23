@@ -15,11 +15,9 @@ from openhands.sdk.preset.default import get_default_agent
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LLM_API_KEY") or os.getenv("LITELLM_API_KEY")
+api_key = os.getenv("LLM_API_KEY")
 base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
-assert api_key is not None, (
-    "LLM_API_KEY or LITELLM_API_KEY environment variable is not set."
-)
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url=base_url,
