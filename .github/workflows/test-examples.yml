@@ -55,6 +55,7 @@ jobs:
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+                  LLM_MODEL: ${{ secrets.LLM_MODEL }}
               run: |
                   set -eo pipefail
 

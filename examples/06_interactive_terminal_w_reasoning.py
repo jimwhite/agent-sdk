@@ -17,12 +17,16 @@ from openhands.tools.execute_bash import BashTool
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LLM_API_KEY")
-assert api_key is not None, "LLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY") or os.getenv("LITELLM_API_KEY")
+base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+model = os.getenv("LLM_MODEL", "deepseek/deepseek-reasoner")
+assert api_key is not None, (
+    "LLM_API_KEY or LITELLM_API_KEY environment variable is not set."
+)
 llm = LLM(
     # model="gemini/gemini-2.5-pro",
-    model="deepseek/deepseek-reasoner",
-    base_url=os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev"),
+    model=model,
+    base_url=base_url,
     api_key=SecretStr(api_key),
 )
 
