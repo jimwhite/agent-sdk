@@ -228,6 +228,18 @@ class RemoteState(ConversationStateProtocol):
             )
         return AgentExecutionStatus(status_str)
 
+    @agent_status.setter
+    def agent_status(self, value: AgentExecutionStatus) -> None:
+        """Set agent status is No-OP for RemoteConversation.
+
+        # For remote conversations, agent status is managed server-side
+        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
+        """  # noqa: E501
+        raise NotImplementedError(
+            f"Setting agent_status on RemoteState has no effect. "
+            f"Remote agent status is managed server-side. Attempted to set: {value}"
+        )
+
     @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:
         """The confirmation policy."""
@@ -245,16 +257,6 @@ class RemoteState(ConversationStateProtocol):
         info = self._get_conversation_info()
         return info.get("activated_knowledge_microagents", [])
 
-    @agent_status.setter
-    def agent_status(self, value: AgentExecutionStatus) -> None:
-        """Set agent status (for compatibility with tests, but doesn't affect remote state)."""  # noqa: E501
-        # For remote conversations, agent status is managed server-side
-        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
-        logger.warning(
-            f"Setting agent_status on RemoteState has no effect. "
-            f"Remote agent status is managed server-side. Attempted to set: {value}"
-        )
-
     @property
     def agent(self):
         """The agent configuration (fetched from remote)."""
@@ -262,21 +264,15 @@ class RemoteState(ConversationStateProtocol):
         agent_data = info.get("agent")
         if agent_data is None:
             raise RuntimeError("agent missing in conversation info: " + str(info))
-        # Import here to avoid circular imports
-        from openhands.sdk.agent.base import AgentBase
-
         return AgentBase.model_validate(agent_data)
 
     def model_dump(self, **kwargs):
         """Get a dictionary representation of the remote state."""
         info = self._get_conversation_info()
-        # Return the conversation info as a model dump
         return info
 
     def model_dump_json(self, **kwargs):
         """Get a JSON representation of the remote state."""
-        import json
-
         return json.dumps(self.model_dump(**kwargs))
 
     # Context manager methods for compatibility with ConversationState
@@ -371,16 +367,12 @@ class RemoteConversation(BaseConversation):
 
     @property
     def stuck_detector(self):
-        """Stuck detector for compatibility (not implemented for remote conversations)."""  # noqa: E501
-        # For remote conversations, stuck detection would be handled server-side
-        # Return None to indicate it's not available
-        return None
-
-    def _on_event(self, event) -> None:
-        """Handle events for compatibility (delegates to callbacks)."""
-        # For remote conversations, events are handled via WebSocket callbacks
-        for callback in self._callbacks:
-            callback(event)
+        """Stuck detector for compatibility.
+        Not implemented for remote conversations."""
+        raise NotImplementedError(
+            "For remote conversations, stuck detection is not available"
+            " since it would be handled server-side."
+        )
 
     def send_message(self, message: str | Message) -> None:
         if isinstance(message, str):
