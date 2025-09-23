@@ -19,7 +19,6 @@ from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
-    NeverConfirm,
 )
 from openhands.sdk.utils.protocol import ListLike
 
@@ -104,7 +103,10 @@ class RemoteEventsList(ListLike[EventBase]):
         self._client = client
         self._conversation_id = conversation_id
         self._cached_events: list[EventBase] = []
+        self._cached_event_ids: set[str] = set()
         self._lock = threading.RLock()
+        # Initial fetch to sync existing events
+        self._fetch_all_events()
 
     def _fetch_all_events(self) -> list[EventBase]:
         """Return a snapshot of all known events.
@@ -112,8 +114,6 @@ class RemoteEventsList(ListLike[EventBase]):
         Performs a one-time full sync if the local cache is empty.
         """
         with self._lock:
-            if not self._cached_events:
-                self._do_full_sync()
             return self._cached_events.copy()
 
     def _do_full_sync(self) -> None:
@@ -142,20 +142,17 @@ class RemoteEventsList(ListLike[EventBase]):
             page_id = data["next_page_id"]
 
         self._cached_events = events
+        self._cached_event_ids.update(e.id for e in events)
         logger.debug(f"Full sync completed, {len(events)} events cached")
 
     def add_event(self, event: EventBase) -> None:
         """Add a new event to the local cache (called by WebSocket callback)."""
         with self._lock:
             # Check if event already exists to avoid duplicates
-            if not any(e.id == event.id for e in self._cached_events):
+            if event.id not in self._cached_event_ids:
                 self._cached_events.append(event)
+                self._cached_event_ids.add(event.id)
                 logger.debug(f"Added event {event.id} to local cache")
-
-    def force_sync(self) -> None:
-        """Force a full synchronization with the remote API."""
-        with self._lock:
-            self._do_full_sync()
 
     def create_default_callback(self) -> ConversationCallbackType:
         """Create a default callback that adds events to this list."""
@@ -179,11 +176,12 @@ class RemoteEventsList(ListLike[EventBase]):
         index: SupportsIndex | slice,
         /,
     ) -> EventBase | list[EventBase]:
-        events = self._fetch_all_events()
-        return events[index]
+        with self._lock:
+            return self._cached_events[index]
 
     def __iter__(self):
-        return iter(self._fetch_all_events())
+        with self._lock:
+            return iter(self._cached_events)
 
     def append(self, event: EventBase) -> None:
         # For remote conversations, events are added via API calls
@@ -196,6 +194,8 @@ class RemoteEventsList(ListLike[EventBase]):
 class RemoteState(ConversationStateProtocol):
     """A state-like interface for accessing remote conversation state."""
 
+    # TODO: We can also optimize remote state by sending back
+    # updates via WebSocket
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
@@ -221,7 +221,11 @@ class RemoteState(ConversationStateProtocol):
     def agent_status(self) -> AgentExecutionStatus:
         """The current agent execution status."""
         info = self._get_conversation_info()
-        status_str = info.get("agent_status", "idle")
+        status_str = info.get("agent_status", None)
+        if status_str is None:
+            raise RuntimeError(
+                "agent_status missing in conversation info: " + str(info)
+            )
         return AgentExecutionStatus(status_str)
 
     @property
@@ -230,15 +234,10 @@ class RemoteState(ConversationStateProtocol):
         info = self._get_conversation_info()
         policy_data = info.get("confirmation_policy")
         if policy_data is None:
-            return NeverConfirm()
-
-        # Deserialize the confirmation policy from the API response
-        # The policy_data should be a dict with the policy configuration
-        try:
-            return ConfirmationPolicyBase.model_validate(policy_data)
-        except Exception as e:
-            logger.warning(f"Failed to deserialize confirmation policy: {e}")
-            return NeverConfirm()
+            raise RuntimeError(
+                "confirmation_policy missing in conversation info: " + str(info)
+            )
+        return ConfirmationPolicyBase.model_validate(policy_data)
 
     @property
     def activated_knowledge_microagents(self) -> list[str]:
@@ -273,13 +272,6 @@ class RemoteConversation(BaseConversation):
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
 
-        # Add default visualizer if requested
-        if visualize:
-            self._visualizer = create_default_visualizer()
-            self._callbacks.append(self._visualizer.on_event)
-        else:
-            self._visualizer = None
-
         if conversation_id is None:
             payload = {
                 "agent": agent.model_dump(
@@ -311,6 +303,13 @@ class RemoteConversation(BaseConversation):
         # Add default callback to maintain local event state
         default_callback = self._state.events.create_default_callback()
         self._callbacks.append(default_callback)
+
+        # Add default visualizer callback if requested
+        if visualize:
+            self._visualizer = create_default_visualizer()
+            self._callbacks.append(self._visualizer.on_event)
+        else:
+            self._visualizer = None
 
         # Initialize WebSocket client for callbacks
         self._ws_client = WebSocketCallbackClient(
