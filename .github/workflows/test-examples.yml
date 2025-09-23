@@ -55,7 +55,6 @@ jobs:
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
-                  LITELLM_API_KEY: ${{ secrets.LLM_API_KEY }}
               run: |
                   set -eo pipefail
 
@@ -63,14 +62,19 @@ jobs:
                   EXAMPLES=(
                       "01_hello_world.py"
                       "02_custom_tools.py"
+                      "03_activate_microagent.py"
                       "04_confirmation_mode_example.py"
                       "05_use_llm_registry.py"
+                      "06_interactive_terminal_w_reasoning.py"
+                      "07_mcp_integration.py"
                       "09_pause_example.py"
                       "10_persistence.py"
                       "11_async.py"
                       "12_custom_secrets.py"
                       "13_get_llm_metrics.py"
                       "14_context_condenser.py"
+                      "15_browser_use.py"
+                      "16_llm_security_analyzer.py"
                       "17_image_input.py"
                       "18_send_message_while_processing.py"
                       "19_llm_routing.py"
@@ -82,14 +86,14 @@ jobs:
                   for example in "${EXAMPLES[@]}"; do
                       echo "Running example: $example"
                       output_file="../examples_output/${example%.py}_output.txt"
-                      
                       # Run the example and capture both stdout and stderr
                       if timeout 300 uv run python "$example" > "$output_file" 2>&1; then
                           echo "✓ $example completed successfully" | tee -a "$output_file"
                       else
                           exit_code=$?
                           echo "✗ $example failed with exit code $exit_code" | tee -a "$output_file"
-                          # Continue with other examples even if one fails
+                          # Stop execution if any example fails
+                          exit $exit_code
                       fi
                       
                       echo "----------------------------------------" >> "$output_file"
