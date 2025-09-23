@@ -91,7 +91,39 @@ def main() -> None:
     while convo.state.agent_status != AgentExecutionStatus.FINISHED:
         convo.run()
 
-    print("\n✅ Conversation finished. Inspecting telemetry logs in:", logs_dir)
+    # Send the same task again to test cache re-use (agent path)
+    print("\n▶️ Re-sending same task to test cache re-use (agent)…")
+    convo.send_message(task)
+    while convo.state.agent_status != AgentExecutionStatus.FINISHED:
+        convo.run()
+
+    # Direct tool-message caching test (bypass agent):
+    # Build a synthetic tool message with README content and call twice.
+    try:
+        from openhands.sdk.llm.message import Message, TextContent
+
+        readme = Path("README.mdx").read_text(encoding="utf-8")
+        tool_msgs = [
+            Message(role="system", content=[TextContent(text="You are helpful.")]),
+            Message(
+                role="tool",
+                content=[TextContent(text=readme)],
+                name="FileEditorTool",
+                tool_call_id="dummy-1",
+            ),
+            Message(
+                role="user",
+                content=[TextContent(text="Summarize the tool output")],
+            ),
+        ]
+        print("\n▶️ Direct tool-message test (call 1/2)…")
+        _ = llm.completion(messages=tool_msgs)
+        print("▶️ Direct tool-message test (call 2/2)…")
+        _ = llm.completion(messages=tool_msgs)
+    except Exception as e:
+        print(f"[warn] Direct tool-message test skipped: {e}")
+
+    print("\n✅ Runs complete. Inspecting telemetry logs in:", logs_dir)
 
     # Collect JSON logs generated after t0
     logs = sorted(
