@@ -430,7 +430,8 @@ class TestHelloWorld:
             side_effect=capture_completion_fidelity,
         ):
             # Create conversation and send a message
-            conversation = LocalConversation(agent=agent)
+            conversation = Conversation(agent=agent)
+            assert isinstance(conversation, LocalConversation)
             conversation.send_message(
                 message=Message(
                     role="user",
@@ -522,7 +523,8 @@ class TestHelloWorld:
             side_effect=capture_completion_non_func,
         ):
             # Create conversation and send a message
-            conversation = LocalConversation(agent=agent)
+            conversation = Conversation(agent=agent)
+            assert isinstance(conversation, LocalConversation)
             conversation.send_message(
                 message=Message(
                     role="user",

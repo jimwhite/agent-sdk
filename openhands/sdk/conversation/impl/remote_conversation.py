@@ -228,16 +228,6 @@ class RemoteState(ConversationStateProtocol):
             )
         return AgentExecutionStatus(status_str)
 
-    @agent_status.setter
-    def agent_status(self, value: AgentExecutionStatus) -> None:
-        """Set agent status (for compatibility with tests, but doesn't affect remote state)."""  # noqa: E501
-        # For remote conversations, agent status is managed server-side
-        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
-        logger.warning(
-            f"Setting agent_status on RemoteState has no effect. "
-            f"Remote agent status is managed server-side. Attempted to set: {value}"
-        )
-
     @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:
         """The confirmation policy."""
@@ -254,6 +244,16 @@ class RemoteState(ConversationStateProtocol):
         """List of activated knowledge microagents."""
         info = self._get_conversation_info()
         return info.get("activated_knowledge_microagents", [])
+
+    @agent_status.setter
+    def agent_status(self, value: AgentExecutionStatus) -> None:
+        """Set agent status (for compatibility with tests, but doesn't affect remote state)."""  # noqa: E501
+        # For remote conversations, agent status is managed server-side
+        # This setter is provided for test compatibility but doesn't actually change remote state  # noqa: E501
+        logger.warning(
+            f"Setting agent_status on RemoteState has no effect. "
+            f"Remote agent status is managed server-side. Attempted to set: {value}"
+        )
 
     @property
     def agent(self):
@@ -360,12 +360,6 @@ class RemoteConversation(BaseConversation):
         )
         self._ws_client.start()
 
-    def _on_event(self, event):
-        """Compose and call all callbacks with the event."""
-        for callback in self._callbacks:
-            if callback:
-                callback(event)
-
     @property
     def id(self) -> ConversationID:
         return self._id
@@ -377,10 +371,16 @@ class RemoteConversation(BaseConversation):
 
     @property
     def stuck_detector(self):
-        """Stuck detection is handled server-side for remote conversations."""
-        raise NotImplementedError(
-            "Stuck detection is handled server-side for remote conversations"
-        )
+        """Stuck detector for compatibility (not implemented for remote conversations)."""  # noqa: E501
+        # For remote conversations, stuck detection would be handled server-side
+        # Return None to indicate it's not available
+        return None
+
+    def _on_event(self, event) -> None:
+        """Handle events for compatibility (delegates to callbacks)."""
+        # For remote conversations, events are handled via WebSocket callbacks
+        for callback in self._callbacks:
+            callback(event)
 
     def send_message(self, message: str | Message) -> None:
         if isinstance(message, str):
