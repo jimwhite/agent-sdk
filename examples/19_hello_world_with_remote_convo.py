@@ -139,12 +139,14 @@ if __name__ == "__main__":
 
         # Define callbacks to test the WebSocket functionality
         received_events = []
+        event_tracker = {"last_event_time": time.time()}
 
         def event_callback(event):
             """Callback to capture events for testing."""
             event_type = type(event).__name__
-            print(f"🔔 Callback received event: {event_type}")
+            print(f"🔔 Callback received event: {event_type}\n{event}")
             received_events.append(event)
+            event_tracker["last_event_time"] = time.time()
 
         # Create RemoteConversation with callbacks
         conversation = Conversation(
@@ -171,16 +173,44 @@ if __name__ == "__main__":
 
             print("✅ First task completed!")
 
-            # Wait a bit to ensure the first task is fully finished
+            # Wait for agent to be idle before starting next task
             print("⏳ Waiting for first task to fully complete...")
-            time.sleep(2)
+            from openhands.sdk.conversation.state import AgentExecutionStatus
+
+            while conversation.state.agent_status not in [
+                AgentExecutionStatus.IDLE,
+                AgentExecutionStatus.FINISHED,
+                AgentExecutionStatus.ERROR,
+            ]:
+                time.sleep(0.5)
+            print(f"Agent status: {conversation.state.agent_status}")
+
+            # Wait for events to stop coming (no events for 2 seconds)
+            print("⏳ Waiting for events to stop...")
+            while time.time() - event_tracker["last_event_time"] < 2.0:
+                time.sleep(0.1)
+            print("✅ Events have stopped")
 
             # Send second message and run
             print("\n📝 Sending second message...")
             conversation.send_message("Great! Now delete that file.")
 
             print("🚀 Running conversation again...")
-            conversation.run()
+            # Retry logic for 409 conflicts
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    conversation.run()
+                    break
+                except Exception as e:
+                    if "409" in str(e) and attempt < max_retries - 1:
+                        print(
+                            f"⏳ Conversation still running, waiting... "
+                            f"(attempt {attempt + 1})"
+                        )
+                        time.sleep(1)
+                        continue
+                    raise
 
             print("✅ Second task completed!")
 

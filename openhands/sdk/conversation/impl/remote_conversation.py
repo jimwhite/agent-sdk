@@ -10,14 +10,17 @@ import httpx
 import websockets
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands.sdk.security.confirmation_policy import (
+    ConfirmationPolicyBase,
+    NeverConfirm,
+)
 from openhands.sdk.utils.protocol import ListLike
 
 
@@ -89,7 +92,7 @@ class WebSocketCallbackClient:
         # Convert HTTP URL to WebSocket URL
         parsed = urlparse(self.host)
         ws_scheme = "wss" if parsed.scheme == "https" else "ws"
-        ws_url = f"{ws_scheme}://{parsed.netloc}/conversations/{self.conversation_id}/events/socket"
+        ws_url = f"{ws_scheme}://{parsed.netloc}/api/conversations/{self.conversation_id}/events/socket"
 
         logger.debug(f"Connecting to WebSocket: {ws_url}")
 
@@ -171,7 +174,8 @@ class RemoteEventsList(ListLike[EventBase]):
                 params["page_id"] = page_id
 
             resp = self._client.get(
-                f"/conversations/{self._conversation_id}/events/search", params=params
+                f"/api/conversations/{self._conversation_id}/events/search",
+                params=params,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -212,18 +216,20 @@ class RemoteEventsList(ListLike[EventBase]):
             "Cannot directly append events to remote conversation"
         )
 
-    def clear_cache(self) -> None:
-        """Clear the cached events to force a fresh fetch on next access."""
-        self._cached_events = None
 
-
-class RemoteState:
+class RemoteState(ConversationStateProtocol):
     """A state-like interface for accessing remote conversation state."""
 
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
         self._events = RemoteEventsList(client, conversation_id)
+
+    def _get_conversation_info(self) -> dict:
+        """Fetch the latest conversation info from the remote API."""
+        resp = self._client.get(f"/api/conversations/{self._conversation_id}")
+        resp.raise_for_status()
+        return resp.json()
 
     @property
     def events(self) -> RemoteEventsList:
@@ -234,6 +240,35 @@ class RemoteState:
     def id(self) -> ConversationID:
         """The conversation ID."""
         return uuid.UUID(self._conversation_id)
+
+    @property
+    def agent_status(self) -> AgentExecutionStatus:
+        """The current agent execution status."""
+        info = self._get_conversation_info()
+        status_str = info.get("agent_status", "idle")
+        return AgentExecutionStatus(status_str)
+
+    @property
+    def confirmation_policy(self) -> ConfirmationPolicyBase:
+        """The confirmation policy."""
+        info = self._get_conversation_info()
+        policy_data = info.get("confirmation_policy")
+        if policy_data is None:
+            return NeverConfirm()
+
+        # Deserialize the confirmation policy from the API response
+        # The policy_data should be a dict with the policy configuration
+        try:
+            return ConfirmationPolicyBase.model_validate(policy_data)
+        except Exception as e:
+            logger.warning(f"Failed to deserialize confirmation policy: {e}")
+            return NeverConfirm()
+
+    @property
+    def activated_knowledge_microagents(self) -> list[str]:
+        """List of activated knowledge microagents."""
+        info = self._get_conversation_info()
+        return info.get("activated_knowledge_microagents", [])
 
 
 class RemoteConversation(BaseConversation):
@@ -275,7 +310,7 @@ class RemoteConversation(BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
             }
-            resp = self._client.post("/conversations/", json=payload)
+            resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()
             data = resp.json()
             # Expect a ConversationInfo
@@ -289,7 +324,7 @@ class RemoteConversation(BaseConversation):
             # Attach to existing
             self._id = conversation_id
             # Validate it exists
-            r = self._client.get(f"/conversations/{self._id}")
+            r = self._client.get(f"/api/conversations/{self._id}")
             r.raise_for_status()
 
         # Initialize the remote state
@@ -325,12 +360,12 @@ class RemoteConversation(BaseConversation):
             "content": [c.model_dump() for c in message.content],
             "run": False,  # Mirror local semantics; explicit run() must be called
         }
-        resp = self._client.post(f"/conversations/{self._id}/events/", json=payload)
+        resp = self._client.post(f"/api/conversations/{self._id}/events/", json=payload)
         resp.raise_for_status()
 
     def run(self) -> None:
         # Trigger a run on the server using the dedicated run endpoint
-        resp = self._client.post(f"/conversations/{self._id}/run")
+        resp = self._client.post(f"/api/conversations/{self._id}/run")
         resp.raise_for_status()
 
         # Poll for terminal states similar to local .run() behavior
@@ -343,30 +378,32 @@ class RemoteConversation(BaseConversation):
         }
         # Simple polling loop with backoff
         for i in range(60):  # up to ~6s
-            info = self._client.get(f"/conversations/{self._id}")
+            info = self._client.get(f"/api/conversations/{self._id}")
             info.raise_for_status()
-            status = info.json().get("status")
+            status = info.json().get("agent_status", "idle")
             if status in terminal:
+                # Add a small delay to ensure background task cleanup is complete
+                time.sleep(0.5)
                 break
             time.sleep(0.1)
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}
         resp = self._client.post(
-            f"/conversations/{self._id}/confirmation-policy", json=payload
+            f"/api/conversations/{self._id}/confirmation-policy", json=payload
         )
         resp.raise_for_status()
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         # Equivalent to rejecting confirmation: pause
         resp = self._client.post(
-            f"/conversations/{self._id}/events/respond_to_confirmation",
+            f"/api/conversations/{self._id}/events/respond_to_confirmation",
             json={"accept": False, "reason": reason},
         )
         resp.raise_for_status()
 
     def pause(self) -> None:
-        resp = self._client.post(f"/conversations/{self._id}/pause")
+        resp = self._client.post(f"/api/conversations/{self._id}/pause")
         resp.raise_for_status()
 
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
@@ -382,7 +419,7 @@ class RemoteConversation(BaseConversation):
                 serializable_secrets[key] = value
 
         payload = {"secrets": serializable_secrets}
-        resp = self._client.post(f"/conversations/{self._id}/secrets", json=payload)
+        resp = self._client.post(f"/api/conversations/{self._id}/secrets", json=payload)
         resp.raise_for_status()
 
     def close(self) -> None:
