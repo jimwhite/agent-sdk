@@ -158,7 +158,6 @@ class RemoteEventsList(ListLike[EventBase]):
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
-        self._cached_events: list[EventBase] | None = None
 
     def _fetch_all_events(self) -> list[EventBase]:
         """Fetch all events from the remote API."""
@@ -180,7 +179,7 @@ class RemoteEventsList(ListLike[EventBase]):
             resp.raise_for_status()
             data = resp.json()
 
-            events.extend(data["items"])
+            events.extend([EventBase.model_validate(item) for item in data["items"]])
 
             if not data.get("next_page_id"):
                 break
