@@ -1,13 +1,20 @@
 """Tests for the SecurityAnalyzer class."""
 
+import inspect
+
+import pytest
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
+from pydantic import BaseModel
 
 from openhands.sdk.event import ActionEvent
 from openhands.sdk.event.base import LLMConvertibleEvent
 from openhands.sdk.event.types import EventID
 from openhands.sdk.llm import TextContent
-from openhands.sdk.security.analyzer import PerActionSecurityAnalyzer
+from openhands.sdk.security.analyzer import (
+    PerActionSecurityAnalyzer,
+    SecurityAnalyzerBase,
+)
 from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
@@ -41,6 +48,35 @@ def create_mock_action_event(command: str, security_risk: SecurityRisk) -> Actio
 class TestSecurityAnalyzerBase:
     """Test suite for SecurityAnalyzerBase."""
 
+    def test_cannot_instantiate_base_class(self) -> None:
+        """Test that the base class cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            # Of course mypy doesn't want us to do this, so ignore the type check while
+            # we confirm the runtime behavior.
+            SecurityAnalyzerBase()  # type: ignore
+
+    @pytest.mark.parametrize("cls", list(SecurityAnalyzerBase.__subclasses__()))
+    def test_security_analyzer_container_serialization(
+        self, cls: type[SecurityAnalyzerBase]
+    ) -> None:
+        """Test that a container model with SecurityAnalyzer instances as a field can
+        be serialized.
+        """
+        # Make sure the subclass is not abstract
+        if inspect.isabstract(cls):
+            pytest.skip(f"Skipping abstract class {cls.__name__}")
+
+        class AnalyzerContainer(BaseModel):
+            analyzer: SecurityAnalyzerBase
+
+        container = AnalyzerContainer(analyzer=cls())
+
+        container_dict = container.model_dump_json()
+        restored_container = AnalyzerContainer.model_validate_json(container_dict)
+
+        assert isinstance(restored_container.analyzer, cls)
+        assert container.analyzer == restored_container.analyzer
+
 
 class TestPerActionSecurityAnalyzer:
     """Test suite for PerActionSecurityAnalyzer."""
@@ -62,12 +98,51 @@ class TestPerActionSecurityAnalyzer:
             analyzer.default_risk = default_risk
             return analyzer
 
+    def test_cannot_instantiate_base_class(self) -> None:
+        """Test that the base class cannot be instantiated directly."""
+        with pytest.raises(TypeError):
+            # Of course mypy doesn't want us to do this, so ignore the type check while
+            # we confirm the runtime behavior.
+            PerActionSecurityAnalyzer()  # type: ignore
+
+    @pytest.mark.parametrize("cls", list(PerActionSecurityAnalyzer.__subclasses__()))
+    def test_security_analyzer_container_serialization(
+        self, cls: type[SecurityAnalyzerBase]
+    ) -> None:
+        """Test that a container model with PerActionSecurityAnalyzer instances as a
+        field can be serialized.
+        """
+        # Make sure the subclass is not abstract
+        if inspect.isabstract(cls):
+            pytest.skip(f"Skipping abstract class {cls.__name__}")
+
+        class AnalyzerContainer(BaseModel):
+            # Note the serialization here is for the security analyzer base class, _not_
+            # the PerActionSecurityAnalyzer specifically.
+            analyzer: SecurityAnalyzerBase
+
+        container = AnalyzerContainer(analyzer=cls())
+
+        container_dict = container.model_dump_json()
+        restored_container = AnalyzerContainer.model_validate_json(container_dict)
+
+        assert isinstance(restored_container.analyzer, cls)
+        assert container.analyzer == restored_container.analyzer
+
     def test_independent_of_current_context(self) -> None:
         """Test that PerActionSecurityAnalyzer is independent of current_context.
 
         That is, we should get the same results regardless of what current_context is.
         """
-        possible_context: list[LLMConvertibleEvent] = []
+        # While the context is more likely to be messages/observations/actions, we can
+        # still use just a list of actions to help prove that current_context is not
+        # used by the analyzer.
+        possible_context: list[LLMConvertibleEvent] = [
+            create_mock_action_event("context_1", SecurityRisk.LOW),
+            create_mock_action_event("context_2", SecurityRisk.HIGH),
+            create_mock_action_event("context_3", SecurityRisk.MEDIUM),
+        ]
+
         pending_actions: list[ActionEvent] = [
             create_mock_action_event("action_1", SecurityRisk.LOW),
             create_mock_action_event("action_2", SecurityRisk.HIGH),
