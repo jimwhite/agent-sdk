@@ -364,32 +364,27 @@ class RemoteConversation(BaseConversation):
         resp.raise_for_status()
 
     def run(self) -> None:
-        # Trigger a run on the server using the dedicated run endpoint
-        resp = self._client.post(f"/api/conversations/{self._id}/run")
-        resp.raise_for_status()
+        current_status = self.state.agent_status
+        if current_status != AgentExecutionStatus.RUNNING:
+            # Trigger a run on the server using the dedicated run endpoint
+            resp = self._client.post(f"/api/conversations/{self._id}/run")
+            resp.raise_for_status()
+        else:
+            logger.debug("Conversation is already running; skipping run trigger")
 
-        # Poll for terminal states similar to local .run() behavior
-        terminal_states = {
-            AgentExecutionStatus.FINISHED,
-            AgentExecutionStatus.WAITING_FOR_CONFIRMATION,
-            AgentExecutionStatus.PAUSED,
-            AgentExecutionStatus.IDLE,
-            AgentExecutionStatus.ERROR,
-        }
-        
-        # Poll until agent reaches a terminal state
-        max_iterations = 600  # up to ~60s with 0.1s intervals
+        # 120 * 0.5 = 60s timeout per iteration
+        max_iterations = self.max_iteration_per_run * 120
         for i in range(max_iterations):
             current_status = self.state.agent_status
-            if current_status in terminal_states:
+            if current_status != AgentExecutionStatus.RUNNING:
                 # Add a small delay to ensure background task cleanup is complete
                 time.sleep(0.5)
                 break
-            time.sleep(0.1)
+            time.sleep(0.5)
         else:
             # If we exit the loop without breaking, we timed out
             raise TimeoutError(
-                f"Agent did not reach terminal state within {max_iterations * 0.1}s. "
+                f"Agent did not reach terminal state within {max_iterations * 0.5}s. "
                 f"Current status: {self.state.agent_status}"
             )
 
