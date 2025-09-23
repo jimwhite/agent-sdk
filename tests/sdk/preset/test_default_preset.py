@@ -7,6 +7,7 @@ from openhands.sdk.context.condenser.llm_summarizing_condenser import (
 )
 from openhands.sdk.llm import LLM
 from openhands.sdk.preset.default import get_default_agent
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool.spec import ToolSpec
 
 
@@ -140,7 +141,10 @@ def test_get_default_agent_condenser_config(basic_llm):
 
     assert agent.condenser is not None
     assert isinstance(agent.condenser, LLMSummarizingCondenser)
-    assert agent.condenser.llm == basic_llm
+    assert basic_llm.service_id != agent.condenser.llm.service_id
+    assert agent.condenser.llm == basic_llm.model_copy(
+        update={"service_id": "condenser"}
+    )  # Condenser LLM should have service_id set
     assert agent.condenser.max_size == 80
     assert agent.condenser.keep_first == 4
 
@@ -157,3 +161,45 @@ def test_get_default_agent_tool_order(basic_llm):
     # Other tools should come before BrowserToolSet
     expected_order = ["BashTool", "FileEditorTool", "TaskTrackerTool", "BrowserToolSet"]
     assert tool_names == expected_order
+
+
+def test_get_default_agent_with_custom_persistence_dir(basic_llm):
+    """Test that custom persistence directory is used for TaskTrackerTool save_dir."""
+    working_dir = "/test/workspace"
+    custom_persistence_dir = "/custom/persistence"
+
+    # Test with custom persistence_dir
+    agent = get_default_agent(
+        llm=basic_llm, working_dir=working_dir, persistence_dir=custom_persistence_dir
+    )
+
+    # Find TaskTrackerTool to verify it uses the custom persistence_dir
+    task_tracker_spec = None
+    for tool in agent.tools:
+        if tool.name == "TaskTrackerTool":
+            task_tracker_spec = tool
+            break
+
+    assert task_tracker_spec is not None
+    assert task_tracker_spec.params["save_dir"] == custom_persistence_dir
+
+    # Test without persistence_dir (should default to working_dir/.openhands)
+    agent_default = get_default_agent(llm=basic_llm, working_dir=working_dir)
+
+    task_tracker_spec_default = None
+    for tool in agent_default.tools:
+        if tool.name == "TaskTrackerTool":
+            task_tracker_spec_default = tool
+            break
+
+    assert task_tracker_spec_default is not None
+    assert task_tracker_spec_default.params["save_dir"] == f"{working_dir}/.openhands"
+
+
+def test_get_default_agent_has_llm_security_analyzer(basic_llm):
+    """Test that the default agent includes LLMSecurityAnalyzer by default."""
+    agent = get_default_agent(llm=basic_llm, working_dir="/test")
+
+    # Should have LLMSecurityAnalyzer as the security analyzer
+    assert agent.security_analyzer is not None
+    assert isinstance(agent.security_analyzer, LLMSecurityAnalyzer)

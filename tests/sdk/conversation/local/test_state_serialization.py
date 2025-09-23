@@ -10,9 +10,11 @@ from pydantic import SecretStr
 
 from openhands.sdk import Agent, Conversation, LocalFileStore
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm.llm_registry import RegistryEvent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 
 
@@ -85,6 +87,7 @@ def test_conversation_state_persistence_save_load():
         )
         state.events.append(event1)
         state.events.append(event2)
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # State auto-saves when events are added
         # Verify files were created
@@ -100,7 +103,8 @@ def test_conversation_state_persistence_save_load():
             persist_filestore=file_store,
             conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789002"),
         )
-        loaded_state = conversation.state
+        assert isinstance(conversation, LocalConversation)
+        loaded_state = conversation._state
 
         # Verify loaded state matches original
         assert loaded_state.id == state.id
@@ -133,6 +137,7 @@ def test_conversation_state_incremental_save():
             source="agent", system_prompt=TextContent(text="system"), tools=[]
         )
         state.events.append(event1)
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
 
         # Verify event files exist (may have additional events from Agent.init_state)
         event_files = list(Path(temp_dir, "events").glob("*.json"))
@@ -155,7 +160,7 @@ def test_conversation_state_incremental_save():
             persist_filestore=file_store,
             conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
         )
-        loaded_state = conversation.state
+        loaded_state = conversation._state
         assert len(loaded_state.events) == 2
         # Test model_dump equality
         assert loaded_state.model_dump(mode="json") == state.model_dump(mode="json")
@@ -201,13 +206,13 @@ def test_conversation_state_event_file_scanning():
 
         # Should load valid events in order
         assert (
-            len(conversation.state.events) == 2
+            len(conversation._state.events) == 2
         )  # May have additional events from Agent.init_state
 
         # Find our test events
         our_events = [
             e
-            for e in conversation.state.events
+            for e in conversation._state.events
             if isinstance(e, SystemPromptEvent) and e.id in ["abcdef01", "abcdef02"]
         ]
         assert len(our_events) == 2
@@ -269,9 +274,9 @@ def test_conversation_state_empty_filestore():
         )
 
         # Should create new state
-        assert conversation.state.id is not None
-        assert len(conversation.state.events) == 1  # System prompt event
-        assert isinstance(conversation.state.events[0], SystemPromptEvent)
+        assert conversation._state.id is not None
+        assert len(conversation._state.events) == 1  # System prompt event
+        assert isinstance(conversation._state.events[0], SystemPromptEvent)
 
 
 def test_conversation_state_missing_base_state():
@@ -298,9 +303,9 @@ def test_conversation_state_missing_base_state():
         conversation = Conversation(agent=agent, persist_filestore=file_store)
 
         # Should create new state, not load the orphaned event file
-        assert conversation.state.id is not None
+        assert conversation._state.id is not None
         assert (
-            len(conversation.state.events) >= 1
+            len(conversation._state.events) >= 1
         )  # At least system prompt from Agent.init_state
 
 
@@ -391,6 +396,8 @@ def test_conversation_state_flags_persistence():
             file_store=file_store,
         )
 
+        state.stats.register_llm(RegistryEvent(llm=llm, service_id=llm.service_id))
+
         # Set various flags
         state.agent_status = AgentExecutionStatus.FINISHED
         state.confirmation_policy = AlwaysConfirm()
@@ -402,7 +409,7 @@ def test_conversation_state_flags_persistence():
             persist_filestore=file_store,
             conversation_id=uuid.UUID("12345678-1234-5678-9abc-123456789006"),
         )
-        loaded_state = conversation.state
+        loaded_state = conversation._state
 
         # Verify flags are preserved
         assert loaded_state.agent_status == AgentExecutionStatus.FINISHED
@@ -433,10 +440,10 @@ def test_conversation_with_agent_different_llm_config():
         )
 
         # Store original state dump and ID before deleting
-        original_state_dump = conversation.state.model_dump(
+        original_state_dump = conversation._state.model_dump(
             mode="json", exclude={"agent"}
         )
-        conversation_id = conversation.state.id
+        conversation_id = conversation._state.id
 
         del conversation
 
@@ -452,8 +459,8 @@ def test_conversation_with_agent_different_llm_config():
             visualize=False,
         )
 
-        assert new_conversation.state.agent.llm.api_key is not None
-        assert new_conversation.state.agent.llm.api_key.get_secret_value() == "new-key"
+        assert new_conversation._state.agent.llm.api_key is not None
+        assert new_conversation._state.agent.llm.api_key.get_secret_value() == "new-key"
         # Test that the core state structure is preserved (excluding agent differences)
-        new_dump = new_conversation.state.model_dump(mode="json", exclude={"agent"})
+        new_dump = new_conversation._state.model_dump(mode="json", exclude={"agent"})
         assert new_dump == original_state_dump

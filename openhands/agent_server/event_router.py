@@ -15,7 +15,6 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from fastapi.websockets import WebSocketState
 
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
@@ -32,14 +31,16 @@ from openhands.sdk import Message
 from openhands.sdk.event.base import EventBase
 
 
-router = APIRouter(prefix="/conversations/{conversation_id}/events")
+event_router = APIRouter(
+    prefix="/conversations/{conversation_id}/events", tags=["Events"]
+)
 conversation_service = get_default_conversation_service()
 logger = logging.getLogger(__name__)
 
 # Read methods
 
 
-@router.get("/search", responses={404: {"description": "Conversation not found"}})
+@event_router.get("/search", responses={404: {"description": "Conversation not found"}})
 async def search_conversation_events(
     conversation_id: UUID,
     page_id: Annotated[
@@ -70,7 +71,7 @@ async def search_conversation_events(
     return await event_service.search_events(page_id, limit, kind, sort_order)
 
 
-@router.get("/count", responses={404: {"description": "Conversation not found"}})
+@event_router.get("/count", responses={404: {"description": "Conversation not found"}})
 async def count_conversation_events(
     conversation_id: UUID,
     kind: Annotated[
@@ -88,7 +89,7 @@ async def count_conversation_events(
     return count
 
 
-@router.get("/{event_id}", responses={404: {"description": "Item not found"}})
+@event_router.get("/{event_id}", responses={404: {"description": "Item not found"}})
 async def get_conversation_event(conversation_id: UUID, event_id: str) -> EventBase:
     """Get a local event given an id"""
     event_service = await conversation_service.get_event_service(conversation_id)
@@ -100,7 +101,7 @@ async def get_conversation_event(conversation_id: UUID, event_id: str) -> EventB
     return event
 
 
-@router.get("/")
+@event_router.get("/")
 async def batch_get_conversation_events(
     conversation_id: UUID, event_ids: list[str]
 ) -> list[EventBase | None]:
@@ -113,21 +114,18 @@ async def batch_get_conversation_events(
     return events
 
 
-# Write Methods
-
-
-@router.post("/")
+@event_router.post("/")
 async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
     """Send a message to a conversation"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     message = Message(role=request.role, content=request.content)
-    await event_service.send_message(message, run=request.run)
+    await event_service.send_message(message)
     return Success()
 
 
-@router.post(
+@event_router.post(
     "/respond_to_confirmation", responses={404: {"description": "Item not found"}}
 )
 async def respond_to_confirmation(
@@ -141,10 +139,7 @@ async def respond_to_confirmation(
     return Success()
 
 
-# Subscribers
-
-
-@router.websocket("/socket")
+@event_router.websocket("/socket")
 async def socket(
     conversation_id: UUID,
     websocket: WebSocket,
@@ -157,15 +152,20 @@ async def socket(
         _WebSocketSubscriber(websocket)
     )
     try:
-        while websocket.application_state == WebSocketState.CONNECTED:
+        while True:
             try:
                 data = await websocket.receive_json()
                 message = Message.model_validate(data)
-                await event_service.send_message(message, run=True)
+                await event_service.send_message(message)
             except WebSocketDisconnect:
-                await event_service.unsubscribe_from_events(subscriber_id)
-            except Exception:
+                # Exit the loop when websocket disconnects
+                return
+            except Exception as e:
                 logger.exception("error_in_subscription", stack_info=True)
+                # For critical errors that indicate the websocket is broken, exit
+                if isinstance(e, (RuntimeError, ConnectionError)):
+                    raise
+                # For other exceptions, continue the loop
     finally:
         await event_service.unsubscribe_from_events(subscriber_id)
 

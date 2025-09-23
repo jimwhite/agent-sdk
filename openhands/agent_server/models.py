@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from openhands.agent_server.utils import utc_now
 from openhands.sdk import AgentBase, EventBase, ImageContent, Message, TextContent
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -40,10 +40,6 @@ class SendMessageRequest(BaseModel):
 
     role: Literal["user", "system", "assistant", "tool"] = "user"
     content: list[TextContent | ImageContent] = Field(default_factory=list)
-    run: bool = Field(
-        default=True,
-        description="If true, immediately run the agent after sending the message.",
-    )
 
     def create_message(self) -> Message:
         message = Message(role=self.role, content=self.content)
@@ -71,6 +67,11 @@ class StartConversationRequest(BaseModel):
         description="If set, the max number of iterations the agent will run "
         "before stopping. This is useful to prevent infinite loops.",
     )
+    stuck_detection: bool = Field(
+        default=True,
+        description="If true, the conversation will use stuck detection to "
+        "prevent infinite loops.",
+    )
 
 
 class StoredConversation(StartConversationRequest):
@@ -82,10 +83,15 @@ class StoredConversation(StartConversationRequest):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
-class ConversationInfo(StoredConversation):
+class ConversationInfo(ConversationState):
     """Information about a conversation running locally without a Runtime sandbox."""
 
-    status: AgentExecutionStatus = AgentExecutionStatus.IDLE
+    # ConversationState already includes id and agent
+    # Add additional metadata fields
+
+    metrics: MetricsSnapshot | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ConversationPage(BaseModel):
@@ -112,3 +118,17 @@ class Success(BaseModel):
 class EventPage(OpenHandsModel):
     items: list[EventBase]
     next_page_id: str | None = None
+
+
+class UpdateSecretsRequest(BaseModel):
+    """Payload to update secrets in a conversation."""
+
+    secrets: dict[str, str] = Field(
+        description="Dictionary mapping secret keys to values"
+    )
+
+
+class SetConfirmationPolicyRequest(BaseModel):
+    """Payload to set confirmation policy for a conversation."""
+
+    policy: ConfirmationPolicyBase = Field(description="The confirmation policy to set")
