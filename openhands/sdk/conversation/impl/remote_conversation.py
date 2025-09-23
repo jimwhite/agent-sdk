@@ -106,15 +106,7 @@ class RemoteEventsList(ListLike[EventBase]):
         self._cached_event_ids: set[str] = set()
         self._lock = threading.RLock()
         # Initial fetch to sync existing events
-        self._fetch_all_events()
-
-    def _fetch_all_events(self) -> list[EventBase]:
-        """Return a snapshot of all known events.
-
-        Performs a one-time full sync if the local cache is empty.
-        """
-        with self._lock:
-            return self._cached_events.copy()
+        self._do_full_sync()
 
     def _do_full_sync(self) -> None:
         """Perform a full sync with the remote API."""
@@ -163,7 +155,7 @@ class RemoteEventsList(ListLike[EventBase]):
         return callback
 
     def __len__(self) -> int:
-        return len(self._fetch_all_events())
+        return len(self._cached_events)
 
     @overload
     def __getitem__(self, index: SupportsIndex, /) -> EventBase: ...
