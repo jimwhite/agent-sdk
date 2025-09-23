@@ -186,23 +186,6 @@ async def run_conversation(conversation_id: UUID) -> Success:
 
 
 @router.post(
-    "/{conversation_id}/stop",
-    responses={
-        404: {"description": "Item not found"},
-        200: {"description": "Task stopped or no task was running"},
-    },
-)
-async def stop_conversation(conversation_id: UUID) -> Success:
-    """Stop the currently running background conversation task."""
-    event_service = await conversation_service.get_event_service(conversation_id)
-    if event_service is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
-
-    await event_service.stop_background_run()
-    return Success()
-
-
-@router.post(
     "/{conversation_id}/secrets", responses={404: {"description": "Item not found"}}
 )
 async def update_conversation_secrets(
@@ -223,7 +206,7 @@ async def update_conversation_secrets(
 
 
 @router.post(
-    "/{conversation_id}/confirmation-policy",
+    "/{conversation_id}/confirmation_policy",
     responses={404: {"description": "Item not found"}},
 )
 async def set_conversation_confirmation_policy(

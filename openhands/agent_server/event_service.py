@@ -14,7 +14,7 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import Agent, EventBase, LocalFileStore, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
 
@@ -48,7 +48,7 @@ class EventService:
     async def get_event(self, event_id: str) -> EventBase | None:
         if not self._conversation:
             raise ValueError("inactive_service")
-        with self._conversation.state as state:
+        with self._conversation._state as state:
             # TODO: It would be nice if the agent sdk had a method for
             #       getting events by id
             event = next(
@@ -68,7 +68,7 @@ class EventService:
 
         # Collect all events
         all_events = []
-        with self._conversation.state as state:
+        with self._conversation._state as state:
             for event in state.events:
                 # Apply kind filter if provided
                 if (
@@ -117,7 +117,7 @@ class EventService:
             raise ValueError("inactive_service")
 
         count = 0
-        with self._conversation.state as state:
+        with self._conversation._state as state:
             for event in state.events:
                 # Apply kind filter if provided
                 if (
@@ -158,8 +158,6 @@ class EventService:
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
-        # Type cast since Conversation factory returns LocalConversation for local usage
-
         conversation = LocalConversation(
             agent=agent,
             persist_filestore=LocalFileStore(
@@ -179,39 +177,28 @@ class EventService:
         conversation.set_confirmation_policy(self.stored.confirmation_policy)
         self._conversation = conversation
 
-    async def run(self):
+    async def _run(self):
         """Run the conversation asynchronously."""
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._conversation.run)
+        try:
+            await loop.run_in_executor(None, self._conversation.run)
+        except Exception as e:
+            logger.exception(
+                f"Run failed for conversation {self.stored.id}: {e}",
+                stack_info=True,
+            )
+            raise
 
     async def start_background_run(self):
         """Start running the conversation in the background."""
         if not self._conversation:
             raise ValueError("inactive_service")
-
-        # Check if already running
         if self._run_task and not self._run_task.done():
             raise ValueError("conversation_already_running")
-
-        # Start new background task
-        self._run_task = asyncio.create_task(self._background_run())
+        self._run_task = asyncio.create_task(self._run())
         return self._run_task
-
-    async def _background_run(self):
-        """Internal method to run conversation in background."""
-        try:
-            await self.run()
-        except Exception as e:
-            logger.exception(
-                f"Background run failed for conversation {self.stored.id}: {e}"
-            )
-            raise
-
-    def is_running(self) -> bool:
-        """Check if a background run task is currently active."""
-        return self._run_task is not None and not self._run_task.done()
 
     async def stop_background_run(self) -> bool:
         """Stop the currently running background task if any.
@@ -230,7 +217,7 @@ class EventService:
 
     async def respond_to_confirmation(self, request: ConfirmationResponseRequest):
         if request.accept:
-            await self.run()
+            await self.start_background_run()
         else:
             await self.pause()
 
@@ -261,10 +248,10 @@ class EventService:
             loop = asyncio.get_running_loop()
             loop.run_in_executor(None, self._conversation.close)
 
-    async def get_status(self) -> AgentExecutionStatus:
+    async def get_state(self) -> ConversationState:
         if not self._conversation:
-            return AgentExecutionStatus.ERROR
-        return self._conversation.state.agent_status
+            raise ValueError("inactive_service")
+        return self._conversation._state
 
     async def __aenter__(self, conversation_id: UUID):
         await self.start(conversation_id=conversation_id)

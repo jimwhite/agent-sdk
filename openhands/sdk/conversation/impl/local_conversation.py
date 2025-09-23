@@ -103,7 +103,13 @@ class LocalConversation(BaseConversation):
 
     @property
     def state(self) -> ConversationStateProtocol:
-        """Get the conversation state."""
+        """Get the conversation state.
+
+        It returns a protocol that has a subset of ConversationState methods
+        and properties. We will have the ability to access the same properties
+        of ConversationState on a remote conversation object.
+        But we won't be able to access methods that mutate the state.
+        """
         return self._state
 
     @property

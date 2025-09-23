@@ -131,8 +131,8 @@ class ConversationState(OpenHandsModel):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        max_iterations: int,
-        stuck_detection: bool,
+        max_iterations: int = 500,
+        stuck_detection: bool = True,
         file_store: FileStore | None = None,
     ) -> "ConversationState":
         """

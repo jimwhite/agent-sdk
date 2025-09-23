@@ -9,7 +9,6 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 if TYPE_CHECKING:
-    from openhands.sdk.conversation.secrets_manager import SecretsManager
     from openhands.sdk.conversation.state import AgentExecutionStatus
     from openhands.sdk.event.base import EventBase
 
@@ -40,11 +39,6 @@ class ConversationStateProtocol(Protocol):
     @property
     def activated_knowledge_microagents(self) -> list[str]:
         """List of activated knowledge microagents."""
-        ...
-
-    @property
-    def secrets_manager(self) -> "SecretsManager":
-        """Access to the secrets manager."""
         ...
 
 
