@@ -25,7 +25,7 @@ def compose_callbacks(
     return composed
 
 
-class Conversation(BaseConversation):
+class Conversation:
     """Factory entrypoint that returns a LocalConversation or RemoteConversation.
 
     Usage:

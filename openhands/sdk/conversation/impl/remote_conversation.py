@@ -9,8 +9,7 @@ import httpx
 import websockets
 
 from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.base import ConversationStateProtocol
-from openhands.sdk.conversation.conversation import Conversation
+from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
@@ -276,7 +275,7 @@ class RemoteState(ConversationStateProtocol):
         pass
 
 
-class RemoteConversation(Conversation):
+class RemoteConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
