@@ -10,6 +10,41 @@ from openhands.sdk.security.risk import SecurityRisk
 from openhands.sdk.tool import ActionBase
 
 
+# TODO: Serialization tests for implementers of the base classes
+
+
+class TestSecurityAnalyzerBase:
+    """Test suite for SecurityAnalyzerBase."""
+
+
+class TestPerActionSecurityAnalyzer:
+    """Test suite for PerActionSecurityAnalyzer."""
+
+    def test_independent_of_current_context(self) -> None:
+        """Test that PerActionSecurityAnalyzer is independent of current_context.
+
+        That is, we should get the same results regardless of what current_context is.
+        """
+
+    def test_handles_actions_independently(self):
+        """Test that PerActionSecurityAnalyzer handles each action independently.
+
+        Regardless of the number of actions or how they are batched, we should get the
+        same result per-action.
+        """
+
+    def test_analyzes_all_pending_actions(self):
+        """Test that PerActionSecurityAnalyzer analyzes all pending actions."""
+
+    def test_handles_exceptions_with_unknown(self):
+        """Test that PerActionSecurityAnalyzer handles exceptions by returning UNKNOWN
+        risk.
+        """
+
+    def test_handles_empty_pending_actions_input(self):
+        """Test that PerActionSecurityAnalyzer handles empty pending actions list."""
+
+
 class TestSecurityAnalyzerMockAction(ActionBase):
     """Mock action for testing."""
 
@@ -23,8 +58,6 @@ class TestSecurityAnalyzer(PerActionSecurityAnalyzer):
 
     risk_return_value: SecurityRisk = SecurityRisk.LOW
     security_risk_calls: list[ActionEvent] = []
-    handle_api_request_calls: list[dict] = []
-    close_calls: list[bool] = []
 
     def security_risk(self, action: ActionEvent) -> SecurityRisk:
         """Return configurable risk level for testing."""
