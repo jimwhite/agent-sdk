@@ -28,141 +28,97 @@ logger = get_logger(__name__)
 
 
 class WebSocketCallbackClient:
-    """WebSocket client that connects to agent server and forwards events."""
+    """Minimal WS client: connects, forwards events, retries on error."""
 
     def __init__(
-        self,
-        host: str,
-        conversation_id: str,
-        callbacks: list[ConversationCallbackType],
+        self, host: str, conversation_id: str, callbacks: list[ConversationCallbackType]
     ):
         self.host = host
         self.conversation_id = conversation_id
         self.callbacks = callbacks
-        self._websocket = None
-        self._task = None
-        self._loop = None
-        self._thread = None
-        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
 
     def start(self) -> None:
-        """Start the WebSocket client in a background thread."""
-        if self._thread is not None:
-            return  # Already started
-
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run_in_thread, daemon=True)
+        if self._thread:
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
-        """Stop the WebSocket client."""
-        if self._thread is None:
-            return  # Not started
-
-        self._stop_event.set()
-
-        # Cancel the task if it exists
-        if self._task and self._loop:
-            self._loop.call_soon_threadsafe(self._task.cancel)
-
-        # Wait for thread to finish
-        self._thread.join(timeout=5.0)
+        if not self._thread:
+            return
+        self._stop.set()
+        self._thread.join(timeout=5)
         self._thread = None
 
-    def _run_in_thread(self) -> None:
-        """Run the WebSocket client in a separate thread with its own event loop."""
+    def _run(self) -> None:
         try:
-            # Create a new event loop for this thread
-            self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._loop)
+            asyncio.run(self._client_loop())
+        except RuntimeError:
+            # Fallback in case of an already running loop in rare environments
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self._client_loop())
+            loop.close()
 
-            # Run the WebSocket client
-            self._task = self._loop.create_task(self._websocket_client())
-            self._loop.run_until_complete(self._task)
-        except asyncio.CancelledError:
-            logger.debug("WebSocket client task was cancelled")
-        except Exception as e:
-            logger.error(f"WebSocket client error: {e}", exc_info=True)
-        finally:
-            if self._loop:
-                self._loop.close()
-
-    async def _websocket_client(self) -> None:
-        """Main WebSocket client coroutine."""
-        # Convert HTTP URL to WebSocket URL
+    async def _client_loop(self) -> None:
         parsed = urlparse(self.host)
         ws_scheme = "wss" if parsed.scheme == "https" else "ws"
-        ws_url = f"{ws_scheme}://{parsed.netloc}/api/conversations/{self.conversation_id}/events/socket"
+        base = f"{ws_scheme}://{parsed.netloc}{parsed.path.rstrip('/')}"
+        ws_url = f"{base}/api/conversations/{self.conversation_id}/events/socket"
 
-        logger.debug(f"Connecting to WebSocket: {ws_url}")
-
-        max_retries = 5
-        retry_delay = 1.0
-
-        for attempt in range(max_retries):
-            if self._stop_event.is_set():
-                break
-
+        delay = 1.0
+        while not self._stop.is_set():
             try:
-                async with websockets.connect(ws_url) as websocket:
-                    self._websocket = websocket
-                    logger.debug("WebSocket connected successfully")
-
-                    # Listen for events
-                    async for message in websocket:
-                        if self._stop_event.is_set():
+                async with websockets.connect(ws_url) as ws:
+                    delay = 1.0
+                    async for message in ws:
+                        if self._stop.is_set():
                             break
-
                         try:
-                            # Parse the event
-                            event_data = json.loads(message)
-                            event = EventBase.model_validate(event_data)
-
-                            # Forward to all callbacks
-                            for callback in self.callbacks:
-                                try:
-                                    callback(event)
-                                except Exception as e:
-                                    logger.error(
-                                        f"Error in callback: {e}", exc_info=True
-                                    )
-
-                        except Exception as e:
-                            logger.error(
-                                f"Error processing WebSocket message: {e}",
-                                exc_info=True,
+                            event = EventBase.model_validate(json.loads(message))
+                            for cb in self.callbacks:
+                                cb(event)
+                        except Exception:
+                            logger.exception(
+                                "ws_event_processing_error", stack_info=True
                             )
-
             except websockets.exceptions.ConnectionClosed:
-                logger.debug("WebSocket connection closed")
                 break
-            except Exception as e:
-                logger.warning(
-                    f"WebSocket connection attempt {attempt + 1} failed: {e}"
-                )
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay)
-                    retry_delay = min(
-                        retry_delay * 2, 30.0
-                    )  # Exponential backoff, max 30s
-                else:
-                    logger.error("Max WebSocket connection retries exceeded")
-                    break
-            finally:
-                self._websocket = None
+            except Exception:
+                logger.debug("ws_connect_retry", exc_info=True)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 30.0)
 
 
 class RemoteEventsList(ListLike[EventBase]):
-    """A list-like interface for accessing events from a remote conversation."""
+    """A list-like, read-only view of remote conversation events.
+
+    On first access it fetches existing events from the server. Afterwards,
+    it relies on the WebSocket stream to incrementally append new events.
+    """
 
     def __init__(self, client: httpx.Client, conversation_id: str):
         self._client = client
         self._conversation_id = conversation_id
+        self._cached_events: list[EventBase] = []
+        self._lock = threading.RLock()
 
     def _fetch_all_events(self) -> list[EventBase]:
-        """Fetch all events from the remote API."""
-        if self._cached_events is not None:
-            return self._cached_events
+        """Return a snapshot of all known events.
+
+        Performs a one-time full sync if the local cache is empty.
+        """
+        with self._lock:
+            if not self._cached_events:
+                self._do_full_sync()
+            return self._cached_events.copy()
+
+    def _do_full_sync(self) -> None:
+        """Perform a full sync with the remote API."""
+        logger.debug(f"Performing full sync for conversation {self._conversation_id}")
 
         events = []
         page_id = None
@@ -186,7 +142,28 @@ class RemoteEventsList(ListLike[EventBase]):
             page_id = data["next_page_id"]
 
         self._cached_events = events
-        return events
+        logger.debug(f"Full sync completed, {len(events)} events cached")
+
+    def add_event(self, event: EventBase) -> None:
+        """Add a new event to the local cache (called by WebSocket callback)."""
+        with self._lock:
+            # Check if event already exists to avoid duplicates
+            if not any(e.id == event.id for e in self._cached_events):
+                self._cached_events.append(event)
+                logger.debug(f"Added event {event.id} to local cache")
+
+    def force_sync(self) -> None:
+        """Force a full synchronization with the remote API."""
+        with self._lock:
+            self._do_full_sync()
+
+    def create_default_callback(self) -> ConversationCallbackType:
+        """Create a default callback that adds events to this list."""
+
+        def callback(event: EventBase) -> None:
+            self.add_event(event)
+
+        return callback
 
     def __len__(self) -> int:
         return len(self._fetch_all_events())
@@ -278,7 +255,6 @@ class RemoteConversation(BaseConversation):
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
-        confirmation_mode: bool | None = None,
         visualize: bool = False,
         **_: object,
     ) -> None:
@@ -290,16 +266,12 @@ class RemoteConversation(BaseConversation):
             conversation_id: Optional existing conversation id to attach to
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
-            confirmation_mode: Optional confirmation mode flag to set on start
         """
         self.agent = agent
         self._host = host.rstrip("/")
         self._client = httpx.Client(base_url=self._host, timeout=30.0)
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
-        self._confirmation_mode = (
-            bool(confirmation_mode) if confirmation_mode else False
-        )
 
         # Add default visualizer if requested
         if visualize:
@@ -313,7 +285,6 @@ class RemoteConversation(BaseConversation):
                 "agent": agent.model_dump(
                     mode="json", context={"expose_secrets": True}
                 ),
-                "confirmation_mode": self._confirmation_mode,
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
             }
@@ -337,15 +308,17 @@ class RemoteConversation(BaseConversation):
         # Initialize the remote state
         self._state = RemoteState(self._client, str(self._id))
 
-        # Initialize WebSocket client for callbacks if provided
-        self._ws_client = None
-        if self._callbacks:
-            self._ws_client = WebSocketCallbackClient(
-                host=self._host,
-                conversation_id=str(self._id),
-                callbacks=self._callbacks,
-            )
-            self._ws_client.start()
+        # Add default callback to maintain local event state
+        default_callback = self._state.events.create_default_callback()
+        self._callbacks.append(default_callback)
+
+        # Initialize WebSocket client for callbacks
+        self._ws_client = WebSocketCallbackClient(
+            host=self._host,
+            conversation_id=str(self._id),
+            callbacks=self._callbacks,
+        )
+        self._ws_client.start()
 
     @property
     def id(self) -> ConversationID:
@@ -371,26 +344,22 @@ class RemoteConversation(BaseConversation):
         resp.raise_for_status()
 
     def run(self) -> None:
-        current_status = self.state.agent_status
-        if current_status != AgentExecutionStatus.RUNNING:
-            # Trigger a run on the server using the dedicated run endpoint
-            resp = self._client.post(
-                f"/api/conversations/{self._id}/run",
-                # Allow long timeout for run requests
-                # Ideally we would use async and websockets for this
-                # but this is more like a PoC for now
-                timeout=1800,
-            )
-            resp.raise_for_status()
-            logger.info(f"Conversation run triggered: {resp.json()}")
-        else:
+        # Trigger a run on the server using the dedicated run endpoint.
+        # Let the server tell us if it's already running (409), avoiding an extra GET.
+        resp = self._client.post(
+            f"/api/conversations/{self._id}/run",
+            timeout=1800,
+        )
+        if resp.status_code == 409:
             logger.info("Conversation is already running; skipping run trigger")
-        logger.info("run() completed")
+            return
+        resp.raise_for_status()
+        logger.info("run() triggered successfully")
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}
         resp = self._client.post(
-            f"/api/conversations/{self._id}/confirmation-policy", json=payload
+            f"/api/conversations/{self._id}/confirmation_policy", json=payload
         )
         resp.raise_for_status()
 
