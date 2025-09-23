@@ -19,6 +19,7 @@ from openhands.sdk.llm import (
     LLMRegistry,
     Message,
     RegistryEvent,
+    ResponsesAPIResponse,
     TextContent,
 )
 from openhands.sdk.logger import get_logger
@@ -47,6 +48,7 @@ __all__ = [
     "Message",
     "TextContent",
     "ImageContent",
+    "ResponsesAPIResponse",
     "Tool",
     "ToolBase",
     "ToolSpec",

@@ -43,6 +43,19 @@ from litellm.exceptions import (
     Timeout as LiteLLMTimeout,
 )
 from litellm.types.utils import ModelResponse
+
+
+# Import responses API
+try:
+    from litellm import responses as litellm_responses
+    from litellm.types.llms.openai import ResponsesAPIResponse
+
+    RESPONSES_API_AVAILABLE = True
+except ImportError:
+    litellm_responses = None
+    ResponsesAPIResponse = None
+    RESPONSES_API_AVAILABLE = False
+
 from litellm.utils import (
     create_pretrained_tokenizer,
     get_model_info,
@@ -437,6 +450,112 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             return resp
         except Exception as e:
             self._telemetry.on_error(e)
+            raise
+
+    def responses(
+        self,
+        input_text: str,
+        tools: Sequence[ToolBase] | None = None,
+        instructions: str | None = None,
+        max_output_tokens: int | None = None,
+        temperature: float | None = None,
+        **kwargs,
+    ) -> Any:
+        """Single entry point for LLM responses API.
+
+        This method uses the OpenAI Responses API which is required for some models
+        like GPT-5-codex that only support this API format.
+
+        Args:
+            input_text: The input text/prompt for the model
+            tools: Optional sequence of tools to make available to the model
+            instructions: Optional system instructions
+            max_output_tokens: Maximum number of tokens to generate
+            temperature: Sampling temperature
+            **kwargs: Additional parameters to pass to the responses API
+
+        Returns:
+            ResponsesAPIResponse: The response from the responses API
+
+        Raises:
+            ValueError: If responses API is not available or streaming is requested
+            LLMNoResponseError: If the response is empty or malformed
+        """
+        if not RESPONSES_API_AVAILABLE:
+            raise ValueError(
+                "Responses API is not available. Please update litellm to a version "
+                "that supports the responses API."
+            )
+
+        # Check if streaming is requested
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported in responses API yet")
+
+        # Convert Tool objects to the format expected by responses API
+        response_tools = []
+        if tools:
+            response_tools = [t.to_openai_tool() for t in tools]
+
+        # Prepare parameters for responses API
+        response_params = {
+            "input": input_text,
+            "model": self.model,
+            "tools": response_tools if response_tools else None,
+            "instructions": instructions,
+            "max_output_tokens": max_output_tokens or self.max_output_tokens,
+        }
+
+        # Only add temperature if it's provided and not None
+        # Note: Some models like GPT-5 don't support temperature parameter
+        if temperature is not None:
+            response_params["temperature"] = temperature
+        elif self.temperature is not None and self.temperature != 0.0:
+            response_params["temperature"] = self.temperature
+
+        # Add API credentials and configuration
+        if self.api_key:
+            response_params["api_key"] = self.api_key.get_secret_value()
+        if self.base_url:
+            response_params["api_base"] = self.base_url
+        if self.api_version:
+            response_params["api_version"] = self.api_version
+        if self.custom_llm_provider:
+            response_params["custom_llm_provider"] = self.custom_llm_provider
+        if self.timeout:
+            response_params["timeout"] = self.timeout
+
+        # Add any additional kwargs
+        response_params.update(kwargs)
+
+        # Remove None values
+        response_params = {k: v for k, v in response_params.items() if v is not None}
+
+        logger.debug(f"Making responses API call with model: {self.model}")
+
+        try:
+            # Call the responses API
+            if litellm_responses is None:
+                raise ValueError("litellm_responses is not available")
+
+            response = litellm_responses(**response_params)
+
+            # Validate response - check if it's a ResponsesAPIResponse type
+            if not response:
+                raise LLMNoResponseError(
+                    "Response is empty. Response: " + str(response)
+                )
+
+            # For streaming responses, we don't validate output here
+            if hasattr(response, "output"):
+                if not response.output:  # type: ignore[attr-defined]
+                    raise LLMNoResponseError(
+                        "Response output is empty. Response: " + str(response)
+                    )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Responses API call failed: {e}")
             raise
 
     # =========================================================================
