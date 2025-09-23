@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.llm import LLM, Message, TextContent
@@ -21,7 +21,7 @@ class TestRemoteConversation:
         """Set up test environment."""
         self.host = "http://localhost:8000"
         self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
-        self.agent = AgentBase(llm=self.llm, tools=[])
+        self.agent = Agent(llm=self.llm, tools=[])
         self.mock_client = Mock(spec=httpx.Client)
 
     def create_mock_conversation_response(self, conversation_id: str | None = None):

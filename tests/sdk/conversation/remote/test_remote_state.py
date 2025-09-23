@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.impl.remote_conversation import RemoteState
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm import LLM
@@ -26,7 +26,7 @@ class TestRemoteState:
         """Create mock conversation info response."""
         # Create a basic agent for testing
         llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
-        agent = AgentBase(llm=llm, tools=[])
+        agent = Agent(llm=llm, tools=[])
 
         default_info = {
             "id": self.conversation_id,
@@ -276,7 +276,7 @@ class TestRemoteState:
         state = RemoteState(self.mock_client, self.conversation_id)
         agent = state.agent
 
-        assert isinstance(agent, AgentBase)
+        assert isinstance(agent, Agent)
 
     def test_remote_state_agent_missing(self):
         """Test RemoteState agent when missing from response."""
