@@ -1,6 +1,6 @@
 """Utilities for converting Responses API results into Chat Completions format."""
 
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, cast
 
 from litellm import (
     AllMessageValues as ChatCompletionMessageValues,
@@ -18,15 +18,6 @@ from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_output_refusal import ResponseOutputRefusal
 from openai.types.responses.response_output_text import ResponseOutputText
 from openai.types.responses.response_reasoning_item import ResponseReasoningItem
-
-
-class _ImageUrlValue(TypedDict):
-    url: str
-
-
-class _ImageUrlBlock(TypedDict):
-    type: Literal["image_url"]
-    image_url: _ImageUrlValue
 
 
 def messages_to_responses_items(

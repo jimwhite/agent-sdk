@@ -21,7 +21,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.event.condenser import Condensation
+from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
@@ -30,6 +30,7 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     ActionBase,
@@ -91,6 +92,18 @@ class Agent(AgentBase):
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
 
+        # Validate security analyzer configuration once during initialization
+        if self._add_security_risk_prediction and isinstance(
+            state.confirmation_policy, NeverConfirm
+        ):
+            # If security analyzer is enabled, we always need a policy that is not
+            # NeverConfirm, otherwise we are just predicting risks without using them,
+            # and waste tokens!
+            logger.warning(
+                "LLM security analyzer is enabled but confirmation "
+                "policy is set to NeverConfirm"
+            )
+
         # Configure bash tools with env provider
         self._configure_bash_tools_env_provider(state)
 
@@ -118,7 +131,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
     ):
         for action_event in action_events:
-            self._execute_action_events(state, action_event, on_event=on_event)
+            self._execute_action_event(state, action_event, on_event=on_event)
 
     def step(
         self,
@@ -164,16 +177,36 @@ class Agent(AgentBase):
             "Sending messages to LLM: "
             f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
         )
-        response = self.llm.completion(
-            messages=_messages,
-            tools=list(self.tools_map.values()),
-            add_security_risk_prediction=self._add_security_risk_prediction,
-            extra_body={
-                "metadata": get_llm_metadata(
-                    model_name=self.llm.model, agent_name=self.name
+
+        try:
+            response = self.llm.completion(
+                messages=_messages,
+                tools=list(self.tools_map.values()),
+                extra_body={
+                    "metadata": get_llm_metadata(
+                        model_name=self.llm.model, agent_name=self.name
+                    )
+                },
+                add_security_risk_prediction=self._add_security_risk_prediction,
+            )
+        except Exception as e:
+            # If there is a condenser registered and the exception is a context window
+            # exceeded, we can recover by triggering a condensation request.
+            if (
+                self.condenser is not None
+                and self.condenser.handles_condensation_requests()
+                and self.llm.is_context_window_exceeded_exception(e)
+            ):
+                logger.warning(
+                    "LLM raised context window exceeded error, triggering condensation"
                 )
-            },
-        )
+                on_event(CondensationRequest())
+                return
+
+            # If the error isn't recoverable, keep propagating it up the stack.
+            else:
+                raise e
+
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
         llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
         message = Message.from_litellm_message(llm_message)
@@ -208,7 +241,7 @@ class Agent(AgentBase):
 
             action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(tool_calls):
-                action_event = self._get_action_events(
+                action_event = self._get_action_event(
                     state,
                     tool_call,
                     llm_response_id=response.id,
@@ -281,7 +314,7 @@ class Agent(AgentBase):
 
         return False
 
-    def _get_action_events(
+    def _get_action_event(
         self,
         state: ConversationState,
         tool_call: ChatCompletionMessageToolCall,
@@ -291,7 +324,7 @@ class Agent(AgentBase):
         metrics: MetricsSnapshot | None = None,
         reasoning_content: str | None = None,
     ) -> ActionEvent | None:
-        """Handle tool calls from the LLM.
+        """Converts a tool call into an ActionEvent, validating arguments.
 
         NOTE: state will be mutated in-place.
         """
@@ -307,6 +340,8 @@ class Agent(AgentBase):
             event = AgentErrorEvent(
                 error=err,
                 metrics=metrics,
+                tool_name=tool_name,
+                tool_call_id=tool_call.id,
             )
             on_event(event)
             state.agent_status = AgentExecutionStatus.FINISHED
@@ -343,11 +378,12 @@ class Agent(AgentBase):
             event = AgentErrorEvent(
                 error=err,
                 metrics=metrics,
+                tool_name=tool_name,
+                tool_call_id=tool_call.id,
             )
             on_event(event)
             return
 
-        # Create one ActionEvent per action
         action_event = ActionEvent(
             action=action,
             thought=thought,
@@ -362,13 +398,13 @@ class Agent(AgentBase):
         on_event(action_event)
         return action_event
 
-    def _execute_action_events(
+    def _execute_action_event(
         self,
         state: ConversationState,
         action_event: ActionEvent,
         on_event: ConversationCallbackType,
     ):
-        """Execute action events and update the conversation state.
+        """Execute an action event and update the conversation state.
 
         It will call the tool's executor and update the state & call callback fn
         with the observation.
