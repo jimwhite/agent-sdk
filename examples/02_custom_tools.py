@@ -119,7 +119,7 @@ _GREP_DESCRIPTION = """Fast content search tool.
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="anthropic/claude-sonnet-4-20250514",
     base_url=os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev"),
     api_key=SecretStr(api_key),
 )

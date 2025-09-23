@@ -24,12 +24,12 @@ api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 primary_llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="anthropic/claude-sonnet-4-20250514",
     base_url=os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev"),
     api_key=SecretStr(api_key),
 )
 secondary_llm = LLM(
-    model="litellm_proxy/mistral/devstral-small-2507",
+    model="mistral/devstral-small-2507",
     base_url=os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev"),
     api_key=SecretStr(api_key),
 )

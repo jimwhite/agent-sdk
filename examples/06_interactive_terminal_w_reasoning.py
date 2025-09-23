@@ -20,8 +20,8 @@ logger = get_logger(__name__)
 api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
-    # model="litellm_proxy/gemini/gemini-2.5-pro",
-    model="litellm_proxy/deepseek/deepseek-reasoner",
+    # model="gemini/gemini-2.5-pro",
+    model="deepseek/deepseek-reasoner",
     base_url=os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev"),
     api_key=SecretStr(api_key),
 )
