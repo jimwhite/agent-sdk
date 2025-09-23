@@ -118,101 +118,99 @@ class ManagedAPIServer:
             print("API server stopped.")
 
 
-if __name__ == "__main__":
-    api_key = os.getenv("LITELLM_API_KEY")
-    assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LITELLM_API_KEY")
+assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
-    llm = LLM(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
-        base_url="https://llm-proxy.eval.all-hands.dev",
-        api_key=SecretStr(api_key),
+llm = LLM(
+    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
+)
+
+# Use managed API server
+with ManagedAPIServer(port=8001) as server:
+    # Create agent
+    agent = get_default_agent(
+        llm=llm,
+        working_dir=str(Path.cwd()),
+        cli_mode=True,  # Disable browser tools for simplicity
     )
 
-    # Use managed API server
-    with ManagedAPIServer(port=8001) as server:
-        # Create agent
-        agent = get_default_agent(
-            llm=llm,
-            working_dir=str(Path.cwd()),
-            cli_mode=True,  # Disable browser tools for simplicity
+    # Define callbacks to test the WebSocket functionality
+    received_events = []
+    event_tracker = {"last_event_time": time.time()}
+
+    def event_callback(event):
+        """Callback to capture events for testing."""
+        event_type = type(event).__name__
+        logger.info(f"🔔 Callback received event: {event_type}\n{event}")
+        received_events.append(event)
+        event_tracker["last_event_time"] = time.time()
+
+    # Create RemoteConversation with callbacks
+    conversation = Conversation(
+        agent=agent,
+        host=server.base_url,
+        callbacks=[event_callback],
+        visualize=True,
+    )
+    assert isinstance(conversation, RemoteConversation)
+
+    try:
+        logger.info(f"\n📋 Conversation ID: {conversation.state.id}")
+
+        # Send first message and run
+        logger.info("📝 Sending first message...")
+        conversation.send_message(
+            "Read the current repo and write 3 facts about the project into FACTS.txt."
         )
 
-        # Define callbacks to test the WebSocket functionality
-        received_events = []
-        event_tracker = {"last_event_time": time.time()}
+        logger.info("🚀 Running conversation...")
+        conversation.run()
 
-        def event_callback(event):
-            """Callback to capture events for testing."""
+        logger.info("✅ First task completed!")
+        logger.info(f"Agent status: {conversation.state.agent_status}")
+
+        # Wait for events to stop coming (no events for 2 seconds)
+        logger.info("⏳ Waiting for events to stop...")
+        while time.time() - event_tracker["last_event_time"] < 2.0:
+            time.sleep(0.1)
+        logger.info("✅ Events have stopped")
+
+        logger.info("🚀 Running conversation again...")
+        conversation.send_message("Great! Now delete that file.")
+        conversation.run()
+        logger.info("✅ Second task completed!")
+
+        # Demonstrate state.events functionality
+        logger.info("\n" + "=" * 50)
+        logger.info("📊 Demonstrating State Events API")
+        logger.info("=" * 50)
+
+        # Count total events using state.events
+        total_events = len(conversation.state.events)
+        logger.info(f"📈 Total events in conversation: {total_events}")
+
+        # Get recent events (last 5) using state.events
+        logger.info("\n🔍 Getting last 5 events using state.events...")
+        all_events = conversation.state.events
+        recent_events = all_events[-5:] if len(all_events) >= 5 else all_events
+
+        for i, event in enumerate(recent_events, 1):
             event_type = type(event).__name__
-            logger.info(f"🔔 Callback received event: {event_type}\n{event}")
-            received_events.append(event)
-            event_tracker["last_event_time"] = time.time()
+            timestamp = getattr(event, "timestamp", "Unknown")
+            logger.info(f"  {i}. {event_type} at {timestamp}")
 
-        # Create RemoteConversation with callbacks
-        conversation = Conversation(
-            agent=agent,
-            host=server.base_url,
-            callbacks=[event_callback],
-            visualize=True,
-        )
-        assert isinstance(conversation, RemoteConversation)
+        # Let's see what the actual event types are
+        logger.info("\n🔍 Event types found:")
+        event_types = set()
+        for event in recent_events:
+            event_type = type(event).__name__
+            event_types.add(event_type)
+        for event_type in sorted(event_types):
+            logger.info(f"  - {event_type}")
 
-        try:
-            logger.info(f"\n📋 Conversation ID: {conversation.state.id}")
-
-            # Send first message and run
-            logger.info("📝 Sending first message...")
-            conversation.send_message(
-                "Read the current repo and write 3 facts about "
-                "the project into FACTS.txt."
-            )
-
-            logger.info("🚀 Running conversation...")
-            conversation.run()
-
-            logger.info("✅ First task completed!")
-            logger.info(f"Agent status: {conversation.state.agent_status}")
-
-            # Wait for events to stop coming (no events for 2 seconds)
-            logger.info("⏳ Waiting for events to stop...")
-            while time.time() - event_tracker["last_event_time"] < 2.0:
-                time.sleep(0.1)
-            logger.info("✅ Events have stopped")
-
-            logger.info("🚀 Running conversation again...")
-            conversation.send_message("Great! Now delete that file.")
-            conversation.run()
-            logger.info("✅ Second task completed!")
-
-            # Demonstrate state.events functionality
-            logger.info("\n" + "=" * 50)
-            logger.info("📊 Demonstrating State Events API")
-            logger.info("=" * 50)
-
-            # Count total events using state.events
-            total_events = len(conversation.state.events)
-            logger.info(f"📈 Total events in conversation: {total_events}")
-
-            # Get recent events (last 5) using state.events
-            logger.info("\n🔍 Getting last 5 events using state.events...")
-            all_events = conversation.state.events
-            recent_events = all_events[-5:] if len(all_events) >= 5 else all_events
-
-            for i, event in enumerate(recent_events, 1):
-                event_type = type(event).__name__
-                timestamp = getattr(event, "timestamp", "Unknown")
-                logger.info(f"  {i}. {event_type} at {timestamp}")
-
-            # Let's see what the actual event types are
-            logger.info("\n🔍 Event types found:")
-            event_types = set()
-            for event in recent_events:
-                event_type = type(event).__name__
-                event_types.add(event_type)
-            for event_type in sorted(event_types):
-                logger.info(f"  - {event_type}")
-
-        finally:
-            # Clean up
-            print("\n🧹 Cleaning up conversation...")
-            conversation.close()
+    finally:
+        # Clean up
+        print("\n🧹 Cleaning up conversation...")
+        conversation.close()
