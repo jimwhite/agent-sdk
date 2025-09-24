@@ -73,10 +73,13 @@ class LLMSummarizingCondenser(RollingCondenser):
                 )
             },
         )
-        from litellm.types.utils import Choices
+        from typing import cast
 
-        assert len(response.choices) >= 1 and isinstance(response.choices[0], Choices)
-        msg = response.choices[0].message
+        from litellm.types.utils import Choices as LiteChoices
+
+        assert len(response.choices) >= 1
+        choice0 = cast(LiteChoices, response.choices[0])
+        msg = choice0.message
         summary = msg.content if isinstance(msg.content, str) else str(msg.content)
 
         return Condensation(
