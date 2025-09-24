@@ -1,5 +1,6 @@
 from abc import ABC
-from typing import Any, Generic, Self, TypeVar
+from collections.abc import Sequence
+from typing import Any, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -61,7 +62,7 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor(Generic[ActionT, ObservationT]):
+class ToolExecutor[ActionT, ObservationT]:
     """Executor function type for a Tool."""
 
     def __call__(self, action: ActionT) -> ObservationT:
@@ -77,7 +78,7 @@ class ToolExecutor(Generic[ActionT, ObservationT]):
         pass
 
 
-class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
+class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     """Tool that wraps an executor function with input/output validation and schema.
 
     - Normalize input/output schemas (class or dict) into both model+schema.
@@ -102,11 +103,15 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Self | list[Self]":
-        """Create a Tool instance OR a list of them. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+        """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Returns:
+            A sequence of Tool instances. Even single tools are returned as a sequence
+            to provide a consistent interface and eliminate union return types.
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
@@ -273,7 +278,7 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
         return Tool
 
 
-class Tool(ToolBase[ActionT, ObservationT], Generic[ActionT, ObservationT]):
+class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     pass
 
 
