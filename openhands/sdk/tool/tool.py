@@ -102,11 +102,14 @@ class ToolBase(DiscriminatedUnionMixin, Generic[ActionT, ObservationT], ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> "Self | list[Self]":
-        """Create a Tool instance OR a list of them. Placeholder for subclasses.
+    def create(cls, *args, **kwargs) -> "Self":
+        """Create a Tool instance. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
             (e.g., typically initializing the executor with parameters).
+
+        Note: For cases where multiple tools need to be created, consider using
+        a separate factory class or tool set pattern rather than returning a list.
         """
         raise NotImplementedError("Tool.create() must be implemented in subclasses")
 

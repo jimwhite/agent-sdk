@@ -197,7 +197,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         default=None,
         exclude=True,
     )
-    _metrics: Metrics | None = PrivateAttr(default=None)
+    _metrics: Metrics = PrivateAttr(default_factory=lambda: Metrics(model_name=""))
     # ===== Plain class vars (NOT Fields) =====
     # When serializing, these fields (SecretStr) will be dump to "****"
     # When deserializing, these fields will be ignored and we will override
@@ -212,7 +212,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     _model_info: Any = PrivateAttr(default=None)
     _tokenizer: Any = PrivateAttr(default=None)
     _function_calling_active: bool = PrivateAttr(default=False)
-    _telemetry: Telemetry | None = PrivateAttr(default=None)
+    _telemetry: Telemetry = PrivateAttr(
+        default_factory=lambda: Telemetry(
+            model_name="",
+            log_enabled=False,
+            log_dir=None,
+            metrics=Metrics(model_name=""),
+        )
+    )
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
@@ -287,8 +294,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             os.environ["AWS_REGION_NAME"] = self.aws_region_name
 
         # Metrics + Telemetry wiring
-        if self._metrics is None:
-            self._metrics = Metrics(model_name=self.model)
+        self._metrics = Metrics(model_name=self.model)
 
         self._telemetry = Telemetry(
             model_name=self.model,
@@ -333,9 +339,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     @property
     def metrics(self) -> Metrics:
-        assert self._metrics is not None, (
-            "Metrics should be initialized after model validation"
-        )
         return self._metrics
 
     def restore_metrics(self, metrics: Metrics) -> None:
@@ -392,7 +395,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         call_kwargs = self._normalize_call_kwargs(kwargs, has_tools=has_tools_flag)
 
         # 4) optional request logging context (kept small)
-        assert self._telemetry is not None
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
@@ -415,7 +417,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             retry_listener=self.retry_listener,
         )
         def _one_attempt(**retry_kwargs) -> ModelResponse:
-            assert self._telemetry is not None
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
             resp = self._transport_call(messages=formatted_messages, **final_kwargs)
