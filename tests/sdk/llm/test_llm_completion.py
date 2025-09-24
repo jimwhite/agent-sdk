@@ -1,6 +1,5 @@
 """Tests for LLM completion functionality, configuration, and metrics tracking."""
 
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -345,22 +344,22 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     assert response is not None
     mock_completion.assert_called_once()
     # And that post-response conversion produced a tool_call
-    # Pyright: choices can include StreamingChoices; assert/guard for message presence
-    choice0 = response.choices[0]
-    assert hasattr(choice0, "message")
-    msg = choice0.message  # type: ignore[attr-defined]
-    # Guard for optional attribute in typeshed: treat None as failure explicitly
+    # Access message through CompletionResult interface
+    msg = response.message
+    # Guard for optional attribute: treat None as failure explicitly
     assert getattr(msg, "tool_calls", None) is not None, (
         "Expected tool_calls after post-mock"
     )
-    # At this point, typeshed doesn't narrow tool_calls to non-None; assert explicitly
+    # At this point, tool_calls should be non-None; assert explicitly
     assert msg.tool_calls is not None
     tc = msg.tool_calls[0]
     assert tc.type == "function"
     assert tc.function.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
-    if isinstance(msg.content, str):
-        assert "<function=" not in msg.content
+    if msg.content:
+        for content_item in msg.content:
+            if isinstance(content_item, TextContent):
+                assert "<function=" not in content_item.text
 
     # Verify that the call was made without native tools parameter
     # (since we're using prompt-based tool calling)
