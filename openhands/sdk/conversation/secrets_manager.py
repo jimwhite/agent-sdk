@@ -91,6 +91,34 @@ class SecretsManager:
         logger.debug(f"Prepared {len(env_vars)} secrets as environment variables")
         return env_vars
 
+    def export_all_secrets(self) -> list[str]:
+        """Export all secrets as bash export commands.
+
+        Returns:
+            List of bash export commands for all secrets
+        """
+        import shlex
+
+        export_commands = []
+        for key, provider_or_value in self._secrets.items():
+            try:
+                value = (
+                    provider_or_value()
+                    if callable(provider_or_value)
+                    else provider_or_value
+                )
+                # Track successfully exported values for masking
+                self._exported_values[key] = value
+                # Use shlex.quote to safely handle special characters
+                export_commands.append(f"export {key}={shlex.quote(value)}")
+                logger.debug(f"Prepared export command for secret '{key}'")
+            except Exception as e:
+                logger.error(f"Failed to retrieve secret for key '{key}': {e}")
+                continue
+
+        logger.debug(f"Prepared {len(export_commands)} export commands")
+        return export_commands
+
     def mask_secrets_in_output(self, text: str) -> str:
         """Mask secret values in the given text.
 

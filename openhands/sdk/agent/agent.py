@@ -47,40 +47,58 @@ class Agent(AgentBase):
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
 
-    def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
+    def _configure_bash_tools_secrets(self, state: ConversationState) -> None:
         """
-        Configure bash tool with reference to secrets manager.
-        Updated secrets automatically propagate.
+        Configure bash tool with secrets masking and export initial secrets.
         """
-
         secrets_manager = state.secrets_manager
-
-        def env_for_cmd(cmd: str) -> dict[str, str]:
-            try:
-                return secrets_manager.get_secrets_as_env_vars(cmd)
-            except Exception:
-                return {}
 
         def env_masker(output: str) -> str:
             try:
                 return secrets_manager.mask_secrets_in_output(output)
             except Exception:
-                return ""
+                return output
 
-        execute_bash_exists = False
+        bash_executor = None
         for tool in self.tools_map.values():
             if (
                 tool.name == "execute_bash"
                 and hasattr(tool, "executor")
                 and tool.executor is not None
             ):
-                # Wire the env provider and env masker for the bash executor
-                setattr(tool.executor, "env_provider", env_for_cmd)
+                # Wire the env masker for the bash executor
                 setattr(tool.executor, "env_masker", env_masker)
-                execute_bash_exists = True
+                bash_executor = tool.executor
+                break
 
-        if not execute_bash_exists:
-            logger.warning("Skipped wiring SecretsManager: missing bash tool")
+        if not bash_executor:
+            logger.warning("Skipped configuring bash tools secrets: missing bash tool")
+            return
+
+        # Export all current secrets
+        self._export_all_secrets(secrets_manager, bash_executor)
+
+    def _export_all_secrets(self, secrets_manager, bash_executor) -> None:
+        """Export all secrets to the bash session."""
+        export_commands = secrets_manager.export_all_secrets()
+        if not export_commands:
+            return
+
+        logger.info(f"Exporting {len(export_commands)} secrets to bash session")
+
+        # Execute all export commands in a single bash call
+        combined_command = " && ".join(export_commands)
+
+        # Import here to avoid circular imports
+        from openhands.tools.execute_bash.definition import ExecuteBashAction
+
+        try:
+            bash_executor.session.execute(
+                ExecuteBashAction(command=combined_command, is_input=False)
+            )
+            logger.debug("Successfully exported all secrets to bash session")
+        except Exception as e:
+            logger.error(f"Failed to export secrets to bash session: {e}")
 
     def init_state(
         self,
@@ -103,8 +121,8 @@ class Agent(AgentBase):
                 "policy is set to NeverConfirm"
             )
 
-        # Configure bash tools with env provider
-        self._configure_bash_tools_env_provider(state)
+        # Configure bash tools with secrets
+        self._configure_bash_tools_secrets(state)
 
         llm_convertible_messages = [
             event for event in state.events if isinstance(event, LLMConvertibleEvent)
