@@ -200,13 +200,13 @@ class ConversationService:
         )
 
         self._event_services[conversation_id] = event_service
-        await event_service.start(conversation_id=conversation_id)
+        await event_service.start()
         initial_message = request.initial_message
         if initial_message:
             message = Message(
                 role=initial_message.role, content=initial_message.content
             )
-            await event_service.send_message(message, run=initial_message.run)
+            await event_service.send_message(message)
 
         state = await event_service.get_state()
         conversation_info = _compose_conversation_info(event_service.stored, state)
@@ -233,7 +233,7 @@ class ConversationService:
             raise ValueError("inactive_service")
         event_service = self._event_services.get(conversation_id)
         if event_service:
-            await event_service.start(conversation_id=conversation_id)
+            await event_service.start()
         return bool(event_service)
 
     async def delete_conversation(self, conversation_id: UUID) -> bool:
