@@ -7,7 +7,6 @@ while keeping the LLM deterministic via monkeypatching.
 from __future__ import annotations
 
 import json
-import socket
 import threading
 import time
 from collections.abc import Generator
@@ -19,12 +18,7 @@ from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelRespons
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, Conversation
-
-
-def _free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 
 
 @pytest.fixture
@@ -63,7 +57,7 @@ def server_env(
     app = create_app(cfg_obj)
 
     # Start uvicorn on a free port
-    port = _free_port()
+    port = find_available_tcp_port()
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
     server = uvicorn.Server(config)
 
