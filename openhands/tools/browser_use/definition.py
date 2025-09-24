@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Self
 
 from pydantic import Field
 
@@ -92,15 +92,17 @@ class BrowserNavigateTool(Tool[BrowserNavigateAction, BrowserObservation]):
     """Tool for browser navigation."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_navigate_tool.name,
-            description=BROWSER_NAVIGATE_DESCRIPTION,
-            action_type=BrowserNavigateAction,
-            observation_type=BrowserObservation,
-            annotations=browser_navigate_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_navigate_tool.name,
+                description=BROWSER_NAVIGATE_DESCRIPTION,
+                action_type=BrowserNavigateAction,
+                observation_type=BrowserObservation,
+                annotations=browser_navigate_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -149,15 +151,17 @@ class BrowserClickTool(Tool[BrowserClickAction, BrowserObservation]):
     """Tool for clicking browser elements."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_click_tool.name,
-            description=BROWSER_CLICK_DESCRIPTION,
-            action_type=BrowserClickAction,
-            observation_type=BrowserObservation,
-            annotations=browser_click_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_click_tool.name,
+                description=BROWSER_CLICK_DESCRIPTION,
+                action_type=BrowserClickAction,
+                observation_type=BrowserObservation,
+                annotations=browser_click_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -203,15 +207,17 @@ class BrowserTypeTool(Tool[BrowserTypeAction, BrowserObservation]):
     """Tool for typing text into browser elements."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_type_tool.name,
-            description=BROWSER_TYPE_DESCRIPTION,
-            action_type=BrowserTypeAction,
-            observation_type=BrowserObservation,
-            annotations=browser_type_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_type_tool.name,
+                description=BROWSER_TYPE_DESCRIPTION,
+                action_type=BrowserTypeAction,
+                observation_type=BrowserObservation,
+                annotations=browser_type_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -254,15 +260,17 @@ class BrowserGetStateTool(Tool[BrowserGetStateAction, BrowserObservation]):
     """Tool for getting browser state."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_get_state_tool.name,
-            description=BROWSER_GET_STATE_DESCRIPTION,
-            action_type=BrowserGetStateAction,
-            observation_type=BrowserObservation,
-            annotations=browser_get_state_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_get_state_tool.name,
+                description=BROWSER_GET_STATE_DESCRIPTION,
+                action_type=BrowserGetStateAction,
+                observation_type=BrowserObservation,
+                annotations=browser_get_state_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -306,15 +314,17 @@ class BrowserGetContentTool(Tool[BrowserGetContentAction, BrowserObservation]):
     """Tool for getting page content in markdown."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_get_content_tool.name,
-            description=BROWSER_GET_CONTENT_DESCRIPTION,
-            action_type=BrowserGetContentAction,
-            observation_type=BrowserObservation,
-            annotations=browser_get_content_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_get_content_tool.name,
+                description=BROWSER_GET_CONTENT_DESCRIPTION,
+                action_type=BrowserGetContentAction,
+                observation_type=BrowserObservation,
+                annotations=browser_get_content_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -357,15 +367,17 @@ class BrowserScrollTool(Tool[BrowserScrollAction, BrowserObservation]):
     """Tool for scrolling the browser page."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_scroll_tool.name,
-            description=BROWSER_SCROLL_DESCRIPTION,
-            action_type=BrowserScrollAction,
-            observation_type=BrowserObservation,
-            annotations=browser_scroll_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_scroll_tool.name,
+                description=BROWSER_SCROLL_DESCRIPTION,
+                action_type=BrowserScrollAction,
+                observation_type=BrowserObservation,
+                annotations=browser_scroll_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -402,15 +414,17 @@ class BrowserGoBackTool(Tool[BrowserGoBackAction, BrowserObservation]):
     """Tool for going back in browser history."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_go_back_tool.name,
-            description=BROWSER_GO_BACK_DESCRIPTION,
-            action_type=BrowserGoBackAction,
-            observation_type=BrowserObservation,
-            annotations=browser_go_back_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_go_back_tool.name,
+                description=BROWSER_GO_BACK_DESCRIPTION,
+                action_type=BrowserGoBackAction,
+                observation_type=BrowserObservation,
+                annotations=browser_go_back_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -447,15 +461,17 @@ class BrowserListTabsTool(Tool[BrowserListTabsAction, BrowserObservation]):
     """Tool for listing browser tabs."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_list_tabs_tool.name,
-            description=BROWSER_LIST_TABS_DESCRIPTION,
-            action_type=BrowserListTabsAction,
-            observation_type=BrowserObservation,
-            annotations=browser_list_tabs_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_list_tabs_tool.name,
+                description=BROWSER_LIST_TABS_DESCRIPTION,
+                action_type=BrowserListTabsAction,
+                observation_type=BrowserObservation,
+                annotations=browser_list_tabs_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -496,16 +512,21 @@ browser_switch_tab_tool = Tool(
 class BrowserSwitchTabTool(Tool[BrowserSwitchTabAction, BrowserObservation]):
     """Tool for switching browser tabs."""
 
+    # Override executor to be non-optional for initialized BrowserSwitchTabTool
+    # instances
+
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_switch_tab_tool.name,
-            description=BROWSER_SWITCH_TAB_DESCRIPTION,
-            action_type=BrowserSwitchTabAction,
-            observation_type=BrowserObservation,
-            annotations=browser_switch_tab_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_switch_tab_tool.name,
+                description=BROWSER_SWITCH_TAB_DESCRIPTION,
+                action_type=BrowserSwitchTabAction,
+                observation_type=BrowserObservation,
+                annotations=browser_switch_tab_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 # ============================================
@@ -546,15 +567,17 @@ class BrowserCloseTabTool(Tool[BrowserCloseTabAction, BrowserObservation]):
     """Tool for closing browser tabs."""
 
     @classmethod
-    def create(cls, executor: "BrowserToolExecutor"):
-        return cls(
-            name=browser_close_tab_tool.name,
-            description=BROWSER_CLOSE_TAB_DESCRIPTION,
-            action_type=BrowserCloseTabAction,
-            observation_type=BrowserObservation,
-            annotations=browser_close_tab_tool.annotations,
-            executor=executor,
-        )
+    def create(cls, executor: "BrowserToolExecutor") -> Sequence["Self"]:
+        return [
+            cls(
+                name=browser_close_tab_tool.name,
+                description=BROWSER_CLOSE_TAB_DESCRIPTION,
+                action_type=BrowserCloseTabAction,
+                observation_type=BrowserObservation,
+                annotations=browser_close_tab_tool.annotations,
+                executor=executor,
+            )
+        ]
 
 
 class BrowserToolSet(ToolBase):
