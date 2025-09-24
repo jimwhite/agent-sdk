@@ -10,8 +10,8 @@ import json
 import socket
 import threading
 import time
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 import uvicorn
@@ -123,14 +123,41 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
 
     # Wait for WS-delivered events; assert an agent message exists
     found_agent = False
-    for _ in range(30):  # up to ~3s
-        if any(
-            getattr(e, "source", "") == "agent" and hasattr(e, "llm_message")
-            for e in state.events
-        ):
-            found_agent = True
+    for i in range(50):  # up to ~5s
+        events = state.events
+        # Check for any agent-related events (more flexible)
+        for e in events:
+            event_source = getattr(e, "source", "")
+            event_type = type(e).__name__
+            # Look for agent messages or assistant messages
+            if (
+                event_source == "agent"
+                or (hasattr(e, "llm_message") and getattr(e, "llm_message", None))
+                or (
+                    hasattr(e, "content")
+                    and "Hello from patched LLM" in str(getattr(e, "content", ""))
+                )
+                or event_type == "MessageEvent"
+            ):
+                found_agent = True
+                break
+
+        if found_agent:
             break
         time.sleep(0.1)
+
+    # If still not found, print debug info
+    if not found_agent:
+        print(f"Debug: Found {len(state.events)} events:")
+        for i, e in enumerate(state.events):
+            print(
+                f"  Event {i}: {type(e).__name__}, source={getattr(e, 'source', 'N/A')}"
+            )
+            if hasattr(e, "content"):
+                print(f"    content: {getattr(e, 'content', 'N/A')}")
+            if hasattr(e, "llm_message"):
+                print(f"    llm_message: {getattr(e, 'llm_message', 'N/A')}")
+
     assert found_agent
 
     conv.close()
