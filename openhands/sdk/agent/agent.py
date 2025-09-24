@@ -76,29 +76,7 @@ class Agent(AgentBase):
             return
 
         # Export all current secrets
-        self._export_all_secrets(secrets_manager, bash_executor)
-
-    def _export_all_secrets(self, secrets_manager, bash_executor) -> None:
-        """Export all secrets to the bash session."""
-        export_commands = secrets_manager.export_all_secrets()
-        if not export_commands:
-            return
-
-        logger.info(f"Exporting {len(export_commands)} secrets to bash session")
-
-        # Execute all export commands in a single bash call
-        combined_command = " && ".join(export_commands)
-
-        # Import here to avoid circular imports
-        from openhands.tools.execute_bash.definition import ExecuteBashAction
-
-        try:
-            bash_executor.session.execute(
-                ExecuteBashAction(command=combined_command, is_input=False)
-            )
-            logger.debug("Successfully exported all secrets to bash session")
-        except Exception as e:
-            logger.error(f"Failed to export secrets to bash session: {e}")
+        secrets_manager._export_secrets_to_bash(self)
 
     def init_state(
         self,

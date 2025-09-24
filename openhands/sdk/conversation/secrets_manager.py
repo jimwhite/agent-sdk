@@ -119,6 +119,58 @@ class SecretsManager:
         logger.debug(f"Prepared {len(export_commands)} export commands")
         return export_commands
 
+    def _export_secrets_to_bash(self, agent) -> None:
+        """Export all secrets to the bash session.
+
+        Args:
+            agent: The agent instance containing the tools map
+        """
+        # Find the bash executor
+        bash_executor = None
+        for tool in agent.tools_map.values():
+            if (
+                tool.name == "execute_bash"
+                and hasattr(tool, "executor")
+                and tool.executor is not None
+            ):
+                bash_executor = tool.executor
+                break
+
+        if not bash_executor:
+            logger.debug("No bash executor found, skipping secret export")
+            return
+
+        # Export all secrets
+        export_commands = self.export_all_secrets()
+        if not export_commands:
+            logger.debug("No secrets to export")
+            return
+
+        logger.debug(f"Exporting {len(export_commands)} secrets to bash session")
+
+        # Execute all export commands in a single bash call
+        combined_command = " && ".join(export_commands)
+
+        # Import here to avoid circular imports
+        from openhands.tools.execute_bash.definition import ExecuteBashAction
+
+        try:
+            # Type check to ensure we have a BashExecutor with session attribute
+            from openhands.tools.execute_bash.impl import BashExecutor
+
+            if isinstance(bash_executor, BashExecutor):
+                bash_executor.session.execute(
+                    ExecuteBashAction(command=combined_command, is_input=False)
+                )
+                logger.debug("Successfully exported secrets to bash session")
+            else:
+                logger.warning(
+                    "Bash executor is not a BashExecutor instance, "
+                    "skipping secret export"
+                )
+        except Exception as e:
+            logger.error(f"Failed to export secrets to bash session: {e}")
+
     def mask_secrets_in_output(self, text: str) -> str:
         """Mask secret values in the given text.
 

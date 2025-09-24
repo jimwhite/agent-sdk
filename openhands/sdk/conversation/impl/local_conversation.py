@@ -325,57 +325,7 @@ class LocalConversation(BaseConversation):
         logger.info(f"Added {len(secrets)} secrets to conversation")
 
         # Export the updated secrets to bash session
-        self._export_secrets_to_bash()
-
-    def _export_secrets_to_bash(self) -> None:
-        """Export all secrets to the bash session."""
-        secrets_manager = self._state.secrets_manager
-
-        # Find the bash executor
-        bash_executor = None
-        for tool in self.agent.tools_map.values():
-            if (
-                tool.name == "execute_bash"
-                and hasattr(tool, "executor")
-                and tool.executor is not None
-            ):
-                bash_executor = tool.executor
-                break
-
-        if not bash_executor:
-            logger.debug("No bash executor found, skipping secret export")
-            return
-
-        # Export all secrets
-        export_commands = secrets_manager.export_all_secrets()
-        if not export_commands:
-            logger.debug("No secrets to export")
-            return
-
-        logger.debug(f"Exporting {len(export_commands)} secrets to bash session")
-
-        # Execute all export commands in a single bash call
-        combined_command = " && ".join(export_commands)
-
-        # Import here to avoid circular imports
-        from openhands.tools.execute_bash.definition import ExecuteBashAction
-
-        try:
-            # Type check to ensure we have a BashExecutor with session attribute
-            from openhands.tools.execute_bash.impl import BashExecutor
-
-            if isinstance(bash_executor, BashExecutor):
-                bash_executor.session.execute(
-                    ExecuteBashAction(command=combined_command, is_input=False)
-                )
-                logger.debug("Successfully exported secrets to bash session")
-            else:
-                logger.warning(
-                    "Bash executor is not a BashExecutor instance, "
-                    "skipping secret export"
-                )
-        except Exception as e:
-            logger.error(f"Failed to export secrets to bash session: {e}")
+        secrets_manager._export_secrets_to_bash(self.agent)
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
