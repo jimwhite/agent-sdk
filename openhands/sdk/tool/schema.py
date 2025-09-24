@@ -1,6 +1,6 @@
 from abc import ABC
 from collections.abc import Sequence
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from rich.text import Text
@@ -22,7 +22,7 @@ def py_type(spec: dict[str, Any]) -> Any:
     if t == "array":
         items = spec.get("items", {})
         inner = py_type(items) if isinstance(items, dict) else Any
-        return list[inner]  # type: ignore[index]
+        return cast(Any, list[inner])
     if t == "object":
         return dict[str, Any]
     _map = {
@@ -123,7 +123,8 @@ class Schema(BaseModel):
         props: dict[str, Any] = schema.get("properties", {}) or {}
         required = set(schema.get("required", []) or [])
 
-        fields: dict[str, tuple] = {}
+        # Pydantic expects: name=(annotation, FieldInfo)
+        fields: dict[str, tuple[type[Any], Any]] = {}
         for fname, spec in props.items():
             spec = spec if isinstance(spec, dict) else {}
             tp = py_type(spec)
@@ -140,14 +141,16 @@ class Schema(BaseModel):
                 anno = tp | None  # allow explicit null in addition to omission
                 default = None
 
-            fields[fname] = (
-                anno,
+            field_info = (
                 Field(default=default, description=desc)
                 if desc
-                else Field(default=default),
+                else Field(default=default)
             )
+            fields[fname] = (anno, field_info)
 
-        return create_model(model_name, __base__=cls, **fields)  # type: ignore[return-value]
+        return cast(
+            type[S], create_model(model_name, __base__=cls, **cast(Any, fields))
+        )
 
 
 class ActionBase(Schema, DiscriminatedUnionMixin, ABC):

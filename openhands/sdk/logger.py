@@ -62,14 +62,14 @@ if ENV_DEBUG_LLM:
     if confirmation.lower() == "y":
         _ENABLE_LITELLM_DEBUG = True
         litellm.suppress_debug_info = False
-        litellm.set_verbose = True  # type: ignore
+        setattr(litellm, "set_verbose", True)
     else:
         print("DEBUG_LLM disabled due to lack of confirmation")
         litellm.suppress_debug_info = True
-        litellm.set_verbose = False  # type: ignore
+        setattr(litellm, "set_verbose", False)
 else:
     litellm.suppress_debug_info = True
-    litellm.set_verbose = False  # type: ignore
+    setattr(litellm, "set_verbose", False)
 
 
 def disable_logger(name: str, level: int = logging.CRITICAL) -> None:

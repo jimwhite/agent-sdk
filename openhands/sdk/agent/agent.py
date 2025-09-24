@@ -207,7 +207,7 @@ class Agent(AgentBase):
                 raise e
 
         assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
+        llm_message: LiteLLMMessage = cast(LiteLLMMessage, response.choices[0].message)
         message = Message.from_litellm_message(llm_message)
 
         if message.tool_calls and len(message.tool_calls) > 0:

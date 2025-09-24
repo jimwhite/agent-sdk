@@ -102,10 +102,7 @@ class RetryMixin:
         if stop_condition is not None:
             # stop_any has .stops, single stop does not
             stops: Iterable[Any]
-            if hasattr(stop_condition, "stops"):
-                stops = stop_condition.stops  # type: ignore[attr-defined]
-            else:
-                stops = [stop_condition]
+            stops = getattr(stop_condition, "stops", [stop_condition])
             for stop_func in stops:
                 if hasattr(stop_func, "max_attempts"):
                     max_attempts = getattr(stop_func, "max_attempts")

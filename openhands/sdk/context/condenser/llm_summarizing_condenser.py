@@ -73,7 +73,11 @@ class LLMSummarizingCondenser(RollingCondenser):
                 )
             },
         )
-        summary = response.choices[0].message.content  # type: ignore
+        from litellm.types.utils import Choices
+
+        assert len(response.choices) >= 1 and isinstance(response.choices[0], Choices)
+        msg = response.choices[0].message
+        summary = msg.content if isinstance(msg.content, str) else str(msg.content)
 
         return Condensation(
             forgotten_event_ids=[event.id for event in forgotten_events],

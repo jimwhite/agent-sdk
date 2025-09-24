@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 from abc import ABC
-from typing import Annotated, Any, Literal, Self, Union
+from typing import Annotated, Any, Literal, Self, Union, cast
 
 from pydantic import (
     BaseModel,
@@ -132,7 +132,9 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
             kinds = [subclass.__name__ for subclass in subclasses]
             if kinds:
                 kind_field = cls.model_fields["kind"]
-                kind_field.annotation = Literal[tuple(kinds)]  # type: ignore
+                # Cast to suppress pyright false positive: runtime-constructed Literal
+                # is valid for Pydantic
+                kind_field.annotation = cast(type[Any] | None, Literal[tuple(kinds)])
                 kind_field.default = kinds[0]
 
             type_adapter = TypeAdapter(cls.get_serializable_type())
