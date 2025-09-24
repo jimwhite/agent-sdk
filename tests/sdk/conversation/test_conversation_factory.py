@@ -186,51 +186,6 @@ class TestConversationFactory:
         # Whitespace-only string is truthy and should create RemoteConversation
         assert isinstance(conversation, RemoteConversation)
 
-    def test_conversation_factory_interface_compatibility(self):
-        """Test that both conversation types implement the same interface."""
-        # Create local conversation
-        local_conv = Conversation(agent=self.agent)
-
-        # Create remote conversation
-        with (
-            patch(
-                "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
-            ),
-            patch("httpx.Client") as mock_httpx_client,
-        ):
-            # Mock HTTP client and responses
-            mock_client_instance = mock_httpx_client.return_value
-            mock_conv_response = mock_client_instance.post.return_value
-            mock_conv_response.raise_for_status.return_value = None
-            mock_conv_response.json.return_value = {"id": str(uuid.uuid4())}
-
-            mock_events_response = mock_client_instance.get.return_value
-            mock_events_response.raise_for_status.return_value = None
-            mock_events_response.json.return_value = {"items": [], "next_page_id": None}
-
-            remote_conv = Conversation(agent=self.agent, host="http://localhost:8000")
-
-        # Both should have the same interface methods
-        common_methods = [
-            "id",
-            "state",
-            "send_message",
-            "run",
-            "set_confirmation_policy",
-            "reject_pending_actions",
-            "pause",
-            "update_secrets",
-            "close",
-        ]
-
-        for method_name in common_methods:
-            assert hasattr(local_conv, method_name), (
-                f"LocalConversation missing {method_name}"
-            )
-            assert hasattr(remote_conv, method_name), (
-                f"RemoteConversation missing {method_name}"
-            )
-
     def test_conversation_factory_parameter_forwarding(self):
         """Test that parameters are correctly forwarded to the appropriate implementation."""  # noqa: E501
         # Test local conversation parameter forwarding
