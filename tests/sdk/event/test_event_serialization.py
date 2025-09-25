@@ -1,8 +1,6 @@
 """Comprehensive tests for event serialization and deserialization."""
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 from pydantic import ValidationError
 
 from openhands.sdk.event import (
@@ -16,6 +14,7 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm.types import OpenHandsToolCall
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -59,9 +58,9 @@ def test_system_prompt_event_serialization() -> None:
 def test_action_event_serialization() -> None:
     """Test ActionEvent serialization/deserialization."""
     action = TestEventsSerializationMockAction()
-    tool_call = ChatCompletionMessageToolCall(
+    tool_call = OpenHandsToolCall(
         id="call_123",
-        function=Function(name="mock_tool", arguments="{}"),
+        function={"name": "mock_tool", "arguments": "{}"},
         type="function",
     )
     event = ActionEvent(
