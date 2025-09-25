@@ -64,42 +64,38 @@ def maybe_truncate(
         Original content if under limit, or truncated content with head and tail
         preserved and reference to saved file if applicable
     """
+    # Early returns for cases where no truncation is needed
     if not truncate_after or len(content) <= truncate_after or truncate_after < 0:
         return content
 
-    # truncate_after is too small to fit any content
+    # Edge case: truncate_after is too small to fit any content
     if len(truncate_notice) >= truncate_after:
         return truncate_notice[:truncate_after]
 
-    # Save full content if requested
-    saved_file_path = None
+    # Calculate head size based on original notice (for consistent line number calc)
+    available_chars = truncate_after - len(truncate_notice)
+    half_chars = available_chars // 2
+    head_chars = half_chars + (available_chars % 2)  # Give extra char to head if odd
+
+    # Determine final notice by saving file first if requested
+    final_notice = truncate_notice
     if save_dir:
         saved_file_path = _save_full_content(content, save_dir, tool_prefix)
+        if saved_file_path:
+            # Calculate line number where truncation happens (using head_chars)
+            head_content_lines = len(content[:head_chars].splitlines())
 
-    # Calculate how much space we have for actual content
-    available_chars = truncate_after - len(truncate_notice)
-    orig_half = available_chars // 2
+            final_notice = (
+                f"<response clipped><NOTE>Due to the max output limit, only part of "
+                f"the full response has been shown to you. The complete output has "
+                f"been saved to {saved_file_path} - you can use other tools "
+                f"to view the full content (truncated part starts around "
+                f"line {head_content_lines + 1}).</NOTE>"
+            )
 
-    # Give extra character to head if odd number
-    orig_head_chars = orig_half + (available_chars % 2)
+    # Calculate tail size based on final notice (head_chars stays consistent)
+    final_available_chars = truncate_after - len(final_notice)
+    tail_chars = max(0, final_available_chars - head_chars)
 
-    # Create enhanced truncation notice with file reference if available
-    enhanced_notice = truncate_notice
-    if saved_file_path:
-        # Calculate line number where truncation happens
-        head_content_lines = len(content[:orig_head_chars].splitlines())
-
-        enhanced_notice = (
-            f"<response clipped><NOTE>Due to the max output limit, only part of the "
-            f"full response has been shown to you. The complete output has been "
-            f"saved to {saved_file_path} - you can use other tools "
-            f"to view the full content (truncated part starts around "
-            f"line {head_content_lines + 1}).</NOTE>"
-        )
-
-    # Calculate shifted number of tail characters
-    shifted_available_chars = truncate_after - len(enhanced_notice)
-    shifted_tail_chars = max(0, shifted_available_chars - orig_head_chars)
-
-    # Keep head and tail, insert notice in the middle
-    return content[:orig_head_chars] + enhanced_notice + content[-shifted_tail_chars:]
+    # Assemble final result
+    return content[:head_chars] + final_notice + content[-tail_chars:]
