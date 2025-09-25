@@ -83,14 +83,12 @@ def test_message_tool_role_with_cache_prompt():
     d = __import__("typing").cast(dict[str, object], result)
     assert d["role"] == "tool"
     assert d["tool_call_id"] == "call_123"
-    # No message-level cache_control for tool messages in chat path
-    assert "cache_control" not in d
-    # Cache control remains at content level
+    # Message-level cache_control is used for tool messages when cache_prompt is set
+    assert d.get("cache_control") == {"type": "ephemeral"}
+    # Cache control should be removed from content level and moved to message level
     content_list = __import__("typing").cast(list[dict[str, object]], d["content"])  # type: ignore[assignment]
     assert isinstance(content_list, list)
-    assert content_list and content_list[-1].get("cache_control") == {
-        "type": "ephemeral"
-    }
+    assert content_list and "cache_control" not in content_list[-1]
 
 
 def test_message_tool_role_with_image_cache_prompt():
@@ -115,14 +113,12 @@ def test_message_tool_role_with_image_cache_prompt():
     d = __import__("typing").cast(dict[str, object], result)
     assert d["role"] == "tool"
     assert d["tool_call_id"] == "call_123"
-    # No message-level cache_control for tool messages
-    assert "cache_control" not in d
-    # Cache control remains at content level for the last image block
+    # Message-level cache_control is used for tool messages when cache_prompt is set
+    assert d.get("cache_control") == {"type": "ephemeral"}
+    # Cache control should be removed from content level and moved to message level
     content_list = __import__("typing").cast(list[dict[str, object]], d["content"])  # type: ignore[assignment]
     assert isinstance(content_list, list)
-    assert content_list and content_list[-1].get("cache_control") == {
-        "type": "ephemeral"
-    }
+    assert content_list and "cache_control" not in content_list[-1]
 
 
 def test_message_with_tool_calls():
