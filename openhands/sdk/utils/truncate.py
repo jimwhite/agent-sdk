@@ -66,6 +66,10 @@ def maybe_truncate(
     if not truncate_after or len(content) <= truncate_after or truncate_after < 0:
         return content
 
+    # truncate_after is too small to fit any content
+    if len(truncate_notice) >= truncate_after:
+        return truncate_notice[:truncate_after]
+
     # Save full content if requested
     saved_file_path = None
     if save_dir:
