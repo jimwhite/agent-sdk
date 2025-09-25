@@ -1,1 +1,1 @@
-recursive-include openhands-sdk openhands/sdk/agent/prompts/*
+recursive-include openhands/sdk/agent/prompts *
