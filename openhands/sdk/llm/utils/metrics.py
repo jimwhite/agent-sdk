@@ -110,8 +110,8 @@ class Metrics(MetricsSnapshot):
         default_factory=list, description="List of token usage records"
     )
 
-    def __init__(self, **data):
-        super().__init__(**data)
+    def model_post_init(self, __context) -> None:
+        """Initialize threading lock after Pydantic model initialization."""
         self._lock = threading.Lock()
 
     @field_validator("accumulated_cost")
@@ -268,6 +268,19 @@ class Metrics(MetricsSnapshot):
         """Restore the object and create a new lock."""
         self.__dict__.update(state)
         self._lock = threading.Lock()
+
+    def __deepcopy__(self, memo=None):
+        """Custom deepcopy implementation that handles the threading lock."""
+        # Create a new instance using Pydantic's proper initialization
+        # but exclude the lock from the data
+        data = {}
+        for field_name in self.__class__.model_fields:
+            field_value = getattr(self, field_name)
+            data[field_name] = copy.deepcopy(field_value, memo)
+
+        # Create new instance with proper Pydantic initialization
+        new_instance = self.__class__(**data)
+        return new_instance
 
     def deep_copy(self) -> "Metrics":
         """Create a deep copy of the Metrics object."""
