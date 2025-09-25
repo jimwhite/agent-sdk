@@ -498,21 +498,34 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     module="litellm.*",
                 )
                 # Some providers need renames handled in _normalize_call_kwargs.
-                ret = litellm_completion(
-                    model=self.model,
-                    api_key=self.api_key.get_secret_value() if self.api_key else None,
-                    base_url=self.base_url,
-                    api_version=self.api_version,
-                    timeout=self.timeout,
-                    drop_params=self.drop_params,
-                    seed=self.seed,
-                    messages=messages,
-                    **kwargs,
-                )
-                assert isinstance(ret, ModelResponse), (
-                    f"Expected ModelResponse, got {type(ret)}"
-                )
-                return ret
+                try:
+                    ret = litellm_completion(
+                        model=self.model,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        base_url=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        messages=messages,
+                        **kwargs,
+                    )
+                    assert isinstance(ret, ModelResponse), (
+                        f"Expected ModelResponse, got {type(ret)}"
+                    )
+                    return ret
+                except RuntimeError as e:
+                    if "cannot schedule new futures after shutdown" in str(e):
+                        # ThreadPoolExecutor has been shut down (likely due to SIGINT)
+                        # Raise a more specific exception that can be handled gracefully
+                        raise RuntimeError(
+                            "LLM service unavailable due to shutdown signal. "
+                            "This typically occurs when the application is being "
+                            "terminated."
+                        ) from e
+                    raise
 
     @contextmanager
     def _litellm_modify_params_ctx(self, flag: bool):

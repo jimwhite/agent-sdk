@@ -109,8 +109,17 @@ conversation.send_message(
     f"Replace [CURRENT_TIME] with the actual current time when you write this line."
 )
 
-# Wait for completion
-thread.join()
+# Wait for completion with timeout to prevent hanging
+print("Waiting for agent to complete...")
+thread.join(timeout=30.0)
+if thread.is_alive():
+    print("Warning: Agent thread did not complete within timeout")
+    conversation.pause()
+    thread.join(timeout=5.0)
+    if thread.is_alive():
+        print("Warning: Agent thread still running after pause")
+else:
+    print("Agent completed successfully")
 
 # Verification
 document_path = os.path.join(cwd, "document.txt")

@@ -57,8 +57,15 @@ try:
         conversation.send_message("keep going! you can do it!")
         time.sleep(1)
 except KeyboardInterrupt:
+    print("\nReceived interrupt signal, pausing agent...")
     conversation.pause()
 
-thread.join()
+# Wait for thread to finish with timeout to prevent hanging
+print("Waiting for agent to stop...")
+thread.join(timeout=5.0)
+if thread.is_alive():
+    print("Warning: Agent thread did not stop within timeout")
+else:
+    print("Agent stopped successfully")
 
 print(f"Agent status: {conversation.state.agent_status}")
