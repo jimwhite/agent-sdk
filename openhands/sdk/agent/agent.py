@@ -111,7 +111,7 @@ class Agent(AgentBase):
                 source="agent",
                 system_prompt=TextContent(text=self.system_message),
                 tools=[
-                    t.to_openai_tool(
+                    t.to_openhands_spec(
                         add_security_risk_prediction=self._add_security_risk_prediction
                     )
                     for t in self.tools_map.values()

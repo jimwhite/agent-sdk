@@ -3,8 +3,6 @@
 import json
 from collections.abc import Sequence
 
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Function
 from rich.text import Text
 
 from openhands.sdk.conversation.visualizer import (
@@ -20,6 +18,7 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm.types import OpenHandsToolCall, OpenHandsToolSpec
 from openhands.sdk.tool import ActionBase
 
 
@@ -48,12 +47,12 @@ class TestVisualizerCustomAction(ActionBase):
 
 def create_tool_call(
     call_id: str, function_name: str, arguments: dict
-) -> ChatCompletionMessageToolCall:
-    """Helper to create a ChatCompletionMessageToolCall."""
-    return ChatCompletionMessageToolCall(
+) -> OpenHandsToolCall:
+    """Helper to create an OpenHandsToolCall."""
+    return OpenHandsToolCall(
         id=call_id,
-        function=Function(name=function_name, arguments=json.dumps(arguments)),
         type="function",
+        function={"name": function_name, "arguments": json.dumps(arguments)},
     )
 
 
@@ -96,14 +95,11 @@ def test_system_prompt_event_visualize():
     event = SystemPromptEvent(
         system_prompt=TextContent(text="You are a helpful assistant."),
         tools=[
-            {
-                "type": "function",
-                "function": {
-                    "name": "test_tool",
-                    "description": "A test tool for demonstration",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            }
+            OpenHandsToolSpec(
+                name="test_tool",
+                description="A test tool for demonstration",
+                parameters={"type": "object", "properties": {}},
+            )
         ],
     )
 

@@ -1,29 +1,24 @@
 """Tests for SystemPromptEvent.visualize method."""
 
 import copy
-from typing import Any, cast
-
-from litellm import ChatCompletionToolParam
 
 from openhands.sdk.event.llm_convertible import SystemPromptEvent
 from openhands.sdk.llm import TextContent
+from openhands.sdk.llm.types import OpenHandsToolSpec
 
 
 def test_visualize_no_data_mutation():
     """Test that visualize does not mutate the original event data."""
-    # Create tool with long type field (edge case)
-    original_tool: dict[str, Any] = {
-        "type": "function_with_very_long_type_name_exceeding_thirty_characters",
-        "function": {
-            "name": "test_tool",
-            "description": "Test description",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }
+    # Create OpenHandsToolSpec
+    original_tool = OpenHandsToolSpec(
+        name="test_tool",
+        description="Test description",
+        parameters={"type": "object", "properties": {}},
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"),
-        tools=[cast(ChatCompletionToolParam, original_tool)],
+        tools=[original_tool],
     )
 
     # Store initial state
@@ -35,7 +30,8 @@ def test_visualize_no_data_mutation():
 
     # Verify no mutation occurred
     assert event.tools[0] == initial_tool_state
-    assert len(event.tools[0]["type"]) == len(initial_tool_state["type"])
+    assert event.tools[0].name == initial_tool_state.name
+    assert event.tools[0].description == initial_tool_state.description
 
 
 def test_visualize_parameter_truncation():
@@ -53,18 +49,15 @@ def test_visualize_parameter_truncation():
         "required": [f"param_{i}" for i in range(25)],
     }
 
-    tool: dict[str, Any] = {
-        "type": "function",
-        "function": {
-            "name": "test_tool",
-            "description": "Test tool",
-            "parameters": long_params,
-        },
-    }
+    tool = OpenHandsToolSpec(
+        name="test_tool",
+        description="Test tool",
+        parameters=long_params,
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"),
-        tools=[cast(ChatCompletionToolParam, tool)],
+        tools=[tool],
     )
 
     # Get visualization
@@ -87,33 +80,31 @@ def test_visualize_parameter_truncation():
 def test_visualize_string_truncation_logic():
     """Test the string truncation logic for tool fields."""
     # Create tool with long string fields that would be truncated
-    tool: dict[str, Any] = {
-        "type": "function_with_very_long_type_name_that_exceeds_thirty_characters",
-        "function": {
-            "name": "test_tool_with_very_long_name_exceeding_limit",
-            "description": "This is a very long description that should be truncated",
-            "parameters": {"type": "object", "properties": {}},
-        },
-    }
+    tool = OpenHandsToolSpec(
+        name="test_tool_with_very_long_name_exceeding_limit",
+        description=(
+            "This is a very long description that should be truncated because it "
+            "exceeds the 100 character limit for display purposes"
+        ),
+        parameters={"type": "object", "properties": {}},
+    )
 
     event = SystemPromptEvent(
         system_prompt=TextContent(text="Test system prompt"),
-        tools=[cast(ChatCompletionToolParam, tool)],
+        tools=[tool],
     )
 
     # Store original lengths
-    original_type_len = len(tool["type"])
-    original_name_len = len(tool["function"]["name"])  # type: ignore[index]
-    original_desc_len = len(tool["function"]["description"])  # type: ignore[index]
+    original_name_len = len(tool.name)
+    original_desc_len = len(tool.description)
 
     # Call visualize
     visualization = event.visualize
     visualization_text = visualization.plain
 
     # Verify original data unchanged
-    assert len(event.tools[0]["type"]) == original_type_len
-    assert len(event.tools[0]["function"]["name"]) == original_name_len  # type: ignore[index]
-    assert len(event.tools[0]["function"]["description"]) == original_desc_len  # type: ignore[index]
+    assert len(event.tools[0].name) == original_name_len
+    assert len(event.tools[0].description) == original_desc_len
 
     # Verify visualization contains truncated display
     assert "..." in visualization_text  # Some truncation occurred in display
