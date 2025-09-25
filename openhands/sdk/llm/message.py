@@ -1,8 +1,19 @@
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from litellm import ChatCompletionMessageToolCall
+from litellm.types.completion import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionContentPartImageParam,
+    ChatCompletionContentPartParam,
+    ChatCompletionContentPartTextParam,
+    ChatCompletionMessageParam,
+    ChatCompletionMessageToolCallParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionToolMessageParam,
+    ChatCompletionUserMessageParam,
+)
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -17,12 +28,10 @@ class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     @abstractmethod
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format. Always returns a list of dictionaries.
-
-        Subclasses should implement this method to return a list of dictionaries,
-        even if they only have a single item.
-        """
+    def to_llm_dict(
+        self,
+    ) -> dict[str, str | dict[str, str]] | list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format. Subclasses should implement this method."""
 
 
 class TextContent(BaseContent):
@@ -32,7 +41,7 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+    def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
         """Convert to LLM API format."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
@@ -48,7 +57,7 @@ class TextContent(BaseContent):
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
-        return [data]
+        return data
 
 
 class ImageContent(BaseContent):
@@ -102,63 +111,141 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> dict[str, Any]:
-        """Serialize message for LLM API consumption.
+    def to_llm_dict(self) -> ChatCompletionMessageParam:
+        """Serialize message for LLM API consumption using LiteLLM typed payloads.
 
-        This method chooses the appropriate serialization format based on the message
-        configuration and provider capabilities:
         - String format: for providers that don't support list of content items
         - List format: for providers with vision/prompt caching/tool calls support
         """
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            message_dict = self._list_serializer()
+            return self._list_serializer()
         else:
             # some providers, like HF and Groq/llama, don't support a list here, but a
             # single string
-            message_dict = self._string_serializer()
+            return self._string_serializer()
 
-        return message_dict
-
-    def _string_serializer(self) -> dict[str, Any]:
-        # convert content to a single string
-        content = "\n".join(
+    def _string_serializer(self) -> ChatCompletionMessageParam:
+        text = "\n".join(
             item.text for item in self.content if isinstance(item, TextContent)
         )
-        message_dict: dict[str, Any] = {"content": content, "role": self.role}
+        if self.role == "system":
+            return cast(
+                ChatCompletionSystemMessageParam, {"role": "system", "content": text}
+            )
+        if self.role == "user":
+            return cast(
+                ChatCompletionUserMessageParam, {"role": "user", "content": text}
+            )
+        if self.role == "assistant":
+            if self.tool_calls is not None:
+                return cast(
+                    ChatCompletionAssistantMessageParam,
+                    {
+                        "role": "assistant",
+                        **({"content": text} if text else {}),
+                        "tool_calls": [
+                            cast(
+                                ChatCompletionMessageToolCallParam,
+                                {
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments,
+                                    },
+                                },
+                            )
+                            for tc in self.tool_calls
+                        ],
+                    },
+                )
+            return cast(
+                ChatCompletionAssistantMessageParam,
+                {"role": "assistant", **({"content": text} if text else {})},
+            )
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "tool messages require tool_call_id"
+            return cast(
+                ChatCompletionToolMessageParam,
+                {"role": "tool", "content": text, "tool_call_id": self.tool_call_id},
+            )
+        raise AssertionError(f"Unsupported role: {self.role}")
 
-        # add tool call keys if we have a tool call or response
-        return self._add_tool_call_keys(message_dict)
-
-    def _list_serializer(self) -> dict[str, Any]:
-        content: list[dict[str, Any]] = []
+    def _list_serializer(self) -> ChatCompletionMessageParam:
+        parts: list[ChatCompletionContentPartParam] = []
         role_tool_with_prompt_caching = False
 
         for item in self.content:
-            # All content types now return list[dict[str, Any]]
-            item_dicts = item.to_llm_dict()
-
-            # We have to remove cache_prompt for tool content and move it up to the
-            # message level
-            # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
-            if self.role == "tool" and item.cache_prompt:
-                role_tool_with_prompt_caching = True
-                for d in item_dicts:
+            raw = item.to_llm_dict()
+            if isinstance(item, TextContent):
+                d = cast(dict[str, Any], raw)
+                if self.role == "tool" and item.cache_prompt:
+                    role_tool_with_prompt_caching = True
                     d.pop("cache_control", None)
+                parts.append(cast(ChatCompletionContentPartTextParam, d))
+            elif isinstance(item, ImageContent) and self.vision_enabled:
+                d_list = cast(list[dict[str, Any]], raw)
+                if self.role == "tool" and item.cache_prompt:
+                    role_tool_with_prompt_caching = True
+                    for elem in d_list:
+                        elem.pop("cache_control", None)
+                for elem in d_list:
+                    parts.append(cast(ChatCompletionContentPartImageParam, elem))
 
-            # Handle vision-enabled filtering for ImageContent
-            if isinstance(item, ImageContent) and self.vision_enabled:
-                content.extend(item_dicts)
-            elif not isinstance(item, ImageContent):
-                # Add non-image content (TextContent, etc.)
-                content.extend(item_dicts)
-
-        message_dict: dict[str, Any] = {"content": content, "role": self.role}
-        if role_tool_with_prompt_caching:
-            message_dict["cache_control"] = {"type": "ephemeral"}
-
-        return self._add_tool_call_keys(message_dict)
+        text_only = "\n".join(
+            item.text for item in self.content if isinstance(item, TextContent)
+        )
+        if self.role == "system":
+            return cast(
+                ChatCompletionSystemMessageParam,
+                {"role": "system", "content": text_only},
+            )
+        if self.role == "user":
+            return cast(
+                ChatCompletionUserMessageParam,
+                {"role": "user", "content": parts if parts else text_only},
+            )
+        if self.role == "assistant":
+            if self.tool_calls is not None:
+                return cast(
+                    ChatCompletionAssistantMessageParam,
+                    {
+                        "role": "assistant",
+                        **({"content": text_only} if text_only else {}),
+                        "tool_calls": [
+                            cast(
+                                ChatCompletionMessageToolCallParam,
+                                {
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments,
+                                    },
+                                },
+                            )
+                            for tc in self.tool_calls
+                        ],
+                    },
+                )
+            return cast(
+                ChatCompletionAssistantMessageParam,
+                {"role": "assistant", **({"content": text_only} if text_only else {})},
+            )
+        if self.role == "tool":
+            assert self.tool_call_id is not None, "tool messages require tool_call_id"
+            tool_msg: ChatCompletionToolMessageParam = {
+                "role": "tool",
+                "content": parts if parts else text_only,
+                "tool_call_id": self.tool_call_id,
+            }
+            if role_tool_with_prompt_caching:
+                # extra field grafted at the message level
+                cast(dict[str, Any], tool_msg)["cache_control"] = {"type": "ephemeral"}
+            return cast(ChatCompletionToolMessageParam, tool_msg)
+        raise AssertionError(f"Unsupported role: {self.role}")
 
     def _add_tool_call_keys(self, message_dict: dict[str, Any]) -> dict[str, Any]:
         """Add tool call keys if we have a tool call or response.
