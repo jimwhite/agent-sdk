@@ -43,6 +43,7 @@ def default_config():
     return LLM(
         model="gpt-4o",
         api_key=SecretStr("test_key"),
+        service_id="test-llm",
         num_retries=2,
         retry_min_wait=1,
         retry_max_wait=2,
@@ -57,6 +58,7 @@ def test_llm_completion_basic(mock_completion):
     # Create LLM after the patch is applied
 
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -108,6 +110,7 @@ def test_llm_completion_with_tools(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -148,6 +151,7 @@ def test_llm_completion_error_handling(mock_completion):
 
     # Create LLM after the patch is applied
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -257,6 +261,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
 
     # Create config with custom parameters
     custom_config = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         temperature=0.8,
@@ -301,6 +306,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # Create LLM with native_tool_calling explicitly set to False
     # This forces the LLM to use prompt-based tool calling instead of native FC
     llm = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         native_tool_calling=False,  # This is the key setting for non-function call mode
@@ -389,6 +395,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # Test with native function calling enabled (default behavior for gpt-4o)
     llm_native = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         native_tool_calling=True,  # Explicitly enable native function calling
@@ -403,6 +410,7 @@ def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion)
 
     # Test with native function calling disabled
     llm_non_native = LLM(
+        service_id="test-llm",
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         native_tool_calling=False,  # Explicitly disable native function calling
