@@ -24,6 +24,10 @@ class BrowserObservation(ObservationBase):
     screenshot_data: str | None = Field(
         default=None, description="Base64 screenshot data if available"
     )
+    full_output_save_dir: str | None = Field(
+        default=None,
+        description="Directory where full output files are saved",
+    )
 
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:

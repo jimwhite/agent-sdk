@@ -82,6 +82,10 @@ class ExecuteBashObservation(ObservationBase):
         default_factory=CmdOutputMetadata,
         description="Additional metadata captured from PS1 after command execution.",
     )
+    full_output_save_dir: str | None = Field(
+        default=None,
+        description="Directory where full output files are saved",
+    )
 
     @property
     def command_id(self) -> int | None:

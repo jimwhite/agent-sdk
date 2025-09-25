@@ -1,12 +1,12 @@
 """Utility functions for truncating text content."""
 
-import logging
 from datetime import datetime
 from pathlib import Path
 
+from openhands.sdk import get_logger
 
-logger = logging.getLogger(__name__)
 
+logger = get_logger(__name__)
 
 # Default truncation limits
 DEFAULT_TEXT_CONTENT_LIMIT = 50_000
