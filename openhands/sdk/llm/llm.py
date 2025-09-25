@@ -6,7 +6,7 @@ import os
 import warnings
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Literal, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import httpx
 from litellm.types.completion import ChatCompletionMessageParam
@@ -382,9 +382,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ]
 
         use_mock_tools = self.should_mock_tool_calls(cc_tools)
-        formatted_messages: list[dict[str, Any]] = cast(
-            list[dict[str, Any]], typed_msgs
-        )
+        formatted_messages: list[dict[str, Any]] = [dict(m) for m in typed_msgs]
 
         if use_mock_tools:
             logger.debug(
@@ -392,7 +390,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 f"for model {self.model}"
             )
             formatted_messages, kwargs = self.pre_request_prompt_mock(
-                formatted_messages, cc_tools or [], kwargs
+                typed_msgs, cc_tools or [], kwargs
             )
 
         # 3) normalize provider params
