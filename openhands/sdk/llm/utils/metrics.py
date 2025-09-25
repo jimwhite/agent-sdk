@@ -255,34 +255,26 @@ class Metrics(MetricsSnapshot):
             logs += f"{key}: {value}\n"
         return logs
 
-    def __getstate__(self):
-        """Exclude the lock from being pickled/copied."""
-        state = self.__dict__.copy()
-        # Remove the lock from the state
-        state.pop("_lock", None)
-        return state
-
-    def __setstate__(self, state):
-        """Restore the object and create a new lock."""
-        self.__dict__.update(state)
-        self._lock = threading.Lock()
-
     def __deepcopy__(self, memo=None):
         """Custom deepcopy implementation that handles the threading lock."""
-        # Create a new instance using Pydantic's proper initialization
-        # but exclude the lock from the data
-        data = {}
+        if memo is None:
+            memo = {}
+
+        # Create a new instance using model_copy with shallow copy first
+        copied = self.model_copy(deep=False)
+
+        # Deep copy all the regular fields manually
         for field_name in self.__class__.model_fields:
             field_value = getattr(self, field_name)
-            data[field_name] = copy.deepcopy(field_value, memo)
+            setattr(copied, field_name, copy.deepcopy(field_value, memo))
 
-        # Create new instance with proper Pydantic initialization
-        new_instance = self.__class__(**data)
-        return new_instance
+        # Initialize private attributes in the copy (don't copy them)
+        copied._lock = threading.Lock()
+        return copied
 
     def deep_copy(self) -> "Metrics":
         """Create a deep copy of the Metrics object."""
-        return copy.deepcopy(self)
+        return self.model_copy(deep=True)
 
     def diff(self, baseline: "Metrics") -> "Metrics":
         """Calculate the difference between current metrics and a baseline.
