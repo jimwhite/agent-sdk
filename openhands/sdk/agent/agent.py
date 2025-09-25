@@ -204,9 +204,10 @@ class Agent(AgentBase):
         # CompletionResult already contains the converted message and metrics snapshot
         message: Message = completion_result.message
 
-        if message.openhands_tool_calls and len(message.openhands_tool_calls) > 0:
+        openhands_tool_calls = message.get_openhands_tool_calls()
+        if openhands_tool_calls and len(openhands_tool_calls) > 0:
             tool_call: OpenHandsToolCall
-            if any(tc.type != "function" for tc in message.openhands_tool_calls):
+            if any(tc.type != "function" for tc in openhands_tool_calls):
                 logger.warning(
                     "LLM returned tool calls but some are not of type 'function' - "
                     "ignoring those"
@@ -214,7 +215,7 @@ class Agent(AgentBase):
 
             tool_calls = [
                 tool_call
-                for tool_call in message.openhands_tool_calls
+                for tool_call in openhands_tool_calls
                 if tool_call.type == "function"
             ]
             assert len(tool_calls) > 0, (

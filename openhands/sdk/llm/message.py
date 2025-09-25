@@ -192,12 +192,11 @@ class Message(BaseModel):
 
         return message_dict
 
-    @property
-    def openhands_tool_calls(self) -> list["OpenHandsToolCall"] | None:
+    def get_openhands_tool_calls(self) -> list["OpenHandsToolCall"] | None:
         """Get tool calls as OpenHands-native types.
 
-        This property provides the new OpenHands-native interface for tool calls,
-        eliminating the need for consumers to work with LiteLLM types directly.
+        This method provides a clean interface for getting tool calls in OpenHands
+        format, eliminating the need for consumers to work with LiteLLM types directly.
         """
         if self.tool_calls is None:
             return None
