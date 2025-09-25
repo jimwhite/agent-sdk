@@ -6,9 +6,10 @@ import os
 import warnings
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args, get_origin
 
 import httpx
+from litellm.types.completion import ChatCompletionMessageParam
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -114,6 +115,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
 
     temperature: float | None = Field(default=0.0, ge=0)
+
     top_p: float | None = Field(default=1.0, ge=0, le=1)
     top_k: float | None = Field(default=None, ge=0)
 
@@ -360,12 +362,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if kwargs.get("stream", False):
             raise ValueError("Streaming is not supported")
 
-        # 1) serialize messages
-        formatted_messages = self.format_messages_for_llm(messages)
+        # 1) serialize messages (typed for LiteLLM)
+        typed_msgs: list[ChatCompletionMessageParam] = self.format_messages_for_llm(
+            messages
+        )
 
         # 2) choose function-calling strategy
         use_native_fc = self.is_function_calling_active()
-        original_fncall_msgs = copy.deepcopy(formatted_messages)
+        original_fncall_msgs = copy.deepcopy(typed_msgs)
 
         # Convert Tool objects to ChatCompletionToolParam once here
         cc_tools: list[ChatCompletionToolParam] = []
@@ -378,6 +382,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ]
 
         use_mock_tools = self.should_mock_tool_calls(cc_tools)
+        formatted_messages: list[dict[str, Any]] = cast(
+            list[dict[str, Any]], typed_msgs
+        )
+
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
@@ -398,7 +406,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         log_ctx = None
         if self._telemetry.log_enabled:
             log_ctx = {
-                "messages": formatted_messages[:],  # already simple dicts
+                "messages": formatted_messages[:],
                 "tools": tools,
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
@@ -725,8 +733,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 ].cache_prompt = True  # Last item inside the message content
                 break
 
-    def format_messages_for_llm(self, messages: list[Message]) -> list[dict]:
-        """Formats Message objects for LLM consumption."""
+    def format_messages_for_llm(
+        self, messages: list[Message]
+    ) -> list[ChatCompletionMessageParam]:
+        """Formats Message objects for LLM consumption using LiteLLM typed payloads."""
 
         messages = copy.deepcopy(messages)
         if self.is_caching_prompt_active():
