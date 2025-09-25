@@ -180,10 +180,6 @@ class Message(BaseModel):
 
         return self._add_tool_call_keys(message_dict)
 
-        message_dict: dict[str, Any] = {"content": content, "role": self.role}
-
-        return self._add_tool_call_keys(message_dict)
-
     def _add_tool_call_keys(self, message_dict: dict[str, Any]) -> dict[str, Any]:
         """Add tool call keys if we have a tool call or response.
 
