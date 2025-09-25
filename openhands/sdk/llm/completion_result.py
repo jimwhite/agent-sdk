@@ -6,7 +6,7 @@ with LiteLLM types.
 """
 
 from litellm.types.utils import ModelResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
@@ -32,11 +32,4 @@ class CompletionResult(BaseModel):
     metrics: MetricsSnapshot
     raw_response: ModelResponse
 
-    class Config:
-        # Allow arbitrary types for ModelResponse
-        arbitrary_types_allowed = True
-
-    @property
-    def has_tool_calls(self) -> bool:
-        """Check if response contains tool calls."""
-        return bool(self.message.tool_calls)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
