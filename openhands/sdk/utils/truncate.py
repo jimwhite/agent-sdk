@@ -73,17 +73,16 @@ def maybe_truncate(
 
     # Calculate how much space we have for actual content
     available_chars = truncate_after - len(truncate_notice)
-    half = available_chars // 2
+    orig_half = available_chars // 2
 
     # Give extra character to head if odd number
-    head_chars = half + (available_chars % 2)
-    tail_chars = half
+    orig_head_chars = orig_half + (available_chars % 2)
 
     # Create enhanced truncation notice with file reference if available
     enhanced_notice = truncate_notice
     if saved_file_path:
         # Calculate line number where truncation happens
-        head_content_lines = len(content[:head_chars].splitlines())
+        head_content_lines = len(content[:orig_head_chars].splitlines())
 
         enhanced_notice = (
             f"<response clipped><NOTE>Due to the max output limit, only part of the "
@@ -93,13 +92,9 @@ def maybe_truncate(
             f"line {head_content_lines + 1}).</NOTE>"
         )
 
-    # Calculate how much space we have for actual content
-    available_chars = truncate_after - len(enhanced_notice)
-    half = available_chars // 2
-
-    # Give extra character to head if odd number
-    head_chars = half + (available_chars % 2)
-    tail_chars = half
+    # Calculate shifted number of tail characters
+    shifted_available_chars = truncate_after - len(enhanced_notice)
+    shifted_tail_chars = max(0, shifted_available_chars - orig_head_chars)
 
     # Keep head and tail, insert notice in the middle
-    return content[:head_chars] + enhanced_notice + content[-tail_chars:]
+    return content[:orig_head_chars] + enhanced_notice + content[-shifted_tail_chars:]

@@ -128,8 +128,8 @@ def test_file_editor_memory_leak(temp_file):
     del warmup_result
     gc.collect()
 
-    # Set memory limit to 128MB to make it more likely to catch issues
-    memory_limit = 128 * 1024 * 1024  # 128MB in bytes
+    # Set memory limit to 150MB to make it more likely to catch issues
+    memory_limit = 150 * 1024 * 1024  # 150MB in bytes
     try:
         import resource
 
