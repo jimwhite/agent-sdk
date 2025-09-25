@@ -1,12 +1,13 @@
 from collections.abc import Sequence
+from typing import Any
 
-from litellm import ChatCompletionMessageToolCall
-from pydantic import Field
+from pydantic import Field, field_validator
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm.types import OpenHandsToolCall
 from openhands.sdk.security import risk
 from openhands.sdk.tool.schema import ActionBase
 
@@ -27,7 +28,7 @@ class ActionEvent(LLMConvertibleEvent):
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
     )
-    tool_call: ChatCompletionMessageToolCall = Field(
+    tool_call: OpenHandsToolCall = Field(
         ...,
         description=(
             "The tool call received from the LLM response. We keep a copy of it "
@@ -37,6 +38,19 @@ class ActionEvent(LLMConvertibleEvent):
             ", while `action` does not."
         ),
     )
+
+    @field_validator("tool_call", mode="before")
+    @classmethod
+    def convert_tool_call(cls, v: Any) -> OpenHandsToolCall:
+        """Convert ChatCompletionMessageToolCall to OpenHandsToolCall if needed."""
+        if isinstance(v, OpenHandsToolCall):
+            return v
+        if isinstance(v, dict):
+            # Handle dictionary (e.g., from JSON deserialization)
+            return OpenHandsToolCall.model_validate(v)
+        # Assume it's a ChatCompletionMessageToolCall and convert it
+        return OpenHandsToolCall.from_litellm(v)
+
     llm_response_id: EventID = Field(
         ...,
         description=(
@@ -82,7 +96,7 @@ class ActionEvent(LLMConvertibleEvent):
         return Message(
             role="assistant",
             content=self.thought,
-            tool_calls=[self.tool_call],
+            tool_calls=[self.tool_call.to_litellm_format()],
             reasoning_content=self.reasoning_content,
         )
 

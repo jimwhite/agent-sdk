@@ -142,5 +142,5 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
     return Message(
         role="assistant",
         content=events[0].thought,  # Shared thought content only in the first event
-        tool_calls=[event.tool_call for event in events],
+        tool_calls=[event.tool_call.to_litellm_format() for event in events],
     )

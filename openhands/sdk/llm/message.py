@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.llm.types import OpenHandsToolCall
 
 
 logger = get_logger(__name__)
@@ -187,6 +191,21 @@ class Message(BaseModel):
             message_dict["name"] = self.name
 
         return message_dict
+
+    @property
+    def openhands_tool_calls(self) -> list["OpenHandsToolCall"] | None:
+        """Get tool calls as OpenHands-native types.
+
+        This property provides the new OpenHands-native interface for tool calls,
+        eliminating the need for consumers to work with LiteLLM types directly.
+        """
+        if self.tool_calls is None:
+            return None
+
+        # Import here to avoid circular imports
+        from openhands.sdk.llm.types import OpenHandsToolCall
+
+        return [OpenHandsToolCall.from_litellm(tc) for tc in self.tool_calls]
 
     @classmethod
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
