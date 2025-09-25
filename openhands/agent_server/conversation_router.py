@@ -24,7 +24,7 @@ from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
 
 
-router = APIRouter(prefix="/conversations")
+conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
 conversation_service = get_default_conversation_service()
 config = get_default_config()
 
@@ -34,6 +34,7 @@ START_CONVERSATION_EXAMPLES = [
     StartConversationRequest(
         agent=Agent(
             llm=LLM(
+                service_id="test-llm",
                 model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
                 base_url="https://llm-proxy.app.all-hands.dev",
                 api_key=SecretStr("secret"),
@@ -64,7 +65,7 @@ START_CONVERSATION_EXAMPLES = [
 # Read methods
 
 
-@router.get("/search")
+@conversation_router.get("/search")
 async def search_conversations(
     page_id: Annotated[
         str | None,
@@ -91,7 +92,7 @@ async def search_conversations(
     )
 
 
-@router.get("/count")
+@conversation_router.get("/count")
 async def count_conversations(
     status: Annotated[
         AgentExecutionStatus | None,
@@ -103,7 +104,9 @@ async def count_conversations(
     return count
 
 
-@router.get("/{conversation_id}", responses={404: {"description": "Item not found"}})
+@conversation_router.get(
+    "/{conversation_id}", responses={404: {"description": "Item not found"}}
+)
 async def get_conversation(conversation_id: UUID) -> ConversationInfo:
     """Given an id, get a conversation"""
     conversation = await conversation_service.get_conversation(conversation_id)
@@ -112,7 +115,7 @@ async def get_conversation(conversation_id: UUID) -> ConversationInfo:
     return conversation
 
 
-@router.get("/")
+@conversation_router.get("/")
 async def batch_get_conversations(
     ids: Annotated[list[UUID], Query()],
 ) -> list[ConversationInfo | None]:
@@ -126,7 +129,7 @@ async def batch_get_conversations(
 # Write Methods
 
 
-@router.post("/")
+@conversation_router.post("/")
 async def start_conversation(
     request: Annotated[
         StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)
@@ -137,7 +140,7 @@ async def start_conversation(
     return info
 
 
-@router.post(
+@conversation_router.post(
     "/{conversation_id}/pause", responses={404: {"description": "Item not found"}}
 )
 async def pause_conversation(conversation_id: UUID) -> Success:
@@ -148,7 +151,9 @@ async def pause_conversation(conversation_id: UUID) -> Success:
     return Success()
 
 
-@router.delete("/{conversation_id}", responses={404: {"description": "Item not found"}})
+@conversation_router.delete(
+    "/{conversation_id}", responses={404: {"description": "Item not found"}}
+)
 async def delete_conversation(conversation_id: UUID) -> Success:
     """Permanently delete a conversation."""
     deleted = await conversation_service.delete_conversation(conversation_id)
@@ -157,7 +162,7 @@ async def delete_conversation(conversation_id: UUID) -> Success:
     return Success()
 
 
-@router.post(
+@conversation_router.post(
     "/{conversation_id}/run",
     responses={
         404: {"description": "Item not found"},
@@ -171,7 +176,7 @@ async def run_conversation(conversation_id: UUID) -> Success:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     try:
-        await event_service.start_background_run()
+        await event_service.run()
     except ValueError as e:
         if str(e) == "conversation_already_running":
             raise HTTPException(
@@ -185,7 +190,7 @@ async def run_conversation(conversation_id: UUID) -> Success:
     return Success()
 
 
-@router.post(
+@conversation_router.post(
     "/{conversation_id}/secrets", responses={404: {"description": "Item not found"}}
 )
 async def update_conversation_secrets(
@@ -205,7 +210,7 @@ async def update_conversation_secrets(
     return Success()
 
 
-@router.post(
+@conversation_router.post(
     "/{conversation_id}/confirmation_policy",
     responses={404: {"description": "Item not found"}},
 )

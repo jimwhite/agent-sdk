@@ -1,5 +1,6 @@
+from abc import abstractmethod
 from collections.abc import Sequence
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from litellm import (
     AllMessageValues,
@@ -22,11 +23,13 @@ logger = get_logger(__name__)
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
-    def to_llm_dict(
-        self,
-    ) -> dict[str, str | dict[str, str]] | list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format. Subclasses should implement this method."""
-        raise NotImplementedError("Subclasses should implement this method.")
+    @abstractmethod
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Convert to LLM API format. Always returns a list of dictionaries.
+
+        Subclasses should implement this method to return a list of dictionaries,
+        even if they only have a single item.
+        """
 
 
 class TextContent(BaseContent):
@@ -36,7 +39,7 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
@@ -52,7 +55,7 @@ class TextContent(BaseContent):
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
-        return data
+        return [data]
 
 
 class ImageContent(BaseContent):
@@ -147,17 +150,35 @@ class Message(BaseModel):
     def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
 
-        for item in self.content:
-            # Serialize with the subclass-specific return type
-            raw = item.to_llm_dict()
-            if isinstance(item, TextContent):
-                d = cast(dict[str, Any], raw)
-                content.append(d)
+        # Track whether we need message-level cache control for tool role
+        role_tool_with_prompt_caching = False
 
-            elif isinstance(item, ImageContent) and self.vision_enabled:
-                # ImageContent.model_dump() always returns a list of dicts
-                d_list = cast(list[dict[str, Any]], raw)
-                content.extend(d_list)
+        for item in self.content:
+            # All content types now return list[dict[str, Any]]
+            item_dicts = item.to_llm_dict()
+
+            # We have to remove cache_prompt for tool content and move it up to the
+            # message level
+            # See discussion here for details: https://github.com/BerriAI/litellm/issues/6422#issuecomment-2438765472
+            if self.role == "tool" and item.cache_prompt:
+                role_tool_with_prompt_caching = True
+                for d in item_dicts:
+                    d.pop("cache_control", None)
+
+            # Handle vision-enabled filtering for ImageContent
+            if isinstance(item, ImageContent) and self.vision_enabled:
+                content.extend(item_dicts)
+            elif not isinstance(item, ImageContent):
+                # Add non-image content (TextContent, etc.)
+                content.extend(item_dicts)
+
+        message_dict: dict[str, Any] = {"content": content, "role": self.role}
+
+        # For tool role, move cache control to message level if any item requested it
+        if self.role == "tool" and role_tool_with_prompt_caching:
+            message_dict["cache_control"] = {"type": "ephemeral"}
+
+        return self._add_tool_call_keys(message_dict)
 
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 

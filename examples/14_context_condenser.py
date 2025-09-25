@@ -31,6 +31,7 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
+    service_id="main-llm",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -52,7 +53,9 @@ tools = [
 #  LLM-generated summary. This condenser triggers when there are more than ten events in
 # the conversation history, and always keeps the first two events (system prompts,
 # initial user messages) to preserve important context.
-condenser = LLMSummarizingCondenser(llm=llm, max_size=10, keep_first=2)
+condenser = LLMSummarizingCondenser(
+    llm=llm.model_copy(update={"service_id": "condenser"}), max_size=10, keep_first=2
+)
 
 # Agent with condenser
 agent = Agent(llm=llm, tools=tools, condenser=condenser)
