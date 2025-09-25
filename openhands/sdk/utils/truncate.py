@@ -3,7 +3,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from openhands.sdk import get_logger
+from openhands.sdk.logger import get_logger
 
 
 logger = get_logger(__name__)
