@@ -1,15 +1,13 @@
 from abc import abstractmethod
 from collections.abc import Sequence
 
-from litellm.types.utils import (
-    ModelResponse,
-)
 from pydantic import (
     Field,
     field_validator,
     model_validator,
 )
 
+from openhands.sdk.llm.completion_result import CompletionResult
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message
 from openhands.sdk.logger import get_logger
@@ -55,7 +53,7 @@ class RouterLLM(LLM):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> CompletionResult:
         """
         This method intercepts completion calls and routes them to the appropriate
         underlying LLM based on the routing logic implemented in select_llm().

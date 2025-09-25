@@ -1,7 +1,7 @@
 import json
 
 from litellm.types.utils import ChatCompletionMessageToolCall
-from pydantic import ValidationError, field_validator
+from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
@@ -19,7 +19,6 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
-    MetricsSnapshot,
     TextContent,
     get_llm_metadata,
 )
@@ -203,7 +202,6 @@ class Agent(AgentBase):
 
         # CompletionResult already contains the converted message and metrics snapshot
         message = completion_result.message
-        metrics = completion_result.metrics
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall

@@ -84,5 +84,4 @@ class LLMSummarizingCondenser(RollingCondenser):
             forgotten_event_ids=[event.id for event in forgotten_events],
             summary=summary,
             summary_offset=self.keep_first,
-            metrics=completion_result.metrics,
         )
