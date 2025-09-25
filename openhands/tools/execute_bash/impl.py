@@ -95,7 +95,7 @@ class BashExecutor(ToolExecutor):
         # Apply automatic secrets masking using env_masker
         if self.env_masker and observation.output:
             masked_output = self.env_masker(observation.output)
-            data = observation.model_dump(exclude={"output"})
+            data = observation.model_dump(exclude={"output", "full_output_save_dir"})
             return ExecuteBashObservation(
                 **data,
                 output=masked_output,

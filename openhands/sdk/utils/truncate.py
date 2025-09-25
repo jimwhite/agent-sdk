@@ -71,14 +71,26 @@ def maybe_truncate(
     if save_dir:
         saved_file_path = _save_full_content(content, save_dir, tool_prefix)
 
+    # Calculate how much space we have for actual content
+    available_chars = truncate_after - len(truncate_notice)
+    half = available_chars // 2
+
+    # Give extra character to head if odd number
+    head_chars = half + (available_chars % 2)
+    tail_chars = half
+
     # Create enhanced truncation notice with file reference if available
     enhanced_notice = truncate_notice
     if saved_file_path:
+        # Calculate line number where truncation happens
+        head_content_lines = len(content[:head_chars].splitlines())
+
         enhanced_notice = (
             f"<response clipped><NOTE>Due to the max output limit, only part of the "
             f"full response has been shown to you. The complete output has been "
             f"saved to {saved_file_path} - you can use other tools "
-            f"to view the full content.</NOTE>"
+            f"to view the full content (truncated part starts around "
+            f"line {head_content_lines + 1}).</NOTE>"
         )
 
     # Calculate how much space we have for actual content
