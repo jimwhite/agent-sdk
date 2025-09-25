@@ -2,7 +2,7 @@ import copy
 import threading
 import time
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 
 class Cost(BaseModel):
@@ -110,9 +110,7 @@ class Metrics(MetricsSnapshot):
         default_factory=list, description="List of token usage records"
     )
 
-    def model_post_init(self, __context) -> None:
-        """Initialize threading lock after Pydantic model initialization."""
-        self._lock = threading.Lock()
+    _lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
 
     @field_validator("accumulated_cost")
     @classmethod
