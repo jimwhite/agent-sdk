@@ -1,3 +1,4 @@
+from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
@@ -80,9 +81,10 @@ def test_message_tool_role_with_cache_prompt():
     result = message.to_llm_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
+    assert cast(dict[str, Any], result)["cache_control"] == {"type": "ephemeral"}
     # The content should not have cache_control since it's moved to message level
-    assert "cache_control" not in result["content"][0]
+    content = cast(list[dict[str, Any]], result["content"])  # parts
+    assert "cache_control" not in content[0]
 
 
 def test_message_tool_role_with_image_cache_prompt():
@@ -106,9 +108,10 @@ def test_message_tool_role_with_image_cache_prompt():
     result = message.to_llm_dict()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
-    assert result["cache_control"] == {"type": "ephemeral"}
+    assert cast(dict[str, Any], result)["cache_control"] == {"type": "ephemeral"}
     # The image content should not have cache_control since it's moved to message level
-    assert "cache_control" not in result["content"][0]
+    content = cast(list[dict[str, Any]], result["content"])  # parts
+    assert "cache_control" not in content[0]
 
 
 def test_message_with_tool_calls():
@@ -132,11 +135,12 @@ def test_message_with_tool_calls():
     result = message.to_llm_dict()
     assert result["role"] == "assistant"
     assert "tool_calls" in result
-    assert len(result["tool_calls"]) == 1
-    assert result["tool_calls"][0]["id"] == "call_123"
-    assert result["tool_calls"][0]["type"] == "function"
-    assert result["tool_calls"][0]["function"]["name"] == "test_function"
-    assert result["tool_calls"][0]["function"]["arguments"] == '{"arg": "value"}'
+    tool_calls = cast(list[dict[str, Any]], result["tool_calls"])  # type narrowing
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["id"] == "call_123"
+    assert tool_calls[0]["type"] == "function"
+    assert tool_calls[0]["function"]["name"] == "test_function"
+    assert tool_calls[0]["function"]["arguments"] == '{"arg": "value"}'
 
 
 def test_message_from_litellm_message_function_role_error():

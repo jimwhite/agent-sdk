@@ -41,7 +41,7 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> dict[str, str | dict[str, str]]:
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
         """Convert to LLM API format."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
@@ -57,7 +57,7 @@ class TextContent(BaseContent):
         }
         if self.cache_prompt:
             data["cache_control"] = {"type": "ephemeral"}
-        return data
+        return [data]
 
 
 class ImageContent(BaseContent):
@@ -180,11 +180,13 @@ class Message(BaseModel):
         for item in self.content:
             raw = item.to_llm_dict()
             if isinstance(item, TextContent):
-                d = cast(dict[str, Any], raw)
+                d_list = cast(list[dict[str, Any]], raw)
                 if self.role == "tool" and item.cache_prompt:
                     role_tool_with_prompt_caching = True
-                    d.pop("cache_control", None)
-                parts.append(cast(ChatCompletionContentPartTextParam, d))
+                    for elem in d_list:
+                        elem.pop("cache_control", None)
+                for elem in d_list:
+                    parts.append(cast(ChatCompletionContentPartTextParam, elem))
             elif isinstance(item, ImageContent) and self.vision_enabled:
                 d_list = cast(list[dict[str, Any]], raw)
                 if self.role == "tool" and item.cache_prompt:
