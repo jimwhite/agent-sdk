@@ -19,6 +19,7 @@ from openhands.sdk.event import (
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
+    Message,
     TextContent,
     get_llm_metadata,
 )
@@ -201,7 +202,7 @@ class Agent(AgentBase):
                 raise e
 
         # CompletionResult already contains the converted message and metrics snapshot
-        message = completion_result.message
+        message: Message = completion_result.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
