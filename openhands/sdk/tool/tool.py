@@ -1,6 +1,6 @@
 from abc import ABC
 from collections.abc import Sequence
-from typing import Any, Protocol, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 from pydantic import (
@@ -20,6 +20,10 @@ from openhands.sdk.utils.models import (
     get_known_concrete_subclasses,
     kind_of,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.llm.types import OpenHandsToolSpec
 
 
 ActionT = TypeVar("ActionT", bound=ActionBase)
@@ -298,6 +302,42 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
                 if add_security_risk_prediction
                 else action_type.to_mcp_schema(),
             ),
+        )
+
+    def to_openhands_spec(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
+    ) -> "OpenHandsToolSpec":
+        """Convert to OpenHands tool specification.
+
+        This method provides the new OpenHands-native interface for tool
+        specifications, eliminating the need for consumers to work with
+        LiteLLM types directly.
+
+        Args:
+            add_security_risk_prediction: Whether to add a `security_risk` field
+                to the action schema for LLM to predict.
+            action_type: Optionally override the action_type to use for the schema.
+        """
+        # Import here to avoid circular imports
+        from openhands.sdk.llm.types import OpenHandsToolSpec
+
+        action_type = action_type or self.action_type
+        action_type_with_risk = _create_action_type_with_risk(self.action_type)
+
+        # We only add security_risk if the tool is not read-only
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
+
+        return OpenHandsToolSpec(
+            name=self.name,
+            description=self.description,
+            parameters=action_type_with_risk.to_mcp_schema()
+            if add_security_risk_prediction
+            else action_type.to_mcp_schema(),
+            annotations=self.annotations,
         )
 
     @classmethod

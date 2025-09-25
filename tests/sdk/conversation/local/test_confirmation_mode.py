@@ -25,6 +25,7 @@ from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import UserRejectObservation
 from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm.types import OpenHandsToolCall
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
 from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
@@ -155,7 +156,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll execute {command}",
-                            tool_calls=[tool_call],
+                            tool_calls=[tool_call.to_litellm_format()],
                         )
                     )
                 ],
@@ -231,13 +232,15 @@ class TestConfirmationMode:
         """Helper to create test action events."""
         action = MockConfirmationModeAction(command=command)
 
-        tool_call = ChatCompletionMessageToolCall(
+        litellm_tool_call = ChatCompletionMessageToolCall(
             id=call_id,
             type="function",
             function=Function(
                 name="test_tool", arguments=f'{{"command": "{command}"}}'
             ),
         )
+
+        tool_call = OpenHandsToolCall.from_litellm(litellm_tool_call)
 
         return ActionEvent(
             source="agent",

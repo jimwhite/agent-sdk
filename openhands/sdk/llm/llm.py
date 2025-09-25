@@ -63,6 +63,10 @@ from openhands.sdk.llm.utils.telemetry import Telemetry
 from openhands.sdk.logger import ENV_LOG_DIR, get_logger
 
 
+if TYPE_CHECKING:
+    from openhands.sdk.llm.types import OpenHandsToolSpec
+
+
 logger = get_logger(__name__)
 
 __all__ = ["LLM"]
@@ -346,7 +350,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def completion(
         self,
         messages: list[Message],
-        tools: Sequence[ToolBase] | None = None,
+        tools: Sequence[ToolBase] | list[OpenHandsToolSpec] | None = None,
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
@@ -369,12 +373,19 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Convert Tool objects to ChatCompletionToolParam once here
         cc_tools: list[ChatCompletionToolParam] = []
         if tools:
-            cc_tools = [
-                t.to_openai_tool(
-                    add_security_risk_prediction=add_security_risk_prediction
-                )
-                for t in tools
-            ]
+            # Handle both ToolBase and OpenHandsToolSpec
+            if tools and hasattr(tools[0], "to_openai_tool"):
+                # Legacy ToolBase interface
+
+                cc_tools = [
+                    t.to_openai_tool(  # type: ignore[attr-defined]
+                        add_security_risk_prediction=add_security_risk_prediction
+                    )
+                    for t in tools
+                ]
+            else:
+                # New OpenHandsToolSpec interface
+                cc_tools = [t.to_litellm_format() for t in tools]  # type: ignore[attr-defined]
 
         use_mock_tools = self.should_mock_tool_calls(cc_tools)
         if use_mock_tools:

@@ -35,3 +35,8 @@ class CompletionResult(BaseModel):
     class Config:
         # Allow arbitrary types for ModelResponse
         arbitrary_types_allowed = True
+
+    @property
+    def has_tool_calls(self) -> bool:
+        """Check if response contains tool calls."""
+        return bool(self.message.tool_calls)
