@@ -73,7 +73,7 @@ def maybe_truncate(
         enhanced_notice = (
             f"<response clipped><NOTE>Due to the max output limit, only part of the "
             f"full response has been shown to you. The complete output has been "
-            f"saved to {saved_file_path} - you can use the str_replace_editor tool "
+            f"saved to {saved_file_path} - you can use other tools "
             f"to view the full content.</NOTE>"
         )
 
