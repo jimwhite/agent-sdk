@@ -682,6 +682,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             log_ctx["tools"] = tools if has_tools else None
             if nonfn_msgs is not None:
                 log_ctx["raw_messages"] = nonfn_msgs
+
             return ChatCtx(
                 kind="chat",
                 messages=messages or [],
@@ -802,6 +803,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 )
 
                 if ctx.kind == "chat":
+                    messages_arg = self._coerce_chat_messages_for_litellm(ctx.messages)
                     ret = litellm_completion(
                         model=self.model,
                         api_key=self.api_key.get_secret_value()
@@ -812,7 +814,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         timeout=self.timeout,
                         drop_params=self.drop_params,
                         seed=self.seed,
-                        messages=ctx.messages,
+                        messages=messages_arg,
                         **ctx.call_kwargs,
                     )
                     assert isinstance(ret, ModelResponse)
@@ -1234,3 +1236,65 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # window exceeded error, we'll have to assume it's not and rely on the call-site
         # context to handle it appropriately.
         return False
+
+    # Note: legacy helper removed; replaced by typed version below
+    def _coerce_chat_messages_for_litellm(
+        self, messages: list[AllMessageValues]
+    ) -> list[dict[str, Any]]:
+        def to_plain(obj: Any) -> Any:
+            if obj is None or isinstance(obj, (str, int, float, bool)):
+                return obj
+            if isinstance(obj, dict):
+                return {k: to_plain(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [to_plain(x) for x in obj]
+            if isinstance(obj, tuple):
+                return [to_plain(x) for x in obj]
+            # Pydantic BaseModel
+            try:
+                if isinstance(obj, BaseModel):  # type: ignore[reportUnnecessaryIsInstance]
+                    return to_plain(obj.model_dump(mode="json"))
+            except Exception:
+                pass
+            # Objects that implement model_dump(_json)
+            for fn in ("model_dump", "model_dump_json"):
+                try:
+                    meth = getattr(obj, fn)
+                    dumped = meth()  # type: ignore[call-arg]
+                    if fn == "model_dump_json" and isinstance(dumped, str):
+                        return to_plain(json.loads(dumped))
+                    return to_plain(dumped)
+                except Exception:
+                    pass
+            # Iterable (e.g., pydantic_core ValidatorIterator)
+            try:
+                return [to_plain(x) for x in list(obj)]  # type: ignore[arg-type]
+            except Exception:
+                return str(obj)
+
+        out: list[dict[str, Any]] = []
+        for m in messages:
+            if isinstance(m, dict):
+                d = cast(dict[str, Any], to_plain(m))
+            else:
+                d_any = to_plain(m)
+                if isinstance(d_any, dict):
+                    d = cast(dict[str, Any], d_any)
+                else:
+                    d = {"_message": d_any}
+
+            # Ensure content is a plain list or string
+            c = d.get("content")
+            if isinstance(c, (str, type(None))):
+                pass
+            elif isinstance(c, dict):
+                d["content"] = [to_plain(c)]
+            else:
+                seq = to_plain(c)
+                if isinstance(seq, list):
+                    d["content"] = seq
+                else:
+                    d["content"] = [seq] if seq is not None else []
+            out.append(d)
+
+        return out
