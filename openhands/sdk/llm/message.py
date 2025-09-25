@@ -131,122 +131,142 @@ class Message(BaseModel):
             item.text for item in self.content if isinstance(item, TextContent)
         )
         if self.role == "system":
-            return cast(
-                ChatCompletionSystemMessageParam, {"role": "system", "content": text}
-            )
+            sys_msg: ChatCompletionSystemMessageParam = {
+                "role": "system",
+                "content": text,
+            }
+            return sys_msg
         if self.role == "user":
-            return cast(
-                ChatCompletionUserMessageParam, {"role": "user", "content": text}
-            )
+            user_msg: ChatCompletionUserMessageParam = {"role": "user", "content": text}
+            return user_msg
         if self.role == "assistant":
             if self.tool_calls is not None:
-                return cast(
-                    ChatCompletionAssistantMessageParam,
-                    {
-                        "role": "assistant",
-                        **({"content": text} if text else {}),
-                        "tool_calls": [
-                            cast(
-                                ChatCompletionMessageToolCallParam,
-                                {
-                                    "id": tc.id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": tc.function.name,
-                                        "arguments": tc.function.arguments,
-                                    },
-                                },
-                            )
-                            for tc in self.tool_calls
-                        ],
-                    },
-                )
-            return cast(
-                ChatCompletionAssistantMessageParam,
-                {"role": "assistant", **({"content": text} if text else {})},
-            )
+                tool_calls: list[ChatCompletionMessageToolCallParam] = []
+                for tc in self.tool_calls:
+                    fn = tc.function
+                    name = fn.name
+                    arguments = fn.arguments
+                    assert isinstance(name, str)
+                    assert isinstance(arguments, str)
+                    tool_calls.append(
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "arguments": arguments,
+                            },
+                        }
+                    )
+                assistant_msg: ChatCompletionAssistantMessageParam = {
+                    "role": "assistant"
+                }
+                if text:
+                    assistant_msg["content"] = text
+                assistant_msg["tool_calls"] = tool_calls
+                return assistant_msg
+            assistant_msg: ChatCompletionAssistantMessageParam = {"role": "assistant"}
+            if text:
+                assistant_msg["content"] = text
+            return assistant_msg
         if self.role == "tool":
             assert self.tool_call_id is not None, "tool messages require tool_call_id"
-            return cast(
-                ChatCompletionToolMessageParam,
-                {"role": "tool", "content": text, "tool_call_id": self.tool_call_id},
-            )
+            tool_msg: ChatCompletionToolMessageParam = {
+                "role": "tool",
+                "content": text,
+                "tool_call_id": self.tool_call_id,
+            }
+            return tool_msg
         raise AssertionError(f"Unsupported role: {self.role}")
 
     def _list_serializer(self) -> ChatCompletionMessageParam:
         parts: list[ChatCompletionContentPartParam] = []
         role_tool_with_prompt_caching = False
 
+        # Build typed content parts directly from Message content
         for item in self.content:
-            raw = item.to_llm_dict()
             if isinstance(item, TextContent):
-                d_list = cast(list[dict[str, Any]], raw)
+                txt = item.text
+                if len(txt) > DEFAULT_TEXT_CONTENT_LIMIT:
+                    txt = maybe_truncate(txt, DEFAULT_TEXT_CONTENT_LIMIT)
+                t: ChatCompletionContentPartTextParam = {"type": "text", "text": txt}
                 if self.role == "tool" and item.cache_prompt:
                     role_tool_with_prompt_caching = True
-                    for elem in d_list:
-                        elem.pop("cache_control", None)
-                for elem in d_list:
-                    parts.append(cast(ChatCompletionContentPartTextParam, elem))
+                parts.append(t)
             elif isinstance(item, ImageContent) and self.vision_enabled:
-                d_list = cast(list[dict[str, Any]], raw)
                 if self.role == "tool" and item.cache_prompt:
                     role_tool_with_prompt_caching = True
-                    for elem in d_list:
-                        elem.pop("cache_control", None)
-                for elem in d_list:
-                    parts.append(cast(ChatCompletionContentPartImageParam, elem))
+                for url in item.image_urls:
+                    i: ChatCompletionContentPartImageParam = {
+                        "type": "image_url",
+                        "image_url": {"url": url},
+                    }
+                    parts.append(i)
 
+        # Build a string-only variant from text parts as fallback when no parts
         text_only = "\n".join(
-            item.text for item in self.content if isinstance(item, TextContent)
+            (
+                maybe_truncate(c.text, DEFAULT_TEXT_CONTENT_LIMIT)
+                if len(c.text) > DEFAULT_TEXT_CONTENT_LIMIT
+                else c.text
+            )
+            for c in self.content
+            if isinstance(c, TextContent)
         )
+
         if self.role == "system":
-            return cast(
-                ChatCompletionSystemMessageParam,
-                {"role": "system", "content": text_only},
-            )
+            sys_msg: ChatCompletionSystemMessageParam = {
+                "role": "system",
+                "content": text_only,
+            }
+            return sys_msg
         if self.role == "user":
-            return cast(
-                ChatCompletionUserMessageParam,
-                {"role": "user", "content": parts if parts else text_only},
-            )
+            user_msg: ChatCompletionUserMessageParam = {
+                "role": "user",
+                "content": parts if parts else text_only,
+            }
+            return user_msg
         if self.role == "assistant":
             if self.tool_calls is not None:
-                return cast(
-                    ChatCompletionAssistantMessageParam,
-                    {
-                        "role": "assistant",
-                        **({"content": text_only} if text_only else {}),
-                        "tool_calls": [
-                            cast(
-                                ChatCompletionMessageToolCallParam,
-                                {
-                                    "id": tc.id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": tc.function.name,
-                                        "arguments": tc.function.arguments,
-                                    },
-                                },
-                            )
-                            for tc in self.tool_calls
-                        ],
-                    },
-                )
-            return cast(
-                ChatCompletionAssistantMessageParam,
-                {"role": "assistant", **({"content": text_only} if text_only else {})},
-            )
+                tool_calls: list[ChatCompletionMessageToolCallParam] = []
+                for tc in self.tool_calls:
+                    fn = tc.function
+                    name = fn.name
+                    arguments = fn.arguments
+                    assert isinstance(name, str)
+                    assert isinstance(arguments, str)
+                    tool_calls.append(
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "arguments": arguments,
+                            },
+                        }
+                    )
+                assistant_msg: ChatCompletionAssistantMessageParam = {
+                    "role": "assistant"
+                }
+                if text_only:
+                    assistant_msg["content"] = text_only
+                assistant_msg["tool_calls"] = tool_calls
+                return assistant_msg
+            assistant_msg: ChatCompletionAssistantMessageParam = {"role": "assistant"}
+            if text_only:
+                assistant_msg["content"] = text_only
+            return assistant_msg
         if self.role == "tool":
             assert self.tool_call_id is not None, "tool messages require tool_call_id"
-            tool_msg: ChatCompletionToolMessageParam = {
+            msg: ChatCompletionToolMessageParam = {
                 "role": "tool",
                 "content": parts if parts else text_only,
                 "tool_call_id": self.tool_call_id,
             }
             if role_tool_with_prompt_caching:
                 # extra field grafted at the message level
-                cast(dict[str, Any], tool_msg)["cache_control"] = {"type": "ephemeral"}
-            return cast(ChatCompletionToolMessageParam, tool_msg)
+                cast(dict[str, Any], msg)["cache_control"] = {"type": "ephemeral"}
+            return msg
         raise AssertionError(f"Unsupported role: {self.role}")
 
     def _add_tool_call_keys(self, message_dict: dict[str, Any]) -> dict[str, Any]:
