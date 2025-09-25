@@ -179,6 +179,11 @@ class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
 class ObservationBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for output observation."""
 
+    full_output_save_dir: str | None = Field(
+        default=None,
+        description="Directory where full output files are saved",
+    )
+
     @property
     def agent_observation(self) -> Sequence[TextContent | ImageContent]:
         """Get the observation string to show to the agent."""

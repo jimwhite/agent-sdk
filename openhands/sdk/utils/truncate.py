@@ -1,7 +1,11 @@
 """Utility functions for truncating text content."""
 
+import logging
 from datetime import datetime
 from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 
 # Default truncation limits
@@ -14,7 +18,7 @@ DEFAULT_TRUNCATE_NOTICE = (
 )
 
 
-def _save_full_content(content: str, save_dir: str, tool_prefix: str) -> str:
+def _save_full_content(content: str, save_dir: str, tool_prefix: str) -> str | None:
     """Save full content to the specified directory and return the file path."""
 
     save_dir_path = Path(save_dir)
@@ -31,8 +35,8 @@ def _save_full_content(content: str, save_dir: str, tool_prefix: str) -> str:
         file_path.write_text(content, encoding="utf-8")
         return str(file_path)
     except Exception as e:
-        # If saving fails, return a descriptive error message
-        return f"<failed to save: {e}>"
+        logger.debug(f"Failed to save full content to {file_path}: {e}")
+        return None
 
 
 def maybe_truncate(
@@ -69,7 +73,7 @@ def maybe_truncate(
 
     # Create enhanced truncation notice with file reference if available
     enhanced_notice = truncate_notice
-    if saved_file_path and not saved_file_path.startswith("<failed"):
+    if saved_file_path:
         enhanced_notice = (
             f"<response clipped><NOTE>Due to the max output limit, only part of the "
             f"full response has been shown to you. The complete output has been "

@@ -104,7 +104,7 @@ class ExecuteBashObservation(ObservationBase):
         truncated_text = maybe_truncate(
             content=ret,
             truncate_after=MAX_CMD_OUTPUT_SIZE,
-            save_dir=self.metadata.working_dir,
+            save_dir=self.full_output_save_dir,
             tool_prefix="bash",
         )
         return [TextContent(text=truncated_text)]
@@ -231,6 +231,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
+        full_output_save_dir: str = "/tmp/.openhands",
     ) -> Sequence["BashTool"]:
         """Initialize BashTool with executor parameters.
 
@@ -264,6 +265,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             terminal_type=terminal_type,
             env_provider=env_provider,
             env_masker=env_masker,
+            full_output_save_dir=full_output_save_dir,
         )
 
         # Initialize the parent Tool with the executor

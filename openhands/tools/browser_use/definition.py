@@ -1,6 +1,5 @@
 """Browser-use tool implementation for web automation."""
 
-import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -35,7 +34,7 @@ class BrowserObservation(ObservationBase):
         truncated_text = maybe_truncate(
             content=self.output,
             truncate_after=DEFAULT_TEXT_CONTENT_LIMIT,
-            save_dir=os.getcwd(),
+            save_dir=self.full_output_save_dir,
             tool_prefix="browser",
         )
         content: list[TextContent | ImageContent] = [TextContent(text=truncated_text)]
@@ -593,13 +592,16 @@ class BrowserToolSet(ToolBase):
     @classmethod
     def create(
         cls,
+        full_output_save_dir: str = "/tmp/.openhands",
         **executor_config,
     ) -> list[ToolBase]:
         # Import executor only when actually needed to
         # avoid hanging during module import
         from openhands.tools.browser_use.impl import BrowserToolExecutor
 
-        executor = BrowserToolExecutor(**executor_config)
+        executor = BrowserToolExecutor(
+            full_output_save_dir=full_output_save_dir, **executor_config
+        )
         return [
             browser_navigate_tool.set_executor(executor),
             browser_click_tool.set_executor(executor),
