@@ -1,6 +1,6 @@
 """Utility functions for truncating text content."""
 
-from datetime import datetime
+import hashlib
 from pathlib import Path
 
 from openhands.sdk.logger import get_logger
@@ -24,19 +24,20 @@ def _save_full_content(content: str, save_dir: str, tool_prefix: str) -> str | N
     save_dir_path = Path(save_dir)
     save_dir_path.mkdir(exist_ok=True)
 
-    # Generate a unique filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[
-        :-3
-    ]  # microseconds to milliseconds
-    filename = f"{tool_prefix}_output_{timestamp}.txt"
+    # Generate hash-based filename for deduplication
+    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()[:8]
+    filename = f"{tool_prefix}_output_{content_hash}.txt"
     file_path = save_dir_path / filename
 
-    try:
-        file_path.write_text(content, encoding="utf-8")
-        return str(file_path)
-    except Exception as e:
-        logger.debug(f"Failed to save full content to {file_path}: {e}")
-        return None
+    # Only write if file doesn't exist (deduplication)
+    if not file_path.exists():
+        try:
+            file_path.write_text(content, encoding="utf-8")
+        except Exception as e:
+            logger.debug(f"Failed to save full content to {file_path}: {e}")
+            return None
+
+    return str(file_path)
 
 
 def maybe_truncate(
