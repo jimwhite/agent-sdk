@@ -355,6 +355,7 @@ class DockerSandboxedAgentServer(SandboxedAgentServer):
 
         try:
             with httpx.Client() as client:
+                # Start the bash command
                 response = client.post(
                     f"{self._base_url}/api/bash/execute_bash_command",
                     json={
@@ -366,17 +367,88 @@ class DockerSandboxedAgentServer(SandboxedAgentServer):
                 )
                 response.raise_for_status()
                 data = response.json()
+                command_id = data["id"]
 
-                # Return initial command info
-                return BashExecutionResult(
-                    command_id=data["id"],
-                    command=data["command"],
-                    exit_code=None,  # Command is initially running
-                    output="",
-                )
+                # Wait for the command to complete and get results
+                return self._wait_for_bash_completion(client, command_id, timeout)
+
         except Exception as e:
             logger.error(f"Failed to execute bash command: {e}")
             raise RuntimeError(f"Failed to execute bash command: {e}")
+
+    def _wait_for_bash_completion(
+        self, client: httpx.Client, command_id: str, timeout: int = 300
+    ) -> BashExecutionResult:
+        """Wait for a bash command to complete and return the results."""
+        import time
+
+        start_time = time.time()
+        poll_interval = 0.5  # Poll every 500ms
+
+        while time.time() - start_time < timeout:
+            try:
+                # Search for bash events for this command
+                response = client.get(
+                    f"{self._base_url}/api/bash/bash_events/search",
+                    params={
+                        "command_id__eq": command_id,
+                        "kind__eq": "BashOutput",
+                        "limit": 100,
+                    },
+                    timeout=10,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # Look for the final output (the one with exit_code)
+                final_output = None
+                all_outputs = []
+
+                for item in data.get("items", []):
+                    if item.get("command_id") == command_id:
+                        all_outputs.append(item)
+                        if item.get("exit_code") is not None:
+                            final_output = item
+                            break
+
+                if final_output:
+                    # Combine all output pieces
+                    stdout_parts = []
+                    stderr_parts = []
+
+                    # Sort by order to ensure correct sequence
+                    all_outputs.sort(key=lambda x: x.get("order", 0))
+
+                    for output in all_outputs:
+                        if output.get("stdout"):
+                            stdout_parts.append(output["stdout"])
+                        if output.get("stderr"):
+                            stderr_parts.append(output["stderr"])
+
+                    combined_output = "".join(stdout_parts)
+                    if stderr_parts:
+                        combined_stderr = "".join(stderr_parts)
+                        if combined_output:
+                            combined_output += "\n" + combined_stderr
+                        else:
+                            combined_output = combined_stderr
+
+                    return BashExecutionResult(
+                        command_id=command_id,
+                        command=final_output.get("command", ""),
+                        exit_code=final_output["exit_code"],
+                        output=combined_output,
+                    )
+
+                # Command still running, wait and poll again
+                time.sleep(poll_interval)
+
+            except Exception as e:
+                logger.debug(f"Error polling for bash results: {e}")
+                time.sleep(poll_interval)
+
+        # Timeout reached
+        raise RuntimeError(f"Bash command timed out after {timeout} seconds")
 
     def upload_file(self, local_path: str | Path, remote_path: str) -> bool:
         """Upload a file to the Docker container."""

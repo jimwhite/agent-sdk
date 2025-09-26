@@ -116,7 +116,17 @@ def main() -> None:
                 result = server.execute_bash(
                     "echo 'Testing remote execution' && python --version"
                 )
-                logger.info(f"Bash execution result: {result}")
+                logger.info("Bash execution result:")
+                logger.info(f"  Command ID: {result.command_id}")
+                logger.info(f"  Exit Code: {result.exit_code}")
+                logger.info(f"  Output: {result.output}")
+
+                # Test a command that produces an error
+                logger.info("Testing bash execution with error...")
+                error_result = server.execute_bash("ls /nonexistent_directory")
+                logger.info("Error command result:")
+                logger.info(f"  Exit Code: {error_result.exit_code}")
+                logger.info(f"  Output: {error_result.output}")
 
                 # Test file upload
                 logger.info("Testing file upload...")
