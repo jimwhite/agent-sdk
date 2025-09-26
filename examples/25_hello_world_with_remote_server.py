@@ -10,7 +10,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.server import DockerAgentServer
+from openhands.sdk.server import RemoteAgentServer
 
 
 logger = get_logger(__name__)
@@ -21,6 +21,13 @@ def main() -> None:
     api_key = os.getenv("LITELLM_API_KEY")
     assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
+    # 2) Ensure we have Runtime API key
+    runtime_api_key = os.getenv("SANDBOX_API_KEY")
+    if runtime_api_key is None:
+        runtime_api_key = input("Please enter your Runtime API key: ").strip()
+        if not runtime_api_key:
+            raise ValueError("Runtime API key is required")
+
     llm = LLM(
         service_id="agent",
         model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
@@ -28,23 +35,23 @@ def main() -> None:
         api_key=SecretStr(api_key),
     )
 
-    # 2) Start the dev image in Docker via the SDK helper and wait for health
-    #    Forward LITELLM_API_KEY into the container so remote tools can use it.
-    with DockerAgentServer(
+    # 3) Start the remote agent server using the runtime API
+    with RemoteAgentServer(
+        api_url="https://runtime-api.all-hands.dev",
+        api_key=runtime_api_key,
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
-        # TODO: Change this to your platform if not linux/arm64
-        platform="linux/arm64",
+        extra_env={"LITELLM_API_KEY": api_key},
     ) as server:
-        # 3) Create agent – IMPORTANT: working_dir must be the path inside container
+        # 4) Create agent – IMPORTANT: working_dir must be the path inside container
         #    where we mounted the current repo.
         agent = get_default_agent(
             llm=llm,
-            working_dir="/",
+            working_dir="/openhands/code",
             cli_mode=True,
         )
 
-        # 4) Set up callback collection, like example 22
+        # 5) Set up callback collection, like example 22
         received_events: list = []
         last_event_time = {"ts": time.time()}
 
@@ -54,7 +61,7 @@ def main() -> None:
             received_events.append(event)
             last_event_time["ts"] = time.time()
 
-        # 5) Create RemoteConversation and do the same 2-step task
+        # 6) Create RemoteConversation and do the same 2-step task
         conversation = Conversation(
             agent=agent,
             host=server.base_url,

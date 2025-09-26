@@ -5,7 +5,7 @@ Example: Build and Use Remote Agent Server
 This example demonstrates how to:
 1. Build an agent server image locally
 2. Push it to a registry (optional)
-3. Use it with RemoteSandboxedAgentServer
+3. Use it with RemoteAgentServer
 
 Prerequisites:
 - Docker installed and running
@@ -19,8 +19,8 @@ import time
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.sandbox import (
-    RemoteSandboxedAgentServer,
+from openhands.sdk.server import (
+    RemoteAgentServer,
     build_and_push_agent_server_image,
     get_agent_server_build_instructions,
 )
@@ -107,7 +107,7 @@ def main():
     print("\n🚀 Starting remote agent server...")
 
     try:
-        with RemoteSandboxedAgentServer(
+        with RemoteAgentServer(
             api_url=runtime_api_url,
             api_key=runtime_api_key,
             base_image=full_image_name,

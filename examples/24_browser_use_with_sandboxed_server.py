@@ -10,7 +10,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.sandbox import DockerSandboxedAgentServer
+from openhands.sdk.server import DockerAgentServer
 
 
 logger = get_logger(__name__)
@@ -25,7 +25,7 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-with DockerSandboxedAgentServer(
+with DockerAgentServer(
     base_image="nikolaik/python-nodejs:python3.12-nodejs22",
     host_port=8010,
     # TODO: Change this to your platform if not linux/arm64
