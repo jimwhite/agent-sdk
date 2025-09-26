@@ -382,8 +382,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ]
 
         use_mock_tools = self.should_mock_tool_calls(cc_tools)
-        formatted_messages: list[dict[str, Any]] = [dict(m) for m in typed_msgs]
-
         if use_mock_tools:
             logger.debug(
                 "LLM.completion: mocking function-calling via prompt "
@@ -392,6 +390,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             formatted_messages, kwargs = self.pre_request_prompt_mock(
                 typed_msgs, cc_tools or [], kwargs
             )
+        else:
+            formatted_messages: list[dict[str, Any]] = [dict(m) for m in typed_msgs]
 
         # 3) normalize provider params
         # Only pass tools when native FC is active
