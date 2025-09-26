@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import time
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
@@ -11,7 +13,7 @@ import httpx
 import tenacity
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.sandbox.base import SandboxedAgentServer
+from openhands.sdk.sandbox.base import BashExecutionResult, SandboxedAgentServer
 from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 
 
@@ -386,6 +388,114 @@ class RemoteSandboxedAgentServer(SandboxedAgentServer):
         except httpx.HTTPError as e:
             logger.error(f"HTTP error for {method} {url}: {e}")
             raise
+
+    def execute_bash(
+        self, command: str, cwd: str | None = None, timeout: int = 300
+    ) -> BashExecutionResult:
+        """Execute a bash command in the remote sandboxed environment."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            response = self._send_api_request(
+                "POST",
+                f"{self._base_url}/api/bash/execute_bash_command",
+                json={
+                    "command": command,
+                    "cwd": cwd,
+                    "timeout": timeout,
+                },
+                timeout=timeout + 10,  # Add buffer to HTTP timeout
+            )
+            data = response.json()
+
+            # Return initial command info
+            return BashExecutionResult(
+                command_id=data["id"],
+                command=data["command"],
+                exit_code=None,  # Command is initially running
+                output="",
+            )
+        except Exception as e:
+            logger.error(f"Failed to execute bash command: {e}")
+            raise RuntimeError(f"Failed to execute bash command: {e}")
+
+    def upload_file(self, local_path: str | Path, remote_path: str) -> bool:
+        """Upload a file to the remote sandboxed environment."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise RuntimeError(f"Local file does not exist: {local_path}")
+
+        try:
+            with open(local_path, "rb") as f:
+                files = {"file": (local_path.name, f, "application/octet-stream")}
+                self._send_api_request(
+                    "POST",
+                    f"{self._base_url}/api/file/upload/{remote_path}",
+                    files=files,
+                    timeout=60,
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Failed to upload file: {e}")
+            return False
+
+    def upload_file_content(self, content: str | bytes, remote_path: str) -> bool:
+        """Upload file content to the remote sandboxed environment."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            if isinstance(content, str):
+                content_bytes = content.encode("utf-8")
+            else:
+                content_bytes = content
+
+            files = {
+                "file": ("content", BytesIO(content_bytes), "application/octet-stream")
+            }
+            self._send_api_request(
+                "POST",
+                f"{self._base_url}/api/file/upload/{remote_path}",
+                files=files,
+                timeout=60,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to upload file content: {e}")
+            return False
+
+    def download_file(
+        self, remote_path: str, local_path: str | Path | None = None
+    ) -> bytes | None:
+        """Download a file from the remote sandboxed environment."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            response = self._send_api_request(
+                "GET",
+                f"{self._base_url}/api/file/download/{remote_path}",
+                timeout=60,
+            )
+            content = response.content
+
+            if local_path is not None:
+                local_path = Path(local_path)
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(local_path, "wb") as f:
+                    f.write(content)
+                return None
+            else:
+                return content
+        except Exception as e:
+            logger.error(f"Failed to download file: {e}")
+            if local_path is None:
+                return None
+            raise RuntimeError(f"Failed to download file: {e}")
 
     def _cleanup(self) -> None:
         """Clean up resources."""

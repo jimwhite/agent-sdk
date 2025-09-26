@@ -8,12 +8,15 @@ import sys
 import threading
 import time
 from collections.abc import Iterable
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
+import httpx
+
 from openhands.sdk.logger import get_logger
-from openhands.sdk.sandbox.base import SandboxedAgentServer
+from openhands.sdk.sandbox.base import BashExecutionResult, SandboxedAgentServer
 from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 
 
@@ -342,6 +345,122 @@ class DockerSandboxedAgentServer(SandboxedAgentServer):
                     raise RuntimeError(msg)
             time.sleep(1)
         raise RuntimeError("Server failed to become healthy in time")
+
+    def execute_bash(
+        self, command: str, cwd: str | None = None, timeout: int = 300
+    ) -> BashExecutionResult:
+        """Execute a bash command in the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    f"{self._base_url}/api/bash/execute_bash_command",
+                    json={
+                        "command": command,
+                        "cwd": cwd,
+                        "timeout": timeout,
+                    },
+                    timeout=timeout + 10,  # Add buffer to HTTP timeout
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # Return initial command info
+                return BashExecutionResult(
+                    command_id=data["id"],
+                    command=data["command"],
+                    exit_code=None,  # Command is initially running
+                    output="",
+                )
+        except Exception as e:
+            logger.error(f"Failed to execute bash command: {e}")
+            raise RuntimeError(f"Failed to execute bash command: {e}")
+
+    def upload_file(self, local_path: str | Path, remote_path: str) -> bool:
+        """Upload a file to the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise RuntimeError(f"Local file does not exist: {local_path}")
+
+        try:
+            with httpx.Client() as client:
+                with open(local_path, "rb") as f:
+                    files = {"file": (local_path.name, f, "application/octet-stream")}
+                    response = client.post(
+                        f"{self._base_url}/api/file/upload/{remote_path}",
+                        files=files,
+                        timeout=60,
+                    )
+                    response.raise_for_status()
+                    return True
+        except Exception as e:
+            logger.error(f"Failed to upload file: {e}")
+            return False
+
+    def upload_file_content(self, content: str | bytes, remote_path: str) -> bool:
+        """Upload file content to the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            if isinstance(content, str):
+                content_bytes = content.encode("utf-8")
+            else:
+                content_bytes = content
+
+            with httpx.Client() as client:
+                files = {
+                    "file": (
+                        "content",
+                        BytesIO(content_bytes),
+                        "application/octet-stream",
+                    )
+                }
+                response = client.post(
+                    f"{self._base_url}/api/file/upload/{remote_path}",
+                    files=files,
+                    timeout=60,
+                )
+                response.raise_for_status()
+                return True
+        except Exception as e:
+            logger.error(f"Failed to upload file content: {e}")
+            return False
+
+    def download_file(
+        self, remote_path: str, local_path: str | Path | None = None
+    ) -> bytes | None:
+        """Download a file from the Docker container."""
+        if self._base_url is None:
+            raise RuntimeError("Server is not running")
+
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{self._base_url}/api/file/download/{remote_path}",
+                    timeout=60,
+                )
+                response.raise_for_status()
+                content = response.content
+
+                if local_path is not None:
+                    local_path = Path(local_path)
+                    local_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(local_path, "wb") as f:
+                        f.write(content)
+                    return None
+                else:
+                    return content
+        except Exception as e:
+            logger.error(f"Failed to download file: {e}")
+            if local_path is None:
+                return None
+            raise RuntimeError(f"Failed to download file: {e}")
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.container_id:

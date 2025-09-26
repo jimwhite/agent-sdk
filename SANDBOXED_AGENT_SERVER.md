@@ -23,6 +23,66 @@ with SomeConcreteServer(host_port=8010) as server:
     ...
 ```
 
+### Bash Execution and File Operations
+
+All sandboxed agent server implementations provide methods for executing bash commands and managing files in the sandboxed environment:
+
+#### Bash Execution
+
+```python
+# Execute a bash command
+result = server.execute_bash("echo 'Hello World!'")
+print(f"Command ID: {result.command_id}")
+print(f"Command: {result.command}")
+print(f"Is running: {result.is_running}")
+
+# Execute with custom working directory and timeout
+result = server.execute_bash(
+    "ls -la", 
+    cwd="/tmp", 
+    timeout=60
+)
+```
+
+The `execute_bash` method returns a `BashExecutionResult` object with:
+- `command_id`: Unique identifier for the command execution
+- `command`: The executed command string
+- `exit_code`: Exit code (None if still running)
+- `output`: Command output (initially empty, populated as command runs)
+- `is_running`: Boolean indicating if the command is still executing
+
+#### File Upload Operations
+
+```python
+# Upload a file from local filesystem
+success = server.upload_file("/path/to/local/file.txt", "remote_file.txt")
+
+# Upload file content directly
+content = "Hello from the host!\nThis is file content."
+success = server.upload_file_content(content, "created_file.txt")
+
+# Upload binary content
+binary_content = b"\x89PNG\r\n\x1a\n..."  # Binary data
+success = server.upload_file_content(binary_content, "image.png")
+```
+
+#### File Download Operations
+
+```python
+# Download file as bytes
+content = server.download_file("remote_file.txt")
+if content:
+    print(f"Downloaded {len(content)} bytes")
+    text_content = content.decode('utf-8')
+
+# Download file to local path
+server.download_file("remote_file.txt", "/path/to/local/download.txt")
+
+# Download returns None when saving to local path
+result = server.download_file("remote_file.txt", "local_copy.txt")
+# result is None, but file is saved to local_copy.txt
+```
+
 ## DockerSandboxedAgentServer
 
 Runs the agent server in a local Docker container. Requires Docker to be installed and running.
@@ -53,9 +113,10 @@ with DockerSandboxedAgentServer(
 - `target`: Build target ("source" or "binary", default: "source")
 - `platform`: Docker platform (default: "linux/amd64")
 
-### Example
+### Examples
 
-See `examples/23_hello_world_with_sandboxed_server.py` for a complete example.
+- `examples/23_hello_world_with_sandboxed_server.py` - Basic usage example
+- `examples/27_sandboxed_server_bash_and_files.py` - Bash execution and file operations example
 
 ## RemoteSandboxedAgentServer
 
@@ -99,9 +160,10 @@ The RemoteSandboxedAgentServer requires these environment variables:
 - `SANDBOX_API_KEY`: API key for the runtime service
 - `SANDBOX_REMOTE_RUNTIME_API_URL`: URL of the runtime API (optional, defaults to eval server)
 
-### Example
+### Examples
 
-See `examples/25_hello_world_with_remote_sandboxed_server.py` for a complete example.
+- `examples/25_hello_world_with_remote_sandboxed_server.py` - Basic usage example
+- `examples/27_sandboxed_server_bash_and_files.py` - Bash execution and file operations example (works with both Docker and Remote servers)
 
 ## Building Agent Server Images
 
