@@ -9,9 +9,11 @@ import threading
 import time
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
 from openhands.sdk.logger import get_logger
+from openhands.sdk.sandbox.base import SandboxedAgentServer
 from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 
 
@@ -179,11 +181,13 @@ def build_agent_server_image(
     return image
 
 
-class DockerSandboxedAgentServer:
+class DockerSandboxedAgentServer(SandboxedAgentServer):
     """Run the Agent Server inside Docker for sandboxed development.
 
     Example:
-        with DockerSandboxedAgentServer(host_port=8010) as server:
+        with DockerSandboxedAgentServer(
+            base_image="python:3.12", host_port=8010
+        ) as srv:
             # use server.base_url as the host for RemoteConversation
             ...
     """
@@ -199,11 +203,11 @@ class DockerSandboxedAgentServer:
         detach_logs: bool = True,
         target: str = "source",
         platform: str = "linux/amd64",
+        **kwargs: Any,
     ) -> None:
+        super().__init__(host_port=host_port, host=host, **kwargs)
         self.host_port = int(host_port) if host_port else find_available_tcp_port()
         self._image = base_image
-        self.host = host
-        self.base_url = f"http://{host}:{self.host_port}"
         self.container_id: str | None = None
         self._logs_thread: threading.Thread | None = None
         self._stop_logs = threading.Event()
@@ -279,6 +283,9 @@ class DockerSandboxedAgentServer:
             )
             self._logs_thread.start()
 
+        # Set the base URL for the abstract base class
+        self._base_url = f"http://{self.host}:{self.host_port}"
+
         # Wait for health
         self._wait_for_health()
         logger.info("API server is ready at %s", self.base_url)
@@ -336,7 +343,7 @@ class DockerSandboxedAgentServer:
             time.sleep(1)
         raise RuntimeError("Server failed to become healthy in time")
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.container_id:
             try:
                 _run(["docker", "rm", "-f", self.container_id])
@@ -348,3 +355,5 @@ class DockerSandboxedAgentServer:
                 self._logs_thread.join(timeout=2)
             except Exception:
                 pass
+        # Reset base URL
+        self._base_url = None
