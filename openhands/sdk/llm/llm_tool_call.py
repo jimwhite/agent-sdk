@@ -1,7 +1,6 @@
 from typing import Literal
 
-from litellm import ChatCompletionMessageToolCall
-from litellm.types.llms.openai import ResponseFunctionToolCall
+from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
 from pydantic import BaseModel, Field
 
 
