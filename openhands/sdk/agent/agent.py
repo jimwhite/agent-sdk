@@ -23,7 +23,6 @@ from openhands.sdk.llm import (
     get_llm_metadata,
 )
 from openhands.sdk.llm.llm_tool_call import LLMToolCall
-from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -166,20 +165,8 @@ class Agent(AgentBase):
                 e for e in state.events if isinstance(e, LLMConvertibleEvent)
             ]
 
-        # Decide path: Responses vs Chat Completions
-        features = get_features(self.llm.model)
-        is_responses = features.supports_responses or (
-            state.previous_response_id is not None
-        )
-
-        if (
-            is_responses
-            and state.previous_response_id
-            and not features.supports_responses
-        ):
-            raise RuntimeError(
-                "previous_response_id is set but model lacks Responses support"
-            )
+        # Decide path: Responses vs Chat Completions (centralized in LLM)
+        is_responses = self.llm.is_responses_turn(state.previous_response_id)
 
         if is_responses:
             # Build Responses inputs using structured blocks
