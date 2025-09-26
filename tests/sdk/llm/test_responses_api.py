@@ -14,59 +14,118 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from litellm import ResponsesAPIResponse
 from litellm.types.utils import Usage
+from openai.types.responses.response_function_tool_call import (
+    ResponseFunctionToolCall,
+)
+from openai.types.responses.response_output_message import ResponseOutputMessage
+from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, Conversation, Message, TextContent
 
 
-class FakeResponsesObj:
-    """Minimal object mimicking OpenAI Responses output used by litellm.responses.
+def make_responses_obj(
+    *,
+    id: str = "resp_1",
+    output_text: str | None = "Hello",
+    output: list[Any] | None = None,
+    usage: Usage | None = None,
+) -> ResponsesAPIResponse:
+    # Build a minimal, valid ResponsesAPIResponse payload
+    payload: dict[str, Any] = {
+        "id": id,
+        "created_at": 0,
+        "output": output
+        if output is not None
+        else [
+            ResponseOutputMessage(
+                id="om_1",
+                content=[],
+                role="assistant",
+                status="completed",
+                type="message",
+            )
+        ],
+        "parallel_tool_calls": True,
+        "tool_choice": "auto",
+        "tools": [],
+        "top_p": None,
+    }
+    if usage is not None:
+        # Map litellm Usage to ResponseAPIUsage shape
+        payload["usage"] = {
+            "input_tokens": usage.prompt_tokens,
+            "output_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+            "input_tokens_details": None,
+            "output_tokens_details": None,
+        }
+    # litellm's ResponsesAPIResponse will validate and coerce this dict
+    obj = ResponsesAPIResponse.model_validate(payload)
+    # Attach convenience attribute output_text so LLM.responses can read it
+    setattr(obj, "output_text", output_text or "")
+    # Provide a dict-shaped usage for Telemetry._record_usage (expects litellm Usage)
+    if getattr(obj, "usage", None) is not None:
+        u = obj.usage
+        try:
+            prompt = getattr(u, "input_tokens", None)
+            completion = getattr(u, "output_tokens", None)
+            total = getattr(u, "total_tokens", None)
+            setattr(
+                obj,
+                "usage",
+                {
+                    "prompt_tokens": int(prompt) if prompt is not None else 0,
+                    "completion_tokens": int(completion)
+                    if completion is not None
+                    else 0,
+                    "total_tokens": int(total) if total is not None else 0,
+                    "prompt_tokens_details": None,
+                    "completion_tokens_details": None,
+                },
+            )
+        except Exception:
+            pass
+    return obj
 
-    Attributes accessed by LLM.responses:
-    - id: str
-    - output_text: str | None
-    - output: list[Any] | None
-    - usage: Optional[Usage] (for telemetry)
-    """
 
-    def __init__(
-        self,
-        *,
-        id: str = "resp_1",
-        output_text: str | None = "Hello",
-        output: list[Any] | None = None,
-        usage: Usage | None = None,
-    ) -> None:
-        self.id = id
-        self.output_text = output_text
-        self.output = output or []
-        self.usage = usage
-
-
-class _FnCall:
+class _FnCall(ResponseFunctionToolCall):
     def __init__(self, call_id: str, name: str, arguments: str) -> None:
-        self.type = "function_call"
-        self.call_id = call_id
-        self.name = name
-        self.arguments = arguments
+        super().__init__(
+            arguments=arguments,
+            call_id=call_id,
+            name=name,
+            type="function_call",
+            id=f"fc_{call_id}",
+            status="completed",
+        )
 
 
-class _Reasoning:
-    def __init__(
-        self,
-        summary_texts: list[str] | None = None,
-        content_texts: list[str] | None = None,
-    ) -> None:
-        self.type = "reasoning"
-        self.summary = [type("T", (), {"text": t}) for t in (summary_texts or [])]
-        self.content = [type("T", (), {"text": t}) for t in (content_texts or [])]
+def make_reasoning(
+    summary_texts: list[str] | None = None,
+    content_texts: list[str] | None = None,
+) -> ResponseReasoningItem:
+    return ResponseReasoningItem.model_validate(
+        {
+            "id": "rs_1",
+            "summary": [
+                {"type": "summary_text", "text": t} for t in (summary_texts or [])
+            ],
+            "content": [
+                {"type": "reasoning_text", "text": t} for t in (content_texts or [])
+            ],
+            "type": "reasoning",
+            "status": "completed",
+        }
+    )
 
 
 @patch("openhands.sdk.llm.llm.litellm.responses")
 def test_agent_routes_to_responses_and_sets_previous_id(mock_responses):
     # Arrange: mock a simple text response (no tool-calls)
-    mock_responses.return_value = FakeResponsesObj(id="resp_1", output_text="Hi")
+    mock_responses.return_value = make_responses_obj(id="resp_1", output_text="Hi")
 
     llm = LLM(model="gpt-5", service_id="test-llm", api_key=SecretStr("k"))
     agent = Agent(llm=llm, tools=[])
@@ -91,8 +150,8 @@ def test_agent_routes_to_responses_and_sets_previous_id(mock_responses):
 def test_previous_response_id_propagates_to_next_turn(mock_responses):
     # First turn -> resp_1, second turn -> resp_2
     mock_responses.side_effect = [
-        FakeResponsesObj(id="resp_1", output_text="Step1"),
-        FakeResponsesObj(id="resp_2", output_text="Step2"),
+        make_responses_obj(id="resp_1", output_text="Step1"),
+        make_responses_obj(id="resp_2", output_text="Step2"),
     ]
 
     llm = LLM(model="gpt-5-mini", service_id="test-llm", api_key=SecretStr("k"))
@@ -137,9 +196,9 @@ def test_llm_responses_parses_tool_calls_and_reasoning(mock_responses):
     # Arrange: function-call + reasoning blocks
     items = [
         _FnCall(call_id="call_1", name="echo", arguments='{"text":"hi"}'),
-        _Reasoning(summary_texts=["plan"], content_texts=["think1", "think2"]),
+        make_reasoning(summary_texts=["plan"], content_texts=["think1", "think2"]),
     ]
-    mock_responses.return_value = FakeResponsesObj(
+    mock_responses.return_value = make_responses_obj(
         id="resp_1", output_text="ok", output=items
     )
 
@@ -162,7 +221,7 @@ def test_llm_responses_parses_tool_calls_and_reasoning(mock_responses):
 @patch("openhands.sdk.llm.llm.litellm.responses")
 def test_llm_responses_telemetry_usage_mapping(mock_responses):
     usage = Usage(prompt_tokens=7, completion_tokens=3, total_tokens=10)
-    mock_responses.return_value = FakeResponsesObj(
+    mock_responses.return_value = make_responses_obj(
         id="resp_tele", output_text="x", usage=usage
     )
 
