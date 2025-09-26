@@ -50,13 +50,12 @@ from litellm.utils import (
     token_counter,
 )
 
-from openhands.sdk.llm import TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 
 # OpenHands utilities
 from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.llm_tool_call import LLMToolCall
-from openhands.sdk.llm.message import Message
+from openhands.sdk.llm.message import Message, TextContent
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
