@@ -87,6 +87,51 @@ class Message(BaseModel):
         description="Intermediate reasoning/thinking content from reasoning models",
     )
 
+    def to_responses_input_items(self) -> list[dict[str, Any]]:
+        """Convert this Message into Responses API input items.
+
+        Mapping rules (OpenAI Responses):
+        - user/system -> a single "message" item with content blocks
+          TextContent -> {type:"input_text", text}
+          ImageContent -> {type:"input_image", image_url, detail:"auto"}
+        - tool (tool result) -> a single function_call_output item
+          {type:"function_call_output", call_id, output}
+        - assistant -> no input items (assistant is output-side)
+        """
+        items: list[dict[str, Any]] = []
+        if self.role in ("user", "system"):
+            blocks: list[dict[str, Any]] = []
+            for part in self.content:
+                if isinstance(part, TextContent):
+                    blocks.append({"type": "input_text", "text": part.text})
+                elif isinstance(part, ImageContent):
+                    for url in part.image_urls:
+                        blocks.append(
+                            {"type": "input_image", "image_url": url, "detail": "auto"}
+                        )
+            if blocks:
+                items.append(
+                    {
+                        "type": "message",
+                        "role": self.role,  # "user" or "system"
+                        "content": blocks,
+                    }
+                )
+        elif self.role == "tool":
+            # Send tool execution result back to the model
+            if self.tool_call_id is not None:
+                output = "".join(
+                    part.text for part in self.content if isinstance(part, TextContent)
+                )
+                items.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": self.tool_call_id,
+                        "output": output,
+                    }
+                )
+        return items
+
     @property
     def contains_image(self) -> bool:
         return any(isinstance(content, ImageContent) for content in self.content)
