@@ -10,7 +10,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.server import RemoteAgentServer
+from openhands.sdk.sandbox import RemoteSandboxedAgentServer
 
 
 logger = get_logger(__name__)
@@ -42,16 +42,16 @@ def main() -> None:
     # 4) Start the remote agent server using the runtime API
     # IMPORTANT: You need to use an image that has the OpenHands agent server built in.
     # You can either:
-    # - Build one using DockerAgentServer first and push to a registry
+    # - Build one using DockerSandboxedAgentServer first and push to a registry
     # - Use a pre-built agent server image
     # - Build using the agent server Dockerfile
 
     # For this example, we'll assume you have built and pushed an agent server image
     # If you don't have one, you'll need to build it first:
-    # 1. Use DockerAgentServer to build locally
+    # 1. Use DockerSandboxedAgentServer to build locally
     # 2. Tag and push the image to a registry accessible by the runtime API
 
-    with RemoteAgentServer(
+    with RemoteSandboxedAgentServer(
         api_url=runtime_api_url,
         api_key=runtime_api_key,
         base_image="your-registry/agent-server:latest",  # Replace with your image

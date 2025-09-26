@@ -16,7 +16,7 @@ Run with:
 import tempfile
 from pathlib import Path
 
-from openhands.sdk.server import DockerAgentServer
+from openhands.sdk.sandbox import DockerSandboxedAgentServer
 
 
 def main():
@@ -33,8 +33,10 @@ def main():
     download_path = Path(tempfile.gettempdir()) / "downloaded_from_sandbox.txt"
 
     try:
-        # Use Docker sandboxed server (you can also use RemoteAgentServer)
-        with DockerAgentServer(host_port=8011, base_image="python:3.11") as server:
+        # Use Docker sandboxed server (you can also use RemoteSandboxedAgentServer)
+        with DockerSandboxedAgentServer(
+            host_port=8011, base_image="python:3.11"
+        ) as server:
             print(f"✅ Server started at: {server.base_url}")
 
             # 1. Execute bash commands

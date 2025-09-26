@@ -10,7 +10,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.server import DockerAgentServer
+from openhands.sdk.sandbox import DockerSandboxedAgentServer
 
 
 logger = get_logger(__name__)
@@ -30,7 +30,7 @@ def main() -> None:
 
     # 2) Start the dev image in Docker via the SDK helper and wait for health
     #    Forward LITELLM_API_KEY into the container so remote tools can use it.
-    with DockerAgentServer(
+    with DockerSandboxedAgentServer(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
         # TODO: Change this to your platform if not linux/arm64

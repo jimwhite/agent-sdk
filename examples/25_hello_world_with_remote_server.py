@@ -10,7 +10,7 @@ from openhands.sdk import (
 )
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.preset.default import get_default_agent
-from openhands.sdk.server import RemoteAgentServer
+from openhands.sdk.sandbox import RemoteSandboxedAgentServer
 
 
 logger = get_logger(__name__)
@@ -36,7 +36,7 @@ def main() -> None:
     )
 
     # 3) Start the remote agent server using the runtime API
-    with RemoteAgentServer(
+    with RemoteSandboxedAgentServer(
         api_url="https://runtime-api.all-hands.dev",
         api_key=runtime_api_key,
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
