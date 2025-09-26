@@ -1,6 +1,5 @@
 import json
 
-from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -23,6 +22,7 @@ from openhands.sdk.llm import (
     TextContent,
     get_llm_metadata,
 )
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
@@ -278,21 +278,7 @@ class Agent(AgentBase):
         message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
-            tool_call: ChatCompletionMessageToolCall
-            if any(tc.type != "function" for tc in message.tool_calls):
-                logger.warning(
-                    "LLM returned tool calls but some are not of type 'function' - "
-                    "ignoring those"
-                )
-
-            tool_calls = [
-                tool_call
-                for tool_call in message.tool_calls
-                if tool_call.type == "function"
-            ]
-            assert len(tool_calls) > 0, (
-                "LLM returned tool calls but none are of type 'function'"
-            )
+            tool_calls: list[LLMToolCall] = message.tool_calls
             if not all(isinstance(c, TextContent) for c in message.content):
                 logger.warning(
                     "LLM returned tool calls but message content is not all "
@@ -378,7 +364,7 @@ class Agent(AgentBase):
     def _get_action_event(
         self,
         state: ConversationState,
-        tool_call: ChatCompletionMessageToolCall,
+        tool_call: LLMToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
@@ -388,8 +374,7 @@ class Agent(AgentBase):
 
         NOTE: state will be mutated in-place.
         """
-        assert tool_call.type == "function"
-        tool_name = tool_call.function.name
+        tool_name = tool_call.name
         assert tool_name is not None, "Tool call must have a name"
         tool = self.tools_map.get(tool_name, None)
         # Handle non-existing tools
@@ -409,7 +394,7 @@ class Agent(AgentBase):
         # Validate arguments
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
-            arguments = json.loads(tool_call.function.arguments)
+            arguments = json.loads(tool_call.arguments_json)
 
             # if the tool has a security_risk field (when security analyzer = LLM),
             # pop it out as it's not part of the tool's action schema
@@ -431,7 +416,7 @@ class Agent(AgentBase):
             action: ActionBase = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
-                f"Error validating args {tool_call.function.arguments} for tool "
+                f"Error validating args {tool_call.arguments_json} for tool "
                 f"'{tool.name}': {e}"
             )
             event = AgentErrorEvent(

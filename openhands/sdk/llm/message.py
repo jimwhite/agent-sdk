@@ -2,10 +2,10 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
-from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
@@ -75,7 +75,7 @@ class Message(BaseModel):
     # function calling
     function_calling_enabled: bool = False
     # - tool calls (from LLM)
-    tool_calls: list[ChatCompletionMessageToolCall] | None = None
+    tool_calls: list[LLMToolCall] | None = None
     # - tool execution result (to LLM)
     tool_call_id: str | None = None
     name: str | None = None  # name of the tool
@@ -214,14 +214,14 @@ class Message(BaseModel):
         if self.tool_calls is not None:
             message_dict["tool_calls"] = [
                 {
-                    "id": tool_call.id,
+                    "id": tc.id,
                     "type": "function",
                     "function": {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
+                        "name": tc.name,
+                        "arguments": tc.arguments_json,
                     },
                 }
-                for tool_call in self.tool_calls
+                for tc in self.tool_calls
             ]
 
         # an observation message with tool response
@@ -245,12 +245,12 @@ class Message(BaseModel):
 
         rc = getattr(message, "reasoning_content", None)
 
+        # Note: tool_calls will be normalized at the LLM layer; here we pass through
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
-            tool_calls=message.tool_calls,
             reasoning_content=rc,
         )
 
