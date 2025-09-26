@@ -82,3 +82,197 @@ Follow-ups (post-v1)
 - Streaming Responses and streaming event model mapping.
 - Optional richer exposure of Responses output items on events.
 - Policy for relaxing strict model-switch behavior.
+
+Typed API integration (OpenAI Responses via LiteLLM)
+
+Sources investigated
+- liteLLM integration points
+  - litellm/llms/openai/openai.py (OpenAI adapter)
+  - litellm/types/llms/openai.py (typed wrappers and re-exports)
+- OpenAI typed models (from openai Python SDK)
+  - openai.types.responses.response.Response
+  - openai.types.responses.response_output_item.ResponseOutputItem
+  - openai.types.responses.response_function_tool_call.ResponseFunctionToolCall
+  - openai.types.responses.function_tool_param.FunctionToolParam
+  - openai.types.responses.response_input_param (typed request items, e.g., FunctionCallOutput, Message variants)
+  - openai.types.responses.response_create_params: Reasoning, ToolParam, ToolChoice, Text (or ResponseTextConfigParam on older SDKs)
+
+Request typing we will use
+- Tools (function schema):
+  - FunctionToolParam (openai.types.responses.function_tool_param.FunctionToolParam)
+    - fields: type="function", name: str, description: str | None, parameters: JSONSchema (dict), strict: bool
+  - Our ToolBase.to_responses_tool() will produce FunctionToolParam with parameters=self.action_type.to_mcp_schema() and strict=True
+- Inputs (non-streaming):
+  - Union of typed items under openai.types.responses.response_input_param.ResponseInputParam.
+  - For tool result round-trips we need FunctionCallOutput:
+    - FunctionCallOutput(type="function_call_output", call_id: str, output: str)
+- Optional typed params:
+  - Reasoning (openai.types.responses.response_create_params.Reasoning): {effort: Literal["minimal","low","medium","high"]}
+  - ToolChoice / ToolParam (for explicit tool selection if ever needed)
+
+LLM.responses() call shape
+- We will expose a typed wrapper that takes:
+  - model: str
+  - messages: list[Message] | list[dict] | None (only used to derive the first-call input and/or instructions)
+  - tools: list[FunctionToolParam] | None
+  - input: list[ResponseInputParam] | None (derived from messages or function_call_output items)
+  - previous_response_id: str | None
+  - store: bool = True (default)
+  - parallel_tool_calls: bool = True (default)
+  - reasoning: Reasoning | None (mapped from Agent/LLM config)
+  - extra_body: dict | None (we’ll include metadata: model name, agent name)
+- Behavior:
+  - First turn: derive instructions from system Message and one message item from latest user/assistant content
+  - Continuations: send only function_call_output items + previous_response_id
+  - No history replay; continuity is carried by previous_response_id
+
+Response typing and parsing
+- The call returns openai.types.responses.response.Response (typed immutable model)
+  - id: str — use to set state.previous_response_id for continuation
+  - output: list[ResponseOutputItem] — union of textual items and tool call items
+  - output_text: Optional[str] — convenience text aggregation (present in recent SDKs)
+  - usage: token usage block (map to our Metrics)
+  - status/created_at/model/metadata
+- Tool calls:
+  - ResponseFunctionToolCall items appear within Response.output
+  - We will adapt these to our internal ChatCompletionMessageToolCall for Agent tool execution (name + arguments string)
+
+Metrics/telemetry mapping
+- Response.usage → MetricsSnapshot (input/output/total token counts)
+- If usage missing, fall back to our token_counter on the inputs/outputs
+- Log response.id and previous_response_id for continuity
+
+Error handling (typed)
+- If previous_response_id is set but supports_responses(model) == False: raise clear error and set AgentExecutionStatus.FINISHED
+- If provider rejects continuation (invalid/expired id): clear state.previous_response_id; optionally retry once (policy-gated)
+- Context window exceeded (when applicable): trigger condenser request flow (same policy as Chat path)
+
+Agent integration notes (typed)
+- Routing logic:
+  - is_responses_mode = supports_responses(model) or state.previous_response_id is not None
+  - If true → call LLM.responses(...) (typed); else → LLM.completion(...)
+- Tool serialization:
+  - Responses path: [t.to_responses_tool()] (FunctionToolParam)
+  - Chat path: [t.to_openai_tool()] (ChatCompletionToolParam)
+- Event mapping:
+  - When Responses returns tool calls, emit ActionEvent(s) with llm_response_id=response.id
+  - When Responses returns only text, emit MessageEvent (agent finished)
+
+Open questions / implementation considerations
+- SDK version drift:
+  - Text param under response_create_params is aliased as ResponseText or ResponseTextConfigParam depending on SDK version. Make imports tolerant (try/except fallback).
+- Input derivation:
+  - Ensure strict typed construction of ResponseInputParam items. When messages contain list content blocks, map to {type: "message", role, content: list[parts]}
+- Strict tool schema:
+  - We set strict=True on FunctionToolParam to enforce parameter validation
+- Parallel tool calls:
+  - Keep parallel_tool_calls=True by default and preserve current Agent batching logic (thought on first, reasoning on first)
+
+References
+- LiteLLM OpenAI adapter and types
+  - litellm/llms/openai/openai.py
+  - litellm/types/llms/openai.py
+- OpenAI Responses types in SDK
+  - openai.types.responses.response.Response
+  - openai.types.responses.response_input_param (FunctionCallOutput, message inputs)
+  - openai.types.responses.function_tool_param.FunctionToolParam
+  - openai.types.responses.response_function_tool_call.ResponseFunctionToolCall
+  - openai.types.responses.response_create_params.{Reasoning, ToolParam, ToolChoice, Text}
+
+
+Typed API integration (OpenAI Responses via LiteLLM)
+
+Sources investigated
+- liteLLM integration points
+  - litellm/llms/openai/openai.py (OpenAI adapter)
+  - litellm/types/llms/openai.py (typed wrappers and re-exports)
+- OpenAI typed models (from openai Python SDK)
+  - openai.types.responses.response.Response
+  - openai.types.responses.response_output_item.ResponseOutputItem
+  - openai.types.responses.response_function_tool_call.ResponseFunctionToolCall
+  - openai.types.responses.function_tool_param.FunctionToolParam
+  - openai.types.responses.response_input_param (typed request items, e.g., FunctionCallOutput, Message variants)
+  - openai.types.responses.response_create_params: Reasoning, ToolParam, ToolChoice, Text (or ResponseTextConfigParam on older SDKs)
+
+Request typing we will use
+- Tools (function schema):
+  - FunctionToolParam (openai.types.responses.function_tool_param.FunctionToolParam)
+    - fields: type="function", name: str, description: str | None, parameters: JSONSchema (dict), strict: bool
+  - Our ToolBase.to_responses_tool() will produce FunctionToolParam with parameters=self.action_type.to_mcp_schema() and strict=True
+- Inputs (non-streaming):
+  - Union of typed items under openai.types.responses.response_input_param.ResponseInputParam.
+  - For tool result round-trips we need FunctionCallOutput:
+    - FunctionCallOutput(type="function_call_output", call_id: str, output: str)
+- Optional typed params:
+  - Reasoning (openai.types.responses.response_create_params.Reasoning): {effort: Literal["minimal","low","medium","high"]}
+  - ToolChoice / ToolParam (for explicit tool selection if ever needed)
+
+LLM.responses() call shape
+- We will expose a typed wrapper that takes:
+  - model: str
+  - messages: list[Message] | list[dict] | None (only used to derive the first-call input and/or instructions)
+  - tools: list[FunctionToolParam] | None
+  - input: list[ResponseInputParam] | None (derived from messages or function_call_output items)
+  - previous_response_id: str | None
+  - store: bool = True (default)
+  - parallel_tool_calls: bool = True (default)
+  - reasoning: Reasoning | None (mapped from Agent/LLM config)
+  - extra_body: dict | None (we’ll include metadata: model name, agent name)
+- Behavior:
+  - First turn: derive instructions from system Message and one message item from latest user/assistant content
+  - Continuations: send only function_call_output items + previous_response_id
+  - No history replay; continuity is carried by previous_response_id
+
+Response typing and parsing
+- The call returns openai.types.responses.response.Response (typed immutable model)
+  - id: str — use to set state.previous_response_id for continuation
+  - output: list[ResponseOutputItem] — union of textual items and tool call items
+  - output_text: Optional[str] — convenience text aggregation (present in recent SDKs)
+  - usage: token usage block (map to our Metrics)
+  - status/created_at/model/metadata
+- Tool calls:
+  - ResponseFunctionToolCall items appear within Response.output
+  - We will adapt these to our internal ChatCompletionMessageToolCall for Agent tool execution (name + arguments string)
+
+Metrics/telemetry mapping
+- Response.usage → MetricsSnapshot (input/output/total token counts)
+- If usage missing, fall back to our token_counter on the inputs/outputs
+- Log response.id and previous_response_id for continuity
+
+Error handling (typed)
+- If previous_response_id is set but supports_responses(model) == False: raise clear error and set AgentExecutionStatus.FINISHED
+- If provider rejects continuation (invalid/expired id): clear state.previous_response_id; optionally retry once (policy-gated)
+- Context window exceeded (when applicable): trigger condenser request flow (same policy as Chat path)
+
+Agent integration notes (typed)
+- Routing logic:
+  - is_responses_mode = supports_responses(model) or state.previous_response_id is not None
+  - If true → call LLM.responses(...) (typed); else → LLM.completion(...)
+- Tool serialization:
+  - Responses path: [t.to_responses_tool()] (FunctionToolParam)
+  - Chat path: [t.to_openai_tool()] (ChatCompletionToolParam)
+- Event mapping:
+  - When Responses returns tool calls, emit ActionEvent(s) with llm_response_id=response.id
+  - When Responses returns only text, emit MessageEvent (agent finished)
+
+Open questions / implementation considerations
+- SDK version drift:
+  - Text param under response_create_params is aliased as ResponseText or ResponseTextConfigParam depending on SDK version. Make imports tolerant (try/except fallback).
+- Input derivation:
+  - Ensure strict typed construction of ResponseInputParam items. When messages contain list content blocks, map to {type: "message", role, content: list[parts]}
+- Strict tool schema:
+  - We set strict=True on FunctionToolParam to enforce parameter validation
+- Parallel tool calls:
+  - Keep parallel_tool_calls=True by default and preserve current Agent batching logic (thought on first, reasoning on first)
+
+References
+- LiteLLM OpenAI adapter and types
+  - litellm/llms/openai/openai.py
+  - litellm/types/llms/openai.py
+- OpenAI Responses types in SDK
+  - openai.types.responses.response.Response
+  - openai.types.responses.response_input_param (FunctionCallOutput, message inputs)
+  - openai.types.responses.function_tool_param.FunctionToolParam
+  - openai.types.responses.response_function_tool_call.ResponseFunctionToolCall
+  - openai.types.responses.response_create_params.{Reasoning, ToolParam, ToolChoice, Text}
+
