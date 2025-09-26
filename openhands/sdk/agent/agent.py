@@ -21,8 +21,10 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
     TextContent,
+    content_to_str,
     get_llm_metadata,
 )
+from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -165,41 +167,90 @@ class Agent(AgentBase):
                 e for e in state.events if isinstance(e, LLMConvertibleEvent)
             ]
 
-        # Get LLM Response (Action)
-        _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
-        logger.debug(
-            "Sending messages to LLM: "
-            f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+        # Decide path: Responses vs Chat Completions
+        features = get_features(self.llm.model)
+        is_responses = features.supports_responses or (
+            state.previous_response_id is not None
         )
 
-        try:
-            llm_response = self.llm.completion(
-                messages=_messages,
+        if (
+            is_responses
+            and state.previous_response_id
+            and not features.supports_responses
+        ):
+            raise RuntimeError(
+                "previous_response_id is set but model lacks Responses support"
+            )
+
+        if is_responses:
+            # Build Responses inputs: first system -> instructions; latest user only
+            system_text = None
+            user_text = None
+            for e in llm_convertible_events:
+                if isinstance(e, SystemPromptEvent) and system_text is None:
+                    system_text = e.system_prompt.text
+                elif isinstance(e, MessageEvent):
+                    msg = e.to_llm_message()
+                    if msg.role == "user":
+                        user_text = "".join(content_to_str(msg.content))
+
+            inputs = []
+            if user_text is not None:
+                inputs.append({"role": "user", "content": user_text})
+
+            llm_response = self.llm.responses(
+                instructions=system_text,
+                inputs=inputs or None,
                 tools=list(self.tools_map.values()),
-                extra_body={
-                    "metadata": get_llm_metadata(
-                        model_name=self.llm.model, agent_name=self.name
-                    )
-                },
+                previous_response_id=state.previous_response_id,
+                store=True,
+                parallel_tool_calls=True,
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
-        except Exception as e:
-            # If there is a condenser registered and the exception is a context window
-            # exceeded, we can recover by triggering a condensation request.
-            if (
-                self.condenser is not None
-                and self.condenser.handles_condensation_requests()
-                and self.llm.is_context_window_exceeded_exception(e)
-            ):
-                logger.warning(
-                    "LLM raised context window exceeded error, triggering condensation"
-                )
-                on_event(CondensationRequest())
-                return
 
-            # If the error isn't recoverable, keep propagating it up the stack.
-            else:
-                raise e
+            # Persist continuation id
+            try:
+                state.previous_response_id = getattr(
+                    llm_response.raw_response, "id", None
+                )
+            except Exception:
+                pass
+        else:
+            # Chat Completions path (existing behavior)
+            _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
+            logger.debug(
+                "Sending messages to LLM: "
+                f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+            )
+
+            try:
+                llm_response = self.llm.completion(
+                    messages=_messages,
+                    tools=list(self.tools_map.values()),
+                    extra_body={
+                        "metadata": get_llm_metadata(
+                            model_name=self.llm.model, agent_name=self.name
+                        )
+                    },
+                    add_security_risk_prediction=self._add_security_risk_prediction,
+                )
+            except Exception as e:
+                # If condenser is registered and the exception is a context window
+                # exceeded, we can recover by triggering a condensation request.
+                if (
+                    self.condenser is not None
+                    and self.condenser.handles_condensation_requests()
+                    and self.llm.is_context_window_exceeded_exception(e)
+                ):
+                    logger.warning(
+                        "LLM raised context window exceeded; triggering condensation"
+                    )
+                    on_event(CondensationRequest())
+                    return
+
+                # If the error isn't recoverable, keep propagating it up the stack.
+                else:
+                    raise e
 
         # LLMResponse already contains the converted message and metrics snapshot
         message: Message = llm_response.message
