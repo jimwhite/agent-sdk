@@ -78,12 +78,18 @@ def test_message_tool_role_with_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
-    assert result["role"] == "tool"
-    assert result["tool_call_id"] == "call_123"
-    assert cast(dict[str, Any], result)["cache_control"] == {"type": "ephemeral"}
+    from litellm.types.completion import (
+        ChatCompletionContentPartParam,
+        ChatCompletionToolMessageParam,
+    )
+
+    llm_union = message.to_llm_dict()
+    assert llm_union["role"] == "tool"
+    llm = cast(ChatCompletionToolMessageParam, llm_union)
+    assert llm["tool_call_id"] == "call_123"
+    assert cast(dict[str, Any], llm)["cache_control"] == {"type": "ephemeral"}
     # The content should not have cache_control since it's moved to message level
-    content = cast(list[dict[str, Any]], result["content"])  # parts
+    content = cast(list[ChatCompletionContentPartParam], llm["content"])  # parts
     assert "cache_control" not in content[0]
 
 
