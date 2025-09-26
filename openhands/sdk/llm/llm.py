@@ -55,6 +55,7 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 
 # OpenHands utilities
 from openhands.sdk.llm.llm_response import LLMResponse
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
@@ -415,16 +416,56 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self._telemetry.on_response(resp)  # Usage mapping if present
 
         # Convert to Message: prefer the first text output as assistant message
-        # For v1 non-streaming, we expect choices-style outputs in LiteLLM Responses
-        # Fallback: create an empty message if nothing found
+        # For v1 non-streaming, parse output_text plus tool-calls and reasoning
         try:
-            # LiteLLM Responses API unifies OpenAI responses object under .output_text
-            output_text = getattr(resp, "output_text", None)
-            if output_text is None:
-                # As a fallback, treat as empty
-                output_text = ""
+            output_text = getattr(resp, "output_text", None) or ""
+            tool_calls: list[LLMToolCall] = []
+            try:
+                for item in getattr(resp, "output", []) or []:
+                    if getattr(item, "type", None) == "function_call":
+                        tool_calls.append(
+                            LLMToolCall(
+                                id=item.call_id,
+                                name=item.name,
+                                arguments_json=item.arguments,
+                                origin="responses",
+                                raw=item,
+                            )
+                        )
+            except Exception:
+                pass
+
+            reasoning_text = None
+            try:
+                chunks: list[str] = []
+                for item in getattr(resp, "output", []) or []:
+                    if getattr(item, "type", None) == "reasoning":
+                        if getattr(item, "summary", None):
+                            chunks.extend(
+                                [
+                                    s.text
+                                    for s in item.summary
+                                    if getattr(s, "text", None)
+                                ]
+                            )
+                        if getattr(item, "content", None):
+                            chunks.extend(
+                                [
+                                    c.text
+                                    for c in item.content
+                                    if getattr(c, "text", None)
+                                ]
+                            )
+                if chunks:
+                    reasoning_text = "\n".join(chunks)
+            except Exception:
+                reasoning_text = None
+
             msg = Message(
-                role="assistant", content=[TextContent(text=str(output_text))]
+                role="assistant",
+                content=[TextContent(text=str(output_text))],
+                tool_calls=tool_calls or None,
+                reasoning_content=reasoning_text,
             )
         except Exception:
             msg = Message(role="assistant", content=[TextContent(text="")])
