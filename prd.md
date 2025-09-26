@@ -37,9 +37,9 @@ Transport and inputs (Responses)
 - LLM exposes a responses(...) method that wraps litellm.responses with typed args; it does not alter the returned type.
   - previous_response_id=state.previous_response_id (if any), store=True, parallel_tool_calls=True.
 - Input construction for Responses calls (non-streaming):
-  - First turn: map the first system message to instructions; map the latest user content to a Responses message input item.
-  - Tool results: send as function_call_output items with call_id equal to the tool call id from the prior turn.
-  - We do not replay history; continuity is carried by previous_response_id.
+  - First turn: map the first system message to instructions; map the latest user message to a Responses message input item with structured content blocks (TextContent -> input_text, ImageContent -> input_image). Do not flatten.
+  - Tool results: send as function_call_output input items with call_id from the prior turn.
+  - We do not replay history; continuity is carried by previous_response_id only.
 
 Agent integration
 - Agent decides per turn which path to use. If is_responses is true, it calls llm.responses(...) directly and receives a typed OpenAI Response.
