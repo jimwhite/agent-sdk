@@ -390,7 +390,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             formatted_messages, kwargs = self.pre_request_prompt_mock(
                 typed_msgs, cc_tools or [], kwargs
             )
+            transport_messages = formatted_messages
         else:
+            transport_messages = typed_msgs
             formatted_messages: list[dict[str, Any]] = [dict(m) for m in typed_msgs]
 
         # 3) normalize provider params
@@ -426,7 +428,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             assert self._telemetry is not None
             # Merge retry-modified kwargs (like temperature) with call_kwargs
             final_kwargs = {**call_kwargs, **retry_kwargs}
-            resp = self._transport_call(messages=formatted_messages, **final_kwargs)
+            resp = self._transport_call(messages=transport_messages, **final_kwargs)
             raw_resp: ModelResponse | None = None
             if use_mock_tools:
                 raw_resp = copy.deepcopy(resp)
@@ -471,7 +473,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Transport + helpers
     # =========================================================================
     def _transport_call(
-        self, *, messages: list[dict[str, Any]], **kwargs
+        self,
+        *,
+        messages: list[ChatCompletionMessageParam] | list[dict[str, Any]],
+        **kwargs,
     ) -> ModelResponse:
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
