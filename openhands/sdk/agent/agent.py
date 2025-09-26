@@ -21,7 +21,6 @@ from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
     TextContent,
-    content_to_str,
     get_llm_metadata,
 )
 from openhands.sdk.llm.utils.model_features import get_features
@@ -183,23 +182,46 @@ class Agent(AgentBase):
             )
 
         if is_responses:
-            # Build Responses inputs: first system -> instructions; latest user only
+            # Build Responses inputs using structured blocks
+            # 1) instructions from first system message (first turn only)
             system_text = None
-            user_text = None
             for e in llm_convertible_events:
-                if isinstance(e, SystemPromptEvent) and system_text is None:
+                if isinstance(e, SystemPromptEvent):
                     system_text = e.system_prompt.text
-                elif isinstance(e, MessageEvent):
-                    msg = e.to_llm_message()
-                    if msg.role == "user":
-                        user_text = "".join(content_to_str(msg.content))
+                    break
 
-            inputs = []
-            if user_text is not None:
-                inputs.append({"role": "user", "content": user_text})
+            # 2) function_call_output items for tool results from the last LLM response
+            inputs: list[dict] = []
+            if state.previous_response_id:
+                last_tool_call_ids = {
+                    a.tool_call_id
+                    for a in state.events
+                    if isinstance(a, ActionEvent)
+                    and a.llm_response_id == state.previous_response_id
+                }
+                if last_tool_call_ids:
+                    for ev in state.events:
+                        if (
+                            isinstance(ev, ObservationEvent)
+                            and ev.tool_call_id in last_tool_call_ids
+                        ):
+                            inputs.extend(
+                                ev.to_llm_message().to_responses_input_items()
+                            )
+
+            # 3) latest user message (only if no tool outputs were added)
+            if not inputs:
+                for e in reversed(llm_convertible_events):
+                    if isinstance(e, MessageEvent):
+                        msg = e.to_llm_message()
+                        if msg.role == "user":
+                            inputs.extend(msg.to_responses_input_items())
+                            break
 
             llm_response = self.llm.responses(
-                instructions=system_text,
+                instructions=system_text
+                if state.previous_response_id is None
+                else None,
                 inputs=inputs or None,
                 tools=list(self.tools_map.values()),
                 previous_response_id=state.previous_response_id,
