@@ -14,10 +14,8 @@ from collections.abc import Sequence
 from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import (
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -28,6 +26,7 @@ from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     ActionBase,
@@ -221,12 +220,11 @@ class TestPauseFunctionality:
         assert self.conversation.state.agent_status == AgentExecutionStatus.PAUSED
 
         # Mock action
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = LLMToolCall(
             id="call_1",
-            type="function",
-            function=Function(
-                name="test_tool", arguments='{"command": "test_command"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "test_command"}',
+            origin="completion",
         )
         mock_completion.return_value = ModelResponse(
             id="response_action",
@@ -313,12 +311,11 @@ class TestPauseFunctionality:
         self.conversation = conversation
 
         # LLM continuously emits actions (no finish)
-        tool_call = ChatCompletionMessageToolCall(
+        tool_call = LLMToolCall(
             id="call_loop",
-            type="function",
-            function=Function(
-                name="test_tool", arguments='{"command": "loop_forever"}'
-            ),
+            name="test_tool",
+            arguments_json='{"command": "loop_forever"}',
+            origin="completion",
         )
         import time
 

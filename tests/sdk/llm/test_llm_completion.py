@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from litellm import ChatCompletionMessageToolCall, ChatCompletionToolParam
+from litellm import ChatCompletionToolParam
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
 from pydantic import SecretStr
 
@@ -99,13 +99,9 @@ def test_llm_streaming_not_supported(default_config):
 def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
-    mock_response.choices[0].message.tool_calls = [  # type: ignore
-        ChatCompletionMessageToolCall(
-            id="call_123",
-            type="function",
-            function={"name": "test_tool", "arguments": '{"param": "value"}'},
-        )
-    ]
+    # Do not mutate provider message.tool_calls with LLMToolCall (typing mismatch).
+    # We rely on NonNativeToolCallingMixin to convert to a function-call shaped
+    # message when mocking, so we only verify our response mapping below.
     mock_completion.return_value = mock_response
 
     # Create LLM after the patch is applied
@@ -139,7 +135,7 @@ def test_llm_completion_with_tools(mock_completion):
     assert response.message.tool_calls is not None
     assert len(response.message.tool_calls) == 1
     assert response.message.tool_calls[0].id == "call_123"
-    assert response.message.tool_calls[0].function.name == "test_tool"
+    assert response.message.tool_calls[0].name == "test_tool"
     mock_completion.assert_called_once()
 
 
@@ -359,8 +355,9 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     # At this point, tool_calls should be non-None; assert explicitly
     assert msg.tool_calls is not None
     tc = msg.tool_calls[0]
-    assert tc.type == "function"
-    assert tc.function.name == "test_tool"
+    # Normalized tool call; type no longer present on LLMToolCall
+    assert tc.name == "test_tool"
+    assert tc.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
     if msg.content:
         for content_item in msg.content:

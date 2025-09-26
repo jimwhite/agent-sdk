@@ -40,10 +40,8 @@ import time  # noqa: E402
 from collections.abc import Sequence  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
-from litellm import ChatCompletionMessageToolCall  # noqa: E402
 from litellm.types.utils import (  # noqa: E402
     Choices,
-    Function,
     Message as LiteLLMMessage,
     ModelResponse,
 )
@@ -53,6 +51,7 @@ from openhands.sdk.agent import Agent  # noqa: E402
 from openhands.sdk.conversation import Conversation  # noqa: E402
 from openhands.sdk.event import MessageEvent  # noqa: E402
 from openhands.sdk.llm import LLM, ImageContent, Message, TextContent  # noqa: E402
+from openhands.sdk.llm.llm_tool_call import LLMToolCall  # noqa: E402
 from openhands.sdk.tool import (  # noqa: E402
     ActionBase,
     ObservationBase,
@@ -159,13 +158,11 @@ class TestMessageWhileFinishing:
 
         if self.step_count == 1:
             # Step 1: Process initial request - single sleep
-            sleep_call = ChatCompletionMessageToolCall(
+            sleep_call = LLMToolCall(
                 id="sleep_call_1",
-                type="function",
-                function=Function(
-                    name="sleep_tool",
-                    arguments='{"duration": 2.0, "message": "First sleep completed"}',
-                ),
+                name="sleep_tool",
+                arguments_json='{"duration": 2.0, "message": "First sleep completed"}',
+                origin="completion",
             )
             return ModelResponse(
                 id=f"response_step_{self.step_count}",
@@ -202,22 +199,18 @@ class TestMessageWhileFinishing:
                 final_message += " and butterfly"  # This should NOT happen
 
             # Multiple tool calls: sleep THEN finish
-            sleep_call = ChatCompletionMessageToolCall(
+            sleep_call = LLMToolCall(
                 id="sleep_call_2",
-                type="function",
-                function=Function(
-                    name="sleep_tool",
-                    arguments=f'{{"duration": 3.0, "message": "{sleep_message}"}}',
-                ),
+                name="sleep_tool",
+                arguments_json=f'{{"duration": 3.0, "message": "{sleep_message}"}}',
+                origin="completion",
             )
 
-            finish_call = ChatCompletionMessageToolCall(
+            finish_call = LLMToolCall(
                 id="finish_call_2",
-                type="function",
-                function=Function(
-                    name="finish",
-                    arguments=f'{{"message": "{final_message}"}}',
-                ),
+                name="finish",
+                arguments_json=f'{{"message": "{final_message}"}}',
+                origin="completion",
             )
 
             return ModelResponse(
