@@ -6,7 +6,6 @@ import os
 import uuid
 from pathlib import Path
 
-from openhands.agent_server.config import get_default_config
 from openhands.sdk.logger import get_logger
 
 
@@ -245,6 +244,9 @@ def get_vscode_service() -> VSCodeService | None:
     """
     global _vscode_service
     if _vscode_service is None:
+        # FIXME: Import kept inline for testability (mocking)
+        from openhands.agent_server.config import get_default_config
+
         config = get_default_config()
 
         if not config.enable_vscode:
