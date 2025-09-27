@@ -54,6 +54,12 @@ class StartConversationRequest(BaseModel):
     """
 
     agent: AgentBase
+    conversation_id: UUID | None = Field(
+        default=None,
+        description="Optional conversation ID. If provided and the conversation "
+        "already exists, returns the existing conversation. If not provided, "
+        "a new UUID will be generated.",
+    )
     confirmation_policy: ConfirmationPolicyBase = Field(
         default=NeverConfirm(),
         description="Controls when the conversation will prompt the user before "

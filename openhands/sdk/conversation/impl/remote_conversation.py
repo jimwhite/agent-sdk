@@ -322,31 +322,25 @@ class RemoteConversation(BaseConversation):
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
 
-        if conversation_id is None:
-            payload = {
-                "agent": agent.model_dump(
-                    mode="json", context={"expose_secrets": True}
-                ),
-                "initial_message": None,
-                "max_iterations": max_iteration_per_run,
-                "stuck_detection": stuck_detection,
-            }
-            resp = self._client.post("/api/conversations/", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            # Expect a ConversationInfo
-            cid = data.get("id") or data.get("conversation_id")
-            if not cid:
-                raise RuntimeError(
-                    "Invalid response from server: missing conversation id"
-                )
-            self._id = uuid.UUID(cid)
-        else:
-            # Attach to existing
-            self._id = conversation_id
-            # Validate it exists
-            r = self._client.get(f"/api/conversations/{self._id}")
-            r.raise_for_status()
+        payload = {
+            "agent": agent.model_dump(mode="json", context={"expose_secrets": True}),
+            "initial_message": None,
+            "max_iterations": max_iteration_per_run,
+            "stuck_detection": stuck_detection,
+        }
+
+        # Include conversation_id in payload if provided
+        if conversation_id is not None:
+            payload["conversation_id"] = str(conversation_id)
+
+        resp = self._client.post("/api/conversations/", json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        # Expect a ConversationInfo
+        cid = data.get("id") or data.get("conversation_id")
+        if not cid:
+            raise RuntimeError("Invalid response from server: missing conversation id")
+        self._id = uuid.UUID(cid)
 
         # Initialize the remote state
         self._state = RemoteState(self._client, str(self._id))

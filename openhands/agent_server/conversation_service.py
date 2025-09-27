@@ -168,11 +168,29 @@ class ConversationService:
 
     async def start_conversation(
         self, request: StartConversationRequest
-    ) -> ConversationInfo:
-        """Start a local event_service and return its id."""
+    ) -> tuple[ConversationInfo, bool]:
+        """Start a local event_service and return its id and whether it was newly
+        created.
+
+        Returns:
+            tuple[ConversationInfo, bool]: The conversation info and True if newly
+                                         created, False if it already existed.
+        """
         if self._event_services is None:
             raise ValueError("inactive_service")
-        conversation_id = uuid4()
+
+        # Use provided conversation_id or generate a new one
+        conversation_id = request.conversation_id or uuid4()
+
+        # Check if conversation already exists
+        if conversation_id in self._event_services:
+            existing_event_service = self._event_services[conversation_id]
+            state = await existing_event_service.get_state()
+            conversation_info = _compose_conversation_info(
+                existing_event_service.stored, state
+            )
+            return conversation_info, False
+
         stored = StoredConversation(id=conversation_id, **request.model_dump())
         file_store_path = (
             self.event_services_path / conversation_id.hex / "event_service"
@@ -214,7 +232,7 @@ class ConversationService:
         # Notify conversation webhooks about the started conversation
         await self._notify_conversation_webhooks(conversation_info)
 
-        return conversation_info
+        return conversation_info, True
 
     async def pause_conversation(self, conversation_id: UUID) -> bool:
         if self._event_services is None:

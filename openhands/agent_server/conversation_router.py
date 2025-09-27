@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Query, status
+from fastapi import APIRouter, Body, HTTPException, Query, Response, status
 from pydantic import SecretStr
 
 from openhands.agent_server.config import get_default_config
@@ -134,9 +134,12 @@ async def start_conversation(
     request: Annotated[
         StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)
     ],
+    response: Response,
 ) -> ConversationInfo:
     """Start a conversation in the local environment."""
-    info = await conversation_service.start_conversation(request)
+    info, is_new = await conversation_service.start_conversation(request)
+    # Set appropriate status code: 201 for new conversations, 200 for existing ones
+    response.status_code = status.HTTP_201_CREATED if is_new else status.HTTP_200_OK
     return info
 
 

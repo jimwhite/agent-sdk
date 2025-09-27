@@ -457,3 +457,151 @@ class TestConversationServiceCountConversations:
             agent_status=AgentExecutionStatus.ERROR
         )
         assert result == 0
+
+
+class TestConversationServiceStartConversation:
+    """Test cases for ConversationService.start_conversation method with conversation_id."""  # noqa: E501
+
+    @pytest.mark.asyncio
+    async def test_start_conversation_with_new_id(self, conversation_service):
+        """Test starting a conversation with a new conversation_id."""
+        from unittest.mock import AsyncMock, patch
+
+        from openhands.agent_server.models import StartConversationRequest
+
+        # Create a request with a specific conversation_id
+        conversation_id = uuid4()
+        request = StartConversationRequest(
+            agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+            conversation_id=conversation_id,
+        )
+
+        # Mock EventService creation and methods
+        with patch(
+            "openhands.agent_server.conversation_service.EventService"
+        ) as mock_event_service_class:
+            mock_event_service = AsyncMock()
+            mock_event_service_class.return_value = mock_event_service
+
+            # Mock the state that will be returned
+            mock_state = ConversationState(
+                id=conversation_id,
+                agent=request.agent,
+                agent_status=AgentExecutionStatus.IDLE,
+                confirmation_policy=request.confirmation_policy,
+            )
+            mock_event_service.get_state.return_value = mock_state
+            mock_event_service.stored = StoredConversation(
+                id=conversation_id, **request.model_dump()
+            )
+
+            # Mock file operations
+            with patch("pathlib.Path.mkdir"):
+                result, is_new = await conversation_service.start_conversation(request)
+
+            # Verify the conversation was created with the specified ID
+            assert result.id == conversation_id
+            assert is_new is True
+            assert conversation_id in conversation_service._event_services
+
+    @pytest.mark.asyncio
+    async def test_start_conversation_with_existing_id(self, conversation_service):
+        """Test starting a conversation with an existing conversation_id."""
+        from openhands.agent_server.models import StartConversationRequest
+
+        # Create an existing conversation
+        existing_id = uuid4()
+        existing_stored = StoredConversation(
+            id=existing_id,
+            agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+            confirmation_policy=NeverConfirm(),
+        )
+
+        # Mock existing event service
+        mock_existing_service = AsyncMock(spec=EventService)
+        mock_existing_service.stored = existing_stored
+        mock_state = ConversationState(
+            id=existing_id,
+            agent=existing_stored.agent,
+            agent_status=AgentExecutionStatus.IDLE,
+            confirmation_policy=existing_stored.confirmation_policy,
+        )
+        mock_existing_service.get_state.return_value = mock_state
+
+        # Add to service
+        conversation_service._event_services[existing_id] = mock_existing_service
+
+        # Create a request with the existing conversation_id
+        request = StartConversationRequest(
+            agent=Agent(
+                llm=LLM(model="gpt-3.5-turbo", service_id="test-llm"), tools=[]
+            ),
+            conversation_id=existing_id,
+        )
+
+        result, is_new = await conversation_service.start_conversation(request)
+
+        # Verify the existing conversation was returned
+        assert result.id == existing_id
+        assert is_new is False
+        # Should still have only one service for this ID
+        assert (
+            len(
+                [
+                    k
+                    for k in conversation_service._event_services.keys()
+                    if k == existing_id
+                ]
+            )
+            == 1
+        )
+
+    @pytest.mark.asyncio
+    async def test_start_conversation_without_id_generates_new(
+        self, conversation_service
+    ):
+        """Test starting a conversation without conversation_id generates a new UUID."""
+        from unittest.mock import AsyncMock, patch
+
+        from openhands.agent_server.models import StartConversationRequest
+
+        # Create a request without conversation_id
+        request = StartConversationRequest(
+            agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
+        )
+
+        # Mock EventService creation and methods
+        with patch(
+            "openhands.agent_server.conversation_service.EventService"
+        ) as mock_event_service_class:
+            mock_event_service = AsyncMock()
+            mock_event_service_class.return_value = mock_event_service
+
+            # Mock file operations and uuid generation
+            with (
+                patch("pathlib.Path.mkdir"),
+                patch("openhands.agent_server.conversation_service.uuid4") as mock_uuid,
+            ):
+                generated_id = uuid4()
+                mock_uuid.return_value = generated_id
+
+                # Mock the state that will be returned
+                mock_state = ConversationState(
+                    id=generated_id,
+                    agent=request.agent,
+                    agent_status=AgentExecutionStatus.IDLE,
+                    confirmation_policy=request.confirmation_policy,
+                )
+                mock_event_service.get_state.return_value = mock_state
+                mock_event_service.stored = StoredConversation(
+                    id=generated_id,
+                    agent=request.agent,
+                    confirmation_policy=request.confirmation_policy,
+                )
+
+                result, is_new = await conversation_service.start_conversation(request)
+
+            # Verify a new conversation was created
+            assert result.id == generated_id
+            assert is_new is True
+            assert result.id in conversation_service._event_services
