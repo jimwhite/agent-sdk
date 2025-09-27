@@ -11,9 +11,6 @@ from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
 
 
 logger = get_logger(__name__)
@@ -21,6 +18,11 @@ logger = get_logger(__name__)
 
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools."""
+    # FIXME: These imports are kept inline to avoid circular dependencies
+    from openhands.tools.execute_bash import BashTool
+    from openhands.tools.str_replace_editor import FileEditorTool
+    from openhands.tools.task_tracker import TaskTrackerTool
+
     register_tool("BashTool", BashTool)
     logger.debug("Tool: BashTool registered.")
     register_tool("FileEditorTool", FileEditorTool)
