@@ -83,6 +83,12 @@ class Config(BaseModel):
             "Defaults to 'workspace/project'."
         ),
     )
+    vscode_port: int = Field(
+        default=8001,
+        ge=1,
+        le=65535,
+        description="Port to run the embedded OpenVSCode Server on (default: 8001)",
+    )
     bash_events_dir: Path = Field(
         default=Path("workspace/bash_events"),
         description=(

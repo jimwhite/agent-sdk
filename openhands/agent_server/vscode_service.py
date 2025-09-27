@@ -107,7 +107,10 @@ class VSCodeService:
         if not self.connection_token:
             return None
 
-        return f"{base_url}/?tkn={self.connection_token}&folder={self.workspace_path}"
+        from urllib.parse import quote
+
+        folder = quote(str(self.workspace_path), safe="/")
+        return f"{base_url}/?tkn={self.connection_token}&folder={folder}"
 
     def is_running(self) -> bool:
         """Check if VSCode server is running.
@@ -256,6 +259,8 @@ def get_vscode_service() -> VSCodeService | None:
             return None
         else:
             _vscode_service = VSCodeService(
-                workspace_path=config.workspace_path, create_workspace=True
+                workspace_path=config.workspace_path,
+                port=config.vscode_port,
+                create_workspace=True,
             )
     return _vscode_service
