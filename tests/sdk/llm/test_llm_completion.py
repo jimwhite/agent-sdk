@@ -99,9 +99,14 @@ def test_llm_streaming_not_supported(default_config):
 def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
-    # Do not mutate provider message.tool_calls with LLMToolCall (typing mismatch).
-    # We rely on NonNativeToolCallingMixin to convert to a function-call shaped
-    # message when mocking, so we only verify our response mapping below.
+    # Provide provider-shaped tool_calls on the mock response to simulate native FC
+    mock_response.choices[0].message.tool_calls = [  # type: ignore[attr-defined]
+        {
+            "id": "call_123",
+            "type": "function",
+            "function": {"name": "test_tool", "arguments": '{"param": "value"}'},
+        }
+    ]
     mock_completion.return_value = mock_response
 
     # Create LLM after the patch is applied

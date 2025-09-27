@@ -146,6 +146,11 @@ class TestConfirmationMode:
     ) -> MagicMock:
         """Configure LLM to return one tool call (action)."""
         tool_call = self._create_test_action(call_id=call_id, command=command).tool_call
+        provider_tc = {
+            "id": tool_call.id,
+            "type": "function",
+            "function": {"name": tool_call.name, "arguments": tool_call.arguments_json},
+        }
         return MagicMock(
             return_value=ModelResponse(
                 id="response_action",
@@ -154,7 +159,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll execute {command}",
-                            tool_calls=[tool_call],
+                            tool_calls=[provider_tc],
                         )
                     )
                 ],
@@ -172,6 +177,11 @@ class TestConfirmationMode:
             name="finish",
             arguments_json=f'{{"message": "{message}"}}',
         )
+        provider_tc = {
+            "id": tool_call.id,
+            "type": "function",
+            "function": {"name": tool_call.name, "arguments": tool_call.arguments_json},
+        }
 
         return MagicMock(
             return_value=ModelResponse(
@@ -181,7 +191,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content=f"I'll finish with: {message}",
-                            tool_calls=[tool_call],
+                            tool_calls=[provider_tc],
                         )
                     )
                 ],
@@ -207,6 +217,23 @@ class TestConfirmationMode:
             arguments_json='{"message": "Task completed!"}',
         )
 
+        provider_tc1 = {
+            "id": regular_tool_call.id,
+            "type": "function",
+            "function": {
+                "name": regular_tool_call.name,
+                "arguments": regular_tool_call.arguments_json,
+            },
+        }
+        provider_tc2 = {
+            "id": finish_tool_call.id,
+            "type": "function",
+            "function": {
+                "name": finish_tool_call.name,
+                "arguments": finish_tool_call.arguments_json,
+            },
+        }
+
         return MagicMock(
             return_value=ModelResponse(
                 id="response_multiple",
@@ -215,7 +242,7 @@ class TestConfirmationMode:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll execute the command and then finish",
-                            tool_calls=[regular_tool_call, finish_tool_call],
+                            tool_calls=[provider_tc1, provider_tc2],
                         )
                     )
                 ],

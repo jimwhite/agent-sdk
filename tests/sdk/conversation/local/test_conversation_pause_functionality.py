@@ -226,12 +226,17 @@ class TestPauseFunctionality:
             arguments_json='{"command": "test_command"}',
             origin="completion",
         )
+        provider_tc = {
+            "id": tool_call.id,
+            "type": "function",
+            "function": {"name": tool_call.name, "arguments": tool_call.arguments_json},
+        }
         mock_completion.return_value = ModelResponse(
             id="response_action",
             choices=[
                 Choices(
                     message=LiteLLMMessage(
-                        role="assistant", content="", tool_calls=[tool_call]
+                        role="assistant", content="", tool_calls=[provider_tc]
                     )
                 )
             ],
@@ -317,6 +322,11 @@ class TestPauseFunctionality:
             arguments_json='{"command": "loop_forever"}',
             origin="completion",
         )
+        provider_tc = {
+            "id": tool_call.id,
+            "type": "function",
+            "function": {"name": tool_call.name, "arguments": tool_call.arguments_json},
+        }
         import time
 
         def side_effect(*_args, **_kwargs):
@@ -327,7 +337,7 @@ class TestPauseFunctionality:
                         message=LiteLLMMessage(
                             role="assistant",
                             content="I'll execute loop_forever",
-                            tool_calls=[tool_call],
+                            tool_calls=[provider_tc],
                         )
                     )
                 ],
