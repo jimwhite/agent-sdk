@@ -60,6 +60,23 @@ Phased Implementation
   - [ ] Multi-repo selection if needed
   - [ ] Optional in-editor "diff dashboard" webview that still launches native diff editors
 
+Activation, Triggers, and Live Updates
+- Extension activation (once per window/session):
+  - activationEvents: ["onStartupFinished", "workspaceContains:**/.git", "onExtension:vscode.git" (optional)].
+  - These only load the extension; they do not re-fire repeatedly. After activation, the extension stays active.
+- Re-triggering the "show diffs now" behavior:
+  - The extension sets a file watcher on `**/.vscode/openhands.json`.
+  - Agent-server writes/updates this JSON when the app navigates to the Diff experience, including a fresh `nonce`.
+  - The extension reads the JSON, compares `nonce` to its last processed value (stored in `globalState`), and if new, opens diffs again (idempotent).
+  - Provide a manual command (e.g., `openhands.showDiffNow`) as an additional trigger.
+  - Debounce file-watch events (~250ms) to avoid double triggers on save.
+- Live updates in VS Code:
+  - Open diff editors refresh as files change (right side is working tree). If comparing against HEAD, the left side is static by definition; against INDEX, the left side updates as you stage/unstage.
+  - The SCM view automatically reflects new/removed/modified files without reopening anything.
+  - New changed files won’t auto-open diff tabs unless a new `nonce` is emitted; they will appear in SCM and can be opened by the user or by re-trigger.
+
+
+
 Risks and Mitigations
 - VS Code server fails to start: For V1, we accept that the diff tab is unavailable rather than recreating a fallback viewer.
 - Too many changes opening too many tabs: cap to a reasonable limit and show SCM.
