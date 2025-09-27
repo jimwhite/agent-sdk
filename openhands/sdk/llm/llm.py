@@ -634,37 +634,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 # Best-effort normalization only
                 pass
 
-            # Normalize tool calls from provider message into transport-agnostic form
-            # when present on the provider response
-            try:
-                raw_tc = first_choice["message"].tool_calls  # type: ignore[reportGeneralTypeIssues]
-                norm: list[LLMToolCall] = []
-                if raw_tc:
-                    for tc in raw_tc:
-                        # Support both dict-like and object-like access
-                        tc_id = getattr(tc, "id", None) or tc.get("id")
-                        fn = getattr(tc, "function", None) or tc.get("function")
-                        name = None
-                        args = None
-                        if fn is not None:
-                            name = getattr(fn, "name", None) or fn.get("name")
-                            args = getattr(fn, "arguments", None) or fn.get("arguments")
-                        if tc_id and name and args is not None:
-                            norm.append(
-                                LLMToolCall(
-                                    id=str(tc_id),
-                                    name=str(name),
-                                    arguments_json=str(args),
-                                    origin="completion",
-                                    raw=tc,
-                                )
-                            )
-                if norm:
-                    message.tool_calls = norm
-            except Exception:
-                # Best-effort normalization only
-                pass
-
             # Create and return LLMResponse
             return LLMResponse(
                 message=message, metrics=metrics_snapshot, raw_response=resp
