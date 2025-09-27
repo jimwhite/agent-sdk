@@ -166,7 +166,7 @@ class Agent(AgentBase):
             ]
 
         # Decide path: Responses vs Chat Completions (centralized in LLM)
-        is_responses = self.llm.is_responses_turn(state.previous_response_id)
+        is_responses = self.llm.is_responses_call(state.previous_response_id)
 
         if is_responses:
             # Build Responses inputs using structured blocks

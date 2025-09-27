@@ -344,7 +344,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Only used by ConversationStats to seed metrics
         self._metrics = metrics
 
-    def is_responses_turn(self, previous_response_id: str | None) -> bool:
+    def is_responses_call(self, previous_response_id: str | None) -> bool:
         """Return True if this turn should use the Responses API, else False.
 
         v1 policy:
