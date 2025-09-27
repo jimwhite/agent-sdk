@@ -28,10 +28,8 @@ class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     @abstractmethod
-    def to_llm_dict(
-        self,
-    ) -> dict[str, str | dict[str, str]] | list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format. Subclasses should implement this method."""
+    def to_llm_dict(self) -> Sequence[ChatCompletionContentPartParam]:
+        """Convert to LLM content parts for LiteLLM ChatCompletion API."""
 
 
 class TextContent(BaseContent):
@@ -41,8 +39,8 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format."""
+    def to_llm_dict(self) -> Sequence[ChatCompletionContentPartTextParam]:
+        """Convert to LLM content parts (text)."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
             logger.warning(
@@ -51,12 +49,12 @@ class TextContent(BaseContent):
             )
             text = maybe_truncate(text, DEFAULT_TEXT_CONTENT_LIMIT)
 
-        data: dict[str, str | dict[str, str]] = {
-            "type": self.type,
+        data: ChatCompletionContentPartTextParam = {
+            "type": "text",
             "text": text,
         }
         if self.cache_prompt:
-            data["cache_control"] = {"type": "ephemeral"}
+            cast(dict[str, Any], data)["cache_control"] = {"type": "ephemeral"}
         return [data]
 
 
@@ -64,13 +62,17 @@ class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format."""
-        images: list[dict[str, str | dict[str, str]]] = []
+    def to_llm_dict(self) -> Sequence[ChatCompletionContentPartImageParam]:
+        """Convert to LLM content parts (image)."""
+        images: list[ChatCompletionContentPartImageParam] = []
         for url in self.image_urls:
-            images.append({"type": "image_url", "image_url": {"url": url}})
+            i: ChatCompletionContentPartImageParam = {
+                "type": "image_url",
+                "image_url": {"url": url},
+            }
+            images.append(i)
         if self.cache_prompt and images:
-            images[-1]["cache_control"] = {"type": "ephemeral"}
+            cast(dict[str, Any], images[-1])["cache_control"] = {"type": "ephemeral"}
         return images
 
 
