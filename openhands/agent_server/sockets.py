@@ -17,6 +17,8 @@ from fastapi import (
     WebSocketDisconnect,
 )
 
+from openhands.agent_server.bash_service import BashEventService
+from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.dependencies import (
     get_bash_event_service,
     get_conversation_service,
@@ -37,7 +39,7 @@ async def events_socket(
     conversation_id: UUID,
     websocket: WebSocket,
     _auth: None = Depends(websocket_session_api_key_dependency),
-    conversation_service=Depends(get_conversation_service),
+    conversation_service: ConversationService = Depends(get_conversation_service),
 ):
     """WebSocket endpoint for conversation events.
 
@@ -78,7 +80,7 @@ async def events_socket(
 async def bash_events_socket(
     websocket: WebSocket,
     _auth: None = Depends(websocket_session_api_key_dependency),
-    bash_event_service=Depends(get_bash_event_service),
+    bash_event_service: BashEventService = Depends(get_bash_event_service),
 ):
     """WebSocket endpoint for bash events.
 
