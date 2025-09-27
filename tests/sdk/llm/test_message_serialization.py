@@ -3,8 +3,8 @@
 This module tests the Message class serialization, which now has two distinct paths:
 1. Standard Pydantic serialization (model_dump/model_dump_json) for storage - always
    preserves structure
-2. LLM API serialization (to_llm_dict) for provider consumption - adapts format based on
-   capabilities
+2. LLM API serialization (to_llm_completion) for provider consumption -
+   adapts format based on capabilities
 
 The refactored design separates storage concerns from API formatting concerns.
 Tests are organized by serialization strategy to ensure clear separation of concerns.
