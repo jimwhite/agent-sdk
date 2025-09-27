@@ -1,10 +1,30 @@
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import APIKeyHeader
 
+from openhands.agent_server.bash_service import BashEventService
 from openhands.agent_server.config import Config
+from openhands.agent_server.conversation_service import ConversationService
+from openhands.agent_server.vscode_service import VSCodeService
 
 
 _SESSION_API_KEY_HEADER = APIKeyHeader(name="X-Session-API-Key", auto_error=False)
+
+
+def get_config(request: Request) -> Config:
+    return request.app.state.config
+
+
+def get_conversation_service(request: Request) -> ConversationService:
+    return request.app.state.conversation_service
+
+
+def get_bash_event_service(request: Request) -> BashEventService:
+    return request.app.state.bash_event_service
+
+
+def get_vscode_service(request: Request) -> VSCodeService | None:
+    # VSCode may be disabled by config
+    return getattr(request.app.state, "vscode_service", None)
 
 
 def create_session_api_key_dependency(config: Config):
@@ -20,6 +40,29 @@ def create_session_api_key_dependency(config: Config):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
     return check_session_api_key
+
+
+def session_api_key_dependency(
+    config: Config = Depends(get_config),
+    session_api_key: str | None = Depends(_SESSION_API_KEY_HEADER),
+) -> None:
+    """Session API key dependency that reads Config from app.state.
+
+    Always safe to include; if no API keys configured, it is a no-op.
+    """
+    if config.session_api_keys and session_api_key not in config.session_api_keys:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+
+
+def websocket_session_api_key_dependency(
+    config: Config = Depends(get_config),
+    session_api_key: str | None = Query(None, alias="session_api_key"),
+) -> None:
+    """WebSocket auth dependency that reads Config from app.state and validates
+    the session_api_key provided as a query parameter.
+    """
+    if config.session_api_keys and session_api_key not in config.session_api_keys:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
 
 def create_websocket_session_api_key_dependency(config: Config):

@@ -8,20 +8,19 @@ send custom HTTP headers directly with WebSocket connections.
 
 import logging
 from dataclasses import dataclass
-from typing import Annotated
 from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    Query,
+    Depends,
     WebSocket,
     WebSocketDisconnect,
 )
 
-from openhands.agent_server.bash_service import get_default_bash_event_service
-from openhands.agent_server.config import get_default_config
-from openhands.agent_server.conversation_service import (
-    get_default_conversation_service,
+from openhands.agent_server.dependencies import (
+    get_bash_event_service,
+    get_conversation_service,
+    websocket_session_api_key_dependency,
 )
 from openhands.agent_server.models import BashEventBase
 from openhands.agent_server.pub_sub import Subscriber
@@ -30,8 +29,6 @@ from openhands.sdk.event.base import EventBase
 
 
 sockets_router = APIRouter(prefix="/sockets", tags=["WebSockets"])
-conversation_service = get_default_conversation_service()
-bash_event_service = get_default_bash_event_service()
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +36,8 @@ logger = logging.getLogger(__name__)
 async def events_socket(
     conversation_id: UUID,
     websocket: WebSocket,
-    session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
+    _auth: None = Depends(websocket_session_api_key_dependency),
+    conversation_service=Depends(get_conversation_service),
 ):
     """WebSocket endpoint for conversation events.
 
@@ -47,13 +45,7 @@ async def events_socket(
     /sockets/events/{conversation_id} to support browser connections with
     query parameter authentication.
     """
-    # Perform authentication check before accepting the WebSocket connection
-    config = get_default_config()
-    if config.session_api_keys and session_api_key not in config.session_api_keys:
-        # Close the WebSocket connection with an authentication error code
-        await websocket.close(code=4001, reason="Authentication failed")
-        return
-
+    # Authentication handled by dependency
     await websocket.accept()
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
@@ -85,20 +77,15 @@ async def events_socket(
 @sockets_router.websocket("/bash-events")
 async def bash_events_socket(
     websocket: WebSocket,
-    session_api_key: Annotated[str | None, Query(alias="session_api_key")] = None,
+    _auth: None = Depends(websocket_session_api_key_dependency),
+    bash_event_service=Depends(get_bash_event_service),
 ):
     """WebSocket endpoint for bash events.
 
     Moved from /api/bash/bash_events/socket to /sockets/bash-events
     to support browser connections with query parameter authentication.
     """
-    # Perform authentication check before accepting the WebSocket connection
-    config = get_default_config()
-    if config.session_api_keys and session_api_key not in config.session_api_keys:
-        # Close the WebSocket connection with an authentication error code
-        await websocket.close(code=4001, reason="Authentication failed")
-        return
-
+    # Authentication handled by dependency
     await websocket.accept()
     subscriber_id = await bash_event_service.subscribe_to_events(
         _BashWebSocketSubscriber(websocket)
