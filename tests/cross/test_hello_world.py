@@ -16,6 +16,7 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.event.llm_convertible import (
     ActionEvent,
@@ -157,6 +158,7 @@ class TestHelloWorld:
 
         # Configure LLM (no real API key needed)
         llm = LLM(
+            service_id="test-llm",
             model="claude-sonnet-4",
             api_key=SecretStr("mock-api-key"),
         )
@@ -272,6 +274,7 @@ class TestHelloWorld:
 
         # Configure LLM with logging enabled
         llm = LLM(
+            service_id="test-llm",
             model="claude-sonnet-4",
             api_key=SecretStr("mock-api-key"),
         )
@@ -420,7 +423,7 @@ class TestHelloWorld:
             return mock_response
 
         # Create agent with mocked LLM
-        llm = LLM(model="claude-sonnet-4")
+        llm = LLM(model="claude-sonnet-4", service_id="test-llm")
         agent = Agent(llm=llm, tools=[])
 
         # Mock the completion method
@@ -430,6 +433,7 @@ class TestHelloWorld:
         ):
             # Create conversation and send a message
             conversation = Conversation(agent=agent)
+            assert isinstance(conversation, LocalConversation)
             conversation.send_message(
                 message=Message(
                     role="user",
@@ -438,7 +442,7 @@ class TestHelloWorld:
             )
 
             # Run one step to get the non-function call response
-            agent.step(conversation.state, on_event=conversation._on_event)
+            agent.step(conversation._state, on_event=conversation._on_event)
 
         # Validate that we captured the completion data
         assert len(captured_completions) == 1, (
@@ -513,7 +517,7 @@ class TestHelloWorld:
             return mock_response
 
         # Create agent with mocked LLM
-        agent = Agent(llm=LLM(model="claude-sonnet-4"), tools=[])
+        agent = Agent(llm=LLM(model="claude-sonnet-4", service_id="test-llm"), tools=[])
 
         # Mock the completion method
         with patch(
@@ -522,6 +526,7 @@ class TestHelloWorld:
         ):
             # Create conversation and send a message
             conversation = Conversation(agent=agent)
+            assert isinstance(conversation, LocalConversation)
             conversation.send_message(
                 message=Message(
                     role="user",
@@ -530,7 +535,7 @@ class TestHelloWorld:
             )
 
             # Run one step to get the non-function call response
-            agent.step(conversation.state, on_event=conversation._on_event)
+            agent.step(conversation._state, on_event=conversation._on_event)
 
         # Validate that we captured the completion data
         assert len(captured_completions) == 1, (

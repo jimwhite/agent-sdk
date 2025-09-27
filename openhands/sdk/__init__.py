@@ -5,8 +5,13 @@ from openhands.sdk.context import AgentContext
 from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
 )
-from openhands.sdk.conversation import Conversation, ConversationCallbackType
-from openhands.sdk.event import EventBase, EventWithMetrics, LLMConvertibleEvent
+from openhands.sdk.conversation import (
+    BaseConversation,
+    Conversation,
+    ConversationCallbackType,
+)
+from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.event import EventBase, LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import (
@@ -39,6 +44,7 @@ except PackageNotFoundError:
 __all__ = [
     "LLM",
     "LLMRegistry",
+    "ConversationStats",
     "RegistryEvent",
     "Message",
     "TextContent",
@@ -57,9 +63,9 @@ __all__ = [
     "create_mcp_tools",
     "get_logger",
     "Conversation",
+    "BaseConversation",
     "ConversationCallbackType",
     "EventBase",
-    "EventWithMetrics",
     "LLMConvertibleEvent",
     "AgentContext",
     "LLMSummarizingCondenser",

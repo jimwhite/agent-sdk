@@ -4,8 +4,9 @@ import copy
 import json
 import os
 import warnings
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import httpx
 from pydantic import (
@@ -34,7 +35,10 @@ with warnings.catch_warnings():
 from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
+    BadRequestError,
+    ContextWindowExceededError,
     InternalServerError,
+    OpenAIError,
     RateLimitError,
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
@@ -47,11 +51,13 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+
+# OpenHands utilities
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
-from openhands.sdk.llm.utils.metrics import Metrics
+from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -183,7 +189,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         ),
     )
     service_id: str = Field(
-        default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
     )
 
@@ -311,7 +316,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serializers
     # =========================================================================
     @field_serializer(
-        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="json"
+        "api_key", "aws_access_key_id", "aws_secret_access_key", when_used="always"
     )
     def _serialize_secrets(self, v: SecretStr | None, info):
         """Serialize secret fields, exposing actual values when expose_secrets context is True."""  # noqa: E501
@@ -335,6 +340,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
         return self._metrics
 
+    def restore_metrics(self, metrics: Metrics) -> None:
+        # Only used by ConversationStats to seed metrics
+        self._metrics = metrics
+
     def completion(
         self,
         messages: list[Message],
@@ -342,7 +351,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> LLMResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -431,7 +440,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         try:
             resp = _one_attempt()
-            return resp
+
+            # Convert the first choice to an OpenHands Message
+            first_choice = resp["choices"][0]
+            message = Message.from_litellm_message(first_choice["message"])
+
+            # Get current metrics snapshot
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
         except Exception as e:
             self._telemetry.on_error(e)
             raise
@@ -585,7 +610,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         f"Got model info from litellm proxy: {self._model_info}"
                     )
             except Exception as e:
-                logger.info(f"Error fetching model info from proxy: {e}")
+                logger.debug(f"Error fetching model info from proxy: {e}")
 
         # Fallbacks: try base name variants
         if not self._model_info:
@@ -608,7 +633,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             self.max_input_tokens = self._model_info.get("max_input_tokens")
 
         if self.max_output_tokens is None:
-            if any(m in self.model for m in ["claude-3-7-sonnet", "claude-3.7-sonnet"]):
+            if any(
+                m in self.model
+                for m in ["claude-3-7-sonnet", "claude-3.7-sonnet", "claude-sonnet-4"]
+            ):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
                 )
@@ -620,7 +648,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Function-calling capabilities
         feats = get_features(self.model)
-        logger.info(f"Model features for {self.model}: {feats}")
+        logger.debug(f"Model features for {self.model}: {feats}")
         self._function_calling_active = (
             self.native_tool_calling
             if self.native_tool_calling is not None
@@ -716,7 +744,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return [message.to_llm_dict() for message in messages]
 
     def get_token_count(self, messages: list[Message]) -> int:
-        logger.info(
+        logger.debug(
             "Message objects now include serialized tool calls in token counting"
         )
         formatted_messages = self.format_messages_for_llm(messages)
@@ -744,32 +772,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # Serialization helpers
     # =========================================================================
     @classmethod
-    def deserialize(cls, data: dict[str, Any]) -> "LLM":
+    def load_from_json(cls, json_path: str) -> LLM:
+        with open(json_path) as f:
+            data = json.load(f)
         return cls(**data)
 
-    def serialize(self) -> dict[str, Any]:
-        """Serialize the LLM instance to a dictionary."""
-        return self.model_dump()
-
-    def store_to_json(self, filepath: str) -> None:
-        """Store the LLM instance to a JSON file with secrets exposed.
-
-        Args:
-            filepath: Path where the JSON file should be stored.
-        """
-        data = self.model_dump_with_secrets()
-
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
-
     @classmethod
-    def load_from_json(cls, json_path: str) -> "LLM":
-        with open(json_path, "r") as f:
-            data = json.load(f)
-        return cls.deserialize(data)
-
-    @classmethod
-    def load_from_env(cls, prefix: str = "LLM_") -> "LLM":
+    def load_from_env(cls, prefix: str = "LLM_") -> LLM:
         TRUTHY = {"true", "1", "yes", "on"}
 
         def _unwrap_type(t: Any) -> Any:
@@ -821,10 +830,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             v = _cast_value(value, fields[field_name])
             if v is not None:
                 data[field_name] = v
-        return cls.deserialize(data)
+        return cls(**data)
 
     @classmethod
-    def load_from_toml(cls, toml_path: str) -> "LLM":
+    def load_from_toml(cls, toml_path: str) -> LLM:
         try:
             import tomllib
         except ImportError:
@@ -836,9 +845,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             data = tomllib.load(f)
         if "llm" in data:
             data = data["llm"]
-        return cls.deserialize(data)
+        return cls(**data)
 
-    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+    def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:
         """Resolve differences between a deserialized LLM and the current instance.
 
         This is due to fields like api_key being serialized to "****" in dumps,
@@ -874,11 +883,50 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
         return reconciled
 
-    def model_dump_with_secrets(self) -> dict[str, Any]:
-        """Dump the model including secrets (normally excluded)."""
-        data = self.model_dump()
-        for field in self.OVERRIDE_ON_SERIALIZE:
-            attr = getattr(self, field)
-            if attr is not None and isinstance(attr, SecretStr):
-                data[field] = attr.get_secret_value()
-        return data
+    @staticmethod
+    def is_context_window_exceeded_exception(exception: Exception) -> bool:
+        """Check if the exception indicates a context window exceeded error.
+
+        Context window exceeded errors vary by provider, and LiteLLM does not do a
+        consistent job of identifying and wrapping them.
+        """
+        # A context window exceeded error from litellm is the best signal we have.
+        if isinstance(exception, ContextWindowExceededError):
+            return True
+
+        # But with certain providers the exception might be a bad request or generic
+        # OpenAI error, and we have to use the content of the error to figure out what
+        # is wrong.
+        if not isinstance(exception, (BadRequestError, OpenAIError)):
+            return False
+
+        # Not all BadRequestError or OpenAIError are context window exceeded errors, so
+        # we need to check the message content for known patterns.
+        error_string = str(exception).lower()
+
+        known_exception_patterns: list[str] = [
+            "contextwindowexceedederror",
+            "prompt is too long",
+            "input length and `max_tokens` exceed context limit",
+            "please reduce the length of either one",
+            "the request exceeds the available context size",
+            "context length exceeded",
+        ]
+
+        if any(pattern in error_string for pattern in known_exception_patterns):
+            return True
+
+        # A special case for SambaNova, where multiple patterns are needed
+        # simultaneously.
+        samba_nova_patterns: list[str] = [
+            "sambanovaexception",
+            "maximum context length",
+        ]
+
+        if all(pattern in error_string for pattern in samba_nova_patterns):
+            return True
+
+        # If we've made it this far and haven't managed to positively ID it as a context
+        # window exceeded error, we'll have to assume it's not and rely on the call-site
+        # context to handle it appropriately.
+        return False

@@ -11,15 +11,15 @@ from openhands.agent_server.models import (
 )
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.agent_server.utils import utc_now
-from openhands.sdk import (
-    Agent,
-    Conversation,
-    EventBase,
-    LocalFileStore,
-    Message,
-)
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk import Agent, EventBase, LocalFileStore, Message, get_logger
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.secrets_manager import SecretValue
+from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.security.confirmation_policy import ConfirmationPolicyBase
 from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
+
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -32,8 +32,11 @@ class EventService:
     stored: StoredConversation
     file_store_path: Path
     working_dir: Path
-    _conversation: Conversation | None = field(default=None, init=False)
-    _pub_sub: PubSub = field(default_factory=PubSub, init=False)
+    _conversation: LocalConversation | None = field(default=None, init=False)
+    _pub_sub: PubSub[EventBase] = field(
+        default_factory=lambda: PubSub[EventBase](), init=False
+    )
+    _run_task: asyncio.Task | None = field(default=None, init=False)
 
     async def load_meta(self):
         meta_file = self.file_store_path / "meta.json"
@@ -47,7 +50,7 @@ class EventService:
     async def get_event(self, event_id: str) -> EventBase | None:
         if not self._conversation:
             raise ValueError("inactive_service")
-        with self._conversation.state as state:
+        with self._conversation._state as state:
             # TODO: It would be nice if the agent sdk had a method for
             #       getting events by id
             event = next(
@@ -67,7 +70,7 @@ class EventService:
 
         # Collect all events
         all_events = []
-        with self._conversation.state as state:
+        with self._conversation._state as state:
             for event in state.events:
                 # Apply kind filter if provided
                 if (
@@ -116,7 +119,7 @@ class EventService:
             raise ValueError("inactive_service")
 
         count = 0
-        with self._conversation.state as state:
+        with self._conversation._state as state:
             for event in state.events:
                 # Apply kind filter if provided
                 if (
@@ -137,38 +140,36 @@ class EventService:
             results.append(result)
         return results
 
-    async def send_message(self, message: Message, run: bool = True):
+    async def send_message(self, message: Message):
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        future = loop.run_in_executor(None, self._conversation.send_message, message)
-        if run:
-            await future
-            loop.run_in_executor(None, self._conversation.run)
+        await loop.run_in_executor(None, self._conversation.send_message, message)
 
-    async def subscribe_to_events(self, subscriber: Subscriber) -> UUID:
+    async def subscribe_to_events(self, subscriber: Subscriber[EventBase]) -> UUID:
         return self._pub_sub.subscribe(subscriber)
 
     async def unsubscribe_from_events(self, subscriber_id: UUID) -> bool:
         return self._pub_sub.unsubscribe(subscriber_id)
 
-    async def start(self, conversation_id: UUID):
+    async def start(self):
         # self.stored contains an Agent configuration we can instantiate
         self.file_store_path.mkdir(parents=True, exist_ok=True)
         self.working_dir.mkdir(parents=True, exist_ok=True)
         agent = Agent.model_validate(self.stored.agent.model_dump())
-        conversation = Conversation(
+        conversation = LocalConversation(
             agent=agent,
             persist_filestore=LocalFileStore(
                 str(self.file_store_path)
                 # inside Conversation, events will be saved to
                 # "file_store_path/{convo_id}/events"
             ),
-            conversation_id=conversation_id,
+            conversation_id=self.stored.id,
             callbacks=[
                 AsyncCallbackWrapper(self._pub_sub, loop=asyncio.get_running_loop())
             ],
             max_iteration_per_run=self.stored.max_iterations,
+            stuck_detection=self.stored.stuck_detection,
             visualize=False,
         )
 
@@ -181,7 +182,7 @@ class EventService:
         if not self._conversation:
             raise ValueError("inactive_service")
         loop = asyncio.get_running_loop()
-        loop.run_in_executor(None, self._conversation.run)
+        await loop.run_in_executor(None, self._conversation.run)
 
     async def respond_to_confirmation(self, request: ConfirmationResponseRequest):
         if request.accept:
@@ -192,7 +193,23 @@ class EventService:
     async def pause(self):
         if self._conversation:
             loop = asyncio.get_running_loop()
-            loop.run_in_executor(None, self._conversation.pause)
+            await loop.run_in_executor(None, self._conversation.pause)
+
+    async def update_secrets(self, secrets: dict[str, SecretValue]):
+        """Update secrets in the conversation."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._conversation.update_secrets, secrets)
+
+    async def set_confirmation_policy(self, policy: ConfirmationPolicyBase):
+        """Set the confirmation policy for the conversation."""
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None, self._conversation.set_confirmation_policy, policy
+        )
 
     async def close(self):
         await self._pub_sub.close()
@@ -200,13 +217,13 @@ class EventService:
             loop = asyncio.get_running_loop()
             loop.run_in_executor(None, self._conversation.close)
 
-    async def get_status(self) -> AgentExecutionStatus:
+    async def get_state(self) -> ConversationState:
         if not self._conversation:
-            return AgentExecutionStatus.ERROR
-        return self._conversation.state.agent_status
+            raise ValueError("inactive_service")
+        return self._conversation._state
 
-    async def __aenter__(self, conversation_id: UUID):
-        await self.start(conversation_id=conversation_id)
+    async def __aenter__(self):
+        await self.start()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):

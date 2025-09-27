@@ -1,10 +1,11 @@
 import os
 import re
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
+from collections.abc import Generator, Iterable
 from typing import TYPE_CHECKING, Any
 
-from pydantic import ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
@@ -13,6 +14,7 @@ from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
@@ -153,8 +155,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """Compute system message on-demand to maintain statelessness."""
         # Prepare template kwargs, including cli_mode if available
         template_kwargs = dict(self.system_prompt_kwargs)
-        if hasattr(self, "cli_mode"):
-            template_kwargs["cli_mode"] = getattr(self, "cli_mode")
+        if self.security_analyzer:
+            template_kwargs["llm_security_analyzer"] = bool(
+                isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+            )
 
         system_message = render_template(
             prompt_dir=self.prompt_dir,
@@ -226,6 +230,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         # Store tools in a dict for easy access
         self._tools = {tool.name: tool for tool in tools}
 
+    @abstractmethod
     def step(
         self,
         state: "ConversationState",
@@ -243,7 +248,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         NOTE: state will be mutated in-place.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
 
     def resolve_diff_from_deserialized(self, persisted: "AgentBase") -> "AgentBase":
         """
@@ -278,6 +282,76 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         if "tools" in dumped and isinstance(dumped["tools"], dict):
             dumped["tools"] = list(dumped["tools"].keys())
         return dumped
+
+    def get_all_llms(self) -> Generator[LLM, None, None]:
+        """Recursively yield unique *base-class* LLM objects reachable from `self`.
+
+        - Returns actual object references (not copies).
+        - De-dupes by `id(LLM)`.
+        - Cycle-safe via a visited set for *all* traversed objects.
+        - Only yields objects whose type is exactly `LLM` (no subclasses).
+        - Does not handle dataclasses.
+        """
+        yielded_ids: set[int] = set()
+        visited: set[int] = set()
+
+        def _walk(obj: Any) -> Iterable[LLM]:
+            oid = id(obj)
+            # Guard against cycles on anything we might recurse into
+            if oid in visited:
+                return ()
+            visited.add(oid)
+
+            # Traverse LLM based classes and its fields
+            # e.g., LLMRouter that is a subclass of LLM
+            # yet contains LLM in its fields
+            if isinstance(obj, LLM):
+                out: list[LLM] = []
+
+                # Yield only the *raw* base-class LLM (exclude subclasses)
+                if type(obj) is LLM and oid not in yielded_ids:
+                    yielded_ids.add(oid)
+                    out.append(obj)
+
+                # Traverse all fields for LLM objects
+                for name in type(obj).model_fields:
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
+                return out
+
+            # Pydantic models: iterate declared fields
+            if isinstance(obj, BaseModel):
+                out: list[LLM] = []
+                for name in type(obj).model_fields:
+                    try:
+                        val = getattr(obj, name)
+                    except Exception:
+                        continue
+                    out.extend(_walk(val))
+                return out
+
+            # Built-in containers
+            if isinstance(obj, dict):
+                out: list[LLM] = []
+                for k, v in obj.items():
+                    out.extend(_walk(k))
+                    out.extend(_walk(v))
+                return out
+
+            if isinstance(obj, (list, tuple, set, frozenset)):
+                out: list[LLM] = []
+                for item in obj:
+                    out.extend(_walk(item))
+                return out
+
+            # Unknown object types: nothing to do
+            return ()
+
+        # Drive the traversal from self
+        yield from _walk(self)
 
     @property
     def tools_map(self) -> dict[str, Tool]:

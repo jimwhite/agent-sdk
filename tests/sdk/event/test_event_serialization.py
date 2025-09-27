@@ -1,5 +1,7 @@
 """Comprehensive tests for event serialization and deserialization."""
 
+from collections.abc import Sequence
+
 import pytest
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Function
@@ -15,7 +17,7 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import ImageContent, Message, TextContent
 from openhands.sdk.tool import ActionBase, ObservationBase
 
 
@@ -34,6 +36,10 @@ class TestEventsSerializationMockObservation(ObservationBase):
     """Mock observation for testing."""
 
     content: str
+
+    @property
+    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+        return [TextContent(text=self.content)]
 
 
 def test_event_base_serialization() -> None:
@@ -127,7 +133,9 @@ def test_message_event_serialization() -> None:
 
 def test_agent_error_event_serialization() -> None:
     """Test AgentErrorEvent serialization/deserialization."""
-    event = AgentErrorEvent(error="Something went wrong")
+    event = AgentErrorEvent(
+        error="Something went wrong", tool_call_id="call_001", tool_name="test_tool"
+    )
 
     json_data = event.model_dump_json()
     deserialized = AgentErrorEvent.model_validate_json(json_data)

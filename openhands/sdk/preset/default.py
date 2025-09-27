@@ -1,5 +1,7 @@
 """Default preset configuration for OpenHands agents."""
 
+import os
+
 from openhands.sdk import Agent
 from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
@@ -7,6 +9,7 @@ from openhands.sdk.context.condenser import (
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
+from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
 
 
@@ -35,17 +38,17 @@ def register_default_tools(enable_browser: bool = True) -> None:
 
 def get_default_tools(
     working_dir: str,
+    persistence_dir: str | None = None,
     enable_browser: bool = True,
 ) -> list[ToolSpec]:
     """Get the default set of tool specifications for the standard experience."""
     register_default_tools(enable_browser=enable_browser)
 
+    persistence_path = persistence_dir or os.path.join(working_dir, ".openhands")
     tool_specs = [
         ToolSpec(name="BashTool", params={"working_dir": working_dir}),
-        ToolSpec(name="FileEditorTool"),
-        ToolSpec(
-            name="TaskTrackerTool", params={"save_dir": f"{working_dir}/.openhands"}
-        ),
+        ToolSpec(name="FileEditorTool", params={"workspace_root": working_dir}),
+        ToolSpec(name="TaskTrackerTool", params={"save_dir": persistence_path}),
     ]
     if enable_browser:
         tool_specs.append(ToolSpec(name="BrowserToolSet"))
@@ -64,10 +67,12 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
 def get_default_agent(
     llm: LLM,
     working_dir: str,
+    persistence_dir: str | None = None,
     cli_mode: bool = False,
 ) -> Agent:
     tool_specs = get_default_tools(
         working_dir=working_dir,
+        persistence_dir=persistence_dir,
         # Disable browser tools in CLI mode
         enable_browser=not cli_mode,
     )
@@ -82,6 +87,9 @@ def get_default_agent(
         },
         filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         system_prompt_kwargs={"cli_mode": cli_mode},
-        condenser=get_default_condenser(llm=llm),
+        condenser=get_default_condenser(
+            llm=llm.model_copy(update={"service_id": "condenser"})
+        ),
+        security_analyzer=LLMSecurityAnalyzer(),
     )
     return agent

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -13,7 +13,7 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.sdk import LLM, Agent
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 
 
@@ -29,12 +29,12 @@ def sample_stored_conversation():
     """Create a sample StoredConversation for testing."""
     return StoredConversation(
         id=uuid4(),
-        agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+        agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
         confirmation_policy=NeverConfirm(),
         initial_message=None,
         metrics=None,
-        created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-        updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC),
     )
 
 
@@ -78,7 +78,13 @@ class TestConversationServiceSearchConversations:
         # Create mock event service
         mock_service = AsyncMock(spec=EventService)
         mock_service.stored = sample_stored_conversation
-        mock_service.get_status.return_value = AgentExecutionStatus.IDLE
+        mock_state = ConversationState(
+            id=sample_stored_conversation.id,
+            agent=sample_stored_conversation.agent,
+            agent_status=AgentExecutionStatus.IDLE,
+            confirmation_policy=sample_stored_conversation.confirmation_policy,
+        )
+        mock_service.get_state.return_value = mock_state
 
         conversation_id = sample_stored_conversation.id
         conversation_service._event_services[conversation_id] = mock_service
@@ -87,7 +93,7 @@ class TestConversationServiceSearchConversations:
 
         assert len(result.items) == 1
         assert result.items[0].id == conversation_id
-        assert result.items[0].status == AgentExecutionStatus.IDLE
+        assert result.items[0].agent_status == AgentExecutionStatus.IDLE
         assert result.next_page_id is None
 
     @pytest.mark.asyncio
@@ -104,38 +110,44 @@ class TestConversationServiceSearchConversations:
         ):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
-                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
-                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=timezone.utc),
+                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=UTC),
+                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
             mock_service.stored = stored_conv
-            mock_service.get_status.return_value = status
+            mock_state = ConversationState(
+                id=stored_conv.id,
+                agent=stored_conv.agent,
+                agent_status=status,
+                confirmation_policy=stored_conv.confirmation_policy,
+            )
+            mock_service.get_state.return_value = mock_state
 
             conversation_service._event_services[stored_conv.id] = mock_service
             conversations.append((stored_conv.id, status))
 
         # Test filtering by IDLE status
         result = await conversation_service.search_conversations(
-            status=AgentExecutionStatus.IDLE
+            agent_status=AgentExecutionStatus.IDLE
         )
         assert len(result.items) == 1
-        assert result.items[0].status == AgentExecutionStatus.IDLE
+        assert result.items[0].agent_status == AgentExecutionStatus.IDLE
 
         # Test filtering by RUNNING status
         result = await conversation_service.search_conversations(
-            status=AgentExecutionStatus.RUNNING
+            agent_status=AgentExecutionStatus.RUNNING
         )
         assert len(result.items) == 1
-        assert result.items[0].status == AgentExecutionStatus.RUNNING
+        assert result.items[0].agent_status == AgentExecutionStatus.RUNNING
 
         # Test filtering by non-existent status
         result = await conversation_service.search_conversations(
-            status=AgentExecutionStatus.ERROR
+            agent_status=AgentExecutionStatus.ERROR
         )
         assert len(result.items) == 0
 
@@ -148,19 +160,25 @@ class TestConversationServiceSearchConversations:
         for i in range(3):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
                 created_at=datetime(
-                    2025, 1, i + 1, 12, 0, 0, tzinfo=timezone.utc
+                    2025, 1, i + 1, 12, 0, 0, tzinfo=UTC
                 ),  # Different days
-                updated_at=datetime(2025, 1, i + 1, 12, 30, 0, tzinfo=timezone.utc),
+                updated_at=datetime(2025, 1, i + 1, 12, 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
             mock_service.stored = stored_conv
-            mock_service.get_status.return_value = AgentExecutionStatus.IDLE
+            mock_state = ConversationState(
+                id=stored_conv.id,
+                agent=stored_conv.agent,
+                agent_status=AgentExecutionStatus.IDLE,
+                confirmation_policy=stored_conv.confirmation_policy,
+            )
+            mock_service.get_state.return_value = mock_state
 
             conversation_service._event_services[stored_conv.id] = mock_service
             conversations.append(stored_conv)
@@ -217,17 +235,23 @@ class TestConversationServiceSearchConversations:
         for i in range(5):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
-                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
-                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=timezone.utc),
+                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=UTC),
+                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
             mock_service.stored = stored_conv
-            mock_service.get_status.return_value = AgentExecutionStatus.IDLE
+            mock_state = ConversationState(
+                id=stored_conv.id,
+                agent=stored_conv.agent,
+                agent_status=AgentExecutionStatus.IDLE,
+                confirmation_policy=stored_conv.confirmation_policy,
+            )
+            mock_service.get_state.return_value = mock_state
 
             conversation_service._event_services[stored_conv.id] = mock_service
             conversation_ids.append(stored_conv.id)
@@ -260,26 +284,26 @@ class TestConversationServiceSearchConversations:
         conversations_data = [
             (
                 AgentExecutionStatus.IDLE,
-                datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC),
             ),
             (
                 AgentExecutionStatus.RUNNING,
-                datetime(2025, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC),
             ),
             (
                 AgentExecutionStatus.IDLE,
-                datetime(2025, 1, 3, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 3, 12, 0, 0, tzinfo=UTC),
             ),
             (
                 AgentExecutionStatus.FINISHED,
-                datetime(2025, 1, 4, 12, 0, 0, tzinfo=timezone.utc),
+                datetime(2025, 1, 4, 12, 0, 0, tzinfo=UTC),
             ),
         ]
 
         for status, created_at in conversations_data:
             stored_conv = StoredConversation(
                 id=uuid4(),
-                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
@@ -289,13 +313,19 @@ class TestConversationServiceSearchConversations:
 
             mock_service = AsyncMock(spec=EventService)
             mock_service.stored = stored_conv
-            mock_service.get_status.return_value = status
+            mock_state = ConversationState(
+                id=stored_conv.id,
+                agent=stored_conv.agent,
+                agent_status=status,
+                confirmation_policy=stored_conv.confirmation_policy,
+            )
+            mock_service.get_state.return_value = mock_state
 
             conversation_service._event_services[stored_conv.id] = mock_service
 
         # Filter by IDLE status and sort by CREATED_AT_DESC
         result = await conversation_service.search_conversations(
-            status=AgentExecutionStatus.IDLE,
+            agent_status=AgentExecutionStatus.IDLE,
             sort_order=ConversationSortOrder.CREATED_AT_DESC,
         )
 
@@ -310,7 +340,13 @@ class TestConversationServiceSearchConversations:
         """Test search_conversations with invalid page_id."""
         mock_service = AsyncMock(spec=EventService)
         mock_service.stored = sample_stored_conversation
-        mock_service.get_status.return_value = AgentExecutionStatus.IDLE
+        mock_state = ConversationState(
+            id=sample_stored_conversation.id,
+            agent=sample_stored_conversation.agent,
+            agent_status=AgentExecutionStatus.IDLE,
+            confirmation_policy=sample_stored_conversation.confirmation_policy,
+        )
+        mock_service.get_state.return_value = mock_state
 
         conversation_service._event_services[sample_stored_conversation.id] = (
             mock_service
@@ -352,7 +388,13 @@ class TestConversationServiceCountConversations:
         # Create mock event service
         mock_service = AsyncMock(spec=EventService)
         mock_service.stored = sample_stored_conversation
-        mock_service.get_status.return_value = AgentExecutionStatus.IDLE
+        mock_state = ConversationState(
+            id=sample_stored_conversation.id,
+            agent=sample_stored_conversation.agent,
+            agent_status=AgentExecutionStatus.IDLE,
+            confirmation_policy=sample_stored_conversation.confirmation_policy,
+        )
+        mock_service.get_state.return_value = mock_state
 
         conversation_id = sample_stored_conversation.id
         conversation_service._event_services[conversation_id] = mock_service
@@ -374,17 +416,23 @@ class TestConversationServiceCountConversations:
         for i, status in enumerate(statuses):
             stored_conv = StoredConversation(
                 id=uuid4(),
-                agent=Agent(llm=LLM(model="gpt-4"), tools=[]),
+                agent=Agent(llm=LLM(model="gpt-4", service_id="test-llm"), tools=[]),
                 confirmation_policy=NeverConfirm(),
                 initial_message=None,
                 metrics=None,
-                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=timezone.utc),
-                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=timezone.utc),
+                created_at=datetime(2025, 1, 1, 12, i, 0, tzinfo=UTC),
+                updated_at=datetime(2025, 1, 1, 12, i + 30, 0, tzinfo=UTC),
             )
 
             mock_service = AsyncMock(spec=EventService)
             mock_service.stored = stored_conv
-            mock_service.get_status.return_value = status
+            mock_state = ConversationState(
+                id=stored_conv.id,
+                agent=stored_conv.agent,
+                agent_status=status,
+                confirmation_policy=stored_conv.confirmation_policy,
+            )
+            mock_service.get_state.return_value = mock_state
 
             conversation_service._event_services[stored_conv.id] = mock_service
 
@@ -394,18 +442,18 @@ class TestConversationServiceCountConversations:
 
         # Test counting by IDLE status (should be 2)
         result = await conversation_service.count_conversations(
-            status=AgentExecutionStatus.IDLE
+            agent_status=AgentExecutionStatus.IDLE
         )
         assert result == 2
 
         # Test counting by RUNNING status (should be 1)
         result = await conversation_service.count_conversations(
-            status=AgentExecutionStatus.RUNNING
+            agent_status=AgentExecutionStatus.RUNNING
         )
         assert result == 1
 
         # Test counting by non-existent status (should be 0)
         result = await conversation_service.count_conversations(
-            status=AgentExecutionStatus.ERROR
+            agent_status=AgentExecutionStatus.ERROR
         )
         assert result == 0

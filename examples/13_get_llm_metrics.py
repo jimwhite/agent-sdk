@@ -7,7 +7,6 @@ from openhands.sdk import (
     Agent,
     Conversation,
     EventBase,
-    EventWithMetrics,
     LLMConvertibleEvent,
     get_logger,
 )
@@ -22,6 +21,7 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
+    service_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -47,9 +47,6 @@ llm_messages = []  # collect raw LLM messages
 def conversation_callback(event: EventBase):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
-    if isinstance(event, EventWithMetrics):
-        if event.metrics is not None:
-            logger.info(f"Metrics Snapshot: {event.metrics}")
 
 
 # Conversation

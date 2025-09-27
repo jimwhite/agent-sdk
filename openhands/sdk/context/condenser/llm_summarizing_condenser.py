@@ -27,7 +27,12 @@ class LLMSummarizingCondenser(RollingCondenser):
             )
         return model
 
+    def handles_condensation_requests(self) -> bool:
+        return True
+
     def should_condense(self, view: View) -> bool:
+        if view.unhandled_condensation_request:
+            return True
         return len(view) > self.max_size
 
     def get_condensation(self, view: View) -> Condensation:
@@ -60,7 +65,7 @@ class LLMSummarizingCondenser(RollingCondenser):
 
         messages = [Message(role="user", content=[TextContent(text=prompt)])]
 
-        response = self.llm.completion(
+        llm_response = self.llm.completion(
             messages=messages,
             extra_body={
                 "metadata": get_llm_metadata(
@@ -68,13 +73,15 @@ class LLMSummarizingCondenser(RollingCondenser):
                 )
             },
         )
-        summary = response.choices[0].message.content  # type: ignore
+        # Extract summary from the LLMResponse message
+        summary = None
+        if llm_response.message.content:
+            first_content = llm_response.message.content[0]
+            if isinstance(first_content, TextContent):
+                summary = first_content.text
 
         return Condensation(
             forgotten_event_ids=[event.id for event in forgotten_events],
             summary=summary,
             summary_offset=self.keep_first,
-            metrics=self.llm.metrics.get_snapshot()
-            if self.llm.metrics is not None
-            else None,
         )
