@@ -51,6 +51,7 @@ class Conversation:
         agent: AgentBase,
         *,
         host: str,
+        api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -64,6 +65,7 @@ class Conversation:
         *,
         persist_filestore: FileStore | None = None,
         host: str | None = None,
+        api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -74,6 +76,7 @@ class Conversation:
             return RemoteConversation(
                 agent=agent,
                 host=host,
+                api_key=api_key,
                 conversation_id=conversation_id,
                 callbacks=callbacks,
                 max_iteration_per_run=max_iteration_per_run,
