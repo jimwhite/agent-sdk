@@ -113,8 +113,8 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> ChatCompletionMessageParam:
-        """Serialize message for LLM API consumption using LiteLLM typed payloads.
+    def to_llm_completion(self) -> ChatCompletionMessageParam:
+        """Serialize message for Chat Completions API (LiteLLM typed payloads).
 
         - String format: for providers that don't support list of content items
         - List format: for providers with vision/prompt caching/tool calls support

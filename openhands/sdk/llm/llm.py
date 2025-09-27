@@ -754,7 +754,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        return [message.to_llm_dict() for message in messages]
+        return [message.to_llm_completion() for message in messages]
 
     def get_token_count(self, messages: list[Message]) -> int:
         logger.debug(

@@ -20,9 +20,10 @@ def test_text_content_with_cache_prompt():
     result = content.to_llm_dict()
 
     assert len(result) == 1
-    assert result[0]["type"] == "text"
-    assert result[0]["text"] == "Hello world"
-    assert result[0]["cache_control"] == {"type": "ephemeral"}
+    r0 = cast(dict[str, Any], result[0])
+    assert r0["type"] == "text"
+    assert r0["text"] == "Hello world"
+    assert r0["cache_control"] == {"type": "ephemeral"}
 
 
 def test_image_content_with_cache_prompt():
@@ -41,8 +42,14 @@ def test_image_content_with_cache_prompt():
     assert result[1]["type"] == "image_url"
     assert result[1]["image_url"]["url"] == "data:image/jpeg;base64,def456"  # type: ignore
     # Only the last image should have cache_control
-    assert "cache_control" not in result[0]
-    assert result[1]["cache_control"] == {"type": "ephemeral"}
+    r0 = cast(dict[str, Any], result[0])
+    r1 = cast(dict[str, Any], result[1])
+
+    r0 = cast(dict[str, Any], result[0])
+    r1 = cast(dict[str, Any], result[1])
+
+    assert "cache_control" not in r0
+    assert r1["cache_control"] == {"type": "ephemeral"}
 
 
 def test_message_contains_image_property():
@@ -83,7 +90,7 @@ def test_message_tool_role_with_cache_prompt():
         ChatCompletionToolMessageParam,
     )
 
-    llm_union = message.to_llm_dict()
+    llm_union = message.to_llm_completion()
     assert llm_union["role"] == "tool"
     llm = cast(ChatCompletionToolMessageParam, llm_union)
     assert llm["tool_call_id"] == "call_123"
@@ -111,7 +118,7 @@ def test_message_tool_role_with_image_cache_prompt():
         cache_enabled=True,
     )
 
-    result = message.to_llm_dict()
+    result = message.to_llm_completion()
     assert result["role"] == "tool"
     assert result["tool_call_id"] == "call_123"
     assert cast(dict[str, Any], result)["cache_control"] == {"type": "ephemeral"}
@@ -138,7 +145,7 @@ def test_message_with_tool_calls():
         tool_calls=[tool_call],
     )
 
-    result = message.to_llm_dict()
+    result = message.to_llm_completion()
     assert result["role"] == "assistant"
     assert "tool_calls" in result
     tool_calls = cast(list[dict[str, Any]], result["tool_calls"])  # type narrowing
