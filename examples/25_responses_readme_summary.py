@@ -32,6 +32,7 @@ def main() -> int:
         service_id="agent",
         log_completions=True,
         log_completions_folder=str(logs_dir),
+        max_output_tokens=2048,
     )
 
     cwd = os.getcwd()

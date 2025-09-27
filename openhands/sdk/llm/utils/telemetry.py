@@ -84,8 +84,26 @@ class Telemetry(BaseModel):
         return self.metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
-        # Stub for error tracking / counters
-        return
+        # Write an error log entry capturing the last request context
+        if not self.log_enabled or not self.log_dir:
+            return
+        try:
+            if not os.path.isdir(self.log_dir):
+                os.makedirs(self.log_dir, exist_ok=True)
+            fname = os.path.join(
+                self.log_dir,
+                f"{self.model_name.replace('/', '__')}-{time.time():.3f}-error.json",
+            )
+            payload = {
+                "timestamp": time.time(),
+                "latency_sec": self._last_latency,
+                "error": str(err),
+                "request": self._req_ctx,
+            }
+            with open(fname, "w") as f:
+                f.write(json.dumps(payload, default=_safe_json))
+        except Exception as e:
+            warnings.warn(f"Telemetry logging failed: {e}")
 
     # ---------- Helpers ----------
     def _has_meaningful_usage(self, usage) -> bool:
