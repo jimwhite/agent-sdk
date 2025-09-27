@@ -50,7 +50,7 @@ User Flow
 Phased Implementation
 - Phase 1: Backend ready + simple demo
   - [x] `vscode_port` config + folder URL-encoding
-  - [ ] Add `/vscode` redirect or static HTML demo that embeds the VS Code URL
+  - [x] Add static HTML demo that embeds/opens the VS Code URL (see examples/25_vscode_diff_demo)
 - Phase 2: Auto-open diffs
   - [ ] Create minimal `openhands-diff` extension
   - [ ] Agent-server writes `.vscode/openhands.json` to signal diff mode when appropriate
