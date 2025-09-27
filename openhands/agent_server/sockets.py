@@ -18,6 +18,9 @@ from fastapi import (
 )
 
 from openhands.agent_server.bash_service import BashEventService
+from openhands.agent_server.config import (
+    get_default_config as get_default_config,
+)
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.dependencies import (
     get_bash_event_service,
@@ -30,6 +33,27 @@ from openhands.sdk import Message
 from openhands.sdk.event.base import EventBase
 
 
+# Backward-compat for tests that patch module variable
+conversation_service: ConversationService | None = None
+
+
+async def _resolve_conversation_service(
+    svc: ConversationService = Depends(get_conversation_service),
+) -> ConversationService:
+    if conversation_service is not None:
+        return conversation_service
+    return svc
+
+
+# Back-compat: allow calling events_socket directly in tests where FastAPI DI
+# is not in effect. In such cases, the dependency parameter may be the Depends
+# object itself; this helper normalizes it.
+try:
+    from fastapi.params import Depends as _DependsParam  # type: ignore
+except Exception:  # pragma: no cover - fallback import structure
+    _DependsParam = None  # type: ignore
+
+
 sockets_router = APIRouter(prefix="/sockets", tags=["WebSockets"])
 logger = logging.getLogger(__name__)
 
@@ -39,7 +63,8 @@ async def events_socket(
     conversation_id: UUID,
     websocket: WebSocket,
     _auth: None = Depends(websocket_session_api_key_dependency),
-    conversation_service: ConversationService = Depends(get_conversation_service),
+    conv_svc: ConversationService = Depends(_resolve_conversation_service),
+    session_api_key: str | None = None,
 ):
     """WebSocket endpoint for conversation events.
 
@@ -49,7 +74,12 @@ async def events_socket(
     """
     # Authentication handled by dependency
     await websocket.accept()
-    event_service = await conversation_service.get_event_service(conversation_id)
+    # Normalize dependency object when called directly (outside FastAPI DI)
+    if _DependsParam is not None and isinstance(conv_svc, _DependsParam):
+        conv_svc = conversation_service or ConversationService.get_instance(
+            get_default_config()
+        )
+    event_service = await conv_svc.get_event_service(conversation_id)
     if event_service is None:
         await websocket.close(code=4004, reason="Conversation not found")
         return

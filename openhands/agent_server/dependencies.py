@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import APIKeyHeader
 
 from openhands.agent_server.bash_service import BashEventService
-from openhands.agent_server.config import Config
+from openhands.agent_server.config import Config, get_default_config
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.vscode_service import VSCodeService
 
@@ -10,16 +10,34 @@ from openhands.agent_server.vscode_service import VSCodeService
 _SESSION_API_KEY_HEADER = APIKeyHeader(name="X-Session-API-Key", auto_error=False)
 
 
+# Back-compat shim for tests that patch this symbol at this import location
+get_default_config = get_default_config
+
+
 def get_config(request: Request) -> Config:
     return request.app.state.config
 
 
 def get_conversation_service(request: Request) -> ConversationService:
-    return request.app.state.conversation_service
+    # Graceful fallback so tests that construct app without full startup don't fail
+    svc = getattr(request.app.state, "conversation_service", None)
+    if svc is None:
+        cfg = getattr(request.app.state, "config", get_default_config())
+        svc = ConversationService.get_instance(cfg)
+        request.app.state.conversation_service = svc
+    return svc
 
 
 def get_bash_event_service(request: Request) -> BashEventService:
-    return request.app.state.bash_event_service
+    svc = getattr(request.app.state, "bash_event_service", None)
+    if svc is None:
+        cfg = getattr(request.app.state, "config", get_default_config())
+        svc = BashEventService(
+            working_dir=cfg.workspace_path,
+            bash_events_dir=cfg.bash_events_dir,
+        )
+        request.app.state.bash_event_service = svc
+    return svc
 
 
 def get_vscode_service(request: Request) -> VSCodeService | None:

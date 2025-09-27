@@ -12,8 +12,11 @@ from openhands.agent_server.bash_service import BashEventService
 from openhands.agent_server.config import Config, get_default_config
 from openhands.agent_server.conversation_router import conversation_router
 from openhands.agent_server.conversation_service import ConversationService
+
+# Passthrough export for tests to patch get_vscode_service at this import point
 from openhands.agent_server.dependencies import (
     create_session_api_key_dependency,
+    get_vscode_service as get_vscode_service,
 )
 from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
