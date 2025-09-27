@@ -220,11 +220,31 @@ class Telemetry(BaseModel):
                 self.log_dir,
                 f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
             )
-            data = self._req_ctx.copy()
-            data["response"] = resp.model_dump()
-            data["cost"] = float(cost or 0.0)
-            data["timestamp"] = time.time()
-            data["latency_sec"] = self._last_latency
+            # Start with a sanitized copy of request context to avoid cycles
+            req = dict(self._req_ctx or {})
+
+            # Sanitize tools list in req and in kwargs
+            def _tool_names(x):
+                out = []
+                for t in x or []:
+                    name = getattr(t, "name", None)
+                    out.append(str(name or t))
+                return out
+
+            if isinstance(req.get("tools"), (list, tuple)):
+                req["tools"] = _tool_names(req.get("tools"))
+            kw = req.get("kwargs") or {}
+            if isinstance(kw, dict) and isinstance(kw.get("tools"), (list, tuple)):
+                kw["tools"] = _tool_names(kw.get("tools"))
+                req["kwargs"] = kw
+
+            data = {
+                "request": req,
+                "response": resp.model_dump(),
+                "cost": float(cost or 0.0),
+                "timestamp": time.time(),
+                "latency_sec": self._last_latency,
+            }
 
             # Usage summary (prompt, completion, reasoning tokens) for quick inspection
             try:
@@ -254,9 +274,7 @@ class Telemetry(BaseModel):
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
                 data["raw_response"] = raw_resp
-            # pop duplicated tools
-            if "tool" in data and "tool" in data.get("kwargs", {}):
-                data["kwargs"].pop("tool")
+
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:
