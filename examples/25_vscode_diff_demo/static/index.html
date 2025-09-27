@@ -14,8 +14,11 @@
     <button id="open">Open VS Code</button>
     <pre id="out"></pre>
     <script>
+      const WORK1 = 'https://work-1-wwoowncqtgweeoos.prod-runtime.all-hands.dev:12000';
+      const WORK2 = 'https://work-2-wwoowncqtgweeoos.prod-runtime.all-hands.dev:12001';
       document.getElementById('open').onclick = async () => {
-        const resp = await fetch('/api/vscode/url');
+        // Ask the server for a tokenized VS Code URL, using the public work-2 host/port
+        const resp = await fetch(`/api/vscode/url?base_url=${encodeURIComponent(WORK2)}`);
         const data = await resp.json();
         document.getElementById('out').textContent = JSON.stringify(data, null, 2);
         if (data.url) {
