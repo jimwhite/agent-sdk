@@ -407,7 +407,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if self._telemetry.log_enabled:
             log_ctx = {
                 "messages": formatted_messages[:],
-                "tool_names": [t.__class__.__name__ for t in (tools or [])],
+                "tools_schema": [dict(t) for t in (cc_tools or [])],
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
             }
