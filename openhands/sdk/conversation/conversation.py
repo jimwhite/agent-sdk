@@ -1,13 +1,18 @@
 from collections.abc import Iterable
-from typing import Self, overload
+from typing import TYPE_CHECKING, Self, overload
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.impl import remote_conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.io import FileStore
 from openhands.sdk.logger import get_logger
+
+
+if TYPE_CHECKING:
+    # Imported only for type checking to avoid binding at runtime
+    from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 
 
 logger = get_logger(__name__)
@@ -73,7 +78,8 @@ class Conversation:
         visualize: bool = True,
     ) -> BaseConversation:
         if host:
-            return RemoteConversation(
+            # Lazy import to avoid httpx / network initialization during module import
+            return remote_conversation.RemoteConversation(
                 agent=agent,
                 host=host,
                 api_key=api_key,
