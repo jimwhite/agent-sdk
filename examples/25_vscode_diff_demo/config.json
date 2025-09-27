@@ -1,0 +1,7 @@
+{
+  "static_files_path": "static",
+  "workspace_path": "workspace/project",
+  "enable_vscode": true,
+  "vscode_port": 8012,
+  "session_api_keys": []
+}

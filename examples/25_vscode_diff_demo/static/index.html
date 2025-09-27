@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>VS Code Diff Demo</title>
+  </head>
+  <body>
+    <h1>VS Code Diff Demo</h1>
+    <p>
+      Click the button to open the embedded web VS Code (OpenVSCode Server). It will
+      load the current workspace and you can use the SCM view to inspect diffs. In V1,
+      this replaces any bespoke "Changes" viewer.
+    </p>
+    <button id="open">Open VS Code</button>
+    <pre id="out"></pre>
+    <script>
+      document.getElementById('open').onclick = async () => {
+        const resp = await fetch('/api/vscode/url');
+        const data = await resp.json();
+        document.getElementById('out').textContent = JSON.stringify(data, null, 2);
+        if (data.url) {
+          window.open(data.url, '_blank');
+        }
+      };
+    </script>
+  </body>
+</html>
