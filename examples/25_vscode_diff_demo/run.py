@@ -1,50 +1,10 @@
 import argparse
-import os
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
 
-# Reuse the built-in agent server app and VS Code endpoints
-from openhands.agent_server.api import api as agent_api
-
-
-app = FastAPI(title="VS Code Diff Demo")
-
-# Mount the agent server under / (shares routes and lifespan to start VSCode service)
-app.mount("/", agent_api)
-
-
-@app.get("/static/index.html")
-def demo_page():
-    # Simple demo page that calls /api/vscode/url and opens it in a new tab
-    html = (
-        "<!doctype html>"
-        "<html>"
-        "<head>"
-        "<meta charset='utf-8'>"
-        "<title>VS Code Diff Demo</title>"
-        "</head>"
-        "<body>"
-        "<h1>VS Code Diff Demo</h1>"
-        "<p>Click the button to open the embedded web VS Code (OpenVSCode Server)."
-        " It will load the current workspace folder and you can use SCM to view diffs."
-        "</p>"
-        "<button id='open'>Open VS Code</button>"
-        "<pre id='out'></pre>"
-        "<script>"
-        "document.getElementById('open').onclick = async () => {"
-        "  const resp = await fetch('/api/vscode/url');"
-        "  const data = await resp.json();"
-        "  document.getElementById('out').textContent = JSON.stringify(data, null, 2);"
-        "  if (data.url) { window.open(data.url, '_blank'); }"
-        "};"
-        "</script>"
-        "</body>"
-        "</html>"
-    )
-    return HTMLResponse(content=html)
+from openhands.agent_server.api import create_app
+from openhands.agent_server.config import Config
 
 
 def main():
@@ -53,12 +13,23 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
 
-    # Ensure the example uses a config that sets static files and enables VS Code
-    os.environ["OPENHANDS_AGENT_SERVER_CONFIG_PATH"] = str(
-        Path(__file__).with_name("config.json")
-    )
+    # Load config from this example directory
+    config_path = Path(__file__).with_name("config.json")
+    config = Config.from_json_file(config_path)
 
-    # Run the demo FastAPI app
+    # Resolve static_files_path relative to this example directory, if set
+    if config.static_files_path is not None:
+        static_dir = (
+            config.static_files_path
+            if config.static_files_path.is_absolute()
+            else config_path.parent / config.static_files_path
+        )
+        config = config.model_copy(update={"static_files_path": static_dir})
+
+    # Create the agent server app with our config; it serves /static and /api
+    app = create_app(config)
+
+    # Run the demo app
     uvicorn.run(app, host=args.host, port=args.port)
 
 
