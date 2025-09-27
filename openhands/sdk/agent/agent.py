@@ -205,13 +205,21 @@ class Agent(AgentBase):
                             inputs.extend(msg.to_responses_input_items())
                             break
 
+            # If we're in a continuation but have no tool outputs to return,
+            # fall back to a fresh turn to avoid 400 "No tool output found...".
+            prev_id = state.previous_response_id
+            if prev_id is not None and not inputs:
+                logger.warning(
+                    "Responses continuation requested but no tool outputs available; "
+                    "starting a fresh turn instead"
+                )
+                prev_id = None
+
             llm_response = self.llm.responses(
-                instructions=system_text
-                if state.previous_response_id is None
-                else None,
+                instructions=system_text if prev_id is None else None,
                 inputs=inputs or None,
                 tools=list(self.tools_map.values()),
-                previous_response_id=state.previous_response_id,
+                previous_response_id=prev_id,
                 store=True,
                 parallel_tool_calls=True,
                 add_security_risk_prediction=self._add_security_risk_prediction,
