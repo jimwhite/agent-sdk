@@ -28,8 +28,8 @@ class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     @abstractmethod
-    def to_llm_dict(self) -> Sequence[ChatCompletionContentPartParam]:
-        """Convert to LLM content parts for LiteLLM ChatCompletion API."""
+    def to_llm_completion(self) -> Sequence[ChatCompletionContentPartParam]:
+        """Serialize content parts for Chat Completions API (LiteLLM typed)."""
 
 
 class TextContent(BaseContent):
@@ -39,8 +39,8 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> Sequence[ChatCompletionContentPartTextParam]:
-        """Convert to LLM content parts (text)."""
+    def to_llm_completion(self) -> Sequence[ChatCompletionContentPartTextParam]:
+        """Serialize text content parts for Chat Completions API."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
             logger.warning(
@@ -62,8 +62,8 @@ class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
 
-    def to_llm_dict(self) -> Sequence[ChatCompletionContentPartImageParam]:
-        """Convert to LLM content parts (image)."""
+    def to_llm_completion(self) -> Sequence[ChatCompletionContentPartImageParam]:
+        """Serialize image content parts for Chat Completions API."""
         images: list[ChatCompletionContentPartImageParam] = []
         for url in self.image_urls:
             i: ChatCompletionContentPartImageParam = {
