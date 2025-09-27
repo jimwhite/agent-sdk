@@ -357,7 +357,6 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     tc = msg.tool_calls[0]
     # Normalized tool call; type no longer present on LLMToolCall
     assert tc.name == "test_tool"
-    assert tc.name == "test_tool"
     # Ensure function-call markup was stripped from assistant content
     if msg.content:
         for content_item in msg.content:
