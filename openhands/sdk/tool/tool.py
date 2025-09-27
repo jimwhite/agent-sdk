@@ -328,13 +328,24 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             if add_security_risk_prediction
             else action_type.to_mcp_schema()
         )
+        # Remove internal discriminator 'kind' from tool schemas; models should not
+        # predict it. Keep end-user fields only.
+        try:
+            props = params.get("properties", {})
+            if "kind" in props:
+                props.pop("kind", None)
+            req = params.get("required", [])
+            if isinstance(req, list) and "kind" in req:
+                req = [x for x in req if x != "kind"]
+                params["required"] = req
+        except Exception:
+            pass
+        # OpenAI Responses API expects flattened tool schema (no nested "function").
         return {
             "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": params,
-            },
+            "name": self.name,
+            "description": self.description,
+            "parameters": params,
         }
 
     @classmethod
