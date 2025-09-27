@@ -835,9 +835,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     @classmethod
     def load_from_toml(cls, toml_path: str) -> LLM:
         try:
+            # FIXME: These imports are kept inline due to conditional availability
             import tomllib
         except ImportError:
             try:
+                # FIXME: These imports are kept inline due to conditional availability
                 import tomli as tomllib  # type: ignore
             except ImportError:
                 raise ImportError("tomllib or tomli is required to load TOML files")
