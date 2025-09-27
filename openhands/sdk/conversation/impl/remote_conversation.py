@@ -130,9 +130,17 @@ class RemoteEventsList(ListLike[EventBase]):
             if page_id:
                 params["page_id"] = page_id
 
+            logger.debug(
+                f"GET /api/conversations/{self._conversation_id}/events/search - "
+                f"params: {params}"
+            )
             resp = self._client.get(
                 f"/api/conversations/{self._conversation_id}/events/search",
                 params=params,
+            )
+            logger.debug(
+                f"GET /api/conversations/{self._conversation_id}/events/search - "
+                f"status: {resp.status_code}, response: {resp.text}"
             )
             resp.raise_for_status()
             data = resp.json()
@@ -205,7 +213,12 @@ class RemoteState(ConversationStateProtocol):
 
     def _get_conversation_info(self) -> dict:
         """Fetch the latest conversation info from the remote API."""
+        logger.debug(f"GET /api/conversations/{self._conversation_id}")
         resp = self._client.get(f"/api/conversations/{self._conversation_id}")
+        logger.debug(
+            f"GET /api/conversations/{self._conversation_id} - "
+            f"status: {resp.status_code}, response: {resp.text}"
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -333,7 +346,12 @@ class RemoteConversation(BaseConversation):
         if conversation_id is not None:
             payload["conversation_id"] = str(conversation_id)
 
+        logger.debug(f"POST /api/conversations/ - payload: {payload}")
         resp = self._client.post("/api/conversations/", json=payload)
+        logger.debug(
+            f"POST /api/conversations/ - "
+            f"status: {resp.status_code}, response: {resp.text}"
+        )
         resp.raise_for_status()
         data = resp.json()
         # Expect a ConversationInfo
@@ -401,15 +419,25 @@ class RemoteConversation(BaseConversation):
             "content": [c.model_dump() for c in message.content],
             "run": False,  # Mirror local semantics; explicit run() must be called
         }
+        logger.debug(f"POST /api/conversations/{self._id}/events/ - payload: {payload}")
         resp = self._client.post(f"/api/conversations/{self._id}/events/", json=payload)
+        logger.debug(
+            f"POST /api/conversations/{self._id}/events/ - "
+            f"status: {resp.status_code}, response: {resp.text}"
+        )
         resp.raise_for_status()
 
     def run(self) -> None:
         # Trigger a run on the server using the dedicated run endpoint.
         # Let the server tell us if it's already running (409), avoiding an extra GET.
+        logger.debug(f"POST /api/conversations/{self._id}/run")
         resp = self._client.post(
             f"/api/conversations/{self._id}/run",
             timeout=1800,
+        )
+        logger.debug(
+            f"POST /api/conversations/{self._id}/run - "
+            f"status: {resp.status_code}, response: {resp.text}"
         )
         if resp.status_code == 409:
             logger.info("Conversation is already running; skipping run trigger")
@@ -419,21 +447,43 @@ class RemoteConversation(BaseConversation):
 
     def set_confirmation_policy(self, policy: ConfirmationPolicyBase) -> None:
         payload = {"policy": policy.model_dump()}
+        logger.debug(
+            f"POST /api/conversations/{self._id}/confirmation_policy - "
+            f"payload: {payload}"
+        )
         resp = self._client.post(
             f"/api/conversations/{self._id}/confirmation_policy", json=payload
+        )
+        logger.debug(
+            f"POST /api/conversations/{self._id}/confirmation_policy - "
+            f"status: {resp.status_code}, response: {resp.text}"
         )
         resp.raise_for_status()
 
     def reject_pending_actions(self, reason: str = "User rejected the action") -> None:
         # Equivalent to rejecting confirmation: pause
+        payload = {"accept": False, "reason": reason}
+        logger.debug(
+            f"POST /api/conversations/{self._id}/events/respond_to_confirmation - "
+            f"payload: {payload}"
+        )
         resp = self._client.post(
             f"/api/conversations/{self._id}/events/respond_to_confirmation",
-            json={"accept": False, "reason": reason},
+            json=payload,
+        )
+        logger.debug(
+            f"POST /api/conversations/{self._id}/events/respond_to_confirmation - "
+            f"status: {resp.status_code}, response: {resp.text}"
         )
         resp.raise_for_status()
 
     def pause(self) -> None:
+        logger.debug(f"POST /api/conversations/{self._id}/pause")
         resp = self._client.post(f"/api/conversations/{self._id}/pause")
+        logger.debug(
+            f"POST /api/conversations/{self._id}/pause - "
+            f"status: {resp.status_code}, response: {resp.text}"
+        )
         resp.raise_for_status()
 
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
@@ -449,7 +499,12 @@ class RemoteConversation(BaseConversation):
                 serializable_secrets[key] = value
 
         payload = {"secrets": serializable_secrets}
+        logger.debug(f"POST /api/conversations/{self._id}/secrets - payload: {payload}")
         resp = self._client.post(f"/api/conversations/{self._id}/secrets", json=payload)
+        logger.debug(
+            f"POST /api/conversations/{self._id}/secrets - "
+            f"status: {resp.status_code}, response: {resp.text}"
+        )
         resp.raise_for_status()
 
     def close(self) -> None:
