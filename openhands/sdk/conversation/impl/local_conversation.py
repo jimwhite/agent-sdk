@@ -6,6 +6,7 @@ from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
+from openhands.sdk.conversation.system_mixins import LocalSystemMixin
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event import (
@@ -37,7 +38,7 @@ def compose_callbacks(
     return composed
 
 
-class LocalConversation(BaseConversation):
+class LocalConversation(LocalSystemMixin, BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
