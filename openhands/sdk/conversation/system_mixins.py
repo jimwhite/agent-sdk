@@ -41,7 +41,7 @@ class SystemMixin(ABC):
     """
 
     @abstractmethod
-    async def execute_bash(
+    def execute_bash(
         self,
         command: str,
         cwd: str | Path | None = None,
@@ -63,7 +63,7 @@ class SystemMixin(ABC):
         ...
 
     @abstractmethod
-    async def file_upload(
+    def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -83,7 +83,7 @@ class SystemMixin(ABC):
         ...
 
     @abstractmethod
-    async def file_download(
+    def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -137,7 +137,7 @@ class LocalSystemMixin(SystemMixin):
         """Set the working directory for system operations."""
         self._working_dir = Path(value)
 
-    async def execute_bash(
+    def execute_bash(
         self,
         command: str,
         cwd: str | Path | None = None,
@@ -161,10 +161,13 @@ class LocalSystemMixin(SystemMixin):
 
         logger.debug(f"Executing local bash command: {command} in {cwd}")
 
-        result = await execute_shell_command(
-            command=command,
-            cwd=cwd,
-            timeout=timeout,
+        # Run the async function synchronously
+        result = asyncio.run(
+            execute_shell_command(
+                command=command,
+                cwd=cwd,
+                timeout=timeout,
+            )
         )
 
         return {
@@ -175,7 +178,7 @@ class LocalSystemMixin(SystemMixin):
             "timeout_occurred": result.timeout_occurred,
         }
 
-    async def file_upload(
+    def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -220,7 +223,7 @@ class LocalSystemMixin(SystemMixin):
                 "error": str(e),
             }
 
-    async def file_download(
+    def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -310,7 +313,7 @@ class RemoteSystemMixin(SystemMixin):
             raise AttributeError("RemoteSystemMixin requires _id attribute to be set")
         return str(self._id)  # type: ignore
 
-    async def execute_bash(
+    def execute_bash(
         self,
         command: str,
         cwd: str | Path | None = None,
@@ -339,14 +342,11 @@ class RemoteSystemMixin(SystemMixin):
             payload["cwd"] = str(cwd)
 
         try:
-            # Use asyncio to run the synchronous HTTP call
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._http_client.post(
-                    "/api/bash/execute",
-                    json=payload,
-                    timeout=timeout + 5.0,  # Add buffer to HTTP timeout
-                ),
+            # Make synchronous HTTP call
+            response = self._http_client.post(
+                "/api/bash/execute",
+                json=payload,
+                timeout=timeout + 5.0,  # Add buffer to HTTP timeout
             )
             response.raise_for_status()
             return response.json()
@@ -361,7 +361,7 @@ class RemoteSystemMixin(SystemMixin):
                 "timeout_occurred": False,
             }
 
-    async def file_upload(
+    def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -391,15 +391,12 @@ class RemoteSystemMixin(SystemMixin):
             files = {"file": (source.name, file_content)}
             data = {"destination_path": str(destination)}
 
-            # Use asyncio to run the synchronous HTTP call
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._http_client.post(
-                    "/api/files/upload",
-                    files=files,
-                    data=data,
-                    timeout=60.0,
-                ),
+            # Make synchronous HTTP call
+            response = self._http_client.post(
+                "/api/files/upload",
+                files=files,
+                data=data,
+                timeout=60.0,
             )
             response.raise_for_status()
             return response.json()
@@ -413,7 +410,7 @@ class RemoteSystemMixin(SystemMixin):
                 "error": str(e),
             }
 
-    async def file_download(
+    def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -438,14 +435,11 @@ class RemoteSystemMixin(SystemMixin):
             # Request the file from remote system
             params = {"file_path": str(source)}
 
-            # Use asyncio to run the synchronous HTTP call
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self._http_client.get(
-                    "/api/files/download",
-                    params=params,
-                    timeout=60.0,
-                ),
+            # Make synchronous HTTP call
+            response = self._http_client.get(
+                "/api/files/download",
+                params=params,
+                timeout=60.0,
             )
             response.raise_for_status()
 

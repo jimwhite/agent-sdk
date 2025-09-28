@@ -89,7 +89,7 @@ class BaseConversation(ABC):
 
     # System-level operations
     @abstractmethod
-    async def execute_bash(
+    def execute_bash(
         self,
         command: str,
         cwd: str | Path | None = None,
@@ -117,7 +117,7 @@ class BaseConversation(ABC):
         ...
 
     @abstractmethod
-    async def file_upload(
+    def file_upload(
         self,
         source_path: str | Path,
         destination_path: str | Path,
@@ -143,7 +143,7 @@ class BaseConversation(ABC):
         ...
 
     @abstractmethod
-    async def file_download(
+    def file_download(
         self,
         source_path: str | Path,
         destination_path: str | Path,
