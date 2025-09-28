@@ -105,6 +105,12 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
             }
         ],
     )
+    system_prompt: str | None = Field(
+        default=None,
+        description="Optional custom system prompt. If provided, this will override "
+        "the template-based system prompt generation.",
+        examples=["You are a helpful AI assistant specialized in code review."],
+    )
     system_prompt_filename: str = Field(default="system_prompt.j2")
     system_prompt_kwargs: dict = Field(
         default_factory=dict,
@@ -153,18 +159,25 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @property
     def system_message(self) -> str:
         """Compute system message on-demand to maintain statelessness."""
-        # Prepare template kwargs, including cli_mode if available
-        template_kwargs = dict(self.system_prompt_kwargs)
-        if self.security_analyzer:
-            template_kwargs["llm_security_analyzer"] = bool(
-                isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+        # If a custom system prompt is provided, use it directly
+        if self.system_prompt is not None:
+            system_message = self.system_prompt
+        else:
+            # Fall back to template-based generation
+            # Prepare template kwargs, including cli_mode if available
+            template_kwargs = dict(self.system_prompt_kwargs)
+            if self.security_analyzer:
+                template_kwargs["llm_security_analyzer"] = bool(
+                    isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+                )
+
+            system_message = render_template(
+                prompt_dir=self.prompt_dir,
+                template_name=self.system_prompt_filename,
+                **template_kwargs,
             )
 
-        system_message = render_template(
-            prompt_dir=self.prompt_dir,
-            template_name=self.system_prompt_filename,
-            **template_kwargs,
-        )
+        # Apply agent context suffix if available
         if self.agent_context:
             _system_message_suffix = self.agent_context.get_system_message_suffix()
             if _system_message_suffix:
