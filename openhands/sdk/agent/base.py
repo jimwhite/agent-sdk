@@ -5,12 +5,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
 from typing import TYPE_CHECKING, Any
 
+from jinja2 import Environment
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser.base import CondenserBase
-from openhands.sdk.context.prompts.prompt import render_template
+from openhands.sdk.context.prompts.prompt import refine, render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
@@ -25,6 +26,15 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
+
+
+def _render_template_string(template_string: str, **ctx) -> str:
+    """Render a template string with the given context variables."""
+    env = Environment(autoescape=False)
+    # Add the refine filter to match the behavior of render_template
+    env.filters["refine"] = refine
+    template = env.from_string(template_string)
+    return refine(template.render(**ctx).strip())
 
 
 class AgentBase(DiscriminatedUnionMixin, ABC):
@@ -159,18 +169,22 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     @property
     def system_message(self) -> str:
         """Compute system message on-demand to maintain statelessness."""
-        # If a custom system prompt is provided, use it directly
-        if self.system_prompt is not None:
-            system_message = self.system_prompt
-        else:
-            # Fall back to template-based generation
-            # Prepare template kwargs, including cli_mode if available
-            template_kwargs = dict(self.system_prompt_kwargs)
-            if self.security_analyzer:
-                template_kwargs["llm_security_analyzer"] = bool(
-                    isinstance(self.security_analyzer, LLMSecurityAnalyzer)
-                )
+        # Prepare template kwargs, including cli_mode if available
+        template_kwargs = dict(self.system_prompt_kwargs)
+        if self.security_analyzer:
+            template_kwargs["llm_security_analyzer"] = bool(
+                isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+            )
 
+        # Use custom system prompt if provided, otherwise use template file
+        if self.system_prompt is not None:
+            # Render the custom system prompt as a template with the same kwargs
+            system_message = _render_template_string(
+                template_string=self.system_prompt,
+                **template_kwargs,
+            )
+        else:
+            # Fall back to template-based generation from file
             system_message = render_template(
                 prompt_dir=self.prompt_dir,
                 template_name=self.system_prompt_filename,

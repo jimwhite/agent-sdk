@@ -115,20 +115,56 @@ def test_agent_system_prompt_json_roundtrip():
 
 
 def test_agent_system_prompt_overrides_template():
-    """Test that custom system prompt completely overrides template-based generation."""
+    """Test that custom system prompt overrides template file but still renders as template."""  # noqa: E501
     custom_prompt = "Custom prompt without any template content."
     llm = LLM(model="test-model", service_id="test-llm")
 
-    # Create agent with custom system prompt and template kwargs
+    # Create agent with custom system prompt
+    agent = Agent(llm=llm, tools=[], system_prompt=custom_prompt)
+
+    # Should use the custom prompt (rendered as template)
+    system_message = agent.system_message
+    assert system_message == custom_prompt
+    # Should not contain any template file content
+    assert "OpenHands agent" not in system_message
+
+
+def test_agent_system_prompt_template_rendering():
+    """Test that custom system prompt is rendered as a template with kwargs."""
+    llm = LLM(model="test-model", service_id="test-llm")
+
+    # Create agent with template variables in system prompt
+    custom_prompt = "You are {{ agent_name }} with model {{ llm_model }}"
     agent = Agent(
         llm=llm,
         tools=[],
         system_prompt=custom_prompt,
-        system_prompt_kwargs={"cli_mode": True},  # This should be ignored
+        system_prompt_kwargs={"agent_name": "TestAgent", "llm_model": "gpt-4"},
     )
 
-    # Should use only the custom prompt, ignoring template kwargs
-    system_message = agent.system_message
-    assert system_message == custom_prompt
-    # Should not contain any template content
-    assert "OpenHands agent" not in system_message
+    # Verify the template variables are rendered
+    expected_message = "You are TestAgent with model gpt-4"
+    assert agent.system_message == expected_message
+
+
+def test_agent_system_prompt_template_with_security_analyzer():
+    """Test that custom system prompt template includes security analyzer kwargs."""
+    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+
+    llm = LLM(model="test-model", service_id="test-llm")
+    security_analyzer = LLMSecurityAnalyzer()
+
+    # Create agent with template that uses llm_security_analyzer variable
+    custom_prompt = (
+        "Security mode: {% if llm_security_analyzer %}enabled"
+        "{% else %}disabled{% endif %}"
+    )
+    agent = Agent(
+        llm=llm,
+        tools=[],
+        system_prompt=custom_prompt,
+        security_analyzer=security_analyzer,
+    )
+
+    # Verify the security analyzer variable is available in template
+    assert agent.system_message == "Security mode: enabled"
