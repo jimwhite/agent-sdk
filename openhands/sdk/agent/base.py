@@ -22,7 +22,6 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
-    from openhands.sdk.conversation.types import ConversationCallbackType
 
 logger = get_logger(__name__)
 
@@ -174,7 +173,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     def init_state(
         self,
         state: "ConversationState",
-        on_event: "ConversationCallbackType",
     ) -> None:
         """Initialize the empty conversation state to prepare the agent for user
         messages.
@@ -183,6 +181,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
         NOTE: state will be mutated in-place.
         """
+        # TODO(refactor): why is _initialize useful?
         self._initialize(state)
 
     def _initialize(self, state: "ConversationState"):
@@ -234,7 +233,6 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     def step(
         self,
         state: "ConversationState",
-        on_event: "ConversationCallbackType",
     ) -> None:
         """Taking a step in the conversation.
 

@@ -31,6 +31,20 @@ class EventBase(DiscriminatedUnionMixin, ABC):
     )  # consistent with V1
     source: SourceType = Field(..., description="The source of this event")
 
+    def model_post_init(self, __context) -> None:
+        """Auto-trigger user callbacks if in conversation context."""
+        # Use lazy import to avoid circular dependency issues
+        try:
+            from openhands.sdk.conversation.context import get_conversation_context
+
+            # User customization: trigger user callbacks if configured
+            context_dispatcher = get_conversation_context()
+            if context_dispatcher:
+                context_dispatcher(self)
+        except ImportError:
+            # Context module not available, skip auto-handling
+            pass
+
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this event.

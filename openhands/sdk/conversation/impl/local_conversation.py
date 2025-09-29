@@ -3,6 +3,10 @@ from collections.abc import Iterable
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
+from openhands.sdk.conversation.context import (
+    clear_conversation_context,
+    set_conversation_context,
+)
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
@@ -79,29 +83,26 @@ class LocalConversation(BaseConversation):
             stuck_detection=stuck_detection,
         )
 
-        # Default callback: persist every event to state
-        def _default_callback(e):
-            self._state.events.append(e)
-
-        composed_list = (callbacks if callbacks else []) + [_default_callback]
-        # Add default visualizer if requested
+        # Add optional event instanciation callbacks
+        callbacks = callbacks if callbacks else []
         if visualize:
             self._visualizer = create_default_visualizer(
                 conversation_stats=self._state.stats
             )
-            composed_list = [self._visualizer.on_event] + composed_list
+            callbacks = [self._visualizer.on_event] + callbacks
             # visualize should happen first for visibility
         else:
             self._visualizer = None
+        # Set up conversation context for automatic event handling
+        set_conversation_context(compose_callbacks(callbacks))
 
-        self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
         with self._state:
-            self.agent.init_state(self._state, on_event=self._on_event)
+            self.agent.init_state(self._state)
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()
@@ -185,7 +186,7 @@ class LocalConversation(BaseConversation):
                 activated_microagents=activated_microagent_names,
                 extended_content=extended_content,
             )
-            self._on_event(user_msg_event)
+            self._state.events.append(user_msg_event)
 
     def run(self) -> None:
         """Runs the conversation until the agent finishes.
@@ -235,7 +236,7 @@ class LocalConversation(BaseConversation):
                     self._state.agent_status = AgentExecutionStatus.RUNNING
 
                 # step must mutate the SAME state object
-                self.agent.step(self._state, on_event=self._on_event)
+                self.agent.step(self._state)
                 iteration += 1
 
                 # Check for non-finished terminal conditions
@@ -287,7 +288,7 @@ class LocalConversation(BaseConversation):
                     tool_call_id=action_event.tool_call_id,
                     rejection_reason=reason,
                 )
-                self._on_event(rejection_event)
+                self._state.events.append(rejection_event)
                 logger.info(f"Rejected pending action: {action_event} - {reason}")
 
     def pause(self) -> None:
@@ -312,7 +313,7 @@ class LocalConversation(BaseConversation):
             ):
                 self._state.agent_status = AgentExecutionStatus.PAUSED
                 pause_event = PauseEvent()
-                self._on_event(pause_event)
+                self._state.events.append(pause_event)
                 logger.info("Agent execution pause requested")
 
     def update_secrets(self, secrets: dict[str, SecretValue]) -> None:
@@ -331,6 +332,7 @@ class LocalConversation(BaseConversation):
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
+        clear_conversation_context()
         for tool in self.agent.tools_map.values():
             try:
                 executable_tool = tool.as_executable()

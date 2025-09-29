@@ -6,7 +6,7 @@ from pydantic import ValidationError
 import openhands.sdk.security.risk as risk
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.context.view import View
-from openhands.sdk.conversation import ConversationCallbackType, ConversationState
+from openhands.sdk.conversation import ConversationState
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
@@ -79,9 +79,8 @@ class Agent(AgentBase):
     def init_state(
         self,
         state: ConversationState,
-        on_event: ConversationCallbackType,
     ) -> None:
-        super().init_state(state, on_event=on_event)
+        super().init_state(state)
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
 
@@ -115,21 +114,19 @@ class Agent(AgentBase):
                     for t in self.tools_map.values()
                 ],
             )
-            on_event(event)
+            state.events.append(event)
 
     def _execute_actions(
         self,
         state: ConversationState,
         action_events: list[ActionEvent],
-        on_event: ConversationCallbackType,
     ):
         for action_event in action_events:
-            self._execute_action_event(state, action_event, on_event=on_event)
+            self._execute_action_event(state, action_event)
 
     def step(
         self,
         state: ConversationState,
-        on_event: ConversationCallbackType,
     ) -> None:
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
@@ -139,7 +136,7 @@ class Agent(AgentBase):
                 "Confirmation mode: Executing %d pending action(s)",
                 len(pending_actions),
             )
-            self._execute_actions(state, pending_actions, on_event)
+            self._execute_actions(state, pending_actions)
             return
 
         # If a condenser is registered with the agent, we need to give it an
@@ -155,7 +152,7 @@ class Agent(AgentBase):
                     llm_convertible_events = condensation_result.events
 
                 case Condensation():
-                    on_event(condensation_result)
+                    state.events.append(condensation_result)
                     return None
 
         else:
@@ -188,7 +185,7 @@ class Agent(AgentBase):
                 logger.warning(
                     "LLM raised context window exceeded error, triggering condensation"
                 )
-                on_event(CondensationRequest())
+                state.events.append(CondensationRequest())
                 return
 
             # If the error isn't recoverable, keep propagating it up the stack.
@@ -229,7 +226,6 @@ class Agent(AgentBase):
                     state,
                     tool_call,
                     llm_response_id=llm_response.id,
-                    on_event=on_event,
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
@@ -245,7 +241,7 @@ class Agent(AgentBase):
                 return
 
             if action_events:
-                self._execute_actions(state, action_events, on_event)
+                self._execute_actions(state, action_events)
 
         else:
             logger.info("LLM produced a message response - awaits user input")
@@ -254,7 +250,7 @@ class Agent(AgentBase):
                 source="agent",
                 llm_message=message,
             )
-            on_event(msg_event)
+            state.events.append(msg_event)
 
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]
@@ -301,7 +297,6 @@ class Agent(AgentBase):
         state: ConversationState,
         tool_call: ChatCompletionMessageToolCall,
         llm_response_id: str,
-        on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
         reasoning_content: str | None = None,
     ) -> ActionEvent | None:
@@ -323,7 +318,7 @@ class Agent(AgentBase):
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
-            on_event(event)
+            state.events.append(event)
             return
 
         # Validate arguments
@@ -359,7 +354,7 @@ class Agent(AgentBase):
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
-            on_event(event)
+            state.events.append(event)
             return
 
         action_event = ActionEvent(
@@ -372,14 +367,13 @@ class Agent(AgentBase):
             llm_response_id=llm_response_id,
             security_risk=security_risk,
         )
-        on_event(action_event)
+        state.events.append(action_event)
         return action_event
 
     def _execute_action_event(
         self,
         state: ConversationState,
         action_event: ActionEvent,
-        on_event: ConversationCallbackType,
     ):
         """Execute an action event and update the conversation state.
 
@@ -405,7 +399,7 @@ class Agent(AgentBase):
             tool_name=tool.name,
             tool_call_id=action_event.tool_call.id,
         )
-        on_event(obs_event)
+        state.events.append(obs_event)
 
         # Set conversation state
         if tool.name == FinishTool.name:
