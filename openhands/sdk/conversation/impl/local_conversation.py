@@ -29,6 +29,8 @@ logger = get_logger(__name__)
 def compose_callbacks(
     callbacks: Iterable[ConversationCallbackType],
 ) -> ConversationCallbackType:
+    # TODO(refactor): Variable names 'cb' and 'event' could be more descriptive.
+    # Consider using 'callback' and 'conversation_event' for better readability
     def composed(event) -> None:
         for cb in callbacks:
             if cb:
@@ -38,13 +40,21 @@ def compose_callbacks(
 
 
 class LocalConversation(BaseConversation):
+    # TODO(refactor): This class has grown large and handles many responsibilities.
+    # Consider breaking it into smaller, focused classes following Single
+    # Responsibility Principle:
+    # - ConversationCore for basic conversation functionality
+    # - CallbackManager for callback composition and management
+    # - StateManager for state initialization and management
+    # - ExecutionController for run loop and iteration control
     def __init__(
         self,
         agent: AgentBase,
         persist_filestore: FileStore | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
-        max_iteration_per_run: int = 500,
+        max_iteration_per_run: int = 500,  # TODO(refactor): Extract this magic
+        # number as a class constant
         stuck_detection: bool = True,
         visualize: bool = True,
         **_: object,
@@ -64,6 +74,12 @@ class LocalConversation(BaseConversation):
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
         """
+        # TODO(refactor): This __init__ method is too long (67 lines) and handles
+        # multiple responsibilities. Consider breaking it down into smaller methods:
+        # - _initialize_state() for state creation and setup
+        # - _setup_callbacks() for callback composition
+        # - _initialize_components() for visualizer and stuck detector setup
+        # - _register_llms() for LLM registry setup
         self.agent = agent
         self._persist_filestore = persist_filestore
 
@@ -78,9 +94,14 @@ class LocalConversation(BaseConversation):
         )
 
         # Default callback: persist every event to state
+        # TODO(refactor): Variable name 'e' is not descriptive. Consider using
+        # 'event' instead
         def _default_callback(e):
             self._state.events.append(e)
 
+        # TODO(refactor): This callback composition logic is complex and could be
+        # extracted into a separate method like _setup_callbacks() for better
+        # readability
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
@@ -139,6 +160,11 @@ class LocalConversation(BaseConversation):
             message: Either a string (which will be converted to a user message)
                     or a Message object
         """
+        # TODO(refactor): This method is too long (51 lines) and handles multiple
+        # responsibilities. Consider breaking it down into smaller methods:
+        # - _convert_message() for message conversion
+        # - _handle_microagent_activation() for microagent processing
+        # - _create_message_event() for event creation
         # Convert string to Message if needed
         if isinstance(message, str):
             message = Message(role="user", content=[TextContent(text=message)])
@@ -157,7 +183,12 @@ class LocalConversation(BaseConversation):
             extended_content: list[TextContent] = []
 
             # Handle per-turn user message (i.e., knowledge agent trigger)
+            # TODO(refactor): This microagent handling logic is deeply nested and
+            # complex. Consider extracting into a separate method like
+            # _handle_microagent_activation()
             if self.agent.agent_context:
+                # TODO(refactor): Variable name 'ctx' is not descriptive. Consider using
+                # 'context_result' or 'augmentation_result'
                 ctx = self.agent.agent_context.get_user_message_suffix(
                     user_message=message,
                     # We skip microagents that were already activated
@@ -197,6 +228,12 @@ class LocalConversation(BaseConversation):
 
         Can be paused between steps
         """
+        # TODO(refactor): This method is too long (64 lines) and handles multiple
+        # responsibilities. Consider breaking it down into smaller methods:
+        # - _check_initial_status() for initial status checks
+        # - _check_stuck_detection() for stuck detection logic
+        # - _handle_confirmation_mode() for confirmation handling
+        # - _check_terminal_conditions() for terminal condition checks
 
         with self._state:
             if self._state.agent_status == AgentExecutionStatus.PAUSED:
@@ -206,6 +243,8 @@ class LocalConversation(BaseConversation):
         while True:
             logger.debug(f"Conversation run iteration {iteration}")
             with self._state:
+                # TODO(refactor): Use early returns (guard clauses) to reduce nesting
+                # and improve readability
                 # Pause attempts to acquire the state lock
                 # Before value can be modified step can be taken
                 # Ensure step conditions are checked when lock is already acquired
@@ -216,6 +255,8 @@ class LocalConversation(BaseConversation):
                 ]:
                     break
 
+                # TODO(refactor): Extract stuck detection logic into a separate method
+                # like _check_and_handle_stuck_detection()
                 # Check for stuck patterns if enabled
                 if self._stuck_detector:
                     is_stuck = self._stuck_detector.is_stuck()
@@ -263,6 +304,9 @@ class LocalConversation(BaseConversation):
         This is a non-invasive method to reject actions between run() calls.
         Also clears the agent_waiting_for_confirmation flag.
         """
+        # TODO(refactor): This method handles multiple responsibilities and could be
+        # simplified. Consider extracting status management and event creation into
+        # separate helper methods
         pending_actions = get_unmatched_actions(self._state.events)
 
         with self._state:
@@ -298,7 +342,7 @@ class LocalConversation(BaseConversation):
         Note: If called during an LLM completion, the pause will not take
         effect until the current LLM call completes.
         """
-
+        # TODO(refactor): Use early return (guard clause) to reduce nesting
         if self._state.agent_status == AgentExecutionStatus.PAUSED:
             return
 
@@ -328,6 +372,8 @@ class LocalConversation(BaseConversation):
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
+        # TODO(refactor): Extract tool cleanup logic into a separate method like
+        # _cleanup_tool_executors() to improve separation of concerns
         logger.debug("Closing conversation and cleaning up tool executors")
         for tool in self.agent.tools_map.values():
             try:
@@ -337,6 +383,8 @@ class LocalConversation(BaseConversation):
                 # Tool has no executor, skip it
                 continue
             except Exception as e:
+                # TODO(refactor): Variable name 'e' is not descriptive. Consider using
+                # 'error' or 'exception'
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
 
     def __del__(self) -> None:
@@ -344,4 +392,6 @@ class LocalConversation(BaseConversation):
         try:
             self.close()
         except Exception as e:
+            # TODO(refactor): Variable name 'e' is not descriptive. Consider using
+            # 'error' or 'exception'
             logger.warning(f"Error during conversation cleanup: {e}", exc_info=True)

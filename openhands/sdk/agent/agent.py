@@ -37,6 +37,13 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
+    # TODO(refactor): This class has grown large and handles many responsibilities.
+    # Consider breaking it into smaller, focused classes following Single
+    # Responsibility Principle:
+    # - AgentCore for basic agent functionality
+    # - SecurityManager for security-related operations
+    # - ToolExecutor for tool execution logic
+    # - ConfirmationHandler for confirmation mode logic
     @property
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
@@ -132,6 +139,13 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # TODO(refactor): This method is too long (128 lines) and handles too many
+        # responsibilities. Consider breaking it down into smaller methods:
+        # - _handle_pending_actions() for lines 135-144
+        # - _handle_condensation() for lines 146-165
+        # - _process_llm_response() for lines 167-198
+        # - _process_tool_calls() for lines 202-249
+        # - _handle_message_response() for lines 251-258
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
@@ -165,6 +179,8 @@ class Agent(AgentBase):
             ]
 
         # Get LLM Response (Action)
+        # TODO(refactor): Variable name '_messages' is not descriptive. Consider
+        # renaming to 'llm_messages' or 'conversation_messages'
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
         logger.debug(
             "Sending messages to LLM: "
@@ -179,6 +195,9 @@ class Agent(AgentBase):
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
         except Exception as e:
+            # TODO(refactor): Extract this exception handling logic into a separate
+            # method like _handle_llm_exception() to reduce nesting and improve
+            # readability
             # If there is a condenser registered and the exception is a context window
             # exceeded, we can recover by triggering a condensation request.
             if (
@@ -200,7 +219,12 @@ class Agent(AgentBase):
         message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
+            # TODO(refactor): This entire tool call processing block is deeply nested
+            # and complex. Consider extracting into a separate method like
+            # _process_tool_calls() to improve readability
             tool_call: ChatCompletionMessageToolCall
+            # TODO(refactor): Variable name 'tc' is not descriptive. Consider using
+            # 'tool_call' in the comprehension
             if any(tc.type != "function" for tc in message.tool_calls):
                 logger.warning(
                     "LLM returned tool calls but some are not of type 'function' - "
@@ -268,6 +292,8 @@ class Agent(AgentBase):
             2. Every action requires confirmation
             3. A single `FinishAction` never requires confirmation
         """
+        # TODO(refactor): Use early returns (guard clauses) to reduce nesting and
+        # improve readability
         # A single `FinishAction` never requires confirmation
         if len(action_events) == 1 and isinstance(
             action_events[0].action, FinishAction
@@ -278,6 +304,8 @@ class Agent(AgentBase):
         if len(action_events) == 0:
             return False
 
+        # TODO(refactor): Extract security risk analysis into a separate method
+        # like _analyze_action_risks()
         # If a security analyzer is registered, use it to grab the risks of the actions
         # involved. If not, we'll set the risks to UNKNOWN.
         if self.security_analyzer is not None:
@@ -310,6 +338,12 @@ class Agent(AgentBase):
 
         NOTE: state will be mutated in-place.
         """
+        # TODO(refactor): This method is too long (78 lines) and handles multiple
+        # responsibilities. Consider breaking it down into smaller methods:
+        # - _validate_tool_exists() for tool validation
+        # - _parse_and_validate_arguments() for argument processing
+        # - _extract_security_risk() for security risk handling
+        # - _create_action_event() for event creation
         assert tool_call.type == "function"
         tool_name = tool_call.function.name
         assert tool_name is not None, "Tool call must have a name"
@@ -329,6 +363,9 @@ class Agent(AgentBase):
             return
 
         # Validate arguments
+        # TODO(refactor): This argument validation and security risk extraction is
+        # deeply nested. Consider extracting into separate methods to improve
+        # readability
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
         try:
             arguments = json.loads(tool_call.function.arguments)
@@ -352,6 +389,8 @@ class Agent(AgentBase):
             # as a field
             action: ActionBase = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
+            # TODO(refactor): Extract error handling into a helper method like
+            # _create_error_event() to reduce code duplication across the class
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
                 f"'{tool.name}': {e}"
