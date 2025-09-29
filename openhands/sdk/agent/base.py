@@ -14,6 +14,7 @@ from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
+from openhands.sdk.security.default_analyzer import DefaultSecurityAnalyzer
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
@@ -111,9 +112,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         description="Optional kwargs to pass to the system prompt Jinja2 template.",
         examples=[{"cli_mode": True}],
     )
-    security_analyzer: analyzer.SecurityAnalyzerBase | None = Field(
-        default=None,
-        description="Optional security analyzer to evaluate action risks.",
+    security_analyzer: analyzer.SecurityAnalyzerBase = Field(
+        default_factory=DefaultSecurityAnalyzer,
+        description="Security analyzer to evaluate action risks.",
         examples=[{"kind": "LLMSecurityAnalyzer"}],
     )
     condenser: CondenserBase | None = Field(
@@ -155,10 +156,9 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         """Compute system message on-demand to maintain statelessness."""
         # Prepare template kwargs, including cli_mode if available
         template_kwargs = dict(self.system_prompt_kwargs)
-        if self.security_analyzer:
-            template_kwargs["llm_security_analyzer"] = bool(
-                isinstance(self.security_analyzer, LLMSecurityAnalyzer)
-            )
+        template_kwargs["llm_security_analyzer"] = bool(
+            isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+        )
 
         system_message = render_template(
             prompt_dir=self.prompt_dir,

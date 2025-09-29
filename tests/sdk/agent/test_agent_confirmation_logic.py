@@ -57,7 +57,7 @@ class TestAgentConfirmationLogic:
         agent = Agent(llm=self.llm, tools=[])
 
         # Agent should use DefaultSecurityAnalyzer when none is provided
-        effective_analyzer = agent._effective_security_analyzer
+        effective_analyzer = agent.security_analyzer
         assert isinstance(effective_analyzer, DefaultSecurityAnalyzer)
 
     def test_agent_uses_provided_security_analyzer(self):
@@ -66,7 +66,7 @@ class TestAgentConfirmationLogic:
         agent = Agent(llm=self.llm, tools=[], security_analyzer=custom_analyzer)
 
         # Agent should use the provided analyzer
-        effective_analyzer = agent._effective_security_analyzer
+        effective_analyzer = agent.security_analyzer
         assert effective_analyzer is custom_analyzer
 
     def test_confirmation_logic_with_default_analyzer_always_confirm(self):
@@ -92,7 +92,7 @@ class TestAgentConfirmationLogic:
         # this should require confirmation
         requires_confirmation = any(
             state.confirmation_policy.should_confirm(risk)
-            for _, risk in agent._effective_security_analyzer.analyze_pending_actions(
+            for _, risk in agent.security_analyzer.analyze_pending_actions(
                 action_events
             )
         )
@@ -121,7 +121,7 @@ class TestAgentConfirmationLogic:
         # Since NeverConfirm never confirms any risk, this should not require confirmation  # noqa: E501
         requires_confirmation = any(
             state.confirmation_policy.should_confirm(risk)
-            for _, risk in agent._effective_security_analyzer.analyze_pending_actions(
+            for _, risk in agent.security_analyzer.analyze_pending_actions(
                 action_events
             )
         )
@@ -153,7 +153,7 @@ class TestAgentConfirmationLogic:
         ):
             requires_confirmation = False
         else:
-            analyzer = agent._effective_security_analyzer
+            analyzer = agent.security_analyzer
             requires_confirmation = any(
                 state.confirmation_policy.should_confirm(risk)
                 for _, risk in analyzer.analyze_pending_actions(action_events)
@@ -177,7 +177,7 @@ class TestAgentConfirmationLogic:
         if len(action_events) == 0:
             requires_confirmation = False
         else:
-            analyzer = agent._effective_security_analyzer
+            analyzer = agent.security_analyzer
             requires_confirmation = any(
                 state.confirmation_policy.should_confirm(risk)
                 for _, risk in analyzer.analyze_pending_actions(action_events)
@@ -217,7 +217,7 @@ class TestAgentConfirmationLogic:
         elif len(action_events) == 0:
             requires_confirmation = False
         else:
-            analyzer = agent._effective_security_analyzer
+            analyzer = agent.security_analyzer
             requires_confirmation = any(
                 state.confirmation_policy.should_confirm(risk)
                 for _, risk in analyzer.analyze_pending_actions(action_events)
@@ -244,7 +244,7 @@ class TestAgentConfirmationLogic:
         ]
 
         # Analyze actions with default analyzer
-        analyzed_actions = agent._effective_security_analyzer.analyze_pending_actions(
+        analyzed_actions = agent.security_analyzer.analyze_pending_actions(
             action_events
         )
 

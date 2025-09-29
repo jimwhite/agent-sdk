@@ -23,7 +23,6 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
-from openhands.sdk.security.default_analyzer import DefaultSecurityAnalyzer
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     ActionBase,
@@ -40,11 +39,6 @@ class Agent(AgentBase):
     @property
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
-
-    @property
-    def _effective_security_analyzer(self):
-        """Get the effective security analyzer, using DefaultSecurityAnalyzer if none is set."""  # noqa: E501
-        return self.security_analyzer or DefaultSecurityAnalyzer()
 
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """
@@ -256,11 +250,12 @@ class Agent(AgentBase):
             elif len(action_events) == 0:
                 requires_confirmation = False
             else:
-                # Use the effective security analyzer to analyze actions and check confirmation policy  # noqa: E501
-                analyzer = self._effective_security_analyzer
+                # Use the security analyzer to analyze actions and check policy
                 requires_confirmation = any(
                     state.confirmation_policy.should_confirm(risk)
-                    for _, risk in analyzer.analyze_pending_actions(action_events)
+                    for _, risk in self.security_analyzer.analyze_pending_actions(
+                        action_events
+                    )
                 )
 
             if requires_confirmation:
