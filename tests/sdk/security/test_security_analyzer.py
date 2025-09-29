@@ -112,12 +112,12 @@ def test_analyze_pending_actions_empty_list():
 def test_analyze_pending_actions_with_exception():
     """Test analyze_pending_actions handles exceptions by defaulting to HIGH risk."""
 
-    class ExceptionFailingAnalyzer(TestSecurityAnalyzer):
+    class FailingAnalyzer(TestSecurityAnalyzer):
         def security_risk(self, action: ActionEvent) -> SecurityRisk:
             super().security_risk(action)  # Record the call
             raise ValueError("Analysis failed")
 
-    analyzer = ExceptionFailingAnalyzer()
+    analyzer = FailingAnalyzer()
     action = TestSecurityAnalyzerMockAction(command="failing_action")
     action_event = create_mock_action_event(action)
 
@@ -131,7 +131,7 @@ def test_analyze_pending_actions_with_exception():
 def test_analyze_pending_actions_mixed_risks() -> None:
     """Test analyze_pending_actions with different risk levels."""
 
-    class MixedRiskVariableAnalyzer(TestSecurityAnalyzer):
+    class VariableRiskAnalyzer(TestSecurityAnalyzer):
         call_count: int = 0
         risks: list[SecurityRisk] = [
             SecurityRisk.LOW,
@@ -144,7 +144,7 @@ def test_analyze_pending_actions_mixed_risks() -> None:
             self.call_count += 1
             return risk
 
-    analyzer = MixedRiskVariableAnalyzer()
+    analyzer = VariableRiskAnalyzer()
 
     actions = [TestSecurityAnalyzerMockAction(command=f"action{i}") for i in range(3)]
     action_events = [create_mock_action_event(action) for action in actions]
@@ -160,7 +160,7 @@ def test_analyze_pending_actions_mixed_risks() -> None:
 def test_analyze_pending_actions_partial_failure():
     """Test analyze_pending_actions with some actions failing analysis."""
 
-    class PartialFailureAnalyzer(TestSecurityAnalyzer):
+    class PartiallyFailingAnalyzer(TestSecurityAnalyzer):
         def security_risk(self, action: ActionEvent) -> SecurityRisk:
             # In general not needed, but the test security analyzer is also recording
             # all the calls for testing purposes and this ensures we keep that behavior
@@ -171,7 +171,7 @@ def test_analyze_pending_actions_partial_failure():
                 raise RuntimeError("Specific action failed")
             return SecurityRisk.LOW
 
-    analyzer = PartialFailureAnalyzer()
+    analyzer = PartiallyFailingAnalyzer()
 
     action1 = TestSecurityAnalyzerMockAction(command="good_action")
     action2 = TestSecurityAnalyzerMockAction(command="failing_action")
