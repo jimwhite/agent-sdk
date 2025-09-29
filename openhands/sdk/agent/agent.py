@@ -117,15 +117,6 @@ class Agent(AgentBase):
             )
             on_event(event)
 
-    def _execute_actions(
-        self,
-        state: ConversationState,
-        action_events: list[ActionEvent],
-        on_event: ConversationCallbackType,
-    ):
-        for action_event in action_events:
-            self._execute_action_event(state, action_event, on_event=on_event)
-
     def step(
         self,
         state: ConversationState,
@@ -139,7 +130,7 @@ class Agent(AgentBase):
                 "Confirmation mode: Executing %d pending action(s)",
                 len(pending_actions),
             )
-            self._execute_actions(state, pending_actions, on_event)
+            self._execute_action_events(state, pending_actions, on_event)
             return
 
         # If a condenser is registered with the agent, we need to give it an
@@ -198,56 +189,8 @@ class Agent(AgentBase):
         # LLMResponse already contains the converted message and metrics snapshot
         message: Message = llm_response.message
 
-        if message.tool_calls and len(message.tool_calls) > 0:
-            tool_call: ChatCompletionMessageToolCall
-            if any(tc.type != "function" for tc in message.tool_calls):
-                logger.warning(
-                    "LLM returned tool calls but some are not of type 'function' - "
-                    "ignoring those"
-                )
-
-            tool_calls = [
-                tool_call
-                for tool_call in message.tool_calls
-                if tool_call.type == "function"
-            ]
-            assert len(tool_calls) > 0, (
-                "LLM returned tool calls but none are of type 'function'"
-            )
-            if not all(isinstance(c, TextContent) for c in message.content):
-                logger.warning(
-                    "LLM returned tool calls but message content is not all "
-                    "TextContent - ignoring non-text content"
-                )
-
-            # Generate unique batch ID for this LLM response
-            thought_content = [c for c in message.content if isinstance(c, TextContent)]
-
-            action_events: list[ActionEvent] = []
-            for i, tool_call in enumerate(tool_calls):
-                action_event = self._get_action_event(
-                    state,
-                    tool_call,
-                    llm_response_id=llm_response.id,
-                    on_event=on_event,
-                    thought=thought_content
-                    if i == 0
-                    else [],  # Only first gets thought
-                    # Only first gets reasoning content
-                    reasoning_content=message.reasoning_content if i == 0 else None,
-                )
-                if action_event is None:
-                    continue
-                action_events.append(action_event)
-
-            # Handle confirmation mode - exit early if actions need confirmation
-            if self._requires_user_confirmation(state, action_events):
-                return
-
-            if action_events:
-                self._execute_actions(state, action_events, on_event)
-
-        else:
+        # Early return if no tool calls
+        if not message.tool_calls or len(message.tool_calls) == 0:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_status = AgentExecutionStatus.FINISHED
             msg_event = MessageEvent(
@@ -255,6 +198,126 @@ class Agent(AgentBase):
                 llm_message=message,
             )
             on_event(msg_event)
+            return
+
+        # Validate and process tool calls
+        if not all(isinstance(c, TextContent) for c in message.content):
+            logger.warning(
+                "LLM returned tool calls but message content is not all "
+                "TextContent - ignoring non-text content"
+            )
+        thought = [c for c in message.content if isinstance(c, TextContent)]
+        reasoning_content = message.reasoning_content
+
+        action_events: list[ActionEvent] = []
+        for i, tool_call in enumerate(message.tool_calls):
+            # Validate tool call
+            validation_error = self._validate_tool_call(tool_call)
+            if isinstance(validation_error, AgentErrorEvent):
+                logger.warning(validation_error.error)
+                on_event(validation_error)
+                continue
+
+            # Create action event for valid tool call
+            assert isinstance(tool_call.function.name, str)
+            tool = self.tools_map.get(tool_call.function.name)
+            assert tool is not None
+            arguments = json.loads(tool_call.function.arguments)
+
+            # if the tool has a security_risk field (when security analyzer = LLM),
+            # pop it out as it's not part of the tool's action schema
+            security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
+            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
+                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
+                    raise RuntimeError(
+                        "LLM provided a security_risk but no security analyzer is "
+                        "configured - THIS SHOULD NOT HAPPEN!"
+                    )
+                try:
+                    security_risk = risk.SecurityRisk(_predicted_risk)
+                except ValueError:
+                    logger.warning(
+                        f"Invalid security_risk value from LLM: {_predicted_risk}"
+                    )
+            action: ActionBase = tool.action_from_arguments(arguments)
+            action_event = ActionEvent(
+                action=action,
+                thought=thought if i == 0 else [],
+                reasoning_content=reasoning_content if i == 0 else None,
+                tool_name=tool.name,
+                tool_call_id=tool_call.id,
+                tool_call=tool_call,
+                llm_response_id=llm_response.id,
+                security_risk=security_risk,
+            )
+            on_event(action_event)
+            action_events.append(action_event)
+
+        # Handle confirmation mode - exit early if actions need confirmation
+        if self._requires_user_confirmation(state, action_events):
+            return
+
+        if action_events:
+            self._execute_action_events(state, action_events, on_event)
+
+    def _validate_tool_call(
+        self,
+        tool_call: ChatCompletionMessageToolCall,
+    ) -> AgentErrorEvent | None:
+        """Validate a tool call.
+
+        Returns None if validation passes, AgentErrorEvent if validation fails.
+        """
+        # Check if tool call is of type 'function'
+        if tool_call.type != "function":
+            return AgentErrorEvent(
+                error=(
+                    "LLM returned tool calls but some are not of type 'function' - "
+                    "ignoring those"
+                ),
+                tool_name=tool_call.function.name or "unknown",
+                tool_call_id=tool_call.id,
+            )
+
+        # Check if tool exists
+        tool_name = tool_call.function.name
+        if tool_name is None:
+            return AgentErrorEvent(
+                error="Tool call must have a name",
+                tool_name="unknown",
+                tool_call_id=tool_call.id,
+            )
+
+        tool = self.tools_map.get(tool_name, None)
+        if tool is None:
+            available = list(self.tools_map.keys())
+            err = f"Tool '{tool_name}' not found. Available: {available}"
+            return AgentErrorEvent(
+                error=err,
+                tool_name=tool_name,
+                tool_call_id=tool_call.id,
+            )
+
+        # Validate arguments
+        try:
+            arguments = json.loads(tool_call.function.arguments)
+
+            # Remove security_risk if present (handled separately)
+            arguments.pop("security_risk", None)
+            # Try to create action to validate arguments
+            tool.action_from_arguments(arguments)
+        except (json.JSONDecodeError, ValidationError) as e:
+            err = (
+                f"Error validating args {tool_call.function.arguments} for tool "
+                f"'{tool.name}': {e}"
+            )
+            return AgentErrorEvent(
+                error=err,
+                tool_name=tool_name,
+                tool_call_id=tool_call.id,
+            )
+
+        return None
 
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]
@@ -296,84 +359,14 @@ class Agent(AgentBase):
 
         return False
 
-    def _get_action_event(
+    def _execute_action_events(
         self,
         state: ConversationState,
-        tool_call: ChatCompletionMessageToolCall,
-        llm_response_id: str,
+        action_events: list[ActionEvent],
         on_event: ConversationCallbackType,
-        thought: list[TextContent] = [],
-        reasoning_content: str | None = None,
-    ) -> ActionEvent | None:
-        """Converts a tool call into an ActionEvent, validating arguments.
-
-        NOTE: state will be mutated in-place.
-        """
-        assert tool_call.type == "function"
-        tool_name = tool_call.function.name
-        assert tool_name is not None, "Tool call must have a name"
-        tool = self.tools_map.get(tool_name, None)
-        # Handle non-existing tools
-        if tool is None:
-            available = list(self.tools_map.keys())
-            err = f"Tool '{tool_name}' not found. Available: {available}"
-            logger.error(err)
-            event = AgentErrorEvent(
-                error=err,
-                tool_name=tool_name,
-                tool_call_id=tool_call.id,
-            )
-            on_event(event)
-            return
-
-        # Validate arguments
-        security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
-        try:
-            arguments = json.loads(tool_call.function.arguments)
-
-            # if the tool has a security_risk field (when security analyzer = LLM),
-            # pop it out as it's not part of the tool's action schema
-            if (_predicted_risk := arguments.pop("security_risk", None)) is not None:
-                if not isinstance(self.security_analyzer, LLMSecurityAnalyzer):
-                    raise RuntimeError(
-                        "LLM provided a security_risk but no security analyzer is "
-                        "configured - THIS SHOULD NOT HAPPEN!"
-                    )
-                try:
-                    security_risk = risk.SecurityRisk(_predicted_risk)
-                except ValueError:
-                    logger.warning(
-                        f"Invalid security_risk value from LLM: {_predicted_risk}"
-                    )
-
-            # Arguments we passed in should not contains `security_risk`
-            # as a field
-            action: ActionBase = tool.action_from_arguments(arguments)
-        except (json.JSONDecodeError, ValidationError) as e:
-            err = (
-                f"Error validating args {tool_call.function.arguments} for tool "
-                f"'{tool.name}': {e}"
-            )
-            event = AgentErrorEvent(
-                error=err,
-                tool_name=tool_name,
-                tool_call_id=tool_call.id,
-            )
-            on_event(event)
-            return
-
-        action_event = ActionEvent(
-            action=action,
-            thought=thought,
-            reasoning_content=reasoning_content,
-            tool_name=tool.name,
-            tool_call_id=tool_call.id,
-            tool_call=tool_call,
-            llm_response_id=llm_response_id,
-            security_risk=security_risk,
-        )
-        on_event(action_event)
-        return action_event
+    ):
+        for action_event in action_events:
+            self._execute_action_event(state, action_event, on_event=on_event)
 
     def _execute_action_event(
         self,
