@@ -9,7 +9,7 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -122,7 +122,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 llm = LLM(
-    service_id="main-llm",
+    service_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),

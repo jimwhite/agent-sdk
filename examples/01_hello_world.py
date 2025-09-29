@@ -9,7 +9,7 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -21,7 +21,7 @@ llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
-    service_id="hello-world-llm",
+    service_id="agent",
 )
 
 cwd = os.getcwd()

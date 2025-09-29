@@ -9,8 +9,8 @@ from pydantic import SecretStr
 from openhands.sdk import LLM, BaseConversation, Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event.utils import get_unmatched_actions
-from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
+from openhands.tools.preset.default import get_default_agent
 
 
 # Make ^C a clean exit instead of a stack trace
@@ -81,7 +81,7 @@ def run_until_finished(conversation: BaseConversation, confirmer: Callable) -> N
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    service_id="main-llm",
+    service_id="agent",
     model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
