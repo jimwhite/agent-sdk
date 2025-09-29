@@ -1,22 +1,3 @@
-"""
-Enhanced Hello World with Sandboxed Server Example
-
-This example demonstrates:
-1. Direct bash command execution with the improved execute_command method
-2. Agent conversation capabilities in a sandboxed environment
-3. Verification of agent work using direct bash commands
-4. Error handling and comprehensive logging
-
-The example shows how you can:
-- Execute bash commands directly and get complete results (exit code, output)
-- Run agent conversations that can interact with the sandboxed environment
-- Verify and inspect the agent's work using direct system commands
-- Handle both successful operations and error conditions
-
-This showcases the dual nature of the sandboxed server: it can both host
-agent conversations AND provide direct programmatic access to the environment.
-"""
-
 import os
 import time
 
@@ -83,16 +64,35 @@ def main() -> None:
         assert isinstance(conversation, RemoteConversation)
 
         try:
-            # First, demonstrate direct bash execution capabilities
-            logger.info("\n🔧 === DEMONSTRATING DIRECT BASH EXECUTION ===")
+            logger.info(f"\n📋 Conversation ID: {conversation.state.id}")
 
-            # Test 1: Simple command with successful output
-            logger.info("🧪 Test 1: Basic command execution")
+            logger.info("Basic command execution")
             result = conversation.execute_command(
                 "echo 'Hello from sandboxed environment!' && pwd",
                 cwd="/",
             )
-            logger.info(f"✅ Command completed: {result}")
+            logger.info(f"Command result: {result}")
+
+            logger.info("📝 Sending first message...")
+            conversation.send_message(
+                "Read the current repo and write 3 facts about the project into "
+                "FACTS.txt."
+            )
+            logger.info("🚀 Running conversation...")
+            conversation.run()
+            logger.info("✅ First task completed!")
+            logger.info(f"Agent status: {conversation.state.agent_status}")
+
+            # Wait for events to settle (no events for 2 seconds)
+            logger.info("⏳ Waiting for events to stop...")
+            while time.time() - last_event_time["ts"] < 2.0:
+                time.sleep(0.1)
+            logger.info("✅ Events have stopped")
+
+            logger.info("🚀 Running conversation again...")
+            conversation.send_message("Great! Now delete that file.")
+            conversation.run()
+            logger.info("✅ Second task completed!")
         finally:
             print("\n🧹 Cleaning up conversation...")
             conversation.close()

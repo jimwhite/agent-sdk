@@ -69,6 +69,10 @@ conversation.send_message(
 )
 conversation.run()
 
+# You can also run command directly
+result = conversation.execute_command("cat FACTS.txt")
+logger.info(f"Command result: {result}")
+
 conversation.send_message("Great! Now delete that file.")
 conversation.run()
 
