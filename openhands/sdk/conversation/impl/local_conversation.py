@@ -77,22 +77,20 @@ class LocalConversation(BaseConversation):
             stuck_detection=stuck_detection,
         )
 
-        # Default callback: empty (state persistence now handled in agent.py)
-        def _default_callback(e):
-            pass
+        # Prepare callback list (state persistence now handled in agent.py)
+        callback_list = callbacks if callbacks else []
 
-        composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
             self._visualizer = create_default_visualizer(
                 conversation_stats=self._state.stats
             )
-            composed_list = [self._visualizer.on_event] + composed_list
+            callback_list = [self._visualizer.on_event] + callback_list
             # visualize should happen first for visibility
         else:
             self._visualizer = None
 
-        self._on_event = compose_callbacks(composed_list)
+        self._on_event = compose_callbacks(callback_list)
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector

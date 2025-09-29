@@ -1,4 +1,5 @@
 import json
+from collections.abc import Iterable
 
 from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
@@ -11,6 +12,7 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
+    EventBase,
     LLMConvertibleEvent,
     MessageEvent,
     ObservationEvent,
@@ -37,6 +39,41 @@ logger = get_logger(__name__)
 
 
 class Agent(AgentBase):
+    def _compose_callbacks(
+        self,
+        state: ConversationState,
+        additional_callbacks: Iterable[ConversationCallbackType] | None = None,
+    ) -> ConversationCallbackType:
+        """Compose callbacks with mandatory state persistence callback.
+
+        The state persistence callback is always included and cannot be overridden.
+        Additional callbacks are composed with this mandatory callback.
+
+        Args:
+            state: The conversation state for event persistence
+            additional_callbacks: Optional additional callbacks to compose
+
+        Returns:
+            A composed callback function that handles both state persistence and
+            additional callbacks
+        """
+
+        def _state_persistence_callback(event: EventBase) -> None:
+            """Mandatory callback that persists events to state.events."""
+            state.events.append(event)
+
+        def composed_callback(event: EventBase) -> None:
+            # Always persist to state first
+            _state_persistence_callback(event)
+
+            # Then call additional callbacks
+            if additional_callbacks:
+                for callback in additional_callbacks:
+                    if callback:
+                        callback(event)
+
+        return composed_callback
+
     @property
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
@@ -86,6 +123,9 @@ class Agent(AgentBase):
         # TODO(openhands): we should add test to test this init_state will actually
         # modify state in-place
 
+        # Compose callbacks with mandatory state persistence
+        composed_callback = self._compose_callbacks(state, [on_event])
+
         # Validate security analyzer configuration once during initialization
         if self._add_security_risk_prediction and isinstance(
             state.confirmation_policy, NeverConfirm
@@ -116,8 +156,8 @@ class Agent(AgentBase):
                     for t in self.tools_map.values()
                 ],
             )
-            state.events.append(event)
-            on_event(event)
+            # Use composed callback instead of separate state.events.append + on_event
+            composed_callback(event)
 
     def _execute_actions(
         self,
@@ -133,6 +173,9 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # Compose callbacks with mandatory state persistence
+        composed_callback = self._compose_callbacks(state, [on_event])
+
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = get_unmatched_actions(state.events)
@@ -141,7 +184,7 @@ class Agent(AgentBase):
                 "Confirmation mode: Executing %d pending action(s)",
                 len(pending_actions),
             )
-            self._execute_actions(state, pending_actions, on_event)
+            self._execute_actions(state, pending_actions, composed_callback)
             return
 
         # If a condenser is registered with the agent, we need to give it an
@@ -157,8 +200,9 @@ class Agent(AgentBase):
                     llm_convertible_events = condensation_result.events
 
                 case Condensation():
-                    state.events.append(condensation_result)
-                    on_event(condensation_result)
+                    # Use composed callback instead of separate
+                    # state.events.append + on_event
+                    composed_callback(condensation_result)
                     return None
 
         else:
@@ -192,8 +236,9 @@ class Agent(AgentBase):
                     "LLM raised context window exceeded error, triggering condensation"
                 )
                 condensation_request = CondensationRequest()
-                state.events.append(condensation_request)
-                on_event(condensation_request)
+                # Use composed callback instead of separate
+                # state.events.append + on_event
+                composed_callback(condensation_request)
                 return
 
             # If the error isn't recoverable, keep propagating it up the stack.
@@ -234,7 +279,7 @@ class Agent(AgentBase):
                     state,
                     tool_call,
                     llm_response_id=llm_response.id,
-                    on_event=on_event,
+                    on_event=composed_callback,
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
@@ -250,7 +295,7 @@ class Agent(AgentBase):
                 return
 
             if action_events:
-                self._execute_actions(state, action_events, on_event)
+                self._execute_actions(state, action_events, composed_callback)
 
         else:
             logger.info("LLM produced a message response - awaits user input")
@@ -259,8 +304,8 @@ class Agent(AgentBase):
                 source="agent",
                 llm_message=message,
             )
-            state.events.append(msg_event)
-            on_event(msg_event)
+            # Use composed callback instead of separate state.events.append + on_event
+            composed_callback(msg_event)
 
     def _requires_user_confirmation(
         self, state: ConversationState, action_events: list[ActionEvent]
@@ -329,7 +374,7 @@ class Agent(AgentBase):
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
-            state.events.append(event)
+            # Use composed callback instead of separate state.events.append + on_event
             on_event(event)
             return
 
@@ -366,7 +411,7 @@ class Agent(AgentBase):
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
-            state.events.append(event)
+            # Use composed callback instead of separate state.events.append + on_event
             on_event(event)
             return
 
@@ -380,7 +425,7 @@ class Agent(AgentBase):
             llm_response_id=llm_response_id,
             security_risk=security_risk,
         )
-        state.events.append(action_event)
+        # Use composed callback instead of separate state.events.append + on_event
         on_event(action_event)
         return action_event
 
@@ -414,7 +459,7 @@ class Agent(AgentBase):
             tool_name=tool.name,
             tool_call_id=action_event.tool_call.id,
         )
-        state.events.append(obs_event)
+        # Use composed callback instead of separate state.events.append + on_event
         on_event(obs_event)
 
         # Set conversation state
