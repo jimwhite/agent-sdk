@@ -234,7 +234,7 @@ class Agent(AgentBase):
                 continue
 
             # Create action event for valid tool call
-            action_event = self._get_action_event(
+            action_event = self._convert_tool_call_to_action_event(
                 state,
                 tool_call,
                 llm_response_id=llm_response.id,
@@ -350,9 +350,9 @@ class Agent(AgentBase):
 
         return False
 
-    def _get_action_event(
+    def _convert_tool_call_to_action_event(
         self,
-        state: ConversationState,
+        state: ConversationState,  # noqa: ARG002
         tool_call: ChatCompletionMessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
@@ -362,16 +362,20 @@ class Agent(AgentBase):
         """Converts a validated tool call into an ActionEvent.
 
         NOTE: Tool call should already be validated by _validate_tool_call.
+        No validation is performed here - this method assumes the tool call is valid.
         """
-        assert tool_call.type == "function"
+        # These assertions should never fail since validation happened earlier
+        assert tool_call.type == "function"  # noqa: S101
         tool_name = tool_call.function.name
-        assert tool_name is not None, "Tool call must have a name"
+        assert tool_name is not None, "Tool call must have a name"  # noqa: S101
         tool = self.tools_map.get(tool_name, None)
-        assert tool is not None, "Tool should exist (validated earlier)"
+        assert tool is not None, "Tool should exist (validated earlier)"  # noqa: S101
 
         # Parse arguments and handle security risk
         security_risk: risk.SecurityRisk = risk.SecurityRisk.UNKNOWN
-        arguments = json.loads(tool_call.function.arguments)
+        arguments = json.loads(
+            tool_call.function.arguments
+        )  # Should be valid JSON (validated earlier)
 
         # if the tool has a security_risk field (when security analyzer = LLM),
         # pop it out as it's not part of the tool's action schema
@@ -388,7 +392,7 @@ class Agent(AgentBase):
                     f"Invalid security_risk value from LLM: {_predicted_risk}"
                 )
 
-        # Create action from validated arguments
+        # Create action from validated arguments (should not fail - validated earlier)
         action: ActionBase = tool.action_from_arguments(arguments)
 
         action_event = ActionEvent(
