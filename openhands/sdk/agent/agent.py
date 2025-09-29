@@ -257,8 +257,7 @@ class Agent(AgentBase):
         if self._requires_user_confirmation(state, action_events):
             return
 
-        if action_events:
-            self._execute_action_events(state, action_events, on_event)
+        self._execute_action_events(state, action_events, on_event)
 
     def _validate_tool_call(
         self,
