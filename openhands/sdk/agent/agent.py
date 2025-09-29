@@ -1,6 +1,6 @@
 import json
 
-from litellm.types.utils import ChatCompletionMessageToolCall
+from litellm import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -24,6 +24,7 @@ from openhands.sdk.llm import (
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
+from openhands.sdk.security.default_analyzer import DefaultSecurityAnalyzer
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
     ActionBase,
@@ -40,6 +41,11 @@ class Agent(AgentBase):
     @property
     def _add_security_risk_prediction(self) -> bool:
         return isinstance(self.security_analyzer, LLMSecurityAnalyzer)
+
+    @property
+    def _effective_security_analyzer(self):
+        """Get the effective security analyzer, using DefaultSecurityAnalyzer if none is set."""  # noqa: E501
+        return self.security_analyzer or DefaultSecurityAnalyzer()
 
     def _configure_bash_tools_env_provider(self, state: ConversationState) -> None:
         """
@@ -242,7 +248,24 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation
-            if self._requires_user_confirmation(state, action_events):
+            # A single `FinishAction` never requires confirmation
+            if len(action_events) == 1 and isinstance(
+                action_events[0].action, FinishAction
+            ):
+                requires_confirmation = False
+            # If there are no actions there is nothing to confirm
+            elif len(action_events) == 0:
+                requires_confirmation = False
+            else:
+                # Use the effective security analyzer to analyze actions and check confirmation policy  # noqa: E501
+                analyzer = self._effective_security_analyzer
+                requires_confirmation = any(
+                    state.confirmation_policy.should_confirm(risk)
+                    for _, risk in analyzer.analyze_pending_actions(action_events)
+                )
+
+            if requires_confirmation:
+                state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
                 return
 
             if action_events:
@@ -256,46 +279,6 @@ class Agent(AgentBase):
                 llm_message=message,
             )
             on_event(msg_event)
-
-    def _requires_user_confirmation(
-        self, state: ConversationState, action_events: list[ActionEvent]
-    ) -> bool:
-        """
-        Decide whether user confirmation is needed to proceed.
-
-        Rules:
-            1. Confirmation mode is enabled
-            2. Every action requires confirmation
-            3. A single `FinishAction` never requires confirmation
-        """
-        # A single `FinishAction` never requires confirmation
-        if len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
-        ):
-            return False
-
-        # If there are no actions there is nothing to confirm
-        if len(action_events) == 0:
-            return False
-
-        # If a security analyzer is registered, use it to grab the risks of the actions
-        # involved. If not, we'll set the risks to UNKNOWN.
-        if self.security_analyzer is not None:
-            risks = [
-                risk
-                for _, risk in self.security_analyzer.analyze_pending_actions(
-                    action_events
-                )
-            ]
-        else:
-            risks = [risk.SecurityRisk.UNKNOWN] * len(action_events)
-
-        # Grab the confirmation policy from the state and pass in the risks.
-        if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
-            state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-            return True
-
-        return False
 
     def _get_action_event(
         self,
