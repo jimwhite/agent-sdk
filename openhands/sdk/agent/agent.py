@@ -331,7 +331,6 @@ class Agent(AgentBase):
             )
             state.events.append(event)
             on_event(event)
-            state.agent_status = AgentExecutionStatus.FINISHED
             return
 
         # Validate arguments
