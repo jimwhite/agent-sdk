@@ -128,8 +128,8 @@ class TestAgentConfirmationLogic:
 
         assert requires_confirmation is False
 
-    def test_single_finish_action_never_requires_confirmation(self):
-        """Test that single FinishAction never requires confirmation regardless of policy."""  # noqa: E501
+    def test_single_finish_action_with_always_confirm_policy(self):
+        """Test that single FinishAction with AlwaysConfirm policy requires confirmation."""  # noqa: E501
         agent = Agent(llm=self.llm, tools=[])
         conversation = Conversation(agent=agent)
 
@@ -143,22 +143,49 @@ class TestAgentConfirmationLogic:
             call_id="finish_call_id",
         )
 
-        # Test the confirmation logic directly - single FinishAction should never require confirmation  # noqa: E501
+        # Test the confirmation logic directly using the general case
         state = conversation.state
         action_events = [finish_action_event]
 
-        # This mimics the logic in the step() method
-        if len(action_events) == 1 and isinstance(
-            action_events[0].action, FinishAction
-        ):
-            requires_confirmation = False
-        else:
-            analyzer = agent.security_analyzer
-            requires_confirmation = any(
-                state.confirmation_policy.should_confirm(risk)
-                for _, risk in analyzer.analyze_pending_actions(action_events)
+        # This mimics the simplified logic in the step() method
+        requires_confirmation = any(
+            state.confirmation_policy.should_confirm(risk)
+            for _, risk in agent.security_analyzer.analyze_pending_actions(
+                action_events
             )
+        )
 
+        # With AlwaysConfirm policy, even FinishAction should require confirmation
+        assert requires_confirmation is True
+
+    def test_single_finish_action_with_never_confirm_policy(self):
+        """Test that single FinishAction with NeverConfirm policy doesn't require confirmation."""  # noqa: E501
+        agent = Agent(llm=self.llm, tools=[])
+        conversation = Conversation(agent=agent)
+
+        # Set confirmation policy to never confirm
+        conversation.set_confirmation_policy(NeverConfirm())
+
+        # Create a FinishAction event
+        finish_action_event = self._create_action_event(
+            action=FinishAction(message="test"),
+            tool_name="finish",
+            call_id="finish_call_id",
+        )
+
+        # Test the confirmation logic directly using the general case
+        state = conversation.state
+        action_events = [finish_action_event]
+
+        # This mimics the simplified logic in the step() method
+        requires_confirmation = any(
+            state.confirmation_policy.should_confirm(risk)
+            for _, risk in agent.security_analyzer.analyze_pending_actions(
+                action_events
+            )
+        )
+
+        # With NeverConfirm policy, FinishAction should not require confirmation
         assert requires_confirmation is False
 
     def test_empty_action_list_never_requires_confirmation(self):
@@ -173,16 +200,15 @@ class TestAgentConfirmationLogic:
         state = conversation.state
         action_events = []
 
-        # This mimics the logic in the step() method
-        if len(action_events) == 0:
-            requires_confirmation = False
-        else:
-            analyzer = agent.security_analyzer
-            requires_confirmation = any(
-                state.confirmation_policy.should_confirm(risk)
-                for _, risk in analyzer.analyze_pending_actions(action_events)
+        # This mimics the simplified logic in the step() method
+        requires_confirmation = any(
+            state.confirmation_policy.should_confirm(risk)
+            for _, risk in agent.security_analyzer.analyze_pending_actions(
+                action_events
             )
+        )
 
+        # Empty list should never require confirmation (any() on empty iterator = False)
         assert requires_confirmation is False
 
     def test_multiple_actions_with_finish_requires_confirmation(self):
