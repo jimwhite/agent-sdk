@@ -165,54 +165,6 @@ class RemoteSystemMixin(SystemMixin):
                 "timeout_occurred": False,
             }
 
-    def execute_bash(
-        self,
-        command: str,
-        cwd: str | Path | None = None,
-        timeout: float = 30.0,
-    ) -> dict[str, Any]:
-        """Execute a bash command on the remote system.
-
-        Sends the command to the remote agent server via HTTP API and
-        returns the execution result.
-
-        Args:
-            command: The bash command to execute
-            cwd: Working directory (optional)
-            timeout: Timeout in seconds
-
-        Returns:
-            dict: Result with stdout, stderr, exit_code, and other metadata
-        """
-        logger.debug(f"Executing remote bash command: {command}")
-
-        payload = {
-            "command": command,
-            "timeout": timeout,
-        }
-        if cwd is not None:
-            payload["cwd"] = str(cwd)
-
-        try:
-            # Make synchronous HTTP call
-            response = self._http_client.post(
-                "/api/bash/execute",
-                json=payload,
-                timeout=timeout + 5.0,  # Add buffer to HTTP timeout
-            )
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            logger.error(f"Remote bash execution failed: {e}")
-            return {
-                "command": command,
-                "exit_code": -1,
-                "stdout": "",
-                "stderr": f"Remote execution error: {str(e)}",
-                "timeout_occurred": False,
-            }
-
     def file_upload(
         self,
         source_path: str | Path,
