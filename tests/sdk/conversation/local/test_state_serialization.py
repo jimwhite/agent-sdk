@@ -425,10 +425,10 @@ def test_agent_resolve_diff_different_class_raises_error():
             )
             super().__init__(llm=llm, tools=[])
 
-        def init_state(self, state, on_event):
+        def init_state(self, state):
             pass
 
-        def step(self, state, on_event):
+        def step(self, state):
             pass
 
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")

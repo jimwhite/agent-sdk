@@ -37,14 +37,11 @@ def test_conversation_with_visualize_true(mock_agent):
         assert conversation._visualizer is not None
         assert isinstance(conversation._visualizer, ConversationVisualizer)
 
-        # Agent should be initialized with callbacks that include visualizer
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        assert "on_event" in kwargs
-
-        # The on_event callback should be composed of multiple callbacks
-        on_event = kwargs["on_event"]
-        assert callable(on_event)
+        # on_event parameter should not be present in new callback system
+        assert "on_event" not in kwargs
 
 
 def test_conversation_with_visualize_false(mock_agent):
@@ -55,14 +52,11 @@ def test_conversation_with_visualize_false(mock_agent):
         # Should not have a visualizer
         assert conversation._visualizer is None
 
-        # Agent should still be initialized with callbacks (just not visualizer)
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        assert "on_event" in kwargs
-
-        # The on_event callback should still exist (for state persistence)
-        on_event = kwargs["on_event"]
-        assert callable(on_event)
+        # on_event parameter should not be present in new callback system
+        assert "on_event" not in kwargs
 
 
 def test_conversation_default_visualize_is_true(mock_agent):
@@ -88,16 +82,17 @@ def test_conversation_with_custom_callbacks_and_visualize_true(mock_agent):
         # Should have a visualizer
         assert conversation._visualizer is not None
 
-        # Test that callbacks are composed correctly by triggering an event
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        on_event = kwargs["on_event"]
+        assert "on_event" not in kwargs
 
-        # Create a test event
+        # Test that callbacks work by triggering an event through the conversation
         test_event = create_test_event("Test event content")
-        on_event(test_event)
+        # Manually add event to state to trigger callbacks
+        conversation.state.events.append(test_event)
 
-        # Custom callback should have been called
+        # Custom callback should have been called through the auto-callback system
         custom_callback.assert_called_once_with(test_event)
 
         # Event should be in conversation state
@@ -117,16 +112,17 @@ def test_conversation_with_custom_callbacks_and_visualize_false(mock_agent):
         # Should not have a visualizer
         assert conversation._visualizer is None
 
-        # Test that callbacks are composed correctly
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        on_event = kwargs["on_event"]
+        assert "on_event" not in kwargs
 
-        # Create a test event and trigger it
+        # Test that callbacks work by triggering an event through the conversation
         test_event = create_test_event("Test event content")
-        on_event(test_event)
+        # Manually add event to state to trigger callbacks
+        conversation.state.events.append(test_event)
 
-        # Custom callback should have been called
+        # Custom callback should have been called through the auto-callback system
         custom_callback.assert_called_once_with(test_event)
 
         # Event should be in conversation state
@@ -160,19 +156,19 @@ def test_conversation_callback_order(mock_agent):
             agent=mock_agent, callbacks=[callback1, callback2], visualize=True
         )
 
-        # Get the composed callback
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        on_event = kwargs["on_event"]
+        assert "on_event" not in kwargs
 
-        # Trigger an event
+        # Trigger an event through the auto-callback system
         test_event = create_test_event("Test event content")
-        on_event(test_event)
+        conversation.state.events.append(test_event)
 
-        # Check order: visualizer, callback1, callback2, then state persistence
+        # Check order: visualizer, callback1, callback2
         assert call_order == ["visualizer", "callback1", "callback2"]
 
-        # Event should be in state (state persistence happens last)
+        # Event should be in state
         assert test_event in conversation.state.events
 
 
@@ -184,14 +180,14 @@ def test_conversation_no_callbacks_with_visualize_true(mock_agent):
         # Should have a visualizer
         assert conversation._visualizer is not None
 
-        # Should still work with just visualizer and state persistence
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        on_event = kwargs["on_event"]
+        assert "on_event" not in kwargs
 
-        # Should be able to handle events
+        # Should be able to handle events through auto-callback system
         test_event = create_test_event("Test event content")
-        on_event(test_event)
+        conversation.state.events.append(test_event)
 
         # Event should be in state
         assert test_event in conversation.state.events
@@ -205,14 +201,14 @@ def test_conversation_no_callbacks_with_visualize_false(mock_agent):
         # Should not have a visualizer
         assert conversation._visualizer is None
 
-        # Should still work with just state persistence
+        # Agent should be initialized without on_event parameter
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
-        on_event = kwargs["on_event"]
+        assert "on_event" not in kwargs
 
-        # Should be able to handle events
+        # Should be able to handle events through auto-callback system
         test_event = create_test_event("Test event content")
-        on_event(test_event)
+        conversation.state.events.append(test_event)
 
         # Event should be in state
         assert test_event in conversation.state.events

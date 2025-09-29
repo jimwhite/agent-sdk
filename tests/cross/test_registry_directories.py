@@ -10,7 +10,6 @@ from pydantic import SecretStr
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import SystemPromptEvent
 from openhands.sdk.llm import LLM, TextContent
 from openhands.sdk.tool.registry import resolve_tool
@@ -29,17 +28,13 @@ class DummyAgent(AgentBase):
         )
         super().__init__(llm=llm, tools=[])
 
-    def init_state(
-        self, state: ConversationState, on_event: ConversationCallbackType
-    ) -> None:
+    def init_state(self, state: ConversationState) -> None:
         event = SystemPromptEvent(
             source="agent", system_prompt=TextContent(text="test agent"), tools=[]
         )
-        on_event(event)
+        state.events.append(event)
 
-    def step(
-        self, state: ConversationState, on_event: ConversationCallbackType
-    ) -> None:
+    def step(self, state: ConversationState) -> None:
         pass
 
 

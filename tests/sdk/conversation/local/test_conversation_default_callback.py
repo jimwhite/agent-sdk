@@ -3,7 +3,6 @@ from pydantic import SecretStr
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.conversation.types import ConversationCallbackType
 from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 
@@ -15,23 +14,18 @@ class TestConversationDefaultCallbackDummyAgent(AgentBase):
         )
         super().__init__(llm=llm, tools=[])
 
-    def init_state(
-        self, state: ConversationState, on_event: ConversationCallbackType
-    ) -> None:
+    def init_state(self, state: ConversationState) -> None:
         event = SystemPromptEvent(
             source="agent", system_prompt=TextContent(text="dummy"), tools=[]
         )
-        on_event(event)
+        state.events.append(event)
 
-    def step(
-        self, state: ConversationState, on_event: ConversationCallbackType
-    ) -> None:
-        on_event(
-            MessageEvent(
-                source="agent",
-                llm_message=Message(role="assistant", content=[TextContent(text="ok")]),
-            )
+    def step(self, state: ConversationState) -> None:
+        event = MessageEvent(
+            source="agent",
+            llm_message=Message(role="assistant", content=[TextContent(text="ok")]),
         )
+        state.events.append(event)
 
 
 def test_default_callback_appends_on_init():
