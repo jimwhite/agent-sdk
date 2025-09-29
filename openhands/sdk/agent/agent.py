@@ -189,7 +189,6 @@ class Agent(AgentBase):
         # LLMResponse already contains the converted message and metrics snapshot
         message: Message = llm_response.message
 
-        # Early return if no tool calls
         if not message.tool_calls or len(message.tool_calls) == 0:
             logger.info("LLM produced a message response - awaits user input")
             state.agent_status = AgentExecutionStatus.FINISHED
