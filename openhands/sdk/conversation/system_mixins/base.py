@@ -34,10 +34,10 @@ class SystemMixin(ABC):
     """
 
     @abstractmethod
-    def execute_bash(
+    def execute_command(
         self,
         command: str,
-        cwd: str | Path | None = None,
+        cwd: str | Path,
         timeout: float = 30.0,
     ) -> dict[str, Any]:
         """Execute a bash command on the system.

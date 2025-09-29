@@ -1,13 +1,10 @@
-import asyncio
 import shutil
 from pathlib import Path
 from typing import Any
 
 from openhands.sdk.conversation.system_mixins.base import SystemMixin
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.shell_execution import (
-    execute_shell_command,
-)
+from openhands.sdk.utils.command import execute_command
 
 
 logger = get_logger(__name__)
@@ -26,31 +23,10 @@ class LocalSystemMixin(SystemMixin):
     if needed.
     """
 
-    def __init__(self, *args, **kwargs):
-        """Initialize the local system mixin.
-
-        The working directory defaults to the current directory but can be
-        overridden by subclasses or through configuration.
-        """
-        super().__init__(*args, **kwargs)
-        self._working_dir: Path | None = None
-
-    @property
-    def working_dir(self) -> Path:
-        """Get the working directory for system operations."""
-        if self._working_dir is None:
-            return Path.cwd()
-        return self._working_dir
-
-    @working_dir.setter
-    def working_dir(self, value: str | Path) -> None:
-        """Set the working directory for system operations."""
-        self._working_dir = Path(value)
-
-    def execute_bash(
+    def execute_command(
         self,
         command: str,
-        cwd: str | Path | None = None,
+        cwd: str | Path,
         timeout: float = 30.0,
     ) -> dict[str, Any]:
         """Execute a bash command locally.
@@ -66,26 +42,19 @@ class LocalSystemMixin(SystemMixin):
         Returns:
             dict: Result with stdout, stderr, exit_code, command, and timeout_occurred
         """
-        if cwd is None:
-            cwd = self.working_dir
-
         logger.debug(f"Executing local bash command: {command} in {cwd}")
-
-        # Run the async function synchronously
-        result = asyncio.run(
-            execute_shell_command(
-                command=command,
-                cwd=cwd,
-                timeout=timeout,
-            )
+        result = execute_command(
+            command,
+            cwd=str(cwd),
+            timeout=timeout,
+            print_output=True,
         )
-
         return {
-            "command": result.command,
-            "exit_code": result.exit_code,
+            "command": command,
+            "exit_code": result.returncode,
             "stdout": result.stdout,
             "stderr": result.stderr,
-            "timeout_occurred": result.timeout_occurred,
+            "timeout_occurred": result.returncode == -1,
         }
 
     def file_upload(

@@ -12,6 +12,7 @@ def execute_command(
     cmd: list[str] | str,
     env: dict[str, str] | None = None,
     cwd: str | None = None,
+    timeout: float | None = None,
     print_output: bool = True,
 ) -> subprocess.CompletedProcess:
     if isinstance(cmd, str):
@@ -47,7 +48,16 @@ def execute_command(
             sys.stderr.write(line)
         stderr_lines.append(line)
 
-    proc.wait()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return subprocess.CompletedProcess(
+            cmd_list,
+            -1,  # Indicate timeout with -1 exit code
+            "".join(stdout_lines),
+            "".join(stderr_lines),
+        )
 
     return subprocess.CompletedProcess(
         cmd_list,
