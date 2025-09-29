@@ -424,9 +424,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self._telemetry.on_request(log_ctx=log_ctx)
 
         # transport
-        with self._litellm_modify_params_ctx(self.modify_params):
-            litellm_responses = getattr(litellm, "responses")
-            resp = litellm_responses(**call_kwargs)
+        try:
+            with self._litellm_modify_params_ctx(self.modify_params):
+                litellm_responses = getattr(litellm, "responses")
+                resp = litellm_responses(**call_kwargs)
+        except Exception as e:
+            # Ensure errors are logged to file if enabled
+            try:
+                self._telemetry.on_error(e)
+            except Exception:
+                pass
+            raise
 
         # telemetry
         self._telemetry.on_response(resp)  # Usage mapping if present

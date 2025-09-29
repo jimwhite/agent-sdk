@@ -18,5 +18,7 @@ class LLMToolCall(BaseModel):
         ..., description="Originating API family"
     )
     raw: ChatCompletionMessageToolCall | ResponseFunctionToolCall | None = Field(
-        default=None, description="Original provider object for advanced consumers"
+        default=None,
+        description="Original provider object for advanced consumers",
+        exclude=True,
     )

@@ -177,43 +177,46 @@ class Agent(AgentBase):
                     system_text = e.system_prompt.text
                     break
 
-            # 2) function_call_output items for tool results from the last LLM response
+            # 2) If continuing a prior Responses turn, return ONLY tool outputs
+            #    (function_call_output items) corresponding to the last response's
+            #    function call IDs. Do NOT include new user messages in a continuation.
+            prev_id = state.previous_response_id
             inputs: list[dict] = []
-            if state.previous_response_id:
+            if prev_id:
                 last_tool_call_ids = {
                     a.tool_call_id
                     for a in state.events
-                    if isinstance(a, ActionEvent)
-                    and a.llm_response_id == state.previous_response_id
+                    if isinstance(a, ActionEvent) and a.llm_response_id == prev_id
                 }
                 if last_tool_call_ids:
+                    # Collect observations corresponding to last tool calls.
+                    from openhands.sdk.event import ObservationBaseEvent
+
                     for ev in state.events:
                         if (
-                            isinstance(ev, ObservationEvent)
-                            and ev.tool_call_id in last_tool_call_ids
+                            isinstance(ev, ObservationBaseEvent)
+                            and getattr(ev, "tool_call_id", None) in last_tool_call_ids
                         ):
                             inputs.extend(
                                 ev.to_llm_message().to_responses_input_items()
                             )
+                # If no tool outputs are available for continuation, we must start
+                # a fresh turn (no previous_response_id) per Responses protocol.
+                if not inputs:
+                    logger.warning(
+                        "Responses continuation requested but no tool outputs "
+                        "available; starting a fresh turn instead"
+                    )
+                    prev_id = None
 
-            # 3) latest user message (only if no tool outputs were added)
-            if not inputs:
+            # 3) For a fresh turn, include the latest user message as input
+            if prev_id is None:
                 for e in reversed(llm_convertible_events):
                     if isinstance(e, MessageEvent):
                         msg = e.to_llm_message()
                         if msg.role == "user":
                             inputs.extend(msg.to_responses_input_items())
                             break
-
-            # If we're in a continuation but have no tool outputs to return,
-            # fall back to a fresh turn to avoid 400 "No tool output found...".
-            prev_id = state.previous_response_id
-            if prev_id is not None and not inputs:
-                logger.warning(
-                    "Responses continuation requested but no tool outputs available; "
-                    "starting a fresh turn instead"
-                )
-                prev_id = None
 
             llm_response = self.llm.responses(
                 instructions=system_text if prev_id is None else None,
