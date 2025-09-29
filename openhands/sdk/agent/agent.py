@@ -116,6 +116,7 @@ class Agent(AgentBase):
                     for t in self.tools_map.values()
                 ],
             )
+            state.events.append(event)
             on_event(event)
 
     def _execute_actions(
@@ -156,6 +157,7 @@ class Agent(AgentBase):
                     llm_convertible_events = condensation_result.events
 
                 case Condensation():
+                    state.events.append(condensation_result)
                     on_event(condensation_result)
                     return None
 
@@ -189,7 +191,9 @@ class Agent(AgentBase):
                 logger.warning(
                     "LLM raised context window exceeded error, triggering condensation"
                 )
-                on_event(CondensationRequest())
+                condensation_request = CondensationRequest()
+                state.events.append(condensation_request)
+                on_event(condensation_request)
                 return
 
             # If the error isn't recoverable, keep propagating it up the stack.
@@ -255,6 +259,7 @@ class Agent(AgentBase):
                 source="agent",
                 llm_message=message,
             )
+            state.events.append(msg_event)
             on_event(msg_event)
 
     def _requires_user_confirmation(
@@ -324,6 +329,7 @@ class Agent(AgentBase):
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
+            state.events.append(event)
             on_event(event)
             state.agent_status = AgentExecutionStatus.FINISHED
             return
@@ -361,6 +367,7 @@ class Agent(AgentBase):
                 tool_name=tool_name,
                 tool_call_id=tool_call.id,
             )
+            state.events.append(event)
             on_event(event)
             return
 
@@ -374,6 +381,7 @@ class Agent(AgentBase):
             llm_response_id=llm_response_id,
             security_risk=security_risk,
         )
+        state.events.append(action_event)
         on_event(action_event)
         return action_event
 
@@ -407,6 +415,7 @@ class Agent(AgentBase):
             tool_name=tool.name,
             tool_call_id=action_event.tool_call.id,
         )
+        state.events.append(obs_event)
         on_event(obs_event)
 
         # Set conversation state

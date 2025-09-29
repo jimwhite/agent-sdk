@@ -77,9 +77,9 @@ class LocalConversation(BaseConversation):
             stuck_detection=stuck_detection,
         )
 
-        # Default callback: persist every event to state
+        # Default callback: empty (state persistence now handled in agent.py)
         def _default_callback(e):
-            self._state.events.append(e)
+            pass
 
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
@@ -183,6 +183,8 @@ class LocalConversation(BaseConversation):
                 activated_microagents=activated_microagent_names,
                 extended_content=extended_content,
             )
+            # State persistence: add event to state.events directly
+            self._state.events.append(user_msg_event)
             self._on_event(user_msg_event)
 
     def run(self) -> None:
@@ -285,6 +287,8 @@ class LocalConversation(BaseConversation):
                     tool_call_id=action_event.tool_call_id,
                     rejection_reason=reason,
                 )
+                # State persistence: add event to state.events directly
+                self._state.events.append(rejection_event)
                 self._on_event(rejection_event)
                 logger.info(f"Rejected pending action: {action_event} - {reason}")
 
@@ -310,6 +314,8 @@ class LocalConversation(BaseConversation):
             ):
                 self._state.agent_status = AgentExecutionStatus.PAUSED
                 pause_event = PauseEvent()
+                # State persistence: add event to state.events directly
+                self._state.events.append(pause_event)
                 self._on_event(pause_event)
                 logger.info("Agent execution pause requested")
 

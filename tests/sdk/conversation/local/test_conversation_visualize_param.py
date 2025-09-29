@@ -100,8 +100,9 @@ def test_conversation_with_custom_callbacks_and_visualize_true(mock_agent):
         # Custom callback should have been called
         custom_callback.assert_called_once_with(test_event)
 
-        # Event should be in conversation state
-        assert test_event in conversation.state.events
+        # Note: After refactoring, callbacks no longer add events to state.
+        # State persistence is now handled directly by agent.py methods.
+        # This test verifies that callbacks work correctly for external observers.
 
 
 def test_conversation_with_custom_callbacks_and_visualize_false(mock_agent):
@@ -129,8 +130,9 @@ def test_conversation_with_custom_callbacks_and_visualize_false(mock_agent):
         # Custom callback should have been called
         custom_callback.assert_called_once_with(test_event)
 
-        # Event should be in conversation state
-        assert test_event in conversation.state.events
+        # Note: After refactoring, callbacks no longer add events to state.
+        # State persistence is now handled directly by agent.py methods.
+        # This test verifies that callbacks work correctly for external observers.
 
 
 def test_conversation_callback_order(mock_agent):
@@ -156,9 +158,7 @@ def test_conversation_callback_order(mock_agent):
         )
         mock_create_viz.return_value = mock_visualizer
 
-        conversation = Conversation(
-            agent=mock_agent, callbacks=[callback1, callback2], visualize=True
-        )
+        Conversation(agent=mock_agent, callbacks=[callback1, callback2], visualize=True)
 
         # Get the composed callback
         mock_init_state.assert_called_once()
@@ -169,11 +169,12 @@ def test_conversation_callback_order(mock_agent):
         test_event = create_test_event("Test event content")
         on_event(test_event)
 
-        # Check order: visualizer, callback1, callback2, then state persistence
+        # Check order: visualizer, callback1, callback2
+        # Note: After refactoring, state persistence is no longer done by callbacks
         assert call_order == ["visualizer", "callback1", "callback2"]
 
-        # Event should be in state (state persistence happens last)
-        assert test_event in conversation.state.events
+        # Note: After refactoring, callbacks no longer add events to state.
+        # State persistence is now handled directly by agent.py methods.
 
 
 def test_conversation_no_callbacks_with_visualize_true(mock_agent):
@@ -184,7 +185,7 @@ def test_conversation_no_callbacks_with_visualize_true(mock_agent):
         # Should have a visualizer
         assert conversation._visualizer is not None
 
-        # Should still work with just visualizer and state persistence
+        # Should still work with just visualizer
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
         on_event = kwargs["on_event"]
@@ -193,8 +194,9 @@ def test_conversation_no_callbacks_with_visualize_true(mock_agent):
         test_event = create_test_event("Test event content")
         on_event(test_event)
 
-        # Event should be in state
-        assert test_event in conversation.state.events
+        # Note: After refactoring, callbacks no longer add events to state.
+        # State persistence is now handled directly by agent.py methods.
+        # This test verifies that the callback mechanism works without errors.
 
 
 def test_conversation_no_callbacks_with_visualize_false(mock_agent):
@@ -205,7 +207,7 @@ def test_conversation_no_callbacks_with_visualize_false(mock_agent):
         # Should not have a visualizer
         assert conversation._visualizer is None
 
-        # Should still work with just state persistence
+        # Should still work with empty callbacks
         mock_init_state.assert_called_once()
         args, kwargs = mock_init_state.call_args
         on_event = kwargs["on_event"]
@@ -214,5 +216,6 @@ def test_conversation_no_callbacks_with_visualize_false(mock_agent):
         test_event = create_test_event("Test event content")
         on_event(test_event)
 
-        # Event should be in state
-        assert test_event in conversation.state.events
+        # Note: After refactoring, callbacks no longer add events to state.
+        # State persistence is now handled directly by agent.py methods.
+        # This test verifies that the callback mechanism works without errors.

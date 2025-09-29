@@ -21,17 +21,20 @@ class TestConversationDefaultCallbackDummyAgent(AgentBase):
         event = SystemPromptEvent(
             source="agent", system_prompt=TextContent(text="dummy"), tools=[]
         )
+        # After refactoring: agent is responsible for state persistence
+        state.events.append(event)
         on_event(event)
 
     def step(
         self, state: ConversationState, on_event: ConversationCallbackType
     ) -> None:
-        on_event(
-            MessageEvent(
-                source="agent",
-                llm_message=Message(role="assistant", content=[TextContent(text="ok")]),
-            )
+        event = MessageEvent(
+            source="agent",
+            llm_message=Message(role="assistant", content=[TextContent(text="ok")]),
         )
+        # After refactoring: agent is responsible for state persistence
+        state.events.append(event)
+        on_event(event)
 
 
 def test_default_callback_appends_on_init():

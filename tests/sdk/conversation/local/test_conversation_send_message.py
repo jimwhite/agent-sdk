@@ -21,6 +21,8 @@ class TestSendMessageDummyAgent(AgentBase):
         event = SystemPromptEvent(
             source="agent", system_prompt=TextContent(text="dummy"), tools=[]
         )
+        # After refactoring: agent is responsible for state persistence
+        state.events.append(event)
         on_event(event)
 
     def step(
