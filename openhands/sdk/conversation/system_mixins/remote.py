@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,116 @@ class RemoteSystemMixin(SystemMixin):
         if not hasattr(self, "_id"):
             raise AttributeError("RemoteSystemMixin requires _id attribute to be set")
         return str(self._id)  # type: ignore
+
+    def execute_command(
+        self,
+        command: str,
+        cwd: str | Path | None = None,
+        timeout: float = 30.0,
+    ) -> dict[str, Any]:
+        """Execute a bash command on the remote system.
+
+        This method starts a bash command via the remote agent server API,
+        then polls for the output until the command completes.
+
+        Args:
+            command: The bash command to execute
+            cwd: Working directory (optional)
+            timeout: Timeout in seconds
+
+        Returns:
+            dict: Result with stdout, stderr, exit_code, and other metadata
+        """
+        logger.debug(f"Executing remote command: {command}")
+
+        # Step 1: Start the bash command
+        payload = {
+            "command": command,
+            "timeout": int(timeout),
+        }
+        if cwd is not None:
+            payload["cwd"] = str(cwd)
+
+        try:
+            # Start the command
+            response = self._http_client.post(
+                "/api/bash/execute_bash_command",
+                json=payload,
+                timeout=timeout + 5.0,  # Add buffer to HTTP timeout
+            )
+            response.raise_for_status()
+            bash_command = response.json()
+            command_id = bash_command["id"]
+
+            logger.debug(f"Started command with ID: {command_id}")
+
+            # Step 2: Poll for output until command completes
+            start_time = time.time()
+            stdout_parts = []
+            stderr_parts = []
+            exit_code = None
+
+            while time.time() - start_time < timeout:
+                # Search for all events and filter client-side
+                # (workaround for bash service filtering bug)
+                search_response = self._http_client.get(
+                    "/api/bash/bash_events/search",
+                    params={
+                        "sort_order": "TIMESTAMP",
+                        "limit": 100,
+                    },
+                    timeout=10.0,
+                )
+                search_response.raise_for_status()
+                search_result = search_response.json()
+
+                # Filter for BashOutput events for this command
+                for event in search_result.get("items", []):
+                    if (
+                        event.get("kind") == "BashOutput"
+                        and event.get("command_id") == command_id
+                    ):
+                        if event.get("stdout"):
+                            stdout_parts.append(event["stdout"])
+                        if event.get("stderr"):
+                            stderr_parts.append(event["stderr"])
+                        if event.get("exit_code") is not None:
+                            exit_code = event["exit_code"]
+
+                # If we have an exit code, the command is complete
+                if exit_code is not None:
+                    break
+
+                # Wait a bit before polling again
+                time.sleep(0.1)
+
+            # If we timed out waiting for completion
+            if exit_code is None:
+                logger.warning(f"Command timed out after {timeout} seconds: {command}")
+                exit_code = -1
+                stderr_parts.append(f"Command timed out after {timeout} seconds")
+
+            # Combine all output parts
+            stdout = "".join(stdout_parts)
+            stderr = "".join(stderr_parts)
+
+            return {
+                "command": command,
+                "exit_code": exit_code,
+                "stdout": stdout,
+                "stderr": stderr,
+                "timeout_occurred": exit_code == -1 and "timed out" in stderr,
+            }
+
+        except Exception as e:
+            logger.error(f"Remote command execution failed: {e}")
+            return {
+                "command": command,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": f"Remote execution error: {str(e)}",
+                "timeout_occurred": False,
+            }
 
     def execute_bash(
         self,
