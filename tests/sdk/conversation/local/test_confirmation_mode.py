@@ -421,8 +421,8 @@ class TestConfirmationMode:
             ]
             assert len(obs_events) == 0
 
-    def test_single_finish_action_skips_confirmation_entirely(self):
-        """Test that a single FinishAction skips confirmation entirely."""
+    def test_single_finish_action_with_always_confirm_requires_confirmation(self):
+        """Test that a single FinishAction with AlwaysConfirm policy requires confirmation."""  # noqa: E501
         # Enable confirmation mode
         self.conversation.set_confirmation_policy(AlwaysConfirm())
 
@@ -443,25 +443,26 @@ class TestConfirmationMode:
             # Run the conversation
             self.conversation.run()
 
-        # Single FinishAction should skip confirmation entirely
+        # With AlwaysConfirm policy, even single FinishAction should require confirmation  # noqa: E501
         assert (
             self.conversation.state.confirmation_policy == AlwaysConfirm()
         )  # Still in confirmation mode
         assert (
-            self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
-        )  # Agent should be finished
+            self.conversation.state.agent_status
+            == AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+        )  # Agent should be waiting for confirmation
 
-        # Should have no pending actions (FinishAction was executed immediately)
+        # Should have pending actions (FinishAction is waiting for confirmation)
         pending_actions = ConversationState.get_unmatched_actions(
             self.conversation.state.events
         )
-        assert len(pending_actions) == 0
+        assert len(pending_actions) == 1
 
-        # Should have observation events (action was executed)
+        # Should have no observation events yet (action not executed)
         obs_events = [
             e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
         ]
-        assert len(obs_events) == 1
+        assert len(obs_events) == 0
 
     def test_single_finish_action_with_never_confirm_executes_immediately(self):
         """Test that a single FinishAction with NeverConfirm policy executes immediately."""  # noqa: E501
