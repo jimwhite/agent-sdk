@@ -240,21 +240,18 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation
-            # Special case: single FinishAction always skips confirmation
             from openhands.sdk.tool.builtins.finish import FinishAction
 
-            if len(action_events) == 1 and isinstance(
-                action_events[0].action, FinishAction
-            ):
-                requires_confirmation = False
-            else:
-                # Use the security analyzer to analyze actions and check policy
-                requires_confirmation = any(
-                    state.confirmation_policy.should_confirm(risk)
-                    for _, risk in self.security_analyzer.analyze_pending_actions(
-                        action_events
-                    )
+            # Use the security analyzer to analyze actions and check policy
+            # Skip confirmation for FinishActions
+            analyzer = self.security_analyzer
+            requires_confirmation = any(
+                state.confirmation_policy.should_confirm(risk)
+                for action_event, risk in analyzer.analyze_pending_actions(
+                    action_events
                 )
+                if not isinstance(action_event.action, FinishAction)
+            )
 
             if requires_confirmation:
                 state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
