@@ -242,8 +242,8 @@ class Agent(AgentBase):
             # Handle confirmation mode - exit early if actions need confirmation
             # Use the security analyzer to analyze actions and check policy
             requires_confirmation = any(
-                state.confirmation_policy.should_confirm(risk)
-                for _, risk in self.security_analyzer.analyze_pending_actions(
+                state.confirmation_policy.should_confirm(risk, action)
+                for action, risk in self.security_analyzer.analyze_pending_actions(
                     action_events
                 )
             )
