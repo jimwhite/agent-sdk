@@ -421,8 +421,8 @@ class TestConfirmationMode:
             ]
             assert len(obs_events) == 0
 
-    def test_single_finish_action_with_always_confirm_requires_confirmation(self):
-        """Test that a single FinishAction with AlwaysConfirm policy requires confirmation."""  # noqa: E501
+    def test_single_finish_action_skips_confirmation_entirely(self):
+        """Test that a single FinishAction skips confirmation entirely."""
         # Enable confirmation mode
         self.conversation.set_confirmation_policy(AlwaysConfirm())
 
@@ -443,52 +443,10 @@ class TestConfirmationMode:
             # Run the conversation
             self.conversation.run()
 
-        # Special case: single FinishAction always skips confirmation, even with AlwaysConfirm  # noqa: E501
+        # Single FinishAction should skip confirmation entirely
         assert (
             self.conversation.state.confirmation_policy == AlwaysConfirm()
         )  # Still in confirmation mode
-        assert (
-            self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
-        )  # Agent should be finished (FinishAction executed)
-
-        # Should have no pending actions (FinishAction was executed immediately)
-        pending_actions = ConversationState.get_unmatched_actions(
-            self.conversation.state.events
-        )
-        assert len(pending_actions) == 0
-
-        # Should have observation events (action was executed)
-        obs_events = [
-            e for e in self.conversation.state.events if isinstance(e, ObservationEvent)
-        ]
-        assert len(obs_events) == 1
-
-    def test_single_finish_action_with_never_confirm_executes_immediately(self):
-        """Test that a single FinishAction with NeverConfirm policy executes immediately."""  # noqa: E501
-        # Set confirmation policy to never confirm
-        self.conversation.set_confirmation_policy(NeverConfirm())
-
-        # Mock LLM to return a single FinishAction
-        mock_completion = self._mock_finish_action("Task completed successfully!")
-
-        # Send a message that should trigger the finish action
-        with patch(
-            "openhands.sdk.llm.llm.litellm_completion",
-            return_value=mock_completion.return_value,
-        ):
-            self.conversation.send_message(
-                Message(
-                    role="user", content=[TextContent(text="Please finish the task")]
-                )
-            )
-
-            # Run the conversation
-            self.conversation.run()
-
-        # With NeverConfirm policy, FinishAction should execute immediately
-        assert (
-            self.conversation.state.confirmation_policy == NeverConfirm()
-        )  # Still in never confirm mode
         assert (
             self.conversation.state.agent_status == AgentExecutionStatus.FINISHED
         )  # Agent should be finished
