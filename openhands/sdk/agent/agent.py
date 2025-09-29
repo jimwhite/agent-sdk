@@ -205,6 +205,7 @@ class Agent(AgentBase):
                 "LLM returned tool calls but message content is not all "
                 "TextContent - ignoring non-text content"
             )
+        # thought and reasoning content are only set for the first tool call
         thought = [c for c in message.content if isinstance(c, TextContent)]
         reasoning_content = message.reasoning_content
 
