@@ -29,6 +29,7 @@ from openhands.sdk.tool import (
     FinishTool,
     ObservationBase,
 )
+from openhands.sdk.tool.builtins.finish import FinishAction
 
 
 logger = get_logger(__name__)
@@ -240,8 +241,6 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation
-            from openhands.sdk.tool.builtins.finish import FinishAction
-
             # Use the security analyzer to analyze actions and check policy
             # Skip confirmation for FinishActions
             analyzer = self.security_analyzer
