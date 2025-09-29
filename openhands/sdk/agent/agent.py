@@ -1,6 +1,6 @@
 import json
 
-from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -29,7 +29,7 @@ from openhands.sdk.tool import (
     FinishTool,
     ObservationBase,
 )
-from openhands.sdk.tool.builtins.finish import FinishAction
+from openhands.sdk.tool.builtins import FinishAction
 
 
 logger = get_logger(__name__)
