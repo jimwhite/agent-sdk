@@ -163,7 +163,7 @@ def test_non_llm_security_analyzer_excludes_risk_assessment():
     from openhands.sdk.security.analyzer import SecurityAnalyzerBase
     from openhands.sdk.security.risk import SecurityRisk
 
-    class NonLlmMockSecurityAnalyzer(SecurityAnalyzerBase):
+    class MockSecurityAnalyzer(SecurityAnalyzerBase):
         def security_risk(self, action: ActionEvent) -> SecurityRisk:
             return SecurityRisk.LOW
 
@@ -175,7 +175,7 @@ def test_non_llm_security_analyzer_excludes_risk_assessment():
             api_key=SecretStr("test-key"),
             base_url="http://test",
         ),
-        security_analyzer=NonLlmMockSecurityAnalyzer(),
+        security_analyzer=MockSecurityAnalyzer(),
     )
 
     # Get the system message
