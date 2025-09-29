@@ -26,7 +26,7 @@ class LocalSystemMixin(SystemMixin):
     def execute_command(
         self,
         command: str,
-        cwd: str | Path,
+        cwd: str | Path | None = None,
         timeout: float = 30.0,
     ) -> dict[str, Any]:
         """Execute a bash command locally.
@@ -36,7 +36,7 @@ class LocalSystemMixin(SystemMixin):
 
         Args:
             command: The bash command to execute
-            cwd: Working directory (defaults to self.working_dir)
+            cwd: Working directory (optional)
             timeout: Timeout in seconds
 
         Returns:
@@ -45,7 +45,7 @@ class LocalSystemMixin(SystemMixin):
         logger.debug(f"Executing local bash command: {command} in {cwd}")
         result = execute_command(
             command,
-            cwd=str(cwd),
+            cwd=str(cwd) if cwd is not None else None,
             timeout=timeout,
             print_output=True,
         )
