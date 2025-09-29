@@ -301,7 +301,6 @@ class Agent(AgentBase):
         # Validate arguments
         try:
             arguments = json.loads(tool_call.function.arguments)
-
             # Remove security_risk if present (handled separately)
             arguments.pop("security_risk", None)
             # Try to create action to validate arguments
