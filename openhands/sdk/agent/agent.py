@@ -241,15 +241,14 @@ class Agent(AgentBase):
                 action_events.append(action_event)
 
             # Handle confirmation mode - exit early if actions need confirmation
-            # Use the security analyzer to analyze actions and check policy
-            # Skip confirmation for FinishActions
-            analyzer = self.security_analyzer
             requires_confirmation = any(
                 state.confirmation_policy.should_confirm(risk)
-                for action_event, risk in analyzer.analyze_pending_actions(
+                for action_event, risk in self.security_analyzer.analyze_pending_actions(  # noqa E501 (Ruff formatting to wrong line length)
                     action_events
                 )
-                if not isinstance(action_event.action, FinishAction)
+                if not isinstance(
+                    action_event.action, FinishAction
+                )  # skip FinishAction as they dont need confirmation
             )
 
             if requires_confirmation:
