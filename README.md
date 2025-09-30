@@ -38,7 +38,8 @@ agent-sdk/
 │   ├── 14_context_condenser.py         # Context condensation
 │   ├── 15_browser_use.py               # Browser automation tools
 │   ├── 16_llm_security_analyzer.py     # LLM security analysis
-│   └── 17_image_input.py               # Image input and vision support
+│   ├── 17_image_input.py               # Image input and vision support
+│   └── dual_mode_agent_example.py      # Dual-mode agent (planning and execution modes)
 ├── openhands/              # Main SDK packages
 │   ├── agent_server/       # REST API and WebSocket server
 │   │   ├── api.py          # FastAPI application
@@ -173,6 +174,73 @@ agent = Agent(
         ToolSpec(name="TaskTrackerTool", params={"save_dir": os.getcwd()}),
     ],
 )
+```
+
+#### Dual-Mode Agent (Planning and Execution)
+
+The SDK provides a specialized `DualModeAgent` that supports two distinct modes of operation:
+
+- **Planning Mode**: Read-only discussion and analysis mode with restricted tool access
+- **Execution Mode**: Full tool access for implementation and execution
+
+This allows for a workflow where you first discuss and plan with the agent, then switch to execution mode for implementation.
+
+```python
+from openhands.sdk import LLM, DualModeAgent, DualModeAgentConfig, AgentMode
+from openhands.sdk.tool import ToolSpec
+from pydantic import SecretStr
+
+# Configure different LLMs for each mode
+planning_llm = LLM(
+    model="gpt-4o-mini",  # Use reasoning-focused model for planning
+    api_key=SecretStr("your-api-key"),
+    service_id="planning-llm"
+)
+
+execution_llm = LLM(
+    model="claude-3-5-sonnet-20241022",  # Use coding-focused model for execution
+    api_key=SecretStr("your-api-key"),
+    service_id="execution-llm"
+)
+
+# Define tools for each mode
+planning_tools = []  # Only built-in tools (think, finish, mode_switch)
+
+execution_tools = [
+    ToolSpec(name="BashTool", params={"working_dir": "/workspace"}),
+    ToolSpec(name="FileEditorTool"),
+]
+
+# Create dual-mode agent configuration
+config = DualModeAgentConfig(
+    planning_llm=planning_llm,
+    execution_llm=execution_llm,
+    planning_tools=planning_tools,
+    execution_tools=execution_tools,
+    initial_mode=AgentMode.PLANNING
+)
+
+# Create the dual-mode agent
+agent = DualModeAgent(config)
+
+# The agent starts in planning mode and can switch between modes
+# using the built-in ModeSwitchTool or programmatically
+```
+
+**Key Features:**
+- **Separate LLM configurations**: Use different models optimized for planning vs execution
+- **Mode-specific tool access**: Restrict tools in planning mode, full access in execution mode
+- **Seamless mode switching**: Switch between modes using the built-in `mode_switch` tool
+- **Different system prompts**: Each mode uses specialized prompts for optimal behavior
+
+**Mode Switching:**
+```python
+# Programmatic mode switching
+result = agent.switch_mode(AgentMode.EXECUTION)
+print(f"Switched to {agent.current_mode}")
+
+# Or let the agent switch modes using the mode_switch tool during conversation
+conversation.send_message("Switch to execution mode and implement the plan we discussed")
 ```
 
 ### LLM Integration
