@@ -269,6 +269,26 @@ class RemoteState(ConversationStateProtocol):
             raise RuntimeError("agent missing in conversation info: " + str(info))
         return AgentBase.model_validate(agent_data)
 
+    @property
+    def working_dir(self):
+        """The working directory (fetched from remote)."""
+        info = self._get_conversation_info()
+        working_dir = info.get("working_dir")
+        if working_dir is None:
+            raise RuntimeError("working_dir missing in conversation info: " + str(info))
+        return working_dir
+
+    @property
+    def persistence_dir(self):
+        """The persistence directory (fetched from remote)."""
+        info = self._get_conversation_info()
+        persistence_dir = info.get("persistence_dir")
+        if persistence_dir is None:
+            raise RuntimeError(
+                "persistence_dir missing in conversation info: " + str(info)
+            )
+        return persistence_dir
+
     def model_dump(self, **kwargs):
         """Get a dictionary representation of the remote state."""
         info = self._get_conversation_info()
@@ -291,6 +311,7 @@ class RemoteConversation(RemoteSystemMixin, BaseConversation):
         self,
         agent: AgentBase,
         host: str,
+        working_dir: str,
         api_key: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -304,11 +325,14 @@ class RemoteConversation(RemoteSystemMixin, BaseConversation):
         Args:
             agent: Agent configuration (will be sent to the server)
             host: Base URL of the agent server (e.g., http://localhost:3000)
+            working_dir: The working directory for agent operations and tool execution.
             api_key: Optional API key for authentication (sent as X-Session-API-Key
                 header)
             conversation_id: Optional existing conversation id to attach to
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
+            stuck_detection: Whether to enable stuck detection on server
+            visualize: Whether to enable the default visualizer callback
         """
         self.agent = agent
         self._host = host.rstrip("/")
@@ -331,6 +355,7 @@ class RemoteConversation(RemoteSystemMixin, BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
+                "working_dir": working_dir,
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()
