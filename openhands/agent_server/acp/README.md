@@ -24,11 +24,23 @@ The ACP implementation uses the [agent-client-protocol](https://github.com/PsiAC
 ### Starting the ACP Server
 
 ```bash
+# Using the binary (recommended)
+./dist/openhands-acp-server --persistence-dir /tmp/acp_data
+
 # Via main CLI
 python -m openhands.agent_server --mode acp --persistence-dir /tmp/acp_data
 
 # Direct module execution
 python -m openhands.agent_server.acp --persistence-dir /tmp/acp_data
+```
+
+### Building the Binary
+
+```bash
+# Build the standalone executable
+make build-acp-server
+
+# The binary will be created at: ./dist/openhands-acp-server
 ```
 
 ### Editor Integration
@@ -43,10 +55,8 @@ Add to your Zed `settings.json`:
 {
   "agent_servers": {
     "OpenHands": {
-      "command": "/path/to/python",
+      "command": "/path/to/openhands-acp-server",
       "args": [
-        "-m", "openhands.agent_server",
-        "--mode", "acp",
         "--persistence-dir", "/tmp/openhands_acp"
       ],
       "env": {
@@ -65,10 +75,10 @@ Add to your Zed `settings.json`:
   "jsonrpc": "2.0",
   "method": "initialize",
   "params": {
-    "protocolVersion": "1.0.0",
+    "protocolVersion": 1,
     "clientCapabilities": {
-      "fs": {"readTextFile": true},
-      "terminal": false
+      "fs": {"readTextFile": true, "writeTextFile": true},
+      "terminal": true
     }
   },
   "id": 1
@@ -81,7 +91,8 @@ Add to your Zed `settings.json`:
   "jsonrpc": "2.0",
   "method": "session/new",
   "params": {
-    "workingDirectory": "/path/to/project"
+    "cwd": "/path/to/project",
+    "mcpServers": []
   },
   "id": 2
 }
@@ -94,11 +105,40 @@ Add to your Zed `settings.json`:
   "method": "session/prompt",
   "params": {
     "sessionId": "session-uuid",
-    "prompt": [
-      {"type": "text", "text": "Help me write a Python function"}
-    ]
+    "prompt": "Help me write a Python function"
   },
   "id": 3
+}
+```
+
+### ⚠️ Important: JSON-RPC 2.0 Format Required
+
+The ACP server **requires proper JSON-RPC 2.0 format**. Raw JSON without the JSON-RPC wrapper will be ignored.
+
+❌ **Incorrect (will be ignored):**
+```json
+{
+  "protocolVersion": 1,
+  "clientCapabilities": {
+    "fs": {"readTextFile": true, "writeTextFile": true},
+    "terminal": true
+  }
+}
+```
+
+✅ **Correct:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": 1,
+    "clientCapabilities": {
+      "fs": {"readTextFile": true, "writeTextFile": true},
+      "terminal": true
+    }
+  }
 }
 ```
 

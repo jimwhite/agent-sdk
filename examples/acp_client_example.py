@@ -94,16 +94,20 @@ class ACPClient:
 
 def main() -> int:
     """Main function to demonstrate ACP client usage."""
-    # Server command
-    server_cmd = [
-        sys.executable,
-        "-m",
-        "openhands.agent_server",
-        "--mode",
-        "acp",
-        "--persistence-dir",
-        "/tmp/acp_test",
-    ]
+    # Server command - use the binary if available, otherwise use Python module
+    import os
+
+    binary_path = "./dist/openhands-acp-server"
+    if os.path.exists(binary_path):
+        server_cmd = [binary_path, "--persistence-dir", "/tmp/acp_test"]
+    else:
+        server_cmd = [
+            sys.executable,
+            "-m",
+            "openhands.agent_server.acp",
+            "--persistence-dir",
+            "/tmp/acp_test",
+        ]
 
     client = ACPClient(server_cmd)
 
@@ -115,10 +119,10 @@ def main() -> int:
         init_result = client.send_request(
             "initialize",
             {
-                "protocolVersion": "1.0.0",
+                "protocolVersion": 1,
                 "clientCapabilities": {
-                    "fs": {"readTextFile": True, "writeTextFile": False},
-                    "terminal": False,
+                    "fs": {"readTextFile": True, "writeTextFile": True},
+                    "terminal": True,
                 },
             },
         )
@@ -130,7 +134,7 @@ def main() -> int:
 
         print("\n📝 Step 3: Create new session")
         session_result = client.send_request(
-            "session/new", {"workingDirectory": "/tmp"}
+            "session/new", {"cwd": "/tmp", "mcpServers": []}
         )
         session_id = session_result["sessionId"]
         print(f"✅ Session created: {session_id}")
@@ -140,7 +144,7 @@ def main() -> int:
             "session/prompt",
             {
                 "sessionId": session_id,
-                "prompt": [{"type": "text", "text": "Hello! Can you help me?"}],
+                "prompt": "Hello! Can you help me create a simple Python script?",
             },
         )
         print(f"✅ Prompt response: {prompt_result}")
