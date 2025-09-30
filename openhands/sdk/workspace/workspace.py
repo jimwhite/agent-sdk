@@ -1,6 +1,6 @@
 from typing import Self, overload
 
-from openhands.sdk import get_logger
+from openhands.sdk.logger import get_logger
 from openhands.sdk.workspace.base import BaseWorkspace
 from openhands.sdk.workspace.local import LocalWorkspace
 from openhands.sdk.workspace.remote import RemoteWorkspace
@@ -20,21 +20,24 @@ class Workspace:
     @overload
     def __new__(
         cls: type[Self],
-        working_dir: str,
+        *,
+        working_dir: str = "workspace/project",
     ) -> LocalWorkspace: ...
 
     @overload
     def __new__(
         cls: type[Self],
-        working_dir: str,
+        *,
         host: str,
+        working_dir: str = "workspace/project",
         api_key: str | None = None,
     ) -> RemoteWorkspace: ...
 
     def __new__(
         cls: type[Self],
-        working_dir: str = "workspace/project",
+        *,
         host: str | None = None,
+        working_dir: str = "workspace/project",
         api_key: str | None = None,
     ) -> BaseWorkspace:
         if host:

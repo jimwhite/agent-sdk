@@ -1,10 +1,9 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
-from openhands.sdk.conversation.system_mixins.base import SystemMixin
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import Message
 from openhands.sdk.security.confirmation_policy import (
@@ -61,7 +60,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
 
-class BaseConversation(SystemMixin):
+class BaseConversation(ABC):
     @property
     @abstractmethod
     def id(self) -> ConversationID: ...
