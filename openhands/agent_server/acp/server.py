@@ -23,6 +23,7 @@ from acp.schema import (
     AgentCapabilities,
     AuthenticateRequest,
     AuthenticateResponse,
+    AuthMethod,
     CancelNotification,
     ContentBlock1,
     LoadSessionRequest,
@@ -59,6 +60,7 @@ class OpenHandsACPAgent(ACPAgent):
 
         # Session management
         self._sessions: dict[str, str] = {}  # session_id -> conversation_id
+        self._llm_config: dict[str, Any] = {}  # Store LLM configuration from auth
 
         # Initialize conversation service (will be started in async method)
         self._conversation_service = ConversationService(
@@ -83,6 +85,16 @@ class OpenHandsACPAgent(ACPAgent):
 
         return InitializeResponse(
             protocolVersion=params.protocolVersion,
+            authMethods=[
+                AuthMethod(
+                    id="llm_config",
+                    name="LLM Configuration",
+                    description=(
+                        "Configure LLM settings including model, API key, "
+                        "and other parameters"
+                    ),
+                )
+            ],
             agentCapabilities=AgentCapabilities(
                 loadSession=False,
                 mcpCapabilities=McpCapabilities(http=False, sse=False),
@@ -97,9 +109,136 @@ class OpenHandsACPAgent(ACPAgent):
     async def authenticate(
         self, params: AuthenticateRequest
     ) -> AuthenticateResponse | None:
-        """Authenticate the client (no-op for now)."""
-        logger.info("Authentication requested (no-op)")
-        return AuthenticateResponse()
+        """Authenticate the client and configure LLM settings."""
+        logger.info(f"Authentication requested with method: {params.methodId}")
+
+        if params.methodId == "llm_config":
+            # Extract LLM configuration from the _meta field
+            if params.field_meta:
+                llm_config = params.field_meta
+                logger.info("Received LLM configuration via authentication")
+
+                # Validate and store LLM configuration
+                self._llm_config = self._validate_llm_config(llm_config)
+                logger.info(
+                    f"LLM configuration stored: {list(self._llm_config.keys())}"
+                )
+            else:
+                logger.warning("No LLM configuration provided in authentication")
+
+            return AuthenticateResponse()
+        else:
+            logger.error(f"Unsupported authentication method: {params.methodId}")
+            return None
+
+    def _validate_llm_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Validate and sanitize LLM configuration."""
+        # Define allowed LLM configuration parameters based on the LLM class
+        allowed_params = {
+            "model",
+            "api_key",
+            "base_url",
+            "api_version",
+            "aws_access_key_id",
+            "aws_secret_access_key",
+            "aws_region_name",
+            "openrouter_site_url",
+            "openrouter_app_name",
+            "num_retries",
+            "retry_multiplier",
+            "retry_min_wait",
+            "retry_max_wait",
+            "timeout",
+            "max_message_chars",
+            "temperature",
+            "top_p",
+            "top_k",
+            "custom_llm_provider",
+            "max_input_tokens",
+            "max_output_tokens",
+            "input_cost_per_token",
+            "output_cost_per_token",
+            "ollama_base_url",
+            "drop_params",
+            "modify_params",
+            "disable_vision",
+            "disable_stop_word",
+            "caching_prompt",
+            "log_completions",
+            "log_completions_folder",
+            "custom_tokenizer",
+            "native_tool_calling",
+            "reasoning_effort",
+            "seed",
+            "safety_settings",
+        }
+
+        # Filter and validate configuration
+        validated_config = {}
+        for key, value in config.items():
+            if key in allowed_params and value is not None:
+                validated_config[key] = value
+            elif key not in allowed_params:
+                logger.warning(f"Unknown LLM parameter ignored: {key}")
+
+        return validated_config
+
+    def _create_llm_from_config(self) -> LLM:
+        """Create an LLM instance using stored configuration or defaults."""
+        import os
+
+        # Start with default configuration
+        llm_kwargs: dict[str, Any] = {
+            "service_id": "acp-agent",
+            "model": "claude-sonnet-4-20250514",  # Default model
+        }
+
+        # Apply user-provided configuration from authentication
+        if self._llm_config:
+            # Type-safe update of configuration
+            for key, value in self._llm_config.items():
+                llm_kwargs[key] = value
+            logger.info(
+                f"Using authenticated LLM config: {list(self._llm_config.keys())}"
+            )
+        else:
+            # Fallback to environment variables if no auth config provided
+            logger.info("No authenticated LLM config, using environment/defaults")
+
+            # Try to get API key from environment
+            api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+            if api_key:
+                llm_kwargs["api_key"] = api_key
+
+                # Configure for litellm proxy if available
+                if os.getenv("LITELLM_API_KEY"):
+                    llm_kwargs.update(
+                        {
+                            "model": (
+                                "litellm_proxy/anthropic/claude-sonnet-4-5-20250929"
+                            ),
+                            "base_url": "https://llm-proxy.eval.all-hands.dev",
+                            "drop_params": True,
+                        }
+                    )
+                else:
+                    llm_kwargs["model"] = "gpt-4o-mini"
+            else:
+                logger.warning("No API key found. Agent responses may not work.")
+                llm_kwargs["api_key"] = "dummy-key"
+
+        # Convert api_key to SecretStr if it's a string
+        if "api_key" in llm_kwargs and isinstance(llm_kwargs["api_key"], str):
+            llm_kwargs["api_key"] = SecretStr(llm_kwargs["api_key"])
+
+        # Convert other secret fields to SecretStr if needed
+        secret_fields = ["aws_access_key_id", "aws_secret_access_key"]
+        for field in secret_fields:
+            if field in llm_kwargs and isinstance(llm_kwargs[field], str):
+                llm_kwargs[field] = SecretStr(llm_kwargs[field])
+
+        logger.info(f"Creating LLM with model: {llm_kwargs.get('model', 'unknown')}")
+        return LLM(**llm_kwargs)
 
     async def newSession(self, params: NewSessionRequest) -> NewSessionResponse:
         """Create a new conversation session."""
@@ -107,31 +246,7 @@ class OpenHandsACPAgent(ACPAgent):
         session_id = str(uuid.uuid4())
 
         # Create a properly configured agent for the conversation
-        import os
-
-        # Try to get API key from environment
-        api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning(
-                "No API key found in environment. Agent responses may not work."
-            )
-            api_key = "dummy-key"
-
-        # Configure LLM based on available API key
-        if os.getenv("LITELLM_API_KEY"):
-            llm = LLM(
-                service_id="acp-agent",
-                model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-                base_url="https://llm-proxy.eval.all-hands.dev",
-                api_key=SecretStr(api_key),
-                drop_params=True,
-            )
-        else:
-            llm = LLM(
-                service_id="acp-agent",
-                model="gpt-4o-mini",
-                api_key=SecretStr(api_key),
-            )
+        llm = self._create_llm_from_config()
 
         agent = get_default_agent(llm=llm, cli_mode=True)
 
