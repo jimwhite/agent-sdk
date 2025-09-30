@@ -12,7 +12,7 @@ This repository contains three main packages:
 
 - **`openhands-sdk`**: Core SDK functionality including agents, conversations, LLM integration, and tool system
 - **`openhands-tools`**: Runtime tool implementations (BashTool, FileEditorTool, TaskTrackerTool, BrowserToolSet)
-- **`openhands-agent-server`**: REST API and WebSocket server for remote agent interactions
+- **`openhands-agent-server`**: REST API, WebSocket server, and Agent Client Protocol (ACP) support for remote agent interactions
 
 ## Repository Structure
 
@@ -312,6 +312,7 @@ if __name__ == "__main__":
 The agent server provides:
 - REST API endpoints for agent management
 - WebSocket connections for real-time conversations
+- Agent Client Protocol (ACP) support for editor integration
 - Authentication and session management
 - Scalable deployment options
 
@@ -321,6 +322,26 @@ The agent server provides:
 - `GET /conversations/{id}` - Get conversation details
 - `POST /conversations/{id}/messages` - Send message to conversation
 - `WebSocket /ws/{conversation_id}` - Real-time conversation updates
+
+### Agent Client Protocol (ACP)
+
+The server supports ACP for integration with editors like Zed, Vim, and other ACP-compatible tools:
+
+```bash
+# Start in ACP mode
+python -m openhands.agent_server --mode acp
+
+# Or directly
+python -m openhands.agent_server.acp
+```
+
+ACP provides:
+- JSON-RPC 2.0 transport over stdin/stdout
+- Baseline methods: `initialize`, `authenticate`, `session/new`, `session/prompt`
+- Session management and conversation mapping
+- Editor integration for Zed, Vim, and other ACP-compatible editors
+
+See `examples/acp_client_example.py` for usage examples and `openhands/agent_server/acp/README.md` for detailed documentation.
 
 ## Documentation
 
