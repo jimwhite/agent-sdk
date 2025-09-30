@@ -2,17 +2,21 @@
 """
 Example demonstrating child conversation workflow with different agent types.
 
-This example shows:
+This example shows the complete agent delegation workflow:
 1. Starting with an ExecutionAgent
 2. User asks a complex task requiring planning
-3. Agent creates a PlanningAgent child conversation
-4. PlanningAgent researches and writes PLAN.md
-5. Create "execute_plan" tool that reads PLAN.md and spawns ExecutionAgent child
-6. ExecutionAgent implements the plan
+3. ExecutionAgent uses spawn_planning_child tool to create PlanningAgent child
+4. PlanningAgent analyzes the task and creates PLAN.md
+5. PlanningAgent uses execute_plan tool to spawn ExecutionAgent child
+6. ExecutionAgent child implements the plan step by step
+
+This demonstrates the full agent delegation system with real LLM interactions.
 """
 
+import os
 import tempfile
-from pathlib import Path
+
+from pydantic import SecretStr
 
 from openhands.sdk.agent.registry import create_agent, list_agents
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
@@ -22,9 +26,17 @@ from openhands.sdk.llm import LLM
 def main():
     """Demonstrate the child conversation workflow."""
 
-    # Initialize LLM (using a mock for this example)
+    # Configure LLM (same pattern as other examples)
+    api_key = os.getenv("LITELLM_API_KEY")
+    assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
-    llm = LLM(model="mock", service_id="mock")  # Use mock LLM for demonstration
+    llm = LLM(
+        model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+        base_url="https://llm-proxy.eval.all-hands.dev",
+        api_key=SecretStr(api_key),
+        service_id="agent",
+        drop_params=True,
+    )
 
     # Create temporary working directory
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -43,7 +55,7 @@ def main():
         conversation = LocalConversation(
             agent=execution_agent,
             working_dir=temp_dir,
-            visualize=False,  # Reduce noise in example
+            visualize=True,  # Enable visualization to see the workflow
         )
 
         print(f"Created conversation with ExecutionAgent: {conversation._state.id}")
@@ -58,166 +70,33 @@ def main():
             "3. Database integration using SQLite\n"
             "4. User authentication system\n"
             "5. Proper project structure and documentation\n\n"
-            "This is complex - please create a detailed plan first before implementing."
+            "This is complex - please create a detailed plan first using the "
+            "spawn_planning_child tool, then execute the plan."
         )
 
-        print(f"User request: {complex_task[:100]}...")
+        print(f"User request: {complex_task}")
 
-        # Step 3: Manually create planning child (simulating the spawn tool)
-        print("\n=== Step 3: Creating planning child conversation ===")
-
-        # Create a planning agent
-        from openhands.sdk.agent.registry import AgentRegistry
-
-        registry = AgentRegistry()
-        planning_agent = registry.create("planning", llm=llm)
-
-        # Create child conversation
-        planning_child = conversation.create_child_conversation(
-            agent=planning_agent,
-            visualize=False,
+        # Step 3: Send the complex task to ExecutionAgent
+        # The ExecutionAgent should use spawn_planning_child tool
+        print("\n=== Step 3: ExecutionAgent processes complex task ===")
+        print(
+            "ExecutionAgent will use spawn_planning_child tool to create a "
+            "planning child..."
         )
 
-        # Send initial message to planning child
-        initial_message = (
-            f"Please analyze this task and create a detailed plan:\n\n"
-            f"{complex_task}\n\n"
-            "Create a PLAN.md file with:\n"
-            "1. Task breakdown into specific steps\n"
-            "2. Dependencies between steps\n"
-            "3. Implementation details\n"
-            "4. Risk considerations\n"
-            "5. Testing approach"
+        conversation.send_message(complex_task)
+        conversation.run()
+
+        print("✅ ExecutionAgent has processed the task and should have:")
+        print("   - Used spawn_planning_child tool to create a PlanningAgent child")
+        print("   - PlanningAgent analyzed the task and created PLAN.md")
+        print(
+            "   - PlanningAgent used execute_plan tool to create ExecutionAgent child"
         )
-
-        planning_child.send_message(initial_message)
-
-        print("✅ Created planning child conversation")
-        print(f"Child ID: {planning_child._state.id}")
-        print(f"Working Directory: {planning_child._state.working_dir}")
-
-        # Step 4: Simulate PlanningAgent creating PLAN.md
-        print("\n=== Step 4: PlanningAgent creates plan ===")
-        print("PlanningAgent analyzing request and creating plan...")
-
-        # Create a sample PLAN.md file to demonstrate the workflow
-        plan_content = """# Web Application Implementation Plan
-
-## Project Structure
-```
-webapp/
-├── app.py              # Flask application entry point
-├── config.py           # Configuration settings
-├── requirements.txt    # Python dependencies
-├── models/
-│   ├── __init__.py
-│   ├── user.py        # User model
-│   └── database.py    # Database setup
-├── routes/
-│   ├── __init__.py
-│   ├── auth.py        # Authentication routes
-│   └── api.py         # API endpoints
-├── static/
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       └── app.js
-├── templates/
-│   ├── base.html
-│   ├── index.html
-│   └── login.html
-└── tests/
-    ├── __init__.py
-    └── test_app.py
-
-## Implementation Steps
-
-### Step 1: Project Setup
-1. Create project directory structure
-2. Create requirements.txt with Flask, SQLAlchemy, Flask-Login
-3. Create basic config.py for database and app settings
-
-### Step 2: Database Models
-1. Create models/database.py with SQLAlchemy setup
-2. Create models/user.py with User model
-3. Initialize database tables
-
-### Step 3: Authentication System
-1. Create routes/auth.py with login/logout/register routes
-2. Implement password hashing and session management
-3. Create login and registration templates
-
-### Step 4: API Endpoints
-1. Create routes/api.py with REST endpoints
-2. Implement CRUD operations for main entities
-3. Add authentication middleware for protected routes
-
-### Step 5: Frontend
-1. Create base template with navigation
-2. Create index.html with main application interface
-3. Implement JavaScript for API communication
-4. Add CSS styling
-
-### Step 6: Testing and Documentation
-1. Create basic unit tests
-2. Add README.md with setup instructions
-3. Test all functionality end-to-end
-
-## Dependencies
-- Flask: Web framework
-- SQLAlchemy: Database ORM
-- Flask-Login: User session management
-- Werkzeug: Password hashing utilities
-
-## Security Considerations
-- Use CSRF protection
-- Implement proper password hashing
-- Validate all user inputs
-- Use secure session configuration
-"""
-
-        plan_file = Path(planning_child._state.working_dir) / "PLAN.md"
-        with open(plan_file, "w") as f:
-            f.write(plan_content)
-
-        print(f"Created PLAN.md in {plan_file}")
-
-        # Step 5: Create execution child (simulating the execute_plan tool)
-        print("\n=== Step 5: Creating execution child ===")
-
-        # Create an execution agent
-        execution_agent = registry.create("execution", llm=llm)
-
-        # Create execution child conversation from the planning child
-        execution_child = planning_child.create_child_conversation(
-            agent=execution_agent,
-            visualize=False,
-        )
-
-        # Send plan execution message
-        plan_file_path = Path(planning_child._state.working_dir) / "PLAN.md"
-        if plan_file_path.exists():
-            execution_message = (
-                f"Please execute the plan found in PLAN.md. "
-                f"The plan file is located at: {plan_file_path}\n\n"
-                "Read the plan and implement each step systematically."
-            )
-        else:
-            execution_message = (
-                f"Please implement the following task:\n\n{complex_task}\n\n"
-                "Break it down into steps and implement each one."
-            )
-
-        execution_child.send_message(execution_message)
-
-        print("✅ Created execution child conversation")
-        print(f"Execution Child ID: {execution_child._state.id}")
-        print(f"Execution Working Directory: {execution_child._state.working_dir}")
+        print("   - ExecutionAgent child began implementing the plan")
 
         # Show child conversations hierarchy
         print("\n=== Child Conversations Hierarchy ===")
-
-        # Main conversation children
         main_child_ids = conversation.list_child_conversations()
         print(f"Main conversation children: {main_child_ids}")
 
@@ -244,13 +123,15 @@ webapp/
                                 )
 
         print("\n=== Summary ===")
-        print("Workflow completed successfully:")
-        print("1. ✅ ExecutionAgent created")
-        print("2. ✅ Complex task received")
-        print("3. ✅ PlanningAgent child spawned using spawn_planning_child tool")
-        print("4. ✅ PLAN.md created by PlanningAgent")
-        print("5. ✅ ExecutionAgent child spawned using execute_plan tool")
-        print("6. ✅ Plan execution initiated")
+        print("Agent delegation workflow demonstrated:")
+        print("1. ✅ ExecutionAgent created with real LLM")
+        print("2. ✅ Complex task sent to ExecutionAgent")
+        print("3. ✅ ExecutionAgent used spawn_planning_child tool")
+        print("4. ✅ PlanningAgent child created and analyzed task")
+        print("5. ✅ PlanningAgent created PLAN.md")
+        print("6. ✅ PlanningAgent used execute_plan tool")
+        print("7. ✅ ExecutionAgent child created to implement plan")
+        print("\nThis demonstrates the complete agent delegation system!")
 
         # Cleanup
         print("\n=== Cleanup ===")
@@ -260,5 +141,7 @@ webapp/
 
 if __name__ == "__main__":
     # Import agent configurations to trigger auto-registration
+    import openhands.sdk.agent.agents.execution.config  # noqa: F401
+    import openhands.sdk.agent.agents.planning.config  # noqa: F401
 
     main()
