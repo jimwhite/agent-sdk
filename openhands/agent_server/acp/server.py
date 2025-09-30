@@ -31,18 +31,41 @@ from acp.schema import (
     McpCapabilities,
     PromptCapabilities,
     SessionUpdate2,
+    SessionUpdate4,
+    SessionUpdate5,
     SetSessionModeRequest,
     SetSessionModeResponse,
+    ToolCallContent1,
 )
 from pydantic import SecretStr
 
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.models import StartConversationRequest
 from openhands.sdk import LLM, ImageContent, Message, TextContent
+from openhands.sdk.event.llm_convertible.action import ActionEvent
+from openhands.sdk.event.llm_convertible.observation import (
+    AgentErrorEvent,
+    ObservationEvent,
+    UserRejectObservation,
+)
 from openhands.tools.preset.default import get_default_agent
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_tool_kind(tool_name: str) -> str:
+    """Map tool names to ACP ToolKind values."""
+    tool_kind_mapping = {
+        "execute_bash": "execute",
+        "str_replace_editor": "edit",  # Can be read or edit depending on operation
+        "browser_use": "fetch",
+        "task_tracker": "think",
+        "file_editor": "edit",
+        "bash": "execute",
+        "browser": "fetch",
+    }
+    return tool_kind_mapping.get(tool_name, "other")
 
 
 class OpenHandsACPAgent(ACPAgent):
@@ -328,8 +351,113 @@ class OpenHandsACPAgent(ACPAgent):
                     self.conn = conn
 
                 async def __call__(self, event):
-                    # Send all LLMConvertibleEvent events as session updates
-                    if isinstance(event, LLMConvertibleEvent):
+                    # Handle different event types
+                    if isinstance(event, ActionEvent):
+                        # Send tool_call notification for ActionEvent
+                        try:
+                            tool_kind = _get_tool_kind(event.tool_name)
+
+                            # Create a human-readable title
+                            action_name = event.action.__class__.__name__
+                            title = f"{action_name} with {event.tool_name}"
+
+                            # Extract thought content as text
+                            thought_text = " ".join([t.text for t in event.thought])
+
+                            await self.conn.sessionUpdate(
+                                SessionNotification(
+                                    sessionId=self.session_id,
+                                    update=SessionUpdate4(
+                                        sessionUpdate="tool_call",
+                                        toolCallId=event.tool_call_id,
+                                        title=title,
+                                        kind=tool_kind,
+                                        status="pending",
+                                        content=[
+                                            ToolCallContent1(
+                                                type="content",
+                                                content=ContentBlock1(
+                                                    type="text",
+                                                    text=thought_text
+                                                    if thought_text.strip()
+                                                    else f"Executing {action_name}",
+                                                ),
+                                            )
+                                        ]
+                                        if thought_text.strip()
+                                        else None,
+                                        rawInput=event.tool_call.function.arguments
+                                        if hasattr(
+                                            event.tool_call.function, "arguments"
+                                        )
+                                        else None,
+                                    ),
+                                )
+                            )
+                        except Exception as e:
+                            logger.debug(f"Error processing ActionEvent: {e}")
+
+                    elif isinstance(
+                        event,
+                        (ObservationEvent, UserRejectObservation, AgentErrorEvent),
+                    ):
+                        # Send tool_call_update notification for observation events
+                        try:
+                            if isinstance(event, ObservationEvent):
+                                # Successful tool execution
+                                status = "completed"
+                                # Extract content from observation
+                                content_parts = []
+                                for item in event.observation.agent_observation:
+                                    if isinstance(item, TextContent):
+                                        content_parts.append(item.text)
+                                    elif hasattr(item, "text") and not isinstance(
+                                        item, ImageContent
+                                    ):
+                                        content_parts.append(getattr(item, "text"))
+                                    else:
+                                        content_parts.append(str(item))
+                                content_text = "".join(content_parts)
+                            elif isinstance(event, UserRejectObservation):
+                                # User rejected the action
+                                status = "failed"
+                                content_text = (
+                                    f"User rejected: {event.rejection_reason}"
+                                )
+                            else:  # AgentErrorEvent
+                                # Agent error
+                                status = "failed"
+                                content_text = f"Error: {event.error}"
+
+                            await self.conn.sessionUpdate(
+                                SessionNotification(
+                                    sessionId=self.session_id,
+                                    update=SessionUpdate5(
+                                        sessionUpdate="tool_call_update",
+                                        toolCallId=event.tool_call_id,
+                                        status=status,
+                                        content=[
+                                            ToolCallContent1(
+                                                type="content",
+                                                content=ContentBlock1(
+                                                    type="text",
+                                                    text=content_text,
+                                                ),
+                                            )
+                                        ]
+                                        if content_text.strip()
+                                        else None,
+                                        rawOutput={"result": content_text}
+                                        if content_text.strip()
+                                        else None,
+                                    ),
+                                )
+                            )
+                        except Exception as e:
+                            logger.debug(f"Error processing observation event: {e}")
+
+                    elif isinstance(event, LLMConvertibleEvent):
+                        # Handle other LLMConvertibleEvent events as before
                         try:
                             llm_message = event.to_llm_message()
 
