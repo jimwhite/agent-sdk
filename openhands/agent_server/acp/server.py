@@ -36,7 +36,8 @@ from pydantic import SecretStr
 
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.models import StartConversationRequest
-from openhands.sdk import LLM, Agent, Message, TextContent
+from openhands.sdk import LLM, Message, TextContent
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = logging.getLogger(__name__)
@@ -105,14 +106,34 @@ class OpenHandsACPAgent(ACPAgent):
         await self._ensure_service_started()
         session_id = str(uuid.uuid4())
 
-        # Create a minimal agent for the conversation
-        agent = Agent(
-            llm=LLM(
-                service_id="acp-agent",
-                model="gpt-4o-mini",  # Default model
-                api_key=SecretStr("dummy-key"),  # Will be overridden by environment
+        # Create a properly configured agent for the conversation
+        import os
+
+        # Try to get API key from environment
+        api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.warning(
+                "No API key found in environment. Agent responses may not work."
             )
-        )
+            api_key = "dummy-key"
+
+        # Configure LLM based on available API key
+        if os.getenv("LITELLM_API_KEY"):
+            llm = LLM(
+                service_id="acp-agent",
+                model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+                base_url="https://llm-proxy.eval.all-hands.dev",
+                api_key=SecretStr(api_key),
+                drop_params=True,
+            )
+        else:
+            llm = LLM(
+                service_id="acp-agent",
+                model="gpt-4o-mini",
+                api_key=SecretStr(api_key),
+            )
+
+        agent = get_default_agent(llm=llm, cli_mode=True)
 
         # Create a new conversation
         create_request = StartConversationRequest(
@@ -180,6 +201,9 @@ class OpenHandsACPAgent(ACPAgent):
             # Send the message and listen for events
             message = Message(role="user", content=[TextContent(text=prompt_text)])
             await event_service.send_message(message)
+
+            # Start the agent processing in the background
+            asyncio.create_task(event_service.run())
 
             # Listen to events and stream them back
             agent_response_content = []
