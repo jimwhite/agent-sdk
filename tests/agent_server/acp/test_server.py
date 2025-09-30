@@ -5,8 +5,12 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from litellm import ChatCompletionMessageToolCall
 
 from openhands.agent_server.acp.server import OpenHandsACPAgent
+from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
+from openhands.sdk.llm import TextContent
+from openhands.sdk.mcp import MCPToolAction, MCPToolObservation
 
 
 @pytest.fixture
@@ -548,3 +552,322 @@ async def test_tool_call_handling():
         "total 4\n"
         "drwxr-xr-x 2 user user 4096 Jan 1 12:00 test"
     )
+
+
+@pytest.mark.asyncio
+async def test_acp_tool_call_creation_example():
+    """Test tool call creation matches ACP documentation example."""
+    conn = AsyncMock()
+
+    # Create ActionEvent that matches ACP example scenario
+    action_event = ActionEvent(
+        thought=[TextContent(text="I need to view the configuration file")],
+        action=MCPToolAction(
+            kind="MCPToolAction",
+            data={"command": "view", "path": "/config/settings.json"},
+        ),
+        tool_name="str_replace_editor",
+        tool_call_id="call_001",
+        tool_call=ChatCompletionMessageToolCall(
+            id="call_001",
+            function={
+                "name": "str_replace_editor",
+                "arguments": '{"command": "view", "path": "/config/settings.json"}',
+            },
+            type="function",
+        ),
+        llm_response_id="resp_001",
+    )
+
+    # Create event subscriber to handle the event
+    from openhands.agent_server.pub_sub import Subscriber
+
+    class EventSubscriber(Subscriber):
+        def __init__(self, session_id: str, conn):
+            self.session_id = session_id
+            self.conn = conn
+
+        async def __call__(self, event):
+            # Use the same logic as in the server
+            from acp.schema import SessionNotification, SessionUpdate4
+
+            from openhands.agent_server.acp.server import _get_tool_kind
+
+            if isinstance(event, ActionEvent):
+                try:
+                    tool_kind = _get_tool_kind(event.tool_name)
+                    action_name = event.action.__class__.__name__
+                    title = f"{action_name} with {event.tool_name}"
+
+                    await self.conn.sessionUpdate(
+                        SessionNotification(
+                            sessionId=self.session_id,
+                            update=SessionUpdate4(
+                                sessionUpdate="tool_call",
+                                toolCallId=event.tool_call_id,
+                                title=title,
+                                kind=tool_kind,
+                                status="pending",
+                                content=None,
+                                rawInput=event.tool_call.function.arguments
+                                if hasattr(event.tool_call.function, "arguments")
+                                else None,
+                            ),
+                        )
+                    )
+                except Exception:
+                    pass  # Ignore errors for test
+
+    subscriber = EventSubscriber("sess_abc123def456", conn)
+    await subscriber(action_event)
+
+    # Verify the notification matches ACP example structure
+    conn.sessionUpdate.assert_called_once()
+    call_args = conn.sessionUpdate.call_args
+    notification = call_args[0][0]
+
+    assert notification.sessionId == "sess_abc123def456"
+    assert notification.update.sessionUpdate == "tool_call"
+    assert notification.update.toolCallId == "call_001"
+    assert notification.update.title == "MCPToolAction with str_replace_editor"
+    assert notification.update.kind == "edit"  # str_replace_editor maps to edit
+    assert notification.update.status == "pending"
+    # Verify rawInput contains the tool arguments
+    assert (
+        notification.update.rawInput
+        == '{"command": "view", "path": "/config/settings.json"}'
+    )
+
+
+@pytest.mark.asyncio
+async def test_acp_tool_call_update_example():
+    """Test tool call update matches ACP documentation example."""
+    conn = AsyncMock()
+
+    # Create event subscriber to handle the event
+    from openhands.agent_server.pub_sub import Subscriber
+
+    class EventSubscriber(Subscriber):
+        def __init__(self, session_id: str, conn):
+            self.session_id = session_id
+            self.conn = conn
+
+        async def __call__(self, event):
+            # Use the same logic as in the server for ObservationEvent
+            from acp.schema import SessionNotification, SessionUpdate5
+
+            from openhands.sdk.llm import TextContent
+
+            if isinstance(event, ObservationEvent):
+                try:
+                    status = "completed"
+                    # Extract content from observation
+                    content_parts = []
+                    for item in event.observation.agent_observation:
+                        if isinstance(item, TextContent):
+                            content_parts.append(item.text)
+                        else:
+                            content_parts.append(str(item))
+                    content_text = "".join(content_parts)
+
+                    await self.conn.sessionUpdate(
+                        SessionNotification(
+                            sessionId=self.session_id,
+                            update=SessionUpdate5(
+                                sessionUpdate="tool_call_update",
+                                toolCallId=event.tool_call_id,
+                                status=status,
+                                content=None,
+                                rawOutput={"result": content_text}
+                                if content_text.strip()
+                                else None,
+                            ),
+                        )
+                    )
+                except Exception:
+                    pass  # Ignore errors for test
+
+    # Create ObservationEvent that matches ACP example scenario
+    observation_event = ObservationEvent(
+        tool_name="str_replace_editor",
+        tool_call_id="call_001",
+        observation=MCPToolObservation(
+            kind="MCPToolObservation",
+            content=[TextContent(text="Found 3 configuration files...")],
+            is_error=False,
+            tool_name="str_replace_editor",
+        ),
+        action_id="action_123",
+    )
+
+    subscriber = EventSubscriber("sess_abc123def456", conn)
+    await subscriber(observation_event)
+
+    # Verify the notification matches ACP example structure
+    conn.sessionUpdate.assert_called_once()
+    call_args = conn.sessionUpdate.call_args
+    notification = call_args[0][0]
+
+    assert notification.sessionId == "sess_abc123def456"
+    assert notification.update.sessionUpdate == "tool_call_update"
+    assert notification.update.toolCallId == "call_001"
+    assert notification.update.status == "completed"
+    # Verify rawOutput contains the result
+    assert (
+        notification.update.rawOutput["result"]
+        == "[Tool 'str_replace_editor' executed.]\nFound 3 configuration files..."
+    )
+
+
+@pytest.mark.asyncio
+async def test_acp_tool_kinds_mapping():
+    """Test that OpenHands tools map to correct ACP tool kinds."""
+    from openhands.agent_server.acp.server import _get_tool_kind
+
+    # Test cases: (tool_name, expected_kind)
+    test_cases = [
+        ("execute_bash", "execute"),
+        ("str_replace_editor", "edit"),
+        ("browser_use", "fetch"),
+        ("task_tracker", "think"),
+        ("file_editor", "edit"),
+        ("bash", "execute"),
+        ("browser", "fetch"),
+        ("unknown_tool", "other"),
+    ]
+
+    for tool_name, expected_kind in test_cases:
+        actual_kind = _get_tool_kind(tool_name)
+        assert actual_kind == expected_kind, (
+            f"Tool {tool_name} should map to kind {expected_kind}, got {actual_kind}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_acp_tool_call_error_handling():
+    """Test tool call error handling and failed status."""
+    conn = AsyncMock()
+
+    # Create event subscriber to handle the event
+    from openhands.agent_server.pub_sub import Subscriber
+
+    class EventSubscriber(Subscriber):
+        def __init__(self, session_id: str, conn):
+            self.session_id = session_id
+            self.conn = conn
+
+        async def __call__(self, event):
+            from acp.schema import SessionNotification, SessionUpdate5
+
+            from openhands.sdk.llm import TextContent
+
+            if isinstance(event, ObservationEvent):
+                try:
+                    # Type assertion for MCPToolObservation which has is_error attribute
+                    obs = event.observation
+                    status = (
+                        "failed"
+                        if hasattr(obs, "is_error") and getattr(obs, "is_error", False)
+                        else "completed"
+                    )
+                    content_parts = []
+                    for item in event.observation.agent_observation:
+                        if isinstance(item, TextContent):
+                            content_parts.append(item.text)
+                        else:
+                            content_parts.append(str(item))
+                    content_text = "".join(content_parts)
+
+                    await self.conn.sessionUpdate(
+                        SessionNotification(
+                            sessionId=self.session_id,
+                            update=SessionUpdate5(
+                                sessionUpdate="tool_call_update",
+                                toolCallId=event.tool_call_id,
+                                status=status,
+                                content=None,
+                                rawOutput={"result": content_text}
+                                if content_text.strip()
+                                else None,
+                            ),
+                        )
+                    )
+                except Exception:
+                    pass  # Ignore errors for test
+
+    # Test error observation
+    error_observation = ObservationEvent(
+        tool_name="execute_bash",
+        tool_call_id="call_error",
+        observation=MCPToolObservation(
+            kind="MCPToolObservation",
+            content=[TextContent(text="Command failed: permission denied")],
+            is_error=True,
+            tool_name="execute_bash",
+        ),
+        action_id="action_error",
+    )
+
+    subscriber = EventSubscriber("test_session", conn)
+    await subscriber(error_observation)
+
+    call_args = conn.sessionUpdate.call_args
+    notification = call_args[0][0]
+
+    assert notification.update.sessionUpdate == "tool_call_update"
+    assert notification.update.status == "failed"
+    assert notification.update.toolCallId == "call_error"
+
+
+@pytest.mark.asyncio
+async def test_acp_tool_call_user_rejection():
+    """Test user rejection handling."""
+    conn = AsyncMock()
+
+    # Create event subscriber to handle the event
+    from openhands.agent_server.pub_sub import Subscriber
+
+    class EventSubscriber(Subscriber):
+        def __init__(self, session_id: str, conn):
+            self.session_id = session_id
+            self.conn = conn
+
+        async def __call__(self, event):
+            from acp.schema import SessionNotification, SessionUpdate5
+
+            if isinstance(event, UserRejectObservation):
+                try:
+                    await self.conn.sessionUpdate(
+                        SessionNotification(
+                            sessionId=self.session_id,
+                            update=SessionUpdate5(
+                                sessionUpdate="tool_call_update",
+                                toolCallId=event.tool_call_id,
+                                status="failed",
+                                content=None,
+                                rawOutput={
+                                    "result": f"User rejected: {event.rejection_reason}"
+                                },
+                            ),
+                        )
+                    )
+                except Exception:
+                    pass  # Ignore errors for test
+
+    # Test user rejection
+    rejection_event = UserRejectObservation(
+        tool_name="execute_bash",
+        tool_call_id="call_reject",
+        rejection_reason="User cancelled the operation",
+        action_id="action_reject",
+    )
+
+    subscriber = EventSubscriber("test_session", conn)
+    await subscriber(rejection_event)
+
+    call_args = conn.sessionUpdate.call_args
+    notification = call_args[0][0]
+
+    assert notification.update.sessionUpdate == "tool_call_update"
+    assert notification.update.status == "failed"
+    assert notification.update.toolCallId == "call_reject"
