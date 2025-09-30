@@ -3,7 +3,7 @@ import re
 from abc import ABC
 from itertools import chain
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Union, cast
+from typing import Annotated, ClassVar, Union
 
 import frontmatter
 from fastmcp.mcp_config import MCPConfig
@@ -152,8 +152,12 @@ class BaseMicroagent(DiscriminatedUnionMixin, ABC):
         else:
             # No triggers, default to REPO
             mcp_tools_raw = metadata_dict.get("mcp_tools")
-            # Type cast to satisfy type checker - validation happens in RepoMicroagent
-            mcp_tools = cast(dict[str, Any] | None, mcp_tools_raw)
+            # Validate mcp_tools type - RepoMicroagent expects dict | None
+            mcp_tools: dict | None = None
+            if mcp_tools_raw is not None:
+                if not isinstance(mcp_tools_raw, dict):
+                    raise MicroagentValidationError("mcp_tools must be a dict")
+                mcp_tools = mcp_tools_raw
             return RepoMicroagent(
                 name=agent_name, content=content, source=str(path), mcp_tools=mcp_tools
             )

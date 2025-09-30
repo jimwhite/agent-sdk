@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from openhands.sdk.context import (
     BaseMicroagent,
@@ -497,10 +496,10 @@ This is a repo microagent with invalid MCP tools configuration.
 
     test_path = Path("invalid-mcp-tools.md")
 
-    # Loading should raise an error (either MicroagentValidationError or AttributeError)
-    with pytest.raises(ValidationError) as excinfo:
+    # Loading should raise an error for invalid mcp_tools type
+    with pytest.raises(MicroagentValidationError) as excinfo:
         BaseMicroagent.load(test_path, file_content=microagent_content)
 
     # Check that the error message contains helpful information
     error_msg = str(excinfo.value)
-    assert "Input should be a valid dictionary" in error_msg
+    assert "mcp_tools must be a dict" in error_msg
