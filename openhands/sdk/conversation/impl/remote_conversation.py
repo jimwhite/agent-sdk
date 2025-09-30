@@ -346,7 +346,7 @@ class RemoteConversation(BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
-                "working_dir": str(self.workspace.working_dir),
+                "workspace": self.workspace.model_dump(),
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()
