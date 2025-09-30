@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
 
 from openhands.sdk.agent.agents.execution.agent import ExecutionAgent
 from openhands.sdk.agent.agents.execution.config import ExecutionAgentConfig
@@ -15,7 +16,9 @@ def mock_llm():
     """Create a test LLM for testing."""
     from openhands.sdk.llm.llm import LLM
 
-    return LLM(model="mock-model", api_key="mock-key", service_id="test-service")
+    return LLM(
+        model="mock-model", api_key=SecretStr("mock-key"), service_id="test-service"
+    )
 
 
 def test_execution_agent_config_properties():

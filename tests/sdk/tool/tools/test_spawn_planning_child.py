@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock, patch
 
+from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.tools.spawn_planning_child import (
     SpawnPlanningChildAction,
     SpawnPlanningChildExecutor,
@@ -40,6 +41,7 @@ def test_spawn_planning_child_observation_success():
     # Test agent observation
     agent_obs = obs.agent_observation
     assert len(agent_obs) == 1
+    assert isinstance(agent_obs[0], TextContent)
     assert "✅" in agent_obs[0].text
     assert "child-123" in agent_obs[0].text
 
@@ -62,6 +64,7 @@ def test_spawn_planning_child_observation_failure():
     # Test agent observation
     agent_obs = obs.agent_observation
     assert len(agent_obs) == 1
+    assert isinstance(agent_obs[0], TextContent)
     assert "❌" in agent_obs[0].text
     assert "Failed to create child" in agent_obs[0].text
 
@@ -78,6 +81,7 @@ def test_spawn_planning_child_executor_no_conversation():
     result = executor(action)
 
     assert result.success is False
+    assert result.error is not None
     assert "No active conversation found" in result.error
 
 
@@ -103,7 +107,7 @@ def test_spawn_planning_child_executor_success(mock_registry_class):
 
     # Create executor and set conversation
     executor = SpawnPlanningChildExecutor()
-    executor._conversation = mock_conversation
+    executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
     # Execute
     action = SpawnPlanningChildAction(task_description="Build a web app")
@@ -136,7 +140,7 @@ def test_spawn_planning_child_executor_failure(mock_registry_class):
 
     # Create executor and set conversation
     executor = SpawnPlanningChildExecutor()
-    executor._conversation = mock_conversation
+    executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
     # Execute
     action = SpawnPlanningChildAction(task_description="Build a web app")
@@ -144,6 +148,7 @@ def test_spawn_planning_child_executor_failure(mock_registry_class):
 
     # Verify
     assert result.success is False
+    assert result.error is not None
     assert "Failed to spawn planning child conversation" in result.error
     assert "Registry error" in result.error
 
@@ -159,6 +164,7 @@ def test_spawn_planning_child_tool_structure():
     assert isinstance(tool.executor, SpawnPlanningChildExecutor)
 
     # Test annotations
+    assert tool.annotations is not None
     assert tool.annotations.readOnlyHint is False
     assert tool.annotations.destructiveHint is False
     assert tool.annotations.idempotentHint is False

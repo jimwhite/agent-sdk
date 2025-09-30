@@ -4,6 +4,7 @@ import os
 import tempfile
 from unittest.mock import Mock, mock_open, patch
 
+from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.tools.execute_plan import (
     ExecutePlanAction,
     ExecutePlanExecutor,
@@ -48,6 +49,7 @@ def test_execute_plan_observation_success():
     # Test agent observation
     agent_obs = obs.agent_observation
     assert len(agent_obs) == 1
+    assert isinstance(agent_obs[0], TextContent)
     assert "✅" in agent_obs[0].text
     assert "exec-123" in agent_obs[0].text
 
@@ -70,6 +72,7 @@ def test_execute_plan_observation_failure():
     # Test agent observation
     agent_obs = obs.agent_observation
     assert len(agent_obs) == 1
+    assert isinstance(agent_obs[0], TextContent)
     assert "❌" in agent_obs[0].text
     assert "Plan file not found" in agent_obs[0].text
 
@@ -86,6 +89,7 @@ def test_execute_plan_executor_no_conversation():
     result = executor(action)
 
     assert result.success is False
+    assert result.error is not None
     assert "No active conversation found" in result.error
 
 
@@ -95,7 +99,7 @@ def test_execute_plan_executor_file_not_found():
     mock_conversation._state.working_dir = "/tmp/test"
 
     executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation
+    executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
     action = ExecutePlanAction(plan_file="PLAN.md")
 
@@ -103,6 +107,7 @@ def test_execute_plan_executor_file_not_found():
         result = executor(action)
 
     assert result.success is False
+    assert result.error is not None
     assert "Plan file PLAN.md not found" in result.error
 
 
@@ -112,7 +117,7 @@ def test_execute_plan_executor_empty_file():
     mock_conversation._state.working_dir = "/tmp/test"
 
     executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation
+    executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
     action = ExecutePlanAction(plan_file="PLAN.md")
 
@@ -123,6 +128,7 @@ def test_execute_plan_executor_empty_file():
         result = executor(action)
 
     assert result.success is False
+    assert result.error is not None
     assert "Plan file PLAN.md is empty" in result.error
 
 
@@ -149,7 +155,7 @@ def test_execute_plan_executor_success(mock_registry_class):
 
     # Create executor and set conversation
     executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation
+    executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
     # Execute
     action = ExecutePlanAction(plan_file="PLAN.md")
@@ -190,7 +196,7 @@ def test_execute_plan_executor_failure(mock_registry_class):
 
     # Create executor and set conversation
     executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation
+    executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
     # Execute
     action = ExecutePlanAction(plan_file="PLAN.md")
@@ -204,6 +210,7 @@ def test_execute_plan_executor_failure(mock_registry_class):
 
     # Verify
     assert result.success is False
+    assert result.error is not None
     assert "Failed to execute plan" in result.error
     assert "Registry error" in result.error
 
@@ -219,6 +226,7 @@ def test_execute_plan_tool_structure():
     assert isinstance(tool.executor, ExecutePlanExecutor)
 
     # Test annotations
+    assert tool.annotations is not None
     assert tool.annotations.readOnlyHint is False
     assert tool.annotations.destructiveHint is False
     assert tool.annotations.idempotentHint is False
@@ -249,7 +257,7 @@ def test_execute_plan_with_real_file():
 
         # Create executor and set conversation
         executor = ExecutePlanExecutor()
-        executor._conversation = mock_conversation
+        executor._conversation = mock_conversation  # type: ignore[attr-defined]
 
         # Execute
         action = ExecutePlanAction(plan_file="PLAN.md")
