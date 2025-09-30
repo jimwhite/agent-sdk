@@ -26,6 +26,7 @@ from acp.schema import (
     AuthMethod,
     CancelNotification,
     ContentBlock1,
+    ContentBlock2,
     LoadSessionRequest,
     McpCapabilities,
     PromptCapabilities,
@@ -37,7 +38,7 @@ from pydantic import SecretStr
 
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.models import StartConversationRequest
-from openhands.sdk import LLM, Message, TextContent
+from openhands.sdk import LLM, ImageContent, Message, TextContent
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -334,27 +335,61 @@ class OpenHandsACPAgent(ACPAgent):
 
                             # Send the event as a session update
                             if llm_message.role == "assistant":
-                                # Extract text content from the message
-                                text_content = ""
+                                # Send all content items from the LLM message
                                 for content_item in llm_message.content:
                                     if isinstance(content_item, TextContent):
-                                        text_content += content_item.text
+                                        if content_item.text.strip():
+                                            # Send text content
+                                            await self.conn.sessionUpdate(
+                                                SessionNotification(
+                                                    sessionId=self.session_id,
+                                                    update=SessionUpdate2(
+                                                        sessionUpdate="agent_message_chunk",
+                                                        content=ContentBlock1(
+                                                            type="text",
+                                                            text=content_item.text,
+                                                        ),
+                                                    ),
+                                                )
+                                            )
+                                    elif isinstance(content_item, ImageContent):
+                                        # Send each image URL as separate content
+                                        for image_url in content_item.image_urls:
+                                            # Determine if it's a URI or base64 data
+                                            is_uri = image_url.startswith(
+                                                ("http://", "https://")
+                                            )
+                                            await self.conn.sessionUpdate(
+                                                SessionNotification(
+                                                    sessionId=self.session_id,
+                                                    update=SessionUpdate2(
+                                                        sessionUpdate="agent_message_chunk",
+                                                        content=ContentBlock2(
+                                                            type="image",
+                                                            data=image_url,
+                                                            mimeType="image/png",
+                                                            uri=image_url
+                                                            if is_uri
+                                                            else None,
+                                                        ),
+                                                    ),
+                                                )
+                                            )
                                     elif isinstance(content_item, str):
-                                        text_content += content_item
-
-                                if text_content.strip():
-                                    # Send streaming update
-                                    await self.conn.sessionUpdate(
-                                        SessionNotification(
-                                            sessionId=self.session_id,
-                                            update=SessionUpdate2(
-                                                sessionUpdate="agent_message_chunk",
-                                                content=ContentBlock1(
-                                                    type="text", text=text_content
-                                                ),
-                                            ),
-                                        )
-                                    )
+                                        if content_item.strip():
+                                            # Send string content as text
+                                            await self.conn.sessionUpdate(
+                                                SessionNotification(
+                                                    sessionId=self.session_id,
+                                                    update=SessionUpdate2(
+                                                        sessionUpdate="agent_message_chunk",
+                                                        content=ContentBlock1(
+                                                            type="text",
+                                                            text=content_item,
+                                                        ),
+                                                    ),
+                                                )
+                                            )
                         except Exception as e:
                             logger.debug(f"Error processing LLMConvertibleEvent: {e}")
 
