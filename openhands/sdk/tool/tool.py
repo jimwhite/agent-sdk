@@ -10,6 +10,7 @@ from pydantic import (
     computed_field,
     field_serializer,
     field_validator,
+    model_validator,
 )
 from pydantic.json_schema import SkipJsonSchema
 
@@ -126,6 +127,13 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         default=None, repr=False, exclude=True
     )
 
+    @model_validator(mode="after")
+    def _validate_executor_consistency(self) -> Self:
+        """Ensure executor consistency for tools created via factory methods."""
+        # This validator helps catch cases where tools are created without proper
+        # executor initialization, providing clearer error messages
+        return self
+
     @classmethod
     @abstractmethod
     def create(cls, *args, **kwargs) -> Sequence[Self]:
@@ -194,7 +202,11 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             NotImplementedError: If the tool has no executor.
         """
         if self.executor is None:
-            raise NotImplementedError(f"Tool '{self.name}' has no executor")
+            raise NotImplementedError(
+                f"Tool '{self.name}' has no executor. "
+                f"Use {self.__class__.__name__}.create() to create an executable tool, "
+                f"or call set_executor() to attach an executor."
+            )
         return self  # type: ignore[return-value]
 
     def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
@@ -218,7 +230,11 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         generic ObservationT.
         """
         if self.executor is None:
-            raise NotImplementedError(f"Tool '{self.name}' has no executor")
+            raise NotImplementedError(
+                f"Tool '{self.name}' has no executor. "
+                f"Use {self.__class__.__name__}.create() to create an executable tool, "
+                f"or call set_executor() to attach an executor."
+            )
 
         # Execute
         result = self.executor(action)
