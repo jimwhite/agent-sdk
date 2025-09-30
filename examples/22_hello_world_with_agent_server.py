@@ -146,9 +146,8 @@ with ManagedAPIServer(port=8001) as server:
         event_tracker["last_event_time"] = time.time()
 
     # Create RemoteConversation with callbacks
+    # NOTE: Workspace is required for RemoteConversation
     workspace = Workspace(host=server.base_url)
-
-    # Try to get pwd
     result = workspace.execute_command("pwd")
     logger.info(f"Result of command execution: {result}")
 
