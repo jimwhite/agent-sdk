@@ -238,8 +238,113 @@ class OpenHandsACPAgent(ACPAgent):
                         event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         timeout_count = 0  # Reset timeout counter
 
-                        # Convert event to LLM message format if it's convertible
-                        if hasattr(event, "to_llm_message"):
+                        # Handle different types of events
+                        from openhands.sdk.event import (
+                            ActionEvent,
+                            MessageEvent,
+                            ObservationEvent,
+                        )
+
+                        if isinstance(event, ActionEvent):
+                            # Send action event (tool execution) as agent_message_chunk
+                            action_text = f"🔧 **{event.tool_name}**"
+                            try:
+                                if hasattr(event.action, "command"):
+                                    cmd = getattr(event.action, "command")
+                                    action_text += f"\n```bash\n{cmd}\n```"
+                                elif hasattr(event.action, "path") and hasattr(
+                                    event.action, "new_str"
+                                ):
+                                    path = getattr(event.action, "path")
+                                    action_text += f"\n📝 Editing file: `{path}`"
+                                elif hasattr(event.action, "path"):
+                                    action_text += (
+                                        f"\n📄 File: `{getattr(event.action, 'path')}`"
+                                    )
+                                else:
+                                    # Generic action display
+                                    action_text += f"\n{str(event.action)[:200]}"
+                            except Exception:
+                                action_text += f"\n{str(event.action)[:200]}"
+
+                            await self._conn.sessionUpdate(
+                                SessionNotification(
+                                    sessionId=session_id,
+                                    update=SessionUpdate2(
+                                        sessionUpdate="agent_message_chunk",
+                                        content=ContentBlock1(
+                                            type="text", text=action_text
+                                        ),
+                                    ),
+                                )
+                            )
+
+                        elif isinstance(event, ObservationEvent):
+                            # Send observation event (tool result)
+                            obs_text = f"📤 **{event.tool_name} Result**"
+                            try:
+                                if hasattr(event.observation, "content"):
+                                    result = str(getattr(event.observation, "content"))[
+                                        :500
+                                    ]
+                                    if (
+                                        len(str(getattr(event.observation, "content")))
+                                        > 500
+                                    ):
+                                        result += "..."
+                                    obs_text += f"\n```\n{result}\n```"
+                                else:
+                                    obs_text += f"\n{str(event.observation)[:500]}"
+                            except Exception:
+                                obs_text += f"\n{str(event.observation)[:500]}"
+
+                            await self._conn.sessionUpdate(
+                                SessionNotification(
+                                    sessionId=session_id,
+                                    update=SessionUpdate2(
+                                        sessionUpdate="agent_message_chunk",
+                                        content=ContentBlock1(
+                                            type="text", text=obs_text
+                                        ),
+                                    ),
+                                )
+                            )
+
+                        elif isinstance(event, MessageEvent):
+                            # Send agent message chunks
+                            try:
+                                if (
+                                    hasattr(event, "role")
+                                    and getattr(event, "role") == "assistant"
+                                ):
+                                    text_content = ""
+                                    if hasattr(event, "content"):
+                                        for content_item in getattr(event, "content"):
+                                            if hasattr(content_item, "text"):
+                                                text_content += content_item.text
+                                            elif isinstance(content_item, str):
+                                                text_content += content_item
+
+                                    if text_content.strip():
+                                        agent_response_content.append(text_content)
+
+                                        # Send streaming update
+                                        await self._conn.sessionUpdate(
+                                            SessionNotification(
+                                                sessionId=session_id,
+                                                update=SessionUpdate2(
+                                                    sessionUpdate="agent_message_chunk",
+                                                    content=ContentBlock1(
+                                                        type="text", text=text_content
+                                                    ),
+                                                ),
+                                            )
+                                        )
+                            except Exception as e:
+                                logger.debug(f"Error processing MessageEvent: {e}")
+
+                        # Fallback: try to convert to LLM message for other events
+                        elif hasattr(event, "to_llm_message"):
                             try:
                                 llm_message = event.to_llm_message()
 
@@ -275,16 +380,21 @@ class OpenHandsACPAgent(ACPAgent):
                                 continue
 
                         # Check if this is a completion event
-                        if (
-                            hasattr(event, "event_type")
-                            and "complete" in str(event.event_type).lower()
-                        ):
-                            break
-                        elif (
-                            hasattr(event, "type")
-                            and "complete" in str(event.type).lower()
-                        ):
-                            break
+                        try:
+                            if (
+                                hasattr(event, "event_type")
+                                and "complete"
+                                in str(getattr(event, "event_type")).lower()
+                            ):
+                                break
+                            elif (
+                                hasattr(event, "type")
+                                and "complete" in str(getattr(event, "type")).lower()
+                            ):
+                                break
+                        except Exception:
+                            # Continue processing if we can't check completion status
+                            pass
 
                     except TimeoutError:
                         timeout_count += 1
