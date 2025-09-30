@@ -142,16 +142,23 @@ class OpenHandsACPAgent(ACPAgent):
 
         conversation_id = self._sessions[session_id]
 
-        # Extract text from prompt content blocks
+        # Extract text from prompt - handle both string and array formats
         prompt_text = ""
-        for block in params.prompt:
-            if isinstance(block, dict):
-                if block.get("type") == "text":
-                    prompt_text += block.get("text", "")
-            else:
-                # Handle ContentBlock objects
-                if hasattr(block, "type") and block.type == "text":
-                    prompt_text += getattr(block, "text", "")
+        if isinstance(params.prompt, str):
+            prompt_text = params.prompt
+        elif isinstance(params.prompt, list):
+            for block in params.prompt:
+                if isinstance(block, dict):
+                    if block.get("type") == "text":
+                        prompt_text += block.get("text", "")
+                else:
+                    # Handle ContentBlock objects
+                    if hasattr(block, "type") and block.type == "text":
+                        prompt_text += getattr(block, "text", "")
+        else:
+            # Handle single ContentBlock object
+            if hasattr(params.prompt, "type") and params.prompt.type == "text":
+                prompt_text = getattr(params.prompt, "text", "")
 
         if not prompt_text.strip():
             return PromptResponse(stopReason="end_turn")
@@ -170,24 +177,100 @@ class OpenHandsACPAgent(ACPAgent):
                     f"No event service for conversation: {conversation_id}"
                 )
 
-            # Send the message
+            # Send the message and listen for events
             message = Message(role="user", content=[TextContent(text=prompt_text)])
             await event_service.send_message(message)
 
-            # For now, just return success - in a full implementation we would
-            # stream the agent's response back via session notifications
-            await self._conn.sessionUpdate(
-                SessionNotification(
-                    sessionId=session_id,
-                    update=SessionUpdate2(
-                        sessionUpdate="agent_message_chunk",
-                        content=ContentBlock1(
-                            type="text", text="Message received and processing started."
-                        ),
-                    ),
-                )
-            )
+            # Listen to events and stream them back
+            agent_response_content = []
 
+            # Create a queue to collect events
+            event_queue = asyncio.Queue()
+
+            # Subscribe to events
+            async def event_handler(event: Any) -> None:
+                await event_queue.put(event)
+
+            from openhands.agent_server.pub_sub import Subscriber
+
+            class EventSubscriber(Subscriber):
+                def __init__(self, handler):
+                    self.handler = handler
+
+                async def __call__(self, event):
+                    await self.handler(event)
+
+            subscriber = EventSubscriber(event_handler)
+            subscriber_id = await event_service.subscribe_to_events(subscriber)
+
+            try:
+                # Process events with timeout
+                timeout_count = 0
+                max_timeout = 30  # 30 seconds timeout
+
+                while timeout_count < max_timeout:
+                    try:
+                        # Wait for events with timeout
+                        event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                        timeout_count = 0  # Reset timeout counter
+
+                        # Convert event to LLM message format if it's convertible
+                        if hasattr(event, "to_llm_message"):
+                            try:
+                                llm_message = event.to_llm_message()
+
+                                # Send the event as a session update
+                                if llm_message.role == "assistant":
+                                    # Extract text content from the message
+                                    text_content = ""
+                                    for content_item in llm_message.content:
+                                        if hasattr(content_item, "text"):
+                                            text_content += content_item.text
+                                        elif isinstance(content_item, str):
+                                            text_content += content_item
+
+                                    if text_content.strip():
+                                        agent_response_content.append(text_content)
+
+                                        # Send streaming update
+                                        await self._conn.sessionUpdate(
+                                            SessionNotification(
+                                                sessionId=session_id,
+                                                update=SessionUpdate2(
+                                                    sessionUpdate="agent_message_chunk",
+                                                    content=ContentBlock1(
+                                                        type="text", text=text_content
+                                                    ),
+                                                ),
+                                            )
+                                        )
+                            except Exception as e:
+                                logger.debug(
+                                    f"Could not convert event to LLM message: {e}"
+                                )
+                                continue
+
+                        # Check if this is a completion event
+                        if (
+                            hasattr(event, "event_type")
+                            and "complete" in str(event.event_type).lower()
+                        ):
+                            break
+                        elif (
+                            hasattr(event, "type")
+                            and "complete" in str(event.type).lower()
+                        ):
+                            break
+
+                    except TimeoutError:
+                        timeout_count += 1
+                        continue
+
+            finally:
+                # Unsubscribe from events
+                await event_service.unsubscribe_from_events(subscriber_id)
+
+            # Return the final response
             return PromptResponse(stopReason="end_turn")
 
         except Exception as e:
