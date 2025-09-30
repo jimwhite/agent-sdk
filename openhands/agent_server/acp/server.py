@@ -26,46 +26,24 @@ from acp.schema import (
     AuthMethod,
     CancelNotification,
     ContentBlock1,
-    ContentBlock2,
     LoadSessionRequest,
     McpCapabilities,
     PromptCapabilities,
     SessionUpdate2,
-    SessionUpdate4,
-    SessionUpdate5,
     SetSessionModeRequest,
     SetSessionModeResponse,
-    ToolCallContent1,
 )
-from pydantic import SecretStr
 
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.models import StartConversationRequest
-from openhands.sdk import LLM, ImageContent, Message, TextContent
-from openhands.sdk.event.llm_convertible.action import ActionEvent
-from openhands.sdk.event.llm_convertible.observation import (
-    AgentErrorEvent,
-    ObservationEvent,
-    UserRejectObservation,
-)
+from openhands.sdk import Message, TextContent
 from openhands.tools.preset.default import get_default_agent
+
+from .events import EventSubscriber
+from .llm_config import create_llm_from_config, validate_llm_config
 
 
 logger = logging.getLogger(__name__)
-
-
-def _get_tool_kind(tool_name: str) -> str:
-    """Map tool names to ACP ToolKind values."""
-    tool_kind_mapping = {
-        "execute_bash": "execute",
-        "str_replace_editor": "edit",  # Can be read or edit depending on operation
-        "browser_use": "fetch",
-        "task_tracker": "think",
-        "file_editor": "edit",
-        "bash": "execute",
-        "browser": "fetch",
-    }
-    return tool_kind_mapping.get(tool_name, "other")
 
 
 class OpenHandsACPAgent(ACPAgent):
@@ -143,7 +121,7 @@ class OpenHandsACPAgent(ACPAgent):
                 logger.info("Received LLM configuration via authentication")
 
                 # Validate and store LLM configuration
-                self._llm_config = self._validate_llm_config(llm_config)
+                self._llm_config = validate_llm_config(llm_config)
                 logger.info(
                     f"LLM configuration stored: {list(self._llm_config.keys())}"
                 )
@@ -155,129 +133,24 @@ class OpenHandsACPAgent(ACPAgent):
             logger.error(f"Unsupported authentication method: {params.methodId}")
             return None
 
-    def _validate_llm_config(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Validate and sanitize LLM configuration."""
-        # Define allowed LLM configuration parameters based on the LLM class
-        allowed_params = {
-            "model",
-            "api_key",
-            "base_url",
-            "api_version",
-            "aws_access_key_id",
-            "aws_secret_access_key",
-            "aws_region_name",
-            "openrouter_site_url",
-            "openrouter_app_name",
-            "num_retries",
-            "retry_multiplier",
-            "retry_min_wait",
-            "retry_max_wait",
-            "timeout",
-            "max_message_chars",
-            "temperature",
-            "top_p",
-            "top_k",
-            "custom_llm_provider",
-            "max_input_tokens",
-            "max_output_tokens",
-            "input_cost_per_token",
-            "output_cost_per_token",
-            "ollama_base_url",
-            "drop_params",
-            "modify_params",
-            "disable_vision",
-            "disable_stop_word",
-            "caching_prompt",
-            "log_completions",
-            "log_completions_folder",
-            "custom_tokenizer",
-            "native_tool_calling",
-            "reasoning_effort",
-            "seed",
-            "safety_settings",
-        }
-
-        # Filter and validate configuration
-        validated_config = {}
-        for key, value in config.items():
-            if key in allowed_params and value is not None:
-                validated_config[key] = value
-            elif key not in allowed_params:
-                logger.warning(f"Unknown LLM parameter ignored: {key}")
-
-        return validated_config
-
-    def _create_llm_from_config(self) -> LLM:
-        """Create an LLM instance using stored configuration or defaults."""
-        import os
-
-        # Start with default configuration
-        llm_kwargs: dict[str, Any] = {
-            "service_id": "acp-agent",
-            "model": "claude-sonnet-4-20250514",  # Default model
-        }
-
-        # Apply user-provided configuration from authentication
-        if self._llm_config:
-            # Type-safe update of configuration
-            for key, value in self._llm_config.items():
-                llm_kwargs[key] = value
-            logger.info(
-                f"Using authenticated LLM config: {list(self._llm_config.keys())}"
-            )
-        else:
-            # Fallback to environment variables if no auth config provided
-            logger.info("No authenticated LLM config, using environment/defaults")
-
-            # Try to get API key from environment
-            api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-            if api_key:
-                llm_kwargs["api_key"] = api_key
-
-                # Configure for litellm proxy if available
-                if os.getenv("LITELLM_API_KEY"):
-                    llm_kwargs.update(
-                        {
-                            "model": (
-                                "litellm_proxy/anthropic/claude-sonnet-4-5-20250929"
-                            ),
-                            "base_url": "https://llm-proxy.eval.all-hands.dev",
-                            "drop_params": True,
-                        }
-                    )
-                else:
-                    llm_kwargs["model"] = "gpt-4o-mini"
-            else:
-                logger.warning("No API key found. Agent responses may not work.")
-                llm_kwargs["api_key"] = "dummy-key"
-
-        # Convert api_key to SecretStr if it's a string
-        if "api_key" in llm_kwargs and isinstance(llm_kwargs["api_key"], str):
-            llm_kwargs["api_key"] = SecretStr(llm_kwargs["api_key"])
-
-        # Convert other secret fields to SecretStr if needed
-        secret_fields = ["aws_access_key_id", "aws_secret_access_key"]
-        for field in secret_fields:
-            if field in llm_kwargs and isinstance(llm_kwargs[field], str):
-                llm_kwargs[field] = SecretStr(llm_kwargs[field])
-
-        logger.info(f"Creating LLM with model: {llm_kwargs.get('model', 'unknown')}")
-        return LLM(**llm_kwargs)
-
     async def newSession(self, params: NewSessionRequest) -> NewSessionResponse:
         """Create a new conversation session."""
         await self._ensure_service_started()
         session_id = str(uuid.uuid4())
 
         # Create a properly configured agent for the conversation
-        llm = self._create_llm_from_config()
+        llm = create_llm_from_config(self._llm_config)
 
         agent = get_default_agent(llm=llm, cli_mode=True)
 
         # Create a new conversation
+        from openhands.sdk.workspace.local import LocalWorkspace
+
+        workspace = LocalWorkspace(working_dir=params.cwd or str(Path.cwd()))
+
         create_request = StartConversationRequest(
             agent=agent,
-            working_dir=params.cwd or str(Path.cwd()),
+            workspace=workspace,
         )
 
         conversation_info = await self._conversation_service.start_conversation(
@@ -341,186 +214,7 @@ class OpenHandsACPAgent(ACPAgent):
             message = Message(role="user", content=[TextContent(text=prompt_text)])
             await event_service.send_message(message)
 
-            # Subscribe to events and send them directly via sessionUpdate
-            from openhands.agent_server.pub_sub import Subscriber
-            from openhands.sdk.event.base import LLMConvertibleEvent
-
-            class EventSubscriber(Subscriber):
-                def __init__(self, session_id: str, conn):
-                    self.session_id = session_id
-                    self.conn = conn
-
-                async def __call__(self, event):
-                    # Handle different event types
-                    if isinstance(event, ActionEvent):
-                        # Send tool_call notification for ActionEvent
-                        try:
-                            tool_kind = _get_tool_kind(event.tool_name)
-
-                            # Create a human-readable title
-                            action_name = event.action.__class__.__name__
-                            title = f"{action_name} with {event.tool_name}"
-
-                            # Extract thought content as text
-                            thought_text = " ".join([t.text for t in event.thought])
-
-                            await self.conn.sessionUpdate(
-                                SessionNotification(
-                                    sessionId=self.session_id,
-                                    update=SessionUpdate4(
-                                        sessionUpdate="tool_call",
-                                        toolCallId=event.tool_call_id,
-                                        title=title,
-                                        kind=tool_kind,
-                                        status="pending",
-                                        content=[
-                                            ToolCallContent1(
-                                                type="content",
-                                                content=ContentBlock1(
-                                                    type="text",
-                                                    text=thought_text
-                                                    if thought_text.strip()
-                                                    else f"Executing {action_name}",
-                                                ),
-                                            )
-                                        ]
-                                        if thought_text.strip()
-                                        else None,
-                                        rawInput=event.tool_call.function.arguments
-                                        if hasattr(
-                                            event.tool_call.function, "arguments"
-                                        )
-                                        else None,
-                                    ),
-                                )
-                            )
-                        except Exception as e:
-                            logger.debug(f"Error processing ActionEvent: {e}")
-
-                    elif isinstance(
-                        event,
-                        (ObservationEvent, UserRejectObservation, AgentErrorEvent),
-                    ):
-                        # Send tool_call_update notification for observation events
-                        try:
-                            if isinstance(event, ObservationEvent):
-                                # Successful tool execution
-                                status = "completed"
-                                # Extract content from observation
-                                content_parts = []
-                                for item in event.observation.agent_observation:
-                                    if isinstance(item, TextContent):
-                                        content_parts.append(item.text)
-                                    elif hasattr(item, "text") and not isinstance(
-                                        item, ImageContent
-                                    ):
-                                        content_parts.append(getattr(item, "text"))
-                                    else:
-                                        content_parts.append(str(item))
-                                content_text = "".join(content_parts)
-                            elif isinstance(event, UserRejectObservation):
-                                # User rejected the action
-                                status = "failed"
-                                content_text = (
-                                    f"User rejected: {event.rejection_reason}"
-                                )
-                            else:  # AgentErrorEvent
-                                # Agent error
-                                status = "failed"
-                                content_text = f"Error: {event.error}"
-
-                            await self.conn.sessionUpdate(
-                                SessionNotification(
-                                    sessionId=self.session_id,
-                                    update=SessionUpdate5(
-                                        sessionUpdate="tool_call_update",
-                                        toolCallId=event.tool_call_id,
-                                        status=status,
-                                        content=[
-                                            ToolCallContent1(
-                                                type="content",
-                                                content=ContentBlock1(
-                                                    type="text",
-                                                    text=content_text,
-                                                ),
-                                            )
-                                        ]
-                                        if content_text.strip()
-                                        else None,
-                                        rawOutput={"result": content_text}
-                                        if content_text.strip()
-                                        else None,
-                                    ),
-                                )
-                            )
-                        except Exception as e:
-                            logger.debug(f"Error processing observation event: {e}")
-
-                    elif isinstance(event, LLMConvertibleEvent):
-                        # Handle other LLMConvertibleEvent events as before
-                        try:
-                            llm_message = event.to_llm_message()
-
-                            # Send the event as a session update
-                            if llm_message.role == "assistant":
-                                # Send all content items from the LLM message
-                                for content_item in llm_message.content:
-                                    if isinstance(content_item, TextContent):
-                                        if content_item.text.strip():
-                                            # Send text content
-                                            await self.conn.sessionUpdate(
-                                                SessionNotification(
-                                                    sessionId=self.session_id,
-                                                    update=SessionUpdate2(
-                                                        sessionUpdate="agent_message_chunk",
-                                                        content=ContentBlock1(
-                                                            type="text",
-                                                            text=content_item.text,
-                                                        ),
-                                                    ),
-                                                )
-                                            )
-                                    elif isinstance(content_item, ImageContent):
-                                        # Send each image URL as separate content
-                                        for image_url in content_item.image_urls:
-                                            # Determine if it's a URI or base64 data
-                                            is_uri = image_url.startswith(
-                                                ("http://", "https://")
-                                            )
-                                            await self.conn.sessionUpdate(
-                                                SessionNotification(
-                                                    sessionId=self.session_id,
-                                                    update=SessionUpdate2(
-                                                        sessionUpdate="agent_message_chunk",
-                                                        content=ContentBlock2(
-                                                            type="image",
-                                                            data=image_url,
-                                                            mimeType="image/png",
-                                                            uri=image_url
-                                                            if is_uri
-                                                            else None,
-                                                        ),
-                                                    ),
-                                                )
-                                            )
-                                    elif isinstance(content_item, str):
-                                        if content_item.strip():
-                                            # Send string content as text
-                                            await self.conn.sessionUpdate(
-                                                SessionNotification(
-                                                    sessionId=self.session_id,
-                                                    update=SessionUpdate2(
-                                                        sessionUpdate="agent_message_chunk",
-                                                        content=ContentBlock1(
-                                                            type="text",
-                                                            text=content_item,
-                                                        ),
-                                                    ),
-                                                )
-                                            )
-                        except Exception as e:
-                            logger.debug(f"Error processing LLMConvertibleEvent: {e}")
-
+            # Subscribe to events using the extracted EventSubscriber
             subscriber = EventSubscriber(session_id, self._conn)
             subscriber_id = await event_service.subscribe_to_events(subscriber)
 

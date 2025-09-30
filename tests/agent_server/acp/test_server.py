@@ -108,7 +108,7 @@ async def test_authenticate_no_config(mock_conn, temp_persistence_dir):
 
 def test_validate_llm_config(mock_conn, temp_persistence_dir):
     """Test LLM configuration validation."""
-    agent = OpenHandsACPAgent(mock_conn, temp_persistence_dir)
+    from openhands.agent_server.acp.llm_config import validate_llm_config
 
     # Test valid configuration
     config = {
@@ -119,7 +119,7 @@ def test_validate_llm_config(mock_conn, temp_persistence_dir):
         "max_output_tokens": 2000,
     }
 
-    validated = agent._validate_llm_config(config)
+    validated = validate_llm_config(config)
 
     assert validated["model"] == "gpt-4"
     assert validated["api_key"] == "test-key"
@@ -130,16 +130,16 @@ def test_validate_llm_config(mock_conn, temp_persistence_dir):
 
 def test_create_llm_from_config_with_auth(mock_conn, temp_persistence_dir):
     """Test LLM creation with authenticated configuration."""
-    agent = OpenHandsACPAgent(mock_conn, temp_persistence_dir)
+    from openhands.agent_server.acp.llm_config import create_llm_from_config
 
     # Set authenticated config
-    agent._llm_config = {
+    llm_config = {
         "model": "gpt-4",
         "api_key": "test-key",
         "temperature": 0.5,
     }
 
-    llm = agent._create_llm_from_config()
+    llm = create_llm_from_config(llm_config)
 
     assert llm.model == "gpt-4"
     assert llm.api_key is not None
@@ -150,14 +150,14 @@ def test_create_llm_from_config_with_auth(mock_conn, temp_persistence_dir):
 
 def test_create_llm_from_config_defaults(mock_conn, temp_persistence_dir, monkeypatch):
     """Test LLM creation with default configuration."""
+    from openhands.agent_server.acp.llm_config import create_llm_from_config
+
     # Clear environment variables
     monkeypatch.delenv("LITELLM_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    agent = OpenHandsACPAgent(mock_conn, temp_persistence_dir)
-
     # No authenticated config
-    llm = agent._create_llm_from_config()
+    llm = create_llm_from_config({})
 
     assert llm.model == "claude-sonnet-4-20250514"  # Default model
     assert llm.service_id == "acp-agent"
@@ -363,7 +363,7 @@ async def test_tool_call_handling():
             # Import the actual implementation from the server
             from acp.schema import ContentBlock1, ToolCallContent1
 
-            from openhands.agent_server.acp.server import _get_tool_kind
+            from openhands.agent_server.acp.utils import get_tool_kind
 
             # Use the actual event handling logic from the server
             from openhands.sdk.event import (
@@ -379,7 +379,7 @@ async def test_tool_call_handling():
                 print("Processing ActionEvent")
                 # Send tool_call notification for action events
                 try:
-                    tool_kind = _get_tool_kind(event.tool_name)
+                    tool_kind = get_tool_kind(event.tool_name)
                     print(f"Tool kind: {tool_kind}")
 
                     # Create a human-readable title
@@ -591,11 +591,11 @@ async def test_acp_tool_call_creation_example():
             # Use the same logic as in the server
             from acp.schema import SessionNotification, SessionUpdate4
 
-            from openhands.agent_server.acp.server import _get_tool_kind
+            from openhands.agent_server.acp.utils import get_tool_kind
 
             if isinstance(event, ActionEvent):
                 try:
-                    tool_kind = _get_tool_kind(event.tool_name)
+                    tool_kind = get_tool_kind(event.tool_name)
                     action_name = event.action.__class__.__name__
                     title = f"{action_name} with {event.tool_name}"
 
@@ -722,7 +722,7 @@ async def test_acp_tool_call_update_example():
 @pytest.mark.asyncio
 async def test_acp_tool_kinds_mapping():
     """Test that OpenHands tools map to correct ACP tool kinds."""
-    from openhands.agent_server.acp.server import _get_tool_kind
+    from openhands.agent_server.acp.utils import get_tool_kind
 
     # Test cases: (tool_name, expected_kind)
     test_cases = [
@@ -737,7 +737,7 @@ async def test_acp_tool_kinds_mapping():
     ]
 
     for tool_name, expected_kind in test_cases:
-        actual_kind = _get_tool_kind(tool_name)
+        actual_kind = get_tool_kind(tool_name)
         assert actual_kind == expected_kind, (
             f"Tool {tool_name} should map to kind {expected_kind}, got {actual_kind}"
         )
