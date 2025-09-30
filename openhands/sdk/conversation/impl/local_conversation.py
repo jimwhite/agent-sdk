@@ -97,6 +97,9 @@ class LocalConversation(BaseConversation):
         self._on_event = compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
 
+        # Initialize child conversation tracking
+        self._child_conversations: dict[ConversationID, LocalConversation] = {}
+
         # Initialize stuck detector
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
@@ -328,9 +331,163 @@ class LocalConversation(BaseConversation):
         secrets_manager.update_secrets(secrets)
         logger.info(f"Added {len(secrets)} secrets to conversation")
 
+    def create_child_conversation(
+        self,
+        agent: AgentBase,
+        working_dir: str | None = None,
+        **kwargs,
+    ) -> "LocalConversation":
+        """Create a child conversation with the specified agent.
+
+        Args:
+            agent: The agent to use for the child conversation
+            working_dir: Working directory for the child. If None, creates a
+                        directory under .conversations/{parent-uuid}/{child-uuid}/
+            **kwargs: Additional arguments passed to LocalConversation
+
+        Returns:
+            The child conversation instance
+        """
+        import json
+        import os
+
+        child_id = uuid.uuid4()
+
+        # Generate working directory if not provided
+        if working_dir is None:
+            conversations_dir = os.path.join(self._state.working_dir, ".conversations")
+            parent_dir = os.path.join(conversations_dir, str(self._state.id))
+            working_dir = os.path.join(parent_dir, str(child_id))
+            os.makedirs(working_dir, exist_ok=True)
+
+            # Update children.json mapping
+            children_file = os.path.join(parent_dir, "children.json")
+            children_mapping = {}
+            if os.path.exists(children_file):
+                with open(children_file) as f:
+                    children_mapping = json.load(f)
+
+            # Add child to mapping with agent type
+            agent_type = agent.__class__.__name__.replace("Agent", "").lower()
+            children_mapping[str(child_id)] = {
+                "agent_type": agent_type,
+                "agent_class": agent.__class__.__name__,
+                "created_at": str(uuid.uuid1().time),
+            }
+
+            with open(children_file, "w") as f:
+                json.dump(children_mapping, f, indent=2)
+
+        # Create child conversation with parent reference
+        from typing import cast
+
+        child = LocalConversation(
+            agent=agent,
+            working_dir=working_dir,
+            conversation_id=child_id,
+            persistence_dir=self._state.persistence_dir,
+            callbacks=cast(list, kwargs.get("callbacks"))
+            if "callbacks" in kwargs
+            else None,
+            max_iteration_per_run=cast(int, kwargs.get("max_iteration_per_run", 10)),
+            stuck_detection=cast(bool, kwargs.get("stuck_detection", True)),
+            visualize=cast(bool, kwargs.get("visualize", False)),
+        )
+
+        # Set parent_id in child state
+        with child._state:
+            child._state.parent_id = self._state.id
+
+        # Track the child conversation
+        self._child_conversations[child_id] = child
+
+        logger.info(
+            f"Created child conversation {child_id} with agent type "
+            f"{agent.__class__.__name__} in {working_dir}"
+        )
+
+        return child
+
+    def get_child_conversation(
+        self, conversation_id: ConversationID
+    ) -> "LocalConversation | None":
+        """Get a child conversation by ID.
+
+        Args:
+            conversation_id: The ID of the child conversation
+
+        Returns:
+            The child conversation instance, or None if not found
+        """
+        return self._child_conversations.get(conversation_id)
+
+    def close_child_conversation(self, conversation_id: ConversationID) -> None:
+        """Close and remove a child conversation.
+
+        Args:
+            conversation_id: The ID of the child conversation to close
+        """
+        import json
+        import os
+
+        child = self._child_conversations.pop(conversation_id, None)
+        if child:
+            child.close()
+
+            # Update children.json mapping to remove the child
+            conversations_dir = os.path.join(self._state.working_dir, ".conversations")
+            parent_dir = os.path.join(conversations_dir, str(self._state.id))
+            children_file = os.path.join(parent_dir, "children.json")
+
+            if os.path.exists(children_file):
+                with open(children_file) as f:
+                    children_mapping = json.load(f)
+
+                # Remove child from mapping
+                children_mapping.pop(str(conversation_id), None)
+
+                with open(children_file, "w") as f:
+                    json.dump(children_mapping, f, indent=2)
+
+            logger.info(f"Closed child conversation {conversation_id}")
+        else:
+            logger.warning(f"Child conversation {conversation_id} not found")
+
+    def list_child_conversations(self) -> list[ConversationID]:
+        """List all active child conversation IDs.
+
+        Returns:
+            List of child conversation IDs
+        """
+        return list(self._child_conversations.keys())
+
+    def get_children_mapping(self) -> dict[str, dict[str, str]]:
+        """Get the children mapping from children.json file.
+
+        Returns:
+            Dictionary mapping child IDs to their metadata
+        """
+        import json
+        import os
+
+        conversations_dir = os.path.join(self._state.working_dir, ".conversations")
+        parent_dir = os.path.join(conversations_dir, str(self._state.id))
+        children_file = os.path.join(parent_dir, "children.json")
+
+        if os.path.exists(children_file):
+            with open(children_file) as f:
+                return json.load(f)
+        return {}
+
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
         logger.debug("Closing conversation and cleaning up tool executors")
+
+        # Close all child conversations first (if they exist)
+        if hasattr(self, "_child_conversations"):
+            for child_id in list(self._child_conversations.keys()):
+                self.close_child_conversation(child_id)
+
         for tool in self.agent.tools_map.values():
             try:
                 executable_tool = tool.as_executable()

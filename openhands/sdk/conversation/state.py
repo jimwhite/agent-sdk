@@ -48,6 +48,10 @@ if TYPE_CHECKING:
 class ConversationState(OpenHandsModel, FIFOLock):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
+    parent_id: ConversationID | None = Field(
+        default=None,
+        description="ID of parent conversation if this is a child conversation",
+    )
 
     agent: AgentBase = Field(
         ...,
@@ -135,6 +139,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
+        parent_id: ConversationID | None = None,
     ) -> "ConversationState":
         """
         If base_state.json exists: resume (attach EventLog,
@@ -192,6 +197,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
             persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
+            parent_id=parent_id,
         )
         state._fs = file_store
         state._events = EventLog(file_store, dir_path=EVENTS_DIR)
