@@ -1,5 +1,7 @@
+import os
 import uuid
 from collections.abc import Iterable
+from pathlib import Path
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -99,6 +101,12 @@ class LocalConversation(BaseConversation):
 
         # Initialize stuck detector
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
+
+        # Initialize child conversation tracking
+        self._child_conversations: dict[ConversationID, LocalConversation] = {}
+
+        # Set conversation reference in state for tools that need it
+        self._state.set_conversation(self)
 
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
@@ -347,3 +355,114 @@ class LocalConversation(BaseConversation):
             self.close()
         except Exception as e:
             logger.warning(f"Error during conversation cleanup: {e}", exc_info=True)
+
+    def create_child_conversation(
+        self,
+        agent: AgentBase,
+        working_dir: str | None = None,
+    ) -> BaseConversation:
+        """Create a child conversation with a different agent.
+
+        Args:
+            agent: The agent to use for the child conversation
+            working_dir: Optional working directory for the child conversation.
+                        If None, will use {parent_working_dir}/.conversations/{agent_type}/{child_id}/
+
+        Returns:
+            The newly created child conversation
+        """
+        child_id = uuid.uuid4()
+
+        # Determine working directory for child
+        if working_dir is None:
+            # Use agent class name to create a type-specific subdirectory
+            # e.g., "ExecutionAgent" -> "execution", "PlanningAgent" -> "planning"
+            agent_type = agent.name.replace("Agent", "").lower()
+            working_dir = os.path.join(
+                self._state.working_dir, ".conversations", agent_type, str(child_id)
+            )
+
+        # Create directory if it doesn't exist
+        Path(working_dir).mkdir(parents=True, exist_ok=True)
+
+        # Determine persistence directory for child (if parent has one)
+        child_persistence_dir = None
+        if self._state.persistence_dir:
+            agent_type = agent.name.replace("Agent", "").lower()
+            child_persistence_dir = os.path.join(
+                self._state.persistence_dir, ".conversations", agent_type, str(child_id)
+            )
+
+        # Create child conversation
+        child_conversation = LocalConversation(
+            agent=agent,
+            working_dir=working_dir,
+            persistence_dir=child_persistence_dir,
+            conversation_id=child_id,
+            callbacks=None,  # Child has its own callbacks
+            max_iteration_per_run=self.max_iteration_per_run,
+            stuck_detection=False,  # Disable stuck detection for child conversations
+            visualize=False,  # Disable visualization for child conversations
+        )
+
+        # Set parent_id in child state
+        with child_conversation._state:
+            child_conversation._state.parent_id = self.id
+
+        # Track child conversation
+        self._child_conversations[child_id] = child_conversation
+
+        logger.info(
+            f"Created child conversation {child_id} with agent {agent.name} "
+            f"in working_dir: {working_dir}"
+        )
+
+        return child_conversation
+
+    def get_child_conversation(
+        self, conversation_id: ConversationID
+    ) -> BaseConversation:
+        """Get a child conversation by ID.
+
+        Args:
+            conversation_id: The ID of the child conversation
+
+        Returns:
+            The child conversation
+
+        Raises:
+            KeyError: If no child conversation with the given ID exists
+        """
+        if conversation_id not in self._child_conversations:
+            raise KeyError(
+                f"No child conversation with ID {conversation_id}. "
+                f"Available child IDs: {list(self._child_conversations.keys())}"
+            )
+        return self._child_conversations[conversation_id]
+
+    def close_child_conversation(self, conversation_id: ConversationID) -> None:
+        """Close a child conversation and clean up resources.
+
+        Args:
+            conversation_id: The ID of the child conversation to close
+
+        Raises:
+            KeyError: If no child conversation with the given ID exists
+        """
+        child_conversation = self.get_child_conversation(conversation_id)
+
+        # Close the child conversation
+        child_conversation.close()
+
+        # Remove from tracking
+        del self._child_conversations[conversation_id]
+
+        logger.info(f"Closed child conversation {conversation_id}")
+
+    def list_child_conversations(self) -> list[ConversationID]:
+        """List all active child conversation IDs.
+
+        Returns:
+            List of child conversation IDs
+        """
+        return list(self._child_conversations.keys())

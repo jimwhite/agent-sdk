@@ -1,13 +1,17 @@
-"""Default preset configuration for OpenHands agents."""
+"""Preset configurations for OpenHands agents.
 
-from openhands.sdk import Agent
-from openhands.sdk.context.condenser import (
-    LLMSummarizingCondenser,
-)
-from openhands.sdk.context.condenser.base import CondenserBase
+This module provides convenient preset configurations for creating agents:
+- get_execution_agent: Full read-write agent for implementation
+- get_planning_agent: Read-only agent for research and planning
+
+For more control, use the AgentRegistry directly:
+- AgentRegistry.create("execution", llm, **kwargs)
+- AgentRegistry.create("planning", llm, **kwargs)
+"""
+
+from openhands.sdk.agent.registry import AgentRegistry
 from openhands.sdk.llm.llm import LLM
 from openhands.sdk.logger import get_logger
-from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import ToolSpec, register_tool
 
 
@@ -54,37 +58,61 @@ def get_default_tools(
     return tool_specs
 
 
-def get_default_condenser(llm: LLM) -> CondenserBase:
-    # Create a condenser to manage the context. The condenser will automatically
-    # truncate conversation history when it exceeds max_size, and replaces the dropped
-    # events with an LLM-generated summary.
-    condenser = LLMSummarizingCondenser(llm=llm, max_size=80, keep_first=4)
-
-    return condenser
-
-
-def get_default_agent(
+def get_execution_agent(
     llm: LLM,
     cli_mode: bool = False,
-) -> Agent:
-    tool_specs = get_default_tools(
-        # Disable browser tools in CLI mode
-        enable_browser=not cli_mode,
-    )
-    agent = Agent(
+    enable_browser: bool = True,
+):
+    """Get an execution agent with full read-write toolkit.
+
+    This is a convenience wrapper that uses AgentRegistry and handles
+    tool registration automatically.
+
+    Args:
+        llm: The LLM to use for the agent
+        cli_mode: If True, disables browser tools
+        enable_browser: Whether to include browser tools (overridden by cli_mode)
+
+    Returns:
+        An execution agent configured with the specified tools
+    """
+    # Register tools first
+    register_default_tools(enable_browser=enable_browser and not cli_mode)
+
+    # Use the AgentRegistry to create the agent
+    return AgentRegistry.create(
+        "execution",
         llm=llm,
-        tools=tool_specs,
-        mcp_config={
-            "mcpServers": {
-                "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
-                "repomix": {"command": "npx", "args": ["-y", "repomix@1.4.2", "--mcp"]},
-            }
-        },
-        filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
-        system_prompt_kwargs={"cli_mode": cli_mode},
-        condenser=get_default_condenser(
-            llm=llm.model_copy(update={"service_id": "condenser"})
-        ),
-        security_analyzer=LLMSecurityAnalyzer(),
+        enable_browser=enable_browser,
+        cli_mode=cli_mode,
     )
-    return agent
+
+
+def get_planning_agent(
+    llm: LLM,
+    enable_condenser: bool = False,
+):
+    """Get a planning agent with read-only toolkit.
+
+    This is a convenience wrapper that uses AgentRegistry and handles
+    tool registration automatically.
+
+    Args:
+        llm: The LLM to use for the planning agent
+        enable_condenser: Whether to enable context condensing (usually not needed)
+
+    Returns:
+        A planning agent configured for read-only research and planning
+    """
+    # Register tools (no browser for planning agents)
+    register_default_tools(enable_browser=False)
+
+    # Use the AgentRegistry to create the agent
+    return AgentRegistry.create(
+        "planning",
+        llm=llm,
+        enable_condenser=enable_condenser,
+    )
+
+
+get_default_agent = get_execution_agent

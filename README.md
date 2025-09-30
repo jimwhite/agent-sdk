@@ -104,7 +104,7 @@ uv run python examples/01_hello_world.py
 import os
 from pydantic import SecretStr
 from openhands.sdk import LLM, Conversation
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_execution_agent
 
 # Configure LLM
 api_key = os.getenv("LITELLM_API_KEY")
@@ -115,16 +115,15 @@ llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-# Create agent with default tools and configuration
+# Create execution agent with full read-write toolkit
 cwd = os.getcwd()
-agent = get_default_agent(
+agent = get_execution_agent(
     llm=llm,
-    working_dir=cwd,
     cli_mode=True,  # Disable browser tools for CLI environments
 )
 
 # Create conversation and interact with agent
-conversation = Conversation(agent=agent)
+conversation = Conversation(agent=agent, working_dir=cwd)
 
 # Send message and run
 conversation.send_message("Create a Python file that prints 'Hello, World!'")
@@ -135,19 +134,28 @@ conversation.run()
 
 ### Agents
 
-Agents are the central orchestrators that coordinate between LLMs and tools. The SDK provides two main approaches for creating agents:
+Agents are the central orchestrators that coordinate between LLMs and tools. The SDK provides different agent types for different use cases:
 
-#### Using Default Presets (Recommended)
+#### Execution Agent (Recommended for most tasks)
 
 ```python
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_execution_agent
 
-# Get a fully configured agent with default tools and settings
-agent = get_default_agent(
+# Get a fully configured execution agent with read-write toolkit
+agent = get_execution_agent(
     llm=llm,
-    working_dir=os.getcwd(),
     cli_mode=True,  # Disable browser tools for CLI environments
+    enable_planning=True,  # Enable planning conversation tools
 )
+```
+
+#### Planning Agent (For research and planning)
+
+```python
+from openhands.tools.preset.default import get_planning_agent
+
+# Get a read-only planning agent for research and analysis
+planning_agent = get_planning_agent(llm=llm)
 ```
 
 #### Manual Agent Configuration
@@ -205,16 +213,15 @@ Tools provide agents with capabilities to interact with the environment. The SDK
 - **TaskTrackerTool**: Organize and track development tasks systematically
 - **BrowserToolSet**: Automate web browser interactions (disabled in CLI mode)
 
-#### Using Default Preset (Recommended)
+#### Using Execution Agent (Recommended)
 
-The easiest way to get started is using the default agent preset, which includes all tools:
+The easiest way to get started is using the execution agent preset, which includes all tools:
 
 ```python
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_execution_agent
 
-agent = get_default_agent(
+agent = get_execution_agent(
     llm=llm,
-    working_dir=os.getcwd(),
     cli_mode=True,  # Disable browser tools for CLI environments
 )
 ```

@@ -502,3 +502,62 @@ class RemoteConversation(BaseConversation):
             self.close()
         except Exception:
             pass
+
+    def create_child_conversation(
+        self,
+        agent: AgentBase,
+        working_dir: str | None = None,
+    ) -> BaseConversation:
+        """Create a child conversation with a different agent.
+
+        Note: Not yet supported for RemoteConversation.
+
+        Raises:
+            NotImplementedError: Always raises as child conversations are not yet
+                                supported for remote conversations.
+        """
+        raise NotImplementedError(
+            "Child conversations are not yet supported for RemoteConversation. "
+            "Please use LocalConversation for planning mode features."
+        )
+
+    def get_child_conversation(
+        self, conversation_id: ConversationID
+    ) -> BaseConversation:
+        """Get a child conversation by ID.
+
+        Note: Not yet supported for RemoteConversation.
+
+        Raises:
+            NotImplementedError: Always raises as child conversations are not yet
+                                supported for remote conversations.
+        """
+        raise NotImplementedError(
+            "Child conversations are not yet supported for RemoteConversation. "
+            "Please use LocalConversation for planning mode features."
+        )
+
+    def close_child_conversation(self, conversation_id: ConversationID) -> str:
+        """Close a child conversation and return its plan content.
+
+        Note: Not yet supported for RemoteConversation.
+
+        Raises:
+            NotImplementedError: Always raises as child conversations are not yet
+                                supported for remote conversations.
+        """
+        raise NotImplementedError(
+            "Child conversations are not yet supported for RemoteConversation. "
+            "Please use LocalConversation for planning mode features."
+        )
+
+    def get_active_conversation(self) -> BaseConversation:
+        """Get the currently active conversation (self or active child).
+
+        For RemoteConversation, always returns self as child conversations
+        are not yet supported.
+
+        Returns:
+            Self (this RemoteConversation instance)
+        """
+        return self

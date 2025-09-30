@@ -1,6 +1,9 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from openhands.sdk.agent import Agent, AgentBase
+from openhands.sdk.agent.agents import ExecutionAgent, PlanningAgent
+from openhands.sdk.agent.config import AgentConfig
+from openhands.sdk.agent.registry import AgentRegistry
 from openhands.sdk.context import AgentContext
 from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
@@ -54,6 +57,10 @@ __all__ = [
     "ToolSpec",
     "AgentBase",
     "Agent",
+    "ExecutionAgent",
+    "PlanningAgent",
+    "AgentConfig",
+    "AgentRegistry",
     "ActionBase",
     "ObservationBase",
     "MCPClient",

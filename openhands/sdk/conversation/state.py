@@ -1,5 +1,6 @@
 # state.py
 import json
+import weakref
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -42,12 +43,18 @@ class AgentExecutionStatus(str, Enum):
 
 
 if TYPE_CHECKING:
+    from openhands.sdk.conversation.base import BaseConversation
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
 class ConversationState(OpenHandsModel, FIFOLock):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
+
+    parent_id: ConversationID | None = Field(
+        default=None,
+        description="ID of parent conversation if this is a child conversation",
+    )
 
     agent: AgentBase = Field(
         ...,
@@ -101,6 +108,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
+    _conversation_ref: "weakref.ref[BaseConversation] | None" = PrivateAttr(
+        default=None
+    )  # weak reference to avoid circular references
 
     def model_post_init(self, __context) -> None:
         """Initialize FIFOLock after Pydantic model initialization."""
@@ -116,6 +126,17 @@ class ConversationState(OpenHandsModel, FIFOLock):
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
+
+    @property
+    def conversation(self) -> "BaseConversation | None":
+        """Get the conversation object if available (via weak reference)."""
+        if self._conversation_ref is None:
+            return None
+        return self._conversation_ref()
+
+    def set_conversation(self, conversation: "BaseConversation") -> None:
+        """Set the conversation weak reference."""
+        self._conversation_ref = weakref.ref(conversation)
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
@@ -133,6 +154,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         agent: AgentBase,
         working_dir: str,
         persistence_dir: str | None = None,
+        parent_id: ConversationID | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
     ) -> "ConversationState":
@@ -190,6 +212,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
             agent=agent,
             working_dir=working_dir,
             persistence_dir=persistence_dir,
+            parent_id=parent_id,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
         )

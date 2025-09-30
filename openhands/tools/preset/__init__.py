@@ -3,13 +3,13 @@ Agent presets for OpenHands SDK.
 
 This package provides predefined agent configurations (tool bundles)
 that can be used out of the box. Presets are intended as starting points
-for common use cases, such as a default production agent with shell access,
-file editing, task tracking, and selected MCP integrations.
+for common use cases, such as execution agents with shell access,
+file editing, task tracking, and planning agents for research.
 
 Usage:
-    from openhands.tools.preset.default import default_tools
+    from openhands.tools.preset.default import get_execution_agent, get_planning_agent
 
-    tools = default_tools()
+    agent = get_execution_agent(llm)
 
 Notes:
 - Presets are simple collections of tools and configuration, not a
@@ -18,7 +18,7 @@ Notes:
   setups.
 """
 
-from .default import get_default_agent
+from .default import get_execution_agent, get_planning_agent
 
 
-__all__ = ["get_default_agent"]
+__all__ = ["get_execution_agent", "get_planning_agent"]

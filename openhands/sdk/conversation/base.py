@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Self
 
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
@@ -14,6 +14,7 @@ from openhands.sdk.utils.protocol import ListLike
 
 
 if TYPE_CHECKING:
+    from openhands.sdk.agent.base import AgentBase
     from openhands.sdk.conversation.state import AgentExecutionStatus
     from openhands.sdk.event.base import EventBase
 
@@ -24,22 +25,18 @@ class ConversationStateProtocol(Protocol):
     @property
     def id(self) -> ConversationID:
         """The conversation ID."""
-        ...
 
     @property
     def events(self) -> ListLike["EventBase"]:
         """Access to the events list."""
-        ...
 
     @property
     def agent_status(self) -> "AgentExecutionStatus":
         """The current agent execution status."""
-        ...
 
     @property
     def confirmation_policy(self) -> ConfirmationPolicyBase:
         """The confirmation policy."""
-        ...
 
     @property
     def activated_knowledge_microagents(self) -> list[str]:
@@ -57,7 +54,6 @@ class ConversationStateProtocol(Protocol):
 
         If None, it means the conversation is not being persisted.
         """
-        ...
 
 
 class BaseConversation(ABC):
@@ -99,6 +95,56 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def close(self) -> None: ...
+
+    @abstractmethod
+    def create_child_conversation(
+        self,
+        agent: "AgentBase",
+        working_dir: str | None = None,
+    ) -> Self:
+        """Create a child conversation with a different agent.
+
+        Args:
+            agent: The agent to use for the child conversation
+            working_dir: Optional working directory for the child conversation.
+                        If None, will use {parent_working_dir}/.planning/{child_id}/
+
+        Returns:
+            The newly created child conversation
+        """
+
+    @abstractmethod
+    def get_child_conversation(self, conversation_id: ConversationID) -> Self:
+        """Get a child conversation by ID.
+
+        Args:
+            conversation_id: The ID of the child conversation
+
+        Returns:
+            The child conversation
+
+        Raises:
+            KeyError: If no child conversation with the given ID exists
+        """
+
+    @abstractmethod
+    def close_child_conversation(self, conversation_id: ConversationID) -> None:
+        """Close a child conversation and clean up resources.
+
+        Args:
+            conversation_id: The ID of the child conversation to close
+
+        Raises:
+            KeyError: If no child conversation with the given ID exists
+        """
+
+    @abstractmethod
+    def list_child_conversations(self) -> list[ConversationID]:
+        """List all active child conversation IDs.
+
+        Returns:
+            List of child conversation IDs
+        """
 
     @staticmethod
     def get_persistence_dir(

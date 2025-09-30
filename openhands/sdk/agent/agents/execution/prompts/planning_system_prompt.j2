@@ -1,0 +1,87 @@
+Comprehensive Documentation: Generic Agent System and Child Conversation Architecture
+
+Feature Requirements
+
+The feature needed was a generic, extensible agent system that supports:
+
+1. Multiple Agent Types: Not just a single "default" agent, but specialized agents like ExecutionAgent and PlanningAgent, with the ability to easily add more types in the future
+2. Agent Registry Pattern: Dynamic agent instantiation by name without requiring specific imports
+3. Child Conversations: Parent conversations can spawn child conversations with different agent types
+4. Parallel Child Support: Multiple child conversations can exist simultaneously, not just one "active" child
+5. Type-Agnostic Architecture: The conversation hierarchy and management should work for ANY agent type, not be hardcoded to specific types like "planning"
+6. Single Source of Truth: Eliminate code duplication - one canonical way to define and create agents
+
+High-Level Implementation Overview
+
+1. Agent Type System
+
+Core Components:
+
+- AgentBase (openhands/sdk/agent/base.py): Base class with common functionality
+- Now includes default filter_tools_regex for safety (filters dangerous repomix operations)
+- ExecutionAgent (openhands/sdk/agent/agents/execution/agent.py): Subclass of Agent
+- Full read-write access: BashTool, FileEditorTool, TaskTrackerTool, BrowserToolSet
+- Security analyzer and context condenser enabled by default
+- MCP tools for external resource fetching
+- PlanningAgent (openhands/sdk/agent/agents/planning/agent.py): Subclass of Agent
+- Read-only access: FileEditorTool (view only)
+- Custom system prompt (planning_system_prompt.j2)
+- No bash execution or file modification
+
+Key Design Decision: These are proper subclasses, not just factory functions. Each agent class encapsulates its configuration in its __init__ method.
+
+2. Agent Registry Pattern
+
+Components:
+
+- AgentConfig (openhands/sdk/agent/config.py): Abstract base class
+- Defines interface: name, description, create(llm, **kwargs)
+- AgentRegistry (openhands/sdk/agent/registry.py): Centralized registry
+- Thread-safe singleton pattern with _lock
+- Methods: register(), create(), list_agents(), unregister()
+- Config Implementations:
+- ExecutionAgentConfig: Returns ExecutionAgent instances
+- PlanningAgentConfig: Returns PlanningAgent instances
+- Auto-registration (openhands/sdk/agent/agents/__init__.py):
+- Agents automatically register themselves on module import
+- Uses try/except to handle duplicate registration gracefully
+
+Usage Pattern:
+# Dynamic instantiation without imports
+agent = AgentRegistry.create("execution", llm=my_llm, enable_browser=True)
+
+# List available agents
+agents = AgentRegistry.list_agents()
+# Returns: {'execution': 'Full read-write agent...', 'planning': 'Read-only agent...'}
+
+3. Conversation Hierarchy
+
+Parent-Child Relationship:
+
+- ConversationState.parent_id: Tracks parent conversation ID
+- LocalConversation._child_conversations: Dict mapping child IDs to conversation objects
+- Weak Reference Pattern: State holds weak reference to conversation to allow tool access
+
+Generic Directory Structure:
+.conversations/
+├── execution/
+│ └── {child-uuid}/
+│ └── [child working directory]
+└── planning/
+└── {child-uuid}/
+└── [child working directory]
+
+Agent type is extracted dynamically: agent.name.replace("Agent", "").lower() converts "ExecutionAgent" → "execution"
+
+Key Methods:
+
+- create_child_conversation(agent, working_dir=None):
+- Creates child with specified agent type
+- Auto-generates type-specific directory path
+- Sets parent_id in child state
+- Returns child conversation object
+- get_child_conversation(conversation_id): Retrieves specific child by ID
+- close_child_conversation(conversation_id):
+- Closes child and removes from tracking
+- Generic: No assumptions about what files the child created
+- list_child_conversations(): Returns list of all active child IDs

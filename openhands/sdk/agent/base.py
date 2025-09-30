@@ -68,10 +68,10 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         ],
     )
     filter_tools_regex: str | None = Field(
-        default=None,
+        default="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
         description="Optional regex to filter the tools available to the agent by name."
         " This is applied after any tools provided in `tools` and any MCP tools are"
-        " added.",
+        " added. Defaults to filtering repomix tools to only allow pack_codebase.",
         examples=["^(?!repomix)(.*)|^repomix.*pack_codebase.*$"],
     )
     agent_context: AgentContext | None = Field(
