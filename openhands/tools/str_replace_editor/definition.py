@@ -216,7 +216,7 @@ class FileEditorTool(Tool[StrReplaceEditorAction, StrReplaceEditorObservation]):
         from openhands.tools.str_replace_editor.impl import FileEditorExecutor
 
         # Initialize the executor
-        executor = FileEditorExecutor(workspace_root=conv_state.workspace)
+        executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
 
         # Initialize the parent Tool with the executor
         return [

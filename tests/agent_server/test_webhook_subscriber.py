@@ -23,6 +23,7 @@ from openhands.agent_server.utils import utc_now
 from openhands.sdk import LLM, Agent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.llm.message import Message, TextContent
+from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -42,7 +43,7 @@ def mock_event_service():
                     ),
                     tools=[],
                 ),
-                working_dir="workspace/project",
+                workspace=LocalWorkspace(working_dir="workspace/project"),
             ),
             file_store_path=temp_path / "file_store",
             working_dir=temp_path / "working_dir",
@@ -1007,6 +1008,7 @@ class TestConversationWebhookSubscriber:
         conversation_info = ConversationInfo(
             id=uuid4(),
             agent=mock_event_service.stored.agent,
+            workspace=mock_event_service.stored.workspace,
             created_at=utc_now(),
             updated_at=utc_now(),
             agent_status=AgentExecutionStatus.RUNNING,
@@ -1054,6 +1056,7 @@ class TestConversationWebhookSubscriber:
         conversation_info = ConversationInfo(
             id=uuid4(),
             agent=mock_event_service.stored.agent,
+            workspace=mock_event_service.stored.workspace,
             created_at=utc_now(),
             updated_at=utc_now(),
             agent_status=AgentExecutionStatus.PAUSED,
@@ -1094,6 +1097,7 @@ class TestConversationWebhookSubscriber:
         conversation_info = ConversationInfo(
             id=uuid4(),
             agent=mock_event_service.stored.agent,
+            workspace=mock_event_service.stored.workspace,
             created_at=utc_now(),
             updated_at=utc_now(),
             agent_status=AgentExecutionStatus.FINISHED,
