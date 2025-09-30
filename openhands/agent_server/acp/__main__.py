@@ -1,35 +1,50 @@
-"""CLI entry point for ACP server."""
+"""CLI entry point for OpenHands ACP server."""
 
+import argparse
 import asyncio
-import os
+import logging
+import sys
 from pathlib import Path
 
-from openhands.agent_server.conversation_service import ConversationService
-
-from .server import ACPServer
+from .server import run_acp_server
 
 
-async def main() -> None:
+def main() -> None:
     """Main entry point for ACP server."""
-    # Initialize conversation service
-    persistence_dir = os.getenv(
-        "OPENHANDS_PERSISTENCE_DIR", "/tmp/openhands_conversations"
+    parser = argparse.ArgumentParser(
+        description="OpenHands Agent Client Protocol Server"
     )
-    conversation_service = ConversationService(
-        event_services_path=Path(persistence_dir),
-        webhook_specs=[],
-        session_api_key=None,
+    parser.add_argument(
+        "--persistence-dir",
+        type=Path,
+        default=Path("/tmp/openhands_acp"),
+        help="Directory to store conversation data (default: /tmp/openhands_acp)",
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Logging level (default: INFO)",
     )
 
-    # Start conversation service context
-    async with conversation_service:
-        # Create and run ACP server
-        server = ACPServer(conversation_service)
-        try:
-            server.run()
-        except KeyboardInterrupt:
-            server.stop()
+    args = parser.parse_args()
+
+    # Set up logging to stderr (stdout is used for ACP communication)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stderr)],
+    )
+
+    # Run the ACP server
+    try:
+        asyncio.run(run_acp_server(args.persistence_dir))
+    except KeyboardInterrupt:
+        logging.info("ACP server stopped by user")
+    except Exception as e:
+        logging.error(f"ACP server error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

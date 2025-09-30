@@ -1,39 +1,65 @@
-# Agent Client Protocol (ACP) Support
+# OpenHands Agent Client Protocol (ACP) Implementation
 
-This module implements the Agent Client Protocol (ACP) for OpenHands, enabling integration with editors like Zed, Vim, and other ACP-compatible tools.
+This module provides Agent Client Protocol (ACP) support for OpenHands, enabling integration with editors like Zed, Vim, and other ACP-capable clients.
 
 ## Overview
 
-The Agent Client Protocol is a standardized way for editors and IDEs to communicate with AI coding agents. This implementation provides:
+The ACP implementation uses the [agent-client-protocol](https://github.com/PsiACE/agent-client-protocol-python) Python SDK to provide a clean, standards-compliant interface for editor integration.
 
-- JSON-RPC 2.0 transport over stdin/stdout
-- All baseline ACP methods (initialize, authenticate, session/new, session/prompt)
-- Session management and conversation mapping
-- Comprehensive error handling
+## Features
+
+- **Complete ACP baseline methods**:
+  - `initialize` - Protocol negotiation and capabilities exchange
+  - `authenticate` - Agent authentication (no-op implementation)
+  - `session/new` - Create new conversation sessions
+  - `session/prompt` - Send prompts to the agent
+
+- **Session management**: Maps ACP sessions to OpenHands conversation IDs
+- **Streaming responses**: Real-time updates via `session/update` notifications
+- **Tool integration**: Tool calls and results are streamed to the client
+- **Error handling**: Comprehensive error handling and reporting
 
 ## Usage
 
 ### Starting the ACP Server
 
 ```bash
-# Start in ACP mode
-python -m openhands.agent_server --mode acp
+# Via main CLI
+python -m openhands.agent_server --mode acp --persistence-dir /tmp/acp_data
 
-# Or directly
-python -m openhands.agent_server.acp
+# Direct module execution
+python -m openhands.agent_server.acp --persistence-dir /tmp/acp_data
 ```
 
-### Protocol Flow
+### Editor Integration
 
-1. **Initialize**: Negotiate protocol version and capabilities
-2. **Authenticate**: Optional authentication step
-3. **Create Session**: Start a new conversation session
-4. **Send Prompts**: Send messages to the agent
-5. **Cancel**: Cancel ongoing operations (optional)
+The ACP server communicates over stdin/stdout using NDJSON format with JSON-RPC 2.0 messages.
 
-### Example Messages
+#### Zed Editor Configuration
 
-#### Initialize
+Add to your Zed `settings.json`:
+
+```json
+{
+  "agent_servers": {
+    "OpenHands": {
+      "command": "/path/to/python",
+      "args": [
+        "-m", "openhands.agent_server",
+        "--mode", "acp",
+        "--persistence-dir", "/tmp/openhands_acp"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+#### Example Protocol Messages
+
+**Initialize:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -41,7 +67,7 @@ python -m openhands.agent_server.acp
   "params": {
     "protocolVersion": "1.0.0",
     "clientCapabilities": {
-      "fs": {"readTextFile": true, "writeTextFile": false},
+      "fs": {"readTextFile": true},
       "terminal": false
     }
   },
@@ -49,7 +75,7 @@ python -m openhands.agent_server.acp
 }
 ```
 
-#### Create Session
+**Create Session:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -61,18 +87,15 @@ python -m openhands.agent_server.acp
 }
 ```
 
-#### Send Prompt
+**Send Prompt:**
 ```json
 {
   "jsonrpc": "2.0",
   "method": "session/prompt",
   "params": {
-    "sessionId": "session-123",
+    "sessionId": "session-uuid",
     "prompt": [
-      {
-        "type": "text",
-        "text": "Help me fix this bug in my code"
-      }
+      {"type": "text", "text": "Help me write a Python function"}
     ]
   },
   "id": 3
@@ -81,69 +104,36 @@ python -m openhands.agent_server.acp
 
 ## Architecture
 
-The ACP implementation consists of:
+The ACP implementation acts as an adapter layer:
 
-- **Transport Layer** (`transport.py`): JSON-RPC 2.0 over stdin/stdout
-- **Models** (`models.py`): Pydantic models for all ACP messages
-- **Server** (`server.py`): Main ACP server with method handlers
-- **CLI** (`__main__.py`): Command-line entry point
+1. **Transport Layer**: Uses the `agent-client-protocol` SDK for JSON-RPC communication
+2. **Session Management**: Maps ACP sessions to OpenHands conversation IDs
+3. **Integration Layer**: Connects to existing OpenHands `ConversationService`
+4. **Streaming**: Provides real-time updates via ACP notifications
 
-## Session Management
+## Dependencies
 
-ACP sessions are mapped to OpenHands conversation IDs:
-- Each `session/new` creates a new conversation
-- Session IDs are prefixed with "session-" for clarity
-- Working directory can be specified per session
-
-## Error Handling
-
-The implementation follows JSON-RPC 2.0 error codes:
-- `-32700`: Parse error
-- `-32601`: Method not found
-- `-32603`: Internal error
-- Custom errors for application-specific issues
-
-## Integration with Editors
-
-### Zed Editor
-
-Add to your Zed configuration:
-
-```json
-{
-  "language_models": {
-    "openhands": {
-      "provider": "acp",
-      "command": ["python", "-m", "openhands.agent_server", "--mode", "acp"]
-    }
-  }
-}
-```
-
-### Vim/Neovim
-
-Use with ACP-compatible plugins that support external agent processes.
-
-## Future Enhancements
-
-- Session persistence (`session/load` method)
-- Streaming updates (`session/update` notifications)
-- Rich content support (images, audio)
-- Authentication mechanisms
-- MCP integration
+- `agent-client-protocol>=0.1.0` - Official ACP Python SDK
+- Standard OpenHands dependencies (FastAPI, Pydantic, etc.)
 
 ## Testing
 
-Run the test suite:
+Run the ACP-specific tests:
 
 ```bash
 uv run pytest tests/agent_server/acp/ -v
 ```
 
-## Debugging
-
-Enable debug mode for detailed logging:
+Test with the example client:
 
 ```bash
-OPENHANDS_DEBUG=1 python -m openhands.agent_server --mode acp
+python examples/acp_client_example.py
 ```
+
+## Future Enhancements
+
+- Session persistence (`session/load` method)
+- Rich content support (images, audio)
+- Authentication mechanisms
+- MCP (Model Context Protocol) integration
+- Advanced streaming capabilities

@@ -40,30 +40,31 @@ def main():
     # Handle ACP mode
     if args.mode == "acp":
         import asyncio
+        import logging
+        import sys
         from pathlib import Path
 
-        from openhands.agent_server.acp import ACPServer
-        from openhands.agent_server.conversation_service import ConversationService
+        from openhands.agent_server.acp.server import run_acp_server
 
-        print("🤖 Starting OpenHands Agent Server in ACP mode")
-        print("📡 Listening on stdin/stdout for JSON-RPC messages")
-        print(f"💾 Persistence directory: {args.persistence_dir}")
-        print()
+        # Set up logging to stderr (stdout is used for ACP communication)
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            handlers=[logging.StreamHandler(sys.stderr)],
+        )
 
-        async def run_acp():
-            conversation_service = ConversationService(
-                event_services_path=Path(args.persistence_dir),
-                webhook_specs=[],
-                session_api_key=None,
-            )
-            async with conversation_service:
-                acp_server = ACPServer(conversation_service)
-                try:
-                    acp_server.run()
-                except KeyboardInterrupt:
-                    acp_server.stop()
+        logger = logging.getLogger(__name__)
+        logger.info("🤖 Starting OpenHands Agent Server in ACP mode")
+        logger.info("📡 Listening on stdin/stdout for JSON-RPC messages")
+        logger.info(f"💾 Persistence directory: {args.persistence_dir}")
 
-        asyncio.run(run_acp())
+        try:
+            asyncio.run(run_acp_server(Path(args.persistence_dir)))
+        except KeyboardInterrupt:
+            logger.info("ACP server stopped by user")
+        except Exception as e:
+            logger.error(f"ACP server error: {e}")
+            sys.exit(1)
         return
 
     # Handle HTTP mode (default)

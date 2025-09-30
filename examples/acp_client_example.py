@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Example ACP client for testing OpenHands ACP server.
+"""
+Example ACP client for testing OpenHands ACP server.
 
-This script demonstrates how to communicate with the OpenHands ACP server
-using the Agent Client Protocol over stdin/stdout.
+This demonstrates how to interact with the OpenHands ACP server using
+the Agent Client Protocol over stdin/stdout.
 """
 
 import json
@@ -14,37 +15,36 @@ from typing import Any
 class ACPClient:
     """Simple ACP client for testing."""
 
-    def __init__(self, server_command: list[str]) -> None:
+    def __init__(self, server_command: list[str]):
         """Initialize the client with server command."""
         self.server_command = server_command
-        self.process: subprocess.Popen[str] | None = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.request_id = 0
 
     def start_server(self) -> None:
         """Start the ACP server process."""
-        print(f"🚀 Starting server: {' '.join(self.server_command)}")
         self.process = subprocess.Popen(
             self.server_command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            bufsize=0,
+            text=False,
         )
-        print("✅ Server started")
+        print("🚀 ACP server started")
 
     def stop_server(self) -> None:
         """Stop the ACP server process."""
         if self.process:
             self.process.terminate()
             self.process.wait()
-            print("🛑 Server stopped")
+            self.process = None
+        print("🛑 Server stopped")
 
     def send_request(
         self, method: str, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Send a JSON-RPC request and return the response."""
-        if not self.process:
+        if not self.process or not self.process.stdin or not self.process.stdout:
             raise RuntimeError("Server not started")
 
         self.request_id += 1
@@ -56,19 +56,12 @@ class ACPClient:
         }
 
         # Send request
-        request_json = json.dumps(request)
-        print(f"📤 Sending: {request_json}")
-        if self.process.stdin:
-            self.process.stdin.write(request_json + "\n")
-            self.process.stdin.flush()
+        request_line = json.dumps(request) + "\n"
+        self.process.stdin.write(request_line.encode())
+        self.process.stdin.flush()
 
         # Read response
-        if self.process.stdout:
-            response_line = self.process.stdout.readline().strip()
-        else:
-            raise RuntimeError("No stdout available")
-        print(f"📥 Received: {response_line}")
-
+        response_line = self.process.stdout.readline().decode().strip()
         if not response_line:
             raise RuntimeError("No response from server")
 
@@ -84,7 +77,7 @@ class ACPClient:
         self, method: str, params: dict[str, Any] | None = None
     ) -> None:
         """Send a JSON-RPC notification (no response expected)."""
-        if not self.process:
+        if not self.process or not self.process.stdin:
             raise RuntimeError("Server not started")
 
         notification = {
@@ -94,11 +87,9 @@ class ACPClient:
         }
 
         # Send notification
-        notification_json = json.dumps(notification)
-        print(f"📤 Sending notification: {notification_json}")
-        if self.process.stdin:
-            self.process.stdin.write(notification_json + "\n")
-            self.process.stdin.flush()
+        notification_line = json.dumps(notification) + "\n"
+        self.process.stdin.write(notification_line.encode())
+        self.process.stdin.flush()
 
 
 def main() -> int:
@@ -133,13 +124,13 @@ def main() -> int:
         )
         print(f"✅ Initialized: {init_result}")
 
-        print("\n🔐 Step 2: Authenticate (optional)")
-        auth_result = client.send_request("authenticate", {"token": "test-token"})
+        print("\n🔐 Step 2: Authenticate")
+        auth_result = client.send_request("authenticate", {})
         print(f"✅ Authenticated: {auth_result}")
 
         print("\n📝 Step 3: Create new session")
         session_result = client.send_request(
-            "session/new", {"workingDirectory": "/tmp/test_project"}
+            "session/new", {"workingDirectory": "/tmp"}
         )
         session_id = session_result["sessionId"]
         print(f"✅ Session created: {session_id}")
@@ -149,21 +140,10 @@ def main() -> int:
             "session/prompt",
             {
                 "sessionId": session_id,
-                "prompt": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "Hello! Can you help me write a simple Python function?"
-                        ),
-                    }
-                ],
+                "prompt": [{"type": "text", "text": "Hello! Can you help me?"}],
             },
         )
         print(f"✅ Prompt response: {prompt_result}")
-
-        print("\n🚫 Step 5: Cancel session (notification)")
-        client.send_notification("session/cancel", {"sessionId": session_id})
-        print("✅ Cancel notification sent")
 
         print("\n🎉 ACP client demo completed successfully!")
 
