@@ -145,13 +145,8 @@ class ConversationVisualizer:
                 expand=True,
             )
         elif isinstance(event, MessageEvent):
-            if (
-                self._skip_user_messages
-                and event.llm_message
-                and event.llm_message.role == "user"
-            ):
+            if self._skip_user_messages and event.llm_message.role == "user":
                 return
-            assert event.llm_message is not None
             # Role-based styling
             role_colors = {
                 "user": _MESSAGE_USER_COLOR,
