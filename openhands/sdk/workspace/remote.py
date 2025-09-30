@@ -4,56 +4,50 @@ from typing import Any
 
 import httpx
 
-from openhands.sdk.conversation.system_mixins.base import SystemMixin
 from openhands.sdk.logger import get_logger
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
 
 
-class RemoteSystemMixin(SystemMixin):
-    """Mixin providing remote system operations.
+class RemoteWorkspace(BaseWorkspace):
+    """Mixin providing remote workspace operations."""
 
-    This mixin implements system operations for remote environments where
-    the conversation communicates with a remote agent server. Operations
-    are performed via HTTP API calls to the remote system.
+    def __init__(self, working_dir: str, host: str, api_key: str | None = None) -> None:
+        self._working_dir = working_dir
+        self._host = host
+        Path(working_dir).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Workspace initialized at: {self.working_dir}")
 
-    These operations are independent of the conversation and represent
-    remote system access. They can be scoped to a workspace in the future
-    if needed.
-    """
-
-    def __init__(self, *args, **kwargs):
-        """Initialize the remote system mixin.
-
-        Requires _client and _id attributes to be available from the
-        conversation implementation.
-        """
-        super().__init__(*args, **kwargs)
+        # Set up remote host and API key
+        self._host = host.rstrip("/")
+        self._api_key = api_key
+        # Configure httpx client with API key header if provided
+        headers = {}
+        if api_key:
+            headers["X-Session-API-Key"] = api_key
+        self._client = httpx.Client(base_url=self._host, timeout=30.0, headers=headers)
 
     @property
-    def _http_client(self) -> httpx.Client:
-        """Get the HTTP client for remote operations.
-
-        This property should be implemented by the conversation class
-        that uses this mixin.
-        """
-        if not hasattr(self, "_client"):
-            raise AttributeError(
-                "RemoteSystemMixin requires _client attribute to be set"
-            )
-        return self._client  # type: ignore
+    def client(self) -> httpx.Client:
+        """The HTTP client for communicating with the remote host."""
+        return self._client
 
     @property
-    def _conversation_id(self) -> str:
-        """Get the conversation ID for remote operations.
+    def api_key(self) -> str | None:
+        """The API key used for authenticating with the remote host."""
+        return self._api_key
 
-        This property should be implemented by the conversation class
-        that uses this mixin.
-        """
-        if not hasattr(self, "_id"):
-            raise AttributeError("RemoteSystemMixin requires _id attribute to be set")
-        return str(self._id)  # type: ignore
+    @property
+    def host(self) -> str:
+        """The remote host URL."""
+        return self._host
+
+    @property
+    def working_dir(self) -> Path:
+        """The working directory for agent operations and tool execution."""
+        return Path(self._working_dir)
 
     def execute_command(
         self,
@@ -86,7 +80,7 @@ class RemoteSystemMixin(SystemMixin):
 
         try:
             # Start the command
-            response = self._http_client.post(
+            response = self._client.post(
                 "/api/bash/execute_bash_command",
                 json=payload,
                 timeout=timeout + 5.0,  # Add buffer to HTTP timeout
@@ -106,7 +100,7 @@ class RemoteSystemMixin(SystemMixin):
             while time.time() - start_time < timeout:
                 # Search for all events and filter client-side
                 # (workaround for bash service filtering bug)
-                search_response = self._http_client.get(
+                search_response = self._client.get(
                     "/api/bash/bash_events/search",
                     params={
                         "sort_order": "TIMESTAMP",
@@ -196,7 +190,7 @@ class RemoteSystemMixin(SystemMixin):
             data = {"destination_path": str(destination)}
 
             # Make synchronous HTTP call
-            response = self._http_client.post(
+            response = self._client.post(
                 "/api/files/upload",
                 files=files,
                 data=data,
@@ -240,7 +234,7 @@ class RemoteSystemMixin(SystemMixin):
             params = {"file_path": str(source)}
 
             # Make synchronous HTTP call
-            response = self._http_client.get(
+            response = self._client.get(
                 "/api/files/download",
                 params=params,
                 timeout=60.0,

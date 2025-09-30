@@ -1,16 +1,3 @@
-"""System mixins for conversation implementations.
-
-These mixins provide system-level functionality (shell execution, file operations)
-that are independent of the conversation itself. A system can spawn multiple
-conversations, and these functionalities can be accessed without connecting to
-a system. The reason these methods are tied to conversation is mostly for
-convenience, and maybe later they will be scoped based on the workspace of
-the conversation.
-
-The mixins are designed to be composable and reusable across different
-conversation implementations.
-"""
-
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -21,17 +8,14 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-class SystemMixin(ABC):
-    """Abstract base mixin for system-level operations.
+class BaseWorkspace(ABC):
+    """Abstract base mixin for workspace."""
 
-    This mixin defines the interface for system operations that should be
-    available on conversation objects. These operations are independent of
-    the conversation itself and represent system-level capabilities.
-
-    The reason these methods are provided as a mixin rather than directly
-    in the conversation class is to maintain separation of concerns and
-    allow for different implementations (local vs remote systems).
-    """
+    @property
+    @abstractmethod
+    def working_dir(self) -> Path:
+        """The working directory for agent operations and tool execution."""
+        ...
 
     @abstractmethod
     def execute_command(

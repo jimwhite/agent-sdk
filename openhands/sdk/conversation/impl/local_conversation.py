@@ -6,7 +6,6 @@ from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
-from openhands.sdk.conversation.system_mixins import LocalSystemMixin
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event import (
@@ -20,6 +19,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
+from openhands.sdk.workspace import LocalWorkspace
 
 
 logger = get_logger(__name__)
@@ -36,11 +36,11 @@ def compose_callbacks(
     return composed
 
 
-class LocalConversation(LocalSystemMixin, BaseConversation):
+class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        working_dir: str,
+        working_dir: str | LocalWorkspace,
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -66,13 +66,19 @@ class LocalConversation(LocalSystemMixin, BaseConversation):
             stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
+        if isinstance(working_dir, str):
+            working_dir = LocalWorkspace(working_dir)
+        assert isinstance(working_dir, LocalWorkspace), (
+            "working_dir must be a LocalWorkspace instance"
+        )
+        self.workspace = working_dir
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
         self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
-            working_dir=working_dir,
+            working_dir=str(self.workspace.working_dir),
             persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
             if persistence_dir
             else None,

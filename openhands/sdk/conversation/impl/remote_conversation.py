@@ -13,7 +13,6 @@ from openhands.sdk.conversation.base import BaseConversation, ConversationStateP
 from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.conversation.system_mixins import RemoteSystemMixin
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.conversation.visualizer import create_default_visualizer
 from openhands.sdk.event.base import EventBase
@@ -23,6 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
 from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -306,13 +306,11 @@ class RemoteState(ConversationStateProtocol):
         pass
 
 
-class RemoteConversation(RemoteSystemMixin, BaseConversation):
+class RemoteConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        host: str,
-        working_dir: str,
-        api_key: str | None = None,
+        working_dir: RemoteWorkspace,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -335,17 +333,10 @@ class RemoteConversation(RemoteSystemMixin, BaseConversation):
             visualize: Whether to enable the default visualizer callback
         """
         self.agent = agent
-        self._host = host.rstrip("/")
-        self._api_key = api_key
-
-        # Configure httpx client with API key header if provided
-        headers = {}
-        if api_key:
-            headers["X-Session-API-Key"] = api_key
-
-        self._client = httpx.Client(base_url=self._host, timeout=30.0, headers=headers)
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
+        self.workspace = working_dir
+        self._client = working_dir.client
 
         if conversation_id is None:
             payload = {
@@ -355,7 +346,7 @@ class RemoteConversation(RemoteSystemMixin, BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
-                "working_dir": working_dir,
+                "working_dir": self.workspace.working_dir,
             }
             resp = self._client.post("/api/conversations/", json=payload)
             resp.raise_for_status()
@@ -390,10 +381,10 @@ class RemoteConversation(RemoteSystemMixin, BaseConversation):
 
         # Initialize WebSocket client for callbacks
         self._ws_client = WebSocketCallbackClient(
-            host=self._host,
+            host=self.workspace.host,
             conversation_id=str(self._id),
             callbacks=self._callbacks,
-            api_key=self._api_key,
+            api_key=self.workspace.api_key,
         )
         self._ws_client.start()
 

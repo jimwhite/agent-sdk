@@ -2,26 +2,26 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from openhands.sdk.conversation.system_mixins.base import SystemMixin
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
 
 
-class LocalSystemMixin(SystemMixin):
-    """Mixin providing local system operations.
+class LocalWorkspace(BaseWorkspace):
+    """Mixin providing local workspace operations."""
 
-    This mixin implements system operations for local environments where
-    the conversation is running on the same system as the operations.
-    File operations use shutil.copy for efficiency, and shell execution
-    uses the shared shell execution utility.
+    def __init__(self, working_dir: str) -> None:
+        self._working_dir = working_dir
+        Path(working_dir).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Workspace initialized at: {self.working_dir}")
 
-    These operations are independent of the conversation and represent
-    direct system access. They can be scoped to a workspace in the future
-    if needed.
-    """
+    @property
+    def working_dir(self) -> Path:
+        """The working directory for agent operations and tool execution."""
+        return Path(self._working_dir)
 
     def execute_command(
         self,
@@ -45,7 +45,7 @@ class LocalSystemMixin(SystemMixin):
         logger.debug(f"Executing local bash command: {command} in {cwd}")
         result = execute_command(
             command,
-            cwd=str(cwd) if cwd is not None else None,
+            cwd=str(cwd) if cwd is not None else str(self.working_dir),
             timeout=timeout,
             print_output=True,
         )
