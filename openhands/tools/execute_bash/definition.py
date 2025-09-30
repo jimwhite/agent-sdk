@@ -251,7 +251,7 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
-        full_output_save_dir: str = "/tmp/.openhands",
+        full_output_save_dir: str = "full_tool_outputs",
     ) -> Sequence["BashTool"]:
         """Initialize BashTool with executor parameters.
 
@@ -272,6 +272,10 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
             env_masker: Optional callable that returns current secret values
                         for masking purposes. This ensures consistent masking
                         even when env_provider calls fail.
+            full_output_save_dir: Directory to save full output logs and files
+                                  when truncation is needed. If relative, it will be
+                                  relative to conv_state.persistence_dir. If absolute,
+                                  it will be used as is.
         """
         # Import here to avoid circular imports
         from openhands.tools.execute_bash.impl import BashExecutor
@@ -279,6 +283,14 @@ class BashTool(Tool[ExecuteBashAction, ExecuteBashObservation]):
         working_dir = conv_state.working_dir
         if not os.path.isdir(working_dir):
             raise ValueError(f"working_dir '{working_dir}' is not a valid directory")
+
+        # Compute full output save dir
+        if os.path.isabs(full_output_save_dir):
+            full_output_save_dir = full_output_save_dir
+        else:
+            full_output_save_dir = os.path.join(
+                conv_state.persistence_dir or "", full_output_save_dir
+            )
 
         # Initialize the executor
         executor = BashExecutor(

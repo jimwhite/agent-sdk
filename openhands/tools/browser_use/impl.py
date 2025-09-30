@@ -120,7 +120,7 @@ class BrowserToolExecutor(ToolExecutor):
         allowed_domains: list[str] | None = None,
         session_timeout_minutes: int = 30,
         init_timeout_seconds: int = 30,
-        full_output_save_dir: str = "/tmp/.openhands",
+        full_output_save_dir: str = "full_tool_outputs",
         **config,
     ):
         """Initialize BrowserToolExecutor with timeout protection.
@@ -130,6 +130,8 @@ class BrowserToolExecutor(ToolExecutor):
             allowed_domains: List of allowed domains for browser operations
             session_timeout_minutes: Browser session timeout in minutes
             init_timeout_seconds: Timeout for browser initialization in seconds
+            full_output_save_dir: Absolute path to directory to save full output
+            logs and files, used when truncation is needed.
             **config: Additional configuration options
         """
 

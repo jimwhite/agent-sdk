@@ -23,7 +23,7 @@ class BashExecutor(ToolExecutor):
         terminal_type: Literal["tmux", "subprocess"] | None = None,
         env_provider: Callable[[str], dict[str, str]] | None = None,
         env_masker: Callable[[str], str] | None = None,
-        full_output_save_dir: str = "/tmp/.openhands",
+        full_output_save_dir: str | None = None,
     ):
         """Initialize BashExecutor with auto-detected or specified session type.
 
@@ -39,8 +39,8 @@ class BashExecutor(ToolExecutor):
             env_masker: Optional function that returns current secret values
                         for masking purposes. This ensures consistent masking
                         even when env_provider calls fail.
-            full_output_save_dir: Directory to save full output logs and files,
-                                  used when truncation is needed.
+            full_output_save_dir: Absolute path to directory to save full output
+                                  logs and files, used when truncation is needed.
         """
         self.session = create_terminal_session(
             work_dir=working_dir,
