@@ -273,9 +273,9 @@ class RemoteState(ConversationStateProtocol):
     def workspace(self):
         """The working directory (fetched from remote)."""
         info = self._get_conversation_info()
-        workspace = info.get("working_dir")
+        workspace = info.get("workspace")
         if workspace is None:
-            raise RuntimeError("working_dir missing in conversation info: " + str(info))
+            raise RuntimeError("workspace missing in conversation info: " + str(info))
         return workspace
 
     @property

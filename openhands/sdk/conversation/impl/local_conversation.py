@@ -67,7 +67,7 @@ class LocalConversation(BaseConversation):
         """
         self.agent = agent
         if isinstance(workspace, str):
-            workspace = LocalWorkspace(workspace)
+            workspace = LocalWorkspace(working_dir=workspace)
         assert isinstance(workspace, LocalWorkspace), (
             "workspace must be a LocalWorkspace instance"
         )
@@ -78,7 +78,7 @@ class LocalConversation(BaseConversation):
         self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
-            workspace=str(self.workspace.working_dir),
+            workspace=self.workspace,
             persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
             if persistence_dir
             else None,

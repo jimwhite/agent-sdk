@@ -22,6 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
 )
 from openhands.sdk.utils.models import OpenHandsModel
 from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
@@ -58,8 +59,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-    workspace: str = Field(
-        default="workspace/project",
+    workspace: BaseWorkspace = Field(
+        ...,
         description="Working directory for agent operations and tool execution",
     )
     persistence_dir: str | None = Field(
@@ -131,7 +132,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        workspace: str,
+        workspace: BaseWorkspace,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,

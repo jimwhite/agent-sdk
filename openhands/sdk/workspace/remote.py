@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.workspace.base import BaseWorkspace
@@ -14,40 +15,32 @@ logger = get_logger(__name__)
 class RemoteWorkspace(BaseWorkspace):
     """Mixin providing remote workspace operations."""
 
-    def __init__(self, working_dir: str, host: str, api_key: str | None = None) -> None:
-        self._working_dir = working_dir
-        self._host = host
-        Path(working_dir).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Workspace initialized at: {self.working_dir}")
+    host: str = Field(description="The remote host URL for the workspace.")
+    api_key: str | None = Field(
+        description="API key for authenticating with the remote host."
+    )
+
+    _client: httpx.Client = PrivateAttr()
+
+    def model_post_init(self, context: Any) -> None:
+        if not Path(self.working_dir).exists():
+            Path(self.working_dir).mkdir(parents=True, exist_ok=True)
 
         # Set up remote host and API key
-        self._host = host.rstrip("/")
-        self._api_key = api_key
+        self.host = self.host.rstrip("/")
+        self.api_key = self.api_key
         # Configure httpx client with API key header if provided
         headers = {}
-        if api_key:
-            headers["X-Session-API-Key"] = api_key
-        self._client = httpx.Client(base_url=self._host, timeout=30.0, headers=headers)
+        if self.api_key:
+            headers["X-Session-API-Key"] = self.api_key
+        self._client = httpx.Client(base_url=self.host, timeout=30.0, headers=headers)
+
+        return super().model_post_init(context)
 
     @property
     def client(self) -> httpx.Client:
         """The HTTP client for communicating with the remote host."""
         return self._client
-
-    @property
-    def api_key(self) -> str | None:
-        """The API key used for authenticating with the remote host."""
-        return self._api_key
-
-    @property
-    def host(self) -> str:
-        """The remote host URL."""
-        return self._host
-
-    @property
-    def working_dir(self) -> Path:
-        """The working directory for agent operations and tool execution."""
-        return Path(self._working_dir)
 
     def execute_command(
         self,

@@ -11,6 +11,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 if TYPE_CHECKING:
@@ -47,8 +48,8 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def workspace(self) -> str:
-        """The working directory for agent operations and tool execution."""
+    def workspace(self) -> BaseWorkspace:
+        """The workspace for agent operations and tool execution."""
         ...
 
     @property

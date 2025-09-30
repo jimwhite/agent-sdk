@@ -13,15 +13,10 @@ logger = get_logger(__name__)
 class LocalWorkspace(BaseWorkspace):
     """Mixin providing local workspace operations."""
 
-    def __init__(self, working_dir: str) -> None:
-        self._working_dir = working_dir
-        Path(working_dir).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Workspace initialized at: {self.working_dir}")
-
-    @property
-    def working_dir(self) -> Path:
-        """The working directory for agent operations and tool execution."""
-        return Path(self._working_dir)
+    def model_post_init(self, context: Any) -> None:
+        if not Path(self.working_dir).exists():
+            Path(self.working_dir).mkdir(parents=True, exist_ok=True)
+        return super().model_post_init(context)
 
     def execute_command(
         self,

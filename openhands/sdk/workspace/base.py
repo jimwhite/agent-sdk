@@ -2,20 +2,21 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from pydantic import Field
+
 from openhands.sdk.logger import get_logger
+from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 logger = get_logger(__name__)
 
 
-class BaseWorkspace(ABC):
+class BaseWorkspace(DiscriminatedUnionMixin, ABC):
     """Abstract base mixin for workspace."""
 
-    @property
-    @abstractmethod
-    def working_dir(self) -> Path:
-        """The working directory for agent operations and tool execution."""
-        ...
+    working_dir: str = Field(
+        description="The working directory for agent operations and tool execution."
+    )
 
     @abstractmethod
     def execute_command(
