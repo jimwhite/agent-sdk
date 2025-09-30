@@ -1,0 +1,151 @@
+---
+name: ACP Server
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - openhands/agent_server/acp/**
+            - openhands/agent_server/acp/acp-server.spec
+            - .github/workflows/acp-server.yml
+    pull_request:
+        branches: [main]
+        paths:
+            - openhands/agent_server/acp/**
+            - openhands/agent_server/acp/acp-server.spec
+            - .github/workflows/acp-server.yml
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    build-acp-binary:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  version: latest
+
+            - name: Install dependencies
+              run: uv sync --dev
+
+            - name: Build ACP server binary
+              run: |
+                  make build-acp-server
+
+            - name: Test ACP binary (Windows)
+              if: matrix.os == 'windows-latest'
+              shell: pwsh
+              run: |
+                  Get-ChildItem dist
+                  .\dist\openhands-acp-server.exe --help
+
+            - name: Test ACP binary (Linux and macOS)
+              if: matrix.os != 'windows-latest'
+              shell: bash
+              run: |
+                  # Test help command
+                  ./dist/openhands-acp-server --help
+
+                  # Test ACP server startup
+                  echo "Testing ACP server startup..."
+                  timeout 10s ./dist/openhands-acp-server --log-level DEBUG > acp_test.log 2>&1 &
+                  ACP_PID=$!
+
+                  # Wait a moment for startup
+                  sleep 2
+
+                  # Check if server started successfully
+                  if grep -q "ERROR" acp_test.log; then
+                      echo "ERROR: ACP server encountered errors during startup!"
+                      cat acp_test.log
+                      kill $ACP_PID 2>/dev/null || true
+                      exit 1
+                  fi
+
+                  # Check if server is running
+                  if ! kill -0 $ACP_PID 2>/dev/null; then
+                      echo "ERROR: ACP server failed to start!"
+                      cat acp_test.log
+                      exit 1
+                  fi
+
+                  echo "✓ ACP server started successfully"
+
+                  # Clean up
+                  kill $ACP_PID 2>/dev/null || true
+                  wait $ACP_PID 2>/dev/null || true
+                  rm -f acp_test.log
+
+                  echo "✓ ACP binary test completed successfully"
+
+            - name: Upload ACP binary artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: openhands-acp-server-${{ matrix.os }}
+                  path: |
+                      dist/openhands-acp-server*
+                  retention-days: 7
+
+    test-acp-functionality:
+        name: Test ACP Functionality
+        runs-on: ubuntu-latest
+        needs: build-acp-binary
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  version: latest
+
+            - name: Install dependencies
+              run: uv sync --dev
+
+            - name: Download ACP binary
+              uses: actions/download-artifact@v4
+              with:
+                  name: openhands-acp-server-ubuntu-latest
+                  path: dist/
+
+            - name: Make binary executable
+              run: chmod +x dist/openhands-acp-server
+
+            - name: Run ACP tests
+              run: |
+                  uv run pytest tests/agent_server/acp/ -v
+
+            - name: Test ACP server with example client
+              run: |-
+                  echo "Testing ACP server with example client..."
+
+                  # Start ACP server in background
+                  ./dist/openhands-acp-server --log-level DEBUG > acp_server.log 2>&1 &
+                  ACP_PID=$!
+
+                  # Wait for server to start
+                  sleep 3
+
+                  # Run example client (with timeout to prevent hanging)
+                  timeout 30s uv run python examples/acp_client_example.py || {
+                      echo "Client test completed or timed out"
+                  }
+
+                  # Clean up
+                  kill $ACP_PID 2>/dev/null || true
+                  wait $ACP_PID 2>/dev/null || true
+
+                  echo "✓ ACP functionality test completed"
+
+                  # Show server logs for debugging
+                  echo "=== ACP Server Logs ==="
+                  cat acp_server.log

@@ -6,7 +6,7 @@ import logging
 import sys
 from pathlib import Path
 
-from .server import run_acp_server
+from openhands.agent_server.acp.server import run_acp_server
 
 
 def main() -> None:
