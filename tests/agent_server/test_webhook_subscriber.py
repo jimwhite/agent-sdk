@@ -42,6 +42,7 @@ def mock_event_service():
                     ),
                     tools=[],
                 ),
+                working_dir="workspace/project",
             ),
             file_store_path=temp_path / "file_store",
             working_dir=temp_path / "working_dir",

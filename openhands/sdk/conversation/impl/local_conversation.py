@@ -40,7 +40,7 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        working_dir: str | LocalWorkspace,
+        workspace: str | LocalWorkspace,
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -53,7 +53,7 @@ class LocalConversation(BaseConversation):
 
         Args:
             agent: The agent to use for the conversation
-            working_dir: Working directory for agent operations and tool execution
+            workspace: Working directory for agent operations and tool execution
             persistence_dir: Directory for persisting conversation state and events
             conversation_id: Optional ID for the conversation. If provided, will
                       be used to identify the conversation. The user might want to
@@ -66,19 +66,19 @@ class LocalConversation(BaseConversation):
             stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
-        if isinstance(working_dir, str):
-            working_dir = LocalWorkspace(working_dir)
-        assert isinstance(working_dir, LocalWorkspace), (
-            "working_dir must be a LocalWorkspace instance"
+        if isinstance(workspace, str):
+            workspace = LocalWorkspace(workspace)
+        assert isinstance(workspace, LocalWorkspace), (
+            "workspace must be a LocalWorkspace instance"
         )
-        self.workspace = working_dir
+        self.workspace = workspace
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
         self._state = ConversationState.create(
             id=desired_id,
             agent=agent,
-            working_dir=str(self.workspace.working_dir),
+            workspace=str(self.workspace.working_dir),
             persistence_dir=self.get_persistence_dir(persistence_dir, desired_id)
             if persistence_dir
             else None,

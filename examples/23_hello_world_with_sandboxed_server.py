@@ -62,7 +62,7 @@ def main() -> None:
         logger.info(f"Result of command execution: {result}")
         conversation = Conversation(
             agent=agent,
-            working_dir=workspace,
+            workspace=workspace,
             callbacks=[event_callback],
             visualize=True,
         )

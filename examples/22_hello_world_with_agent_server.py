@@ -153,7 +153,7 @@ with ManagedAPIServer(port=8001) as server:
 
     conversation = Conversation(
         agent=agent,
-        working_dir=workspace,
+        workspace=workspace,
         callbacks=[event_callback],
         visualize=True,
     )

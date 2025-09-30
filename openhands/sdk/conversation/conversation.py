@@ -39,7 +39,7 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        working_dir: str | LocalWorkspace = "workspace/project",
+        workspace: str | LocalWorkspace = "workspace/project",
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -53,7 +53,7 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        working_dir: RemoteWorkspace,
+        workspace: RemoteWorkspace,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -65,7 +65,7 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        working_dir: str | LocalWorkspace | RemoteWorkspace = "workspace/project",
+        workspace: str | LocalWorkspace | RemoteWorkspace = "workspace/project",
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -78,7 +78,7 @@ class Conversation:
             RemoteConversation,
         )
 
-        if isinstance(working_dir, RemoteWorkspace):
+        if isinstance(workspace, RemoteWorkspace):
             # For RemoteConversation, persistence_dir should not be used
             # Only check if it was explicitly set to something other than the default
             if persistence_dir is not None:
@@ -92,7 +92,7 @@ class Conversation:
                 max_iteration_per_run=max_iteration_per_run,
                 stuck_detection=stuck_detection,
                 visualize=visualize,
-                working_dir=working_dir,
+                workspace=workspace,
             )
 
         return LocalConversation(
@@ -102,6 +102,6 @@ class Conversation:
             max_iteration_per_run=max_iteration_per_run,
             stuck_detection=stuck_detection,
             visualize=visualize,
-            working_dir=working_dir,
+            workspace=workspace,
             persistence_dir=persistence_dir,
         )

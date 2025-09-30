@@ -26,7 +26,7 @@ def _create_conv_state(working_dir: str) -> ConversationState:
     return ConversationState.create(
         id=uuid.uuid4(),
         agent=agent,
-        working_dir=working_dir,
+        workspace=working_dir,
     )
 
 

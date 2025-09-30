@@ -58,7 +58,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-    working_dir: str = Field(
+    workspace: str = Field(
         default="workspace/project",
         description="Working directory for agent operations and tool execution",
     )
@@ -131,7 +131,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        working_dir: str,
+        workspace: str,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
@@ -188,7 +188,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
-            working_dir=working_dir,
+            workspace=workspace,
             persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,

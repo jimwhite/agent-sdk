@@ -22,7 +22,7 @@ def _create_test_conv_state(temp_dir: str) -> ConversationState:
     return ConversationState.create(
         id=uuid4(),
         agent=agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
     )
 
 

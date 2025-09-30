@@ -176,7 +176,7 @@ class EventService:
         agent = Agent.model_validate(self.stored.agent.model_dump())
         conversation = LocalConversation(
             agent=agent,
-            working_dir=self.stored.working_dir,
+            workspace=self.stored.working_dir,
             persistence_dir=str(self.file_store_path),
             conversation_id=self.stored.id,
             callbacks=[

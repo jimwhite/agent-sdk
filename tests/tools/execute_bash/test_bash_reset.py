@@ -21,9 +21,7 @@ def _create_conv_state(working_dir: str) -> ConversationState:
 
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
-    return ConversationState.create(
-        id=uuid.uuid4(), agent=agent, working_dir=working_dir
-    )
+    return ConversationState.create(id=uuid.uuid4(), agent=agent, workspace=working_dir)
 
 
 def test_bash_reset_basic():

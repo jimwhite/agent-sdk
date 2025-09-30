@@ -50,7 +50,7 @@ with DockerSandboxedAgentServer(
     workspace = Workspace(host=server.base_url)
     conversation = Conversation(
         agent=agent,
-        working_dir=workspace,
+        workspace=workspace,
         callbacks=[event_callback],
         visualize=True,
     )

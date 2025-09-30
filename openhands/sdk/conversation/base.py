@@ -47,7 +47,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def working_dir(self) -> str:
+    def workspace(self) -> str:
         """The working directory for agent operations and tool execution."""
         ...
 

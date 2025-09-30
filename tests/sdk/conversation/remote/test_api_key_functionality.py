@@ -56,13 +56,13 @@ def test_conversation_factory_passes_api_key_to_remote():
         )
         Conversation(
             agent=agent,
-            working_dir=workspace,
+            workspace=workspace,
         )
 
         # Verify RemoteConversation was called with the workspace
         mock_remote.assert_called_once()
         call_args = mock_remote.call_args
-        assert call_args.kwargs["working_dir"] == workspace
+        assert call_args.kwargs["workspace"] == workspace
 
 
 @patch("httpx.Client")
@@ -91,7 +91,7 @@ def test_remote_conversation_configures_httpx_client_with_api_key(mock_httpx_cli
         # Create RemoteConversation with workspace
         RemoteConversation(
             agent=agent,
-            working_dir=workspace,
+            workspace=workspace,
         )
 
     # Verify httpx.Client was called with correct headers
@@ -129,7 +129,7 @@ def test_remote_conversation_no_api_key_no_headers(mock_httpx_client):
         # Create RemoteConversation without API key
         RemoteConversation(
             agent=agent,
-            working_dir=workspace,
+            workspace=workspace,
         )
 
     # Verify httpx.Client was called without API key headers
@@ -209,7 +209,7 @@ def test_remote_conversation_passes_api_key_to_websocket_client(mock_httpx_clien
         # Create RemoteConversation with API key
         RemoteConversation(
             agent=agent,
-            working_dir=workspace,
+            workspace=workspace,
         )
 
         # Verify WebSocketCallbackClient was called with api_key

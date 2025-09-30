@@ -270,13 +270,13 @@ class RemoteState(ConversationStateProtocol):
         return AgentBase.model_validate(agent_data)
 
     @property
-    def working_dir(self):
+    def workspace(self):
         """The working directory (fetched from remote)."""
         info = self._get_conversation_info()
-        working_dir = info.get("working_dir")
-        if working_dir is None:
+        workspace = info.get("working_dir")
+        if workspace is None:
             raise RuntimeError("working_dir missing in conversation info: " + str(info))
-        return working_dir
+        return workspace
 
     @property
     def persistence_dir(self):
@@ -310,7 +310,7 @@ class RemoteConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        working_dir: RemoteWorkspace,
+        workspace: RemoteWorkspace,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -323,7 +323,7 @@ class RemoteConversation(BaseConversation):
         Args:
             agent: Agent configuration (will be sent to the server)
             host: Base URL of the agent server (e.g., http://localhost:3000)
-            working_dir: The working directory for agent operations and tool execution.
+            workspace: The working directory for agent operations and tool execution.
             api_key: Optional API key for authentication (sent as X-Session-API-Key
                 header)
             conversation_id: Optional existing conversation id to attach to
@@ -335,8 +335,8 @@ class RemoteConversation(BaseConversation):
         self.agent = agent
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
-        self.workspace = working_dir
-        self._client = working_dir.client
+        self.workspace = workspace
+        self._client = workspace.client
 
         if conversation_id is None:
             payload = {

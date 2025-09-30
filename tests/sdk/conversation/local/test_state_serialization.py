@@ -25,7 +25,7 @@ def test_conversation_state_basic_serialization():
     state = ConversationState.create(
         agent=agent,
         id=uuid.UUID("12345678-1234-5678-9abc-123456789001"),
-        working_dir="/tmp",
+        workspace="/tmp",
     )
 
     # Add some events
@@ -80,7 +80,7 @@ def test_conversation_state_persistence_save_load():
             temp_dir, conv_id
         )
         state = ConversationState.create(
-            working_dir="/tmp",
+            workspace="/tmp",
             persistence_dir=persist_path_for_state,
             agent=agent,
             id=conv_id,
@@ -110,7 +110,7 @@ def test_conversation_state_persistence_save_load():
         conversation = Conversation(
             agent=agent,
             persistence_dir=temp_dir,
-            working_dir="/tmp",
+            workspace="/tmp",
             conversation_id=conv_id,
         )
         assert isinstance(conversation, LocalConversation)
@@ -144,7 +144,7 @@ def test_conversation_state_incremental_save():
             temp_dir, conv_id
         )
         state = ConversationState.create(
-            working_dir="/tmp",
+            workspace="/tmp",
             persistence_dir=persist_path_for_state,
             agent=agent,
             id=uuid.UUID("12345678-1234-5678-9abc-123456789003"),
@@ -176,7 +176,7 @@ def test_conversation_state_incremental_save():
         conversation = Conversation(
             agent=agent,
             persistence_dir=temp_dir,
-            working_dir="/tmp",
+            workspace="/tmp",
             conversation_id=conv_id,
         )
         assert isinstance(conversation, LocalConversation)
@@ -232,7 +232,7 @@ def test_conversation_state_event_file_scanning():
         conversation = Conversation(
             agent=agent,
             persistence_dir=temp_dir,
-            working_dir="/tmp",
+            workspace="/tmp",
             conversation_id=conv_id,
         )
 
@@ -297,7 +297,7 @@ def test_conversation_state_corrupted_event_handling():
         with pytest.raises(json.JSONDecodeError):
             Conversation(
                 agent=agent,
-                working_dir="/tmp",
+                workspace="/tmp",
                 persistence_dir=temp_dir,
                 conversation_id=conv_id,
             )
@@ -313,7 +313,7 @@ def test_conversation_state_empty_filestore():
 
         # Create conversation with empty persistence directory
         conversation = Conversation(
-            agent=agent, persistence_dir=temp_dir, working_dir="/tmp", visualize=False
+            agent=agent, persistence_dir=temp_dir, workspace="/tmp", visualize=False
         )
 
         # Should create new state
@@ -346,7 +346,7 @@ def test_conversation_state_missing_base_state():
         # Current implementation creates new conversation and ignores orphaned
         # event files
         conversation = Conversation(
-            agent=agent, persistence_dir=temp_dir, working_dir="/tmp"
+            agent=agent, persistence_dir=temp_dir, workspace="/tmp"
         )
 
         # Should create new state, not load the orphaned event file
@@ -364,7 +364,7 @@ def test_conversation_state_exclude_from_base_state():
         )
         agent = Agent(llm=llm, tools=[])
         state = ConversationState.create(
-            working_dir="/tmp",
+            workspace="/tmp",
             persistence_dir=temp_dir,
             agent=agent,
             id=uuid.UUID("12345678-1234-5678-9abc-123456789004"),
@@ -392,7 +392,7 @@ def test_conversation_state_thread_safety():
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
     state = ConversationState.create(
-        working_dir="/tmp",
+        workspace="/tmp",
         agent=agent,
         id=uuid.UUID("12345678-1234-5678-9abc-123456789005"),
     )
@@ -451,7 +451,7 @@ def test_conversation_state_flags_persistence():
             temp_dir, conv_id
         )
         state = ConversationState.create(
-            working_dir="/tmp",
+            workspace="/tmp",
             persistence_dir=persist_path_for_state,
             agent=agent,
             id=conv_id,
@@ -466,7 +466,7 @@ def test_conversation_state_flags_persistence():
 
         # Create a new ConversationState that loads from the same persistence directory
         loaded_state = ConversationState.create(
-            working_dir="/tmp",
+            workspace="/tmp",
             persistence_dir=persist_path_for_state,
             agent=agent,
             id=conv_id,
@@ -498,7 +498,7 @@ def test_conversation_with_agent_different_llm_config():
         conversation = Conversation(
             agent=original_agent,
             persistence_dir=temp_dir,
-            working_dir="/tmp",
+            workspace="/tmp",
             visualize=False,
         )
 
@@ -525,7 +525,7 @@ def test_conversation_with_agent_different_llm_config():
         new_conversation = Conversation(
             agent=new_agent,
             persistence_dir=temp_dir,
-            working_dir="/tmp",
+            workspace="/tmp",
             conversation_id=conversation_id,  # Use same ID
             visualize=False,
         )
