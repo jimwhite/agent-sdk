@@ -1,5 +1,6 @@
 # state.py
 import json
+from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -21,7 +22,6 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
-from openhands.sdk.utils.protocol import ListLike
 from openhands.sdk.workspace.base import BaseWorkspace
 
 
@@ -108,9 +108,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
         # Initialize FIFOLock
         FIFOLock.__init__(self)
 
-    # ===== Public "events" facade (ListLike[Event]) =====
+    # ===== Public "events" facade (Sequence[Event]) =====
     @property
-    def events(self) -> ListLike[EventBase]:
+    def events(self) -> EventLog:
         return self._events
 
     @property
@@ -232,7 +232,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
                 raise e
 
     @staticmethod
-    def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
+    def get_unmatched_actions(events: Sequence[EventBase]) -> list[ActionEvent]:
         """Find actions in the event history that don't have matching observations.
 
         This method identifies ActionEvents that don't have corresponding
