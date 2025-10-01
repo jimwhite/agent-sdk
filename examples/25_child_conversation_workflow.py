@@ -57,7 +57,7 @@ api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+    model="litellm_proxy/openai/gpt-5-mini",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
     service_id="agent",
