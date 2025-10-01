@@ -1,5 +1,6 @@
 # state.py
 import json
+from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,7 @@ from openhands.sdk.conversation.event_store import EventLog
 from openhands.sdk.conversation.fifo_lock import FIFOLock
 from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
-from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
 from openhands.sdk.event.base import EventBase
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
@@ -21,7 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
-from openhands.sdk.utils.protocol import ListLike
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 logger = get_logger(__name__)
@@ -58,8 +59,8 @@ class ConversationState(OpenHandsModel, FIFOLock):
             "LLM changes, etc."
         ),
     )
-    working_dir: str = Field(
-        default="workspace/project",
+    workspace: BaseWorkspace = Field(
+        ...,
         description="Working directory for agent operations and tool execution",
     )
     persistence_dir: str | None = Field(
@@ -101,21 +102,33 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _autosave_enabled: bool = PrivateAttr(
         default=False
     )  # to avoid recursion during init
+    _on_state_change: ConversationCallbackType | None = PrivateAttr(
+        default=None
+    )  # callback for state changes
 
     def model_post_init(self, __context) -> None:
         """Initialize FIFOLock after Pydantic model initialization."""
         # Initialize FIFOLock
         FIFOLock.__init__(self)
 
-    # ===== Public "events" facade (ListLike[Event]) =====
+    # ===== Public "events" facade (Sequence[Event]) =====
     @property
-    def events(self) -> ListLike[EventBase]:
+    def events(self) -> EventLog:
         return self._events
 
     @property
     def secrets_manager(self) -> SecretsManager:
         """Public accessor for the SecretsManager (stored as a private attr)."""
         return self._secrets_manager
+
+    def set_on_state_change(self, callback: ConversationCallbackType | None) -> None:
+        """Set a callback to be called when state changes.
+
+        Args:
+            callback: A function that takes an EventBase (ConversationStateUpdateEvent)
+                     or None to remove the callback
+        """
+        self._on_state_change = callback
 
     # ===== Base snapshot helpers (same FileStore usage you had) =====
     def _save_base_state(self, fs: FileStore) -> None:
@@ -131,7 +144,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        working_dir: str,
+        workspace: BaseWorkspace,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,
@@ -188,7 +201,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         state = cls(
             id=id,
             agent=agent,
-            working_dir=working_dir,
+            workspace=workspace,
             persistence_dir=persistence_dir,
             max_iterations=max_iterations,
             stuck_detection=stuck_detection,
@@ -230,8 +243,27 @@ class ConversationState(OpenHandsModel, FIFOLock):
                 logger.exception("Auto-persist base_state failed", exc_info=True)
                 raise e
 
+            # Call state change callback if set
+            callback = getattr(self, "_on_state_change", None)
+            if callback is not None and old is not _sentinel:
+                try:
+                    # Import here to avoid circular imports
+                    from openhands.sdk.event.conversation_state import (
+                        ConversationStateUpdateEvent,
+                    )
+
+                    # Create a ConversationStateUpdateEvent with the changed field
+                    state_update_event = ConversationStateUpdateEvent(
+                        key=name, value=value
+                    )
+                    callback(state_update_event)
+                except Exception:
+                    logger.exception(
+                        f"State change callback failed for field {name}", exc_info=True
+                    )
+
     @staticmethod
-    def get_unmatched_actions(events: ListLike[EventBase]) -> list[ActionEvent]:
+    def get_unmatched_actions(events: Sequence[EventBase]) -> list[ActionEvent]:
         """Find actions in the event history that don't have matching observations.
 
         This method identifies ActionEvents that don't have corresponding

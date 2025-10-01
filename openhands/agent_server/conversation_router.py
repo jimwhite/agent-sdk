@@ -21,6 +21,7 @@ from openhands.agent_server.models import (
 )
 from openhands.sdk import LLM, Agent, TextContent, ToolSpec
 from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.workspace import LocalWorkspace
 
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
@@ -43,7 +44,7 @@ START_CONVERSATION_EXAMPLES = [
                 ToolSpec(name="TaskTrackerTool"),
             ],
         ),
-        working_dir="workspace/project",
+        workspace=LocalWorkspace(working_dir="workspace/project"),
         initial_message=SendMessageRequest(
             role="user", content=[TextContent(text="Flip a coin!")]
         ),
@@ -104,7 +105,7 @@ async def get_conversation(conversation_id: UUID) -> ConversationInfo:
     return conversation
 
 
-@conversation_router.get("/")
+@conversation_router.get("")
 async def batch_get_conversations(
     ids: Annotated[list[UUID], Query()],
 ) -> list[ConversationInfo | None]:
@@ -118,7 +119,7 @@ async def batch_get_conversations(
 # Write Methods
 
 
-@conversation_router.post("/")
+@conversation_router.post("")
 async def start_conversation(
     request: Annotated[
         StartConversationRequest, Body(examples=START_CONVERSATION_EXAMPLES)
