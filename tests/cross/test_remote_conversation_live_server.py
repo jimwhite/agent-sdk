@@ -82,20 +82,45 @@ def patched_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch LLM.completion to a deterministic assistant message response."""
 
     def fake_completion(
-        self, messages, tools, extra_body, add_security_risk_prediction
+        self,
+        messages,
+        tools,
+        return_metrics=False,
+        add_security_risk_prediction=False,
+        **kwargs,
     ):  # type: ignore[no-untyped-def]
-        # Return a minimal ModelResponse with a single assistant message
+        from openhands.sdk.llm.llm_response import LLMResponse
+        from openhands.sdk.llm.message import Message
+        from openhands.sdk.llm.utils.metrics import MetricsSnapshot
+
+        # Create a minimal ModelResponse with a single assistant message
         litellm_msg = LiteLLMMessage.model_validate(
             {
                 "role": "assistant",
                 "content": "Hello from patched LLM",
             }
         )
-        return ModelResponse(
+        raw_response = ModelResponse(
             id="test-resp",
             created=int(time.time()),
             model="test-model",
             choices=[Choices(index=0, finish_reason="stop", message=litellm_msg)],
+        )
+
+        # Convert to OpenHands Message
+        message = Message.from_litellm_message(litellm_msg)
+
+        # Create metrics snapshot
+        metrics_snapshot = MetricsSnapshot(
+            model_name="test-model",
+            accumulated_cost=0.0,
+            max_budget_per_task=None,
+            accumulated_token_usage=None,
+        )
+
+        # Return LLMResponse as expected by the agent
+        return LLMResponse(
+            message=message, metrics=metrics_snapshot, raw_response=raw_response
         )
 
     monkeypatch.setattr(LLM, "completion", fake_completion, raising=True)
