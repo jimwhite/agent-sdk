@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 
+from openhands.agent_server.asyncapi_router import asyncapi_router
 from openhands.agent_server.bash_router import bash_router
 from openhands.agent_server.config import (
     Config,
@@ -132,6 +133,7 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(desktop_router)
     app.include_router(api_router)
     app.include_router(sockets_router)
+    app.include_router(asyncapi_router)
 
 
 def _setup_static_files(app: FastAPI, config: Config) -> None:
