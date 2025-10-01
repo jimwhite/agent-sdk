@@ -74,6 +74,7 @@ class FileEditor:
         self._encoding_manager = EncodingManager()
 
         # Set cwd (current working directory) if workspace_root is provided
+        self._workspace_root_provided = workspace_root is not None
         if workspace_root is not None:
             workspace_path = Path(workspace_root)
             # Ensure workspace_root is an absolute path
@@ -505,7 +506,8 @@ class FileEditor:
 
         Validates:
         1. Path is absolute
-        2. Path and command are compatible
+        2. Path is within workspace boundaries (if workspace_root is set)
+        3. Path and command are compatible
         """
         # Check if its an absolute path
         if not path.is_absolute():
@@ -524,6 +526,26 @@ class FileEditor:
                 path,
                 suggestion_message,
             )
+
+        # Check if path is within workspace boundaries when workspace_root was explicitly set  # noqa: E501
+        if self._workspace_root_provided and self._cwd is not None:
+            try:
+                # Resolve both paths to handle symlinks and relative components
+                resolved_path = path.resolve()
+                resolved_cwd = Path(self._cwd).resolve()
+
+                # Check if the resolved path is within the workspace
+                resolved_cwd.relative_to(resolved_cwd)  # This should always work
+                resolved_path.relative_to(resolved_cwd)
+            except ValueError:
+                # If relative_to raises ValueError, the path is outside workspace
+                raise EditorToolParameterInvalidError(
+                    "path",
+                    path,
+                    f"Access denied. The path {path} is outside the allowed "
+                    f"workspace directory {self._cwd}. Please use paths within "
+                    f"the workspace.",
+                )
 
         # Check if path and command are compatible
         if command == "create" and path.exists():
