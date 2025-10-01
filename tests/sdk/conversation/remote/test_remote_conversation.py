@@ -26,6 +26,12 @@ class TestRemoteConversation:
         self.mock_client = Mock(spec=httpx.Client)
         self.workspace = RemoteWorkspace(host=self.host, working_dir="/tmp")
 
+    def setup_mock_client(self):
+        """Set up mock client for the workspace."""
+        mock_client_instance = Mock()
+        self.workspace._client = mock_client_instance
+        return mock_client_instance
+
     def create_mock_conversation_response(self, conversation_id: str | None = None):
         """Create mock conversation creation response."""
         if conversation_id is None:
@@ -55,14 +61,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_initialization_new_conversation(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_initialization_new_conversation(self, mock_ws_client):
         """Test RemoteConversation initialization with new conversation."""
-        # Mock HTTP client
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        # Mock the workspace client directly
+        mock_client_instance = self.setup_mock_client()
 
         # Mock conversation creation response
         conversation_id = str(uuid.uuid4())
@@ -86,12 +88,9 @@ class TestRemoteConversation:
             stuck_detection=True,
         )
 
-        # Verify HTTP client was created correctly
-        mock_httpx_client.assert_called_once_with(base_url=self.host, timeout=30.0)
-
         # Verify conversation creation API call
         mock_client_instance.post.assert_called_once_with(
-            "/api/conversations/",
+            "/api/conversations",
             json={
                 "agent": self.agent.model_dump(
                     mode="json", context={"expose_secrets": True}
@@ -99,6 +98,7 @@ class TestRemoteConversation:
                 "initial_message": None,
                 "max_iterations": 100,
                 "stuck_detection": True,
+                "workspace": self.workspace.model_dump(),
             },
         )
 
@@ -114,14 +114,12 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
     def test_remote_conversation_initialization_existing_conversation(
-        self, mock_httpx_client, mock_ws_client
+        self, mock_ws_client
     ):
         """Test RemoteConversation initialization with existing conversation."""
-        # Mock HTTP client
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        # Mock the workspace client directly
+        mock_client_instance = self.setup_mock_client()
 
         # Mock existing conversation validation response
         conversation_id = uuid.uuid4()
@@ -153,14 +151,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_send_message_string(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_send_message_string(self, mock_ws_client):
         """Test sending a string message."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -186,21 +180,17 @@ class TestRemoteConversation:
         post_calls = [
             call
             for call in mock_client_instance.post.call_args_list
-            if f"/api/conversations/{conversation_id}/events/" in str(call)
+            if f"/api/conversations/{conversation_id}/events" in str(call)
         ]
         assert len(post_calls) >= 1, "Should have made a POST call to events endpoint"
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_send_message_object(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_send_message_object(self, mock_ws_client):
         """Test sending a Message object."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -231,21 +221,17 @@ class TestRemoteConversation:
         post_calls = [
             call
             for call in mock_client_instance.post.call_args_list
-            if f"/api/conversations/{conversation_id}/events/" in str(call)
+            if f"/api/conversations/{conversation_id}/events" in str(call)
         ]
         assert len(post_calls) >= 1, "Should have made a POST call to events endpoint"
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_send_message_invalid_role(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_send_message_invalid_role(self, mock_ws_client):
         """Test sending a message with invalid role raises assertion error."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -272,12 +258,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_run(self, mock_httpx_client, mock_ws_client):
+    def test_remote_conversation_run(self, mock_ws_client):
         """Test running the conversation."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -305,14 +289,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_run_already_running(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_run_already_running(self, mock_ws_client):
         """Test running when conversation is already running (409 response)."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -339,14 +319,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_set_confirmation_policy(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_set_confirmation_policy(self, mock_ws_client):
         """Test setting confirmation policy."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -378,14 +354,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_reject_pending_actions(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_reject_pending_actions(self, mock_ws_client):
         """Test rejecting pending actions."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -416,12 +388,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_pause(self, mock_httpx_client, mock_ws_client):
+    def test_remote_conversation_pause(self, mock_ws_client):
         """Test pausing the conversation."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -450,14 +420,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_update_secrets(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_update_secrets(self, mock_ws_client):
         """Test updating secrets."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -501,14 +467,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_update_secrets_callable(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_update_secrets_callable(self, mock_ws_client):
         """Test updating secrets with callable values."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -552,12 +514,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_close(self, mock_httpx_client, mock_ws_client):
+    def test_remote_conversation_close(self, mock_ws_client):
         """Test closing the conversation."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -582,14 +542,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_stuck_detector_not_implemented(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_stuck_detector_not_implemented(self, mock_ws_client):
         """Test that stuck_detector property raises NotImplementedError."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -613,14 +569,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_with_callbacks(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_with_callbacks(self, mock_ws_client):
         """Test RemoteConversation with custom callbacks."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -645,23 +597,19 @@ class TestRemoteConversation:
             callbacks=[custom_callback],
         )
 
-        # Verify WebSocket client was created with callbacks
-        # The callbacks list should include the custom callback plus the default one
+        # Verify WebSocket client was created with callback
+        # The callback should be a composed callback that includes the custom callback
         mock_ws_client.assert_called_once()
         call_args = mock_ws_client.call_args
-        assert len(call_args[1]["callbacks"]) >= 1  # At least the custom callback
+        assert "callback" in call_args[1]  # Should have a callback parameter
 
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_with_visualize(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_with_visualize(self, mock_ws_client):
         """Test RemoteConversation with visualize=True."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -695,14 +643,10 @@ class TestRemoteConversation:
     @patch(
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
-    @patch("httpx.Client")
-    def test_remote_conversation_host_url_normalization(
-        self, mock_httpx_client, mock_ws_client
-    ):
+    def test_remote_conversation_host_url_normalization(self, mock_ws_client):
         """Test that host URL is normalized correctly."""
         # Setup mocks
-        mock_client_instance = Mock()
-        mock_httpx_client.return_value = mock_client_instance
+        mock_client_instance = self.setup_mock_client()
 
         conversation_id = str(uuid.uuid4())
         mock_conv_response = self.create_mock_conversation_response(conversation_id)
@@ -717,14 +661,10 @@ class TestRemoteConversation:
         # Test with trailing slash
         host_with_slash = "http://localhost:8000/"
         workspace_with_slash = RemoteWorkspace(host=host_with_slash, working_dir="/tmp")
+        workspace_with_slash._client = mock_client_instance
         conversation = RemoteConversation(
             agent=self.agent, workspace=workspace_with_slash
         )
 
-        # Verify trailing slash was removed
+        # Verify trailing slash was removed and workspace host was normalized
         assert conversation.workspace.host == "http://localhost:8000"
-
-        # Verify HTTP client was created with normalized URL
-        mock_httpx_client.assert_called_with(
-            base_url="http://localhost:8000", timeout=30.0, headers={}
-        )
