@@ -37,10 +37,10 @@ from acp.schema import (
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.models import StartConversationRequest
 from openhands.sdk import Message, TextContent
+from openhands.sdk.llm import LLM
 from openhands.tools.preset.default import get_default_agent
 
 from .events import EventSubscriber
-from .llm_config import create_llm_from_config, validate_llm_config
 
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class OpenHandsACPAgent(ACPAgent):
 
         # Session management
         self._sessions: dict[str, str] = {}  # session_id -> conversation_id
-        self._llm_config: dict[str, Any] = {}  # Store LLM configuration from auth
+        self._llm_params: dict[str, Any] = {}  # Store LLM parameters from auth
 
         # Initialize conversation service (will be started in async method)
         self._conversation_service = ConversationService(
@@ -117,14 +117,9 @@ class OpenHandsACPAgent(ACPAgent):
         if params.methodId == "llm_config":
             # Extract LLM configuration from the _meta field
             if params.field_meta:
-                llm_config = params.field_meta
+                self._llm_params = params.field_meta
                 logger.info("Received LLM configuration via authentication")
-
-                # Validate and store LLM configuration
-                self._llm_config = validate_llm_config(llm_config)
-                logger.info(
-                    f"LLM configuration stored: {list(self._llm_config.keys())}"
-                )
+                logger.info(f"LLM parameters stored: {list(self._llm_params.keys())}")
             else:
                 logger.warning("No LLM configuration provided in authentication")
 
@@ -138,33 +133,93 @@ class OpenHandsACPAgent(ACPAgent):
         await self._ensure_service_started()
         session_id = str(uuid.uuid4())
 
-        # Create a properly configured agent for the conversation
-        llm = create_llm_from_config(self._llm_config)
+        try:
+            # Create a properly configured agent for the conversation
+            logger.info(f"Creating LLM with params: {list(self._llm_params.keys())}")
 
-        agent = get_default_agent(llm=llm, cli_mode=True)
+            # Create LLM with provided parameters or defaults
+            llm_kwargs = {}
+            if self._llm_params:
+                # Use authenticated parameters
+                llm_kwargs.update(self._llm_params)
+            else:
+                # Use environment defaults
+                import os
 
-        # Create a new conversation
-        from openhands.sdk.workspace.local import LocalWorkspace
+                api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+                if api_key:
+                    llm_kwargs["api_key"] = api_key
+                    if os.getenv("LITELLM_API_KEY"):
+                        llm_kwargs.update(
+                            {
+                                "model": (
+                                    "litellm_proxy/anthropic/claude-sonnet-4-5-20250929"
+                                ),
+                                "base_url": "https://llm-proxy.eval.all-hands.dev",
+                                "drop_params": True,
+                            }
+                        )
+                    else:
+                        llm_kwargs["model"] = "gpt-4o-mini"
+                else:
+                    logger.warning("No API key found. Using dummy key.")
+                    llm_kwargs["api_key"] = "dummy-key"
 
-        workspace = LocalWorkspace(working_dir=params.cwd or str(Path.cwd()))
+            # Add required service_id
+            llm_kwargs["service_id"] = "acp-agent"
 
-        create_request = StartConversationRequest(
-            agent=agent,
-            workspace=workspace,
-        )
+            llm = LLM(**llm_kwargs)
+            logger.info(f"Created LLM with model: {llm.model}")
 
-        conversation_info = await self._conversation_service.start_conversation(
-            create_request
-        )
+            logger.info("Creating default agent")
+            agent = get_default_agent(llm=llm, cli_mode=True)
 
-        # Map session to conversation
-        self._sessions[session_id] = str(conversation_info.id)
+            # Create a new conversation
+            from openhands.sdk.workspace.local import LocalWorkspace
 
-        logger.info(
-            f"Created new session {session_id} -> conversation {conversation_info.id}"
-        )
+            # Validate working directory
+            working_dir = params.cwd or str(Path.cwd())
+            working_path = Path(working_dir)
 
-        return NewSessionResponse(sessionId=session_id)
+            logger.info(f"Using working directory: {working_dir}")
+
+            # Create directory if it doesn't exist
+            if not working_path.exists():
+                logger.warning(
+                    f"Working directory {working_dir} doesn't exist, creating it"
+                )
+                working_path.mkdir(parents=True, exist_ok=True)
+
+            if not working_path.is_dir():
+                raise ValueError(
+                    f"Working directory path is not a directory: {working_dir}"
+                )
+
+            workspace = LocalWorkspace(working_dir=str(working_path))
+
+            create_request = StartConversationRequest(
+                agent=agent,
+                workspace=workspace,
+            )
+
+            logger.info("Starting conversation")
+            conversation_info = await self._conversation_service.start_conversation(
+                create_request
+            )
+
+            # Map session to conversation
+            self._sessions[session_id] = str(conversation_info.id)
+
+            logger.info(
+                f"Created new session {session_id} -> "
+                f"conversation {conversation_info.id}"
+            )
+
+            return NewSessionResponse(sessionId=session_id)
+
+        except Exception as e:
+            logger.error(f"Failed to create new session: {e}", exc_info=True)
+            raise
 
     async def prompt(self, params: PromptRequest) -> PromptResponse:
         """Handle a prompt request."""

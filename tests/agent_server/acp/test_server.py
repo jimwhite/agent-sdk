@@ -72,11 +72,11 @@ async def test_authenticate_llm_config(mock_conn, temp_persistence_dir):
     response = await agent.authenticate(request)
 
     assert response is not None
-    assert agent._llm_config["model"] == "gpt-4"
-    assert agent._llm_config["api_key"] == "test-api-key"
-    assert agent._llm_config["base_url"] == "https://api.openai.com/v1"
-    assert agent._llm_config["temperature"] == 0.7
-    assert agent._llm_config["max_output_tokens"] == 2000
+    assert agent._llm_params["model"] == "gpt-4"
+    assert agent._llm_params["api_key"] == "test-api-key"
+    assert agent._llm_params["base_url"] == "https://api.openai.com/v1"
+    assert agent._llm_params["temperature"] == 0.7
+    assert agent._llm_params["max_output_tokens"] == 2000
 
 
 @pytest.mark.asyncio
@@ -103,64 +103,7 @@ async def test_authenticate_no_config(mock_conn, temp_persistence_dir):
     response = await agent.authenticate(request)
 
     assert response is not None
-    assert len(agent._llm_config) == 0
-
-
-def test_validate_llm_config(mock_conn, temp_persistence_dir):
-    """Test LLM configuration validation."""
-    from openhands.agent_server.acp.llm_config import validate_llm_config
-
-    # Test valid configuration
-    config = {
-        "model": "gpt-4",
-        "api_key": "test-key",
-        "temperature": 0.7,
-        "unknown_param": "should_be_ignored",
-        "max_output_tokens": 2000,
-    }
-
-    validated = validate_llm_config(config)
-
-    assert validated["model"] == "gpt-4"
-    assert validated["api_key"] == "test-key"
-    assert validated["temperature"] == 0.7
-    assert validated["max_output_tokens"] == 2000
-    assert "unknown_param" not in validated
-
-
-def test_create_llm_from_config_with_auth(mock_conn, temp_persistence_dir):
-    """Test LLM creation with authenticated configuration."""
-    from openhands.agent_server.acp.llm_config import create_llm_from_config
-
-    # Set authenticated config
-    llm_config = {
-        "model": "gpt-4",
-        "api_key": "test-key",
-        "temperature": 0.5,
-    }
-
-    llm = create_llm_from_config(llm_config)
-
-    assert llm.model == "gpt-4"
-    assert llm.api_key is not None
-    assert llm.api_key.get_secret_value() == "test-key"
-    assert llm.temperature == 0.5
-    assert llm.service_id == "acp-agent"
-
-
-def test_create_llm_from_config_defaults(mock_conn, temp_persistence_dir, monkeypatch):
-    """Test LLM creation with default configuration."""
-    from openhands.agent_server.acp.llm_config import create_llm_from_config
-
-    # Clear environment variables
-    monkeypatch.delenv("LITELLM_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    # No authenticated config
-    llm = create_llm_from_config({})
-
-    assert llm.model == "claude-sonnet-4-20250514"  # Default model
-    assert llm.service_id == "acp-agent"
+    assert len(agent._llm_params) == 0
 
 
 @pytest.mark.asyncio
