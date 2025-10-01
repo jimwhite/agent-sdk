@@ -1,4 +1,3 @@
-import json
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
@@ -12,6 +11,32 @@ from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT, maybe_truncate
 
 
 logger = get_logger(__name__)
+
+
+class ThinkingBlock(BaseModel):
+    """Anthropic thinking block for extended thinking feature.
+
+    This represents the raw thinking blocks returned by Anthropic models
+    when extended thinking is enabled. These blocks must be preserved
+    and passed back to the API for tool use scenarios.
+    """
+
+    type: Literal["thinking"] = "thinking"
+    thinking: str = Field(..., description="The thinking content")
+    signature: str = Field(
+        ..., description="Cryptographic signature for the thinking block"
+    )
+
+
+class RedactedThinkingBlock(BaseModel):
+    """Redacted thinking block for previous responses without extended thinking.
+
+    This is used as a placeholder for assistant messages that were generated
+    before extended thinking was enabled.
+    """
+
+    type: Literal["redacted_thinking"] = "redacted_thinking"
+    data: str = Field(..., description="The redacted thinking content")
 
 
 class BaseContent(BaseModel):
@@ -86,6 +111,11 @@ class Message(BaseModel):
     reasoning_content: str | None = Field(
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
+    )
+    # Anthropic-specific thinking blocks (not normalized by LiteLLM)
+    thinking_blocks: Sequence[ThinkingBlock | RedactedThinkingBlock] = Field(
+        default_factory=list,
+        description="Raw Anthropic thinking blocks for extended thinking feature",
     )
 
     def to_responses_input_items(self) -> list[dict[str, Any]]:
@@ -181,6 +211,17 @@ class Message(BaseModel):
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
 
+        # Add thinking blocks first (for Anthropic extended thinking)
+        # Only add thinking blocks for assistant messages
+        if self.role == "assistant":
+            thinking_blocks = list(
+                self.thinking_blocks
+            )  # Copy to avoid modifying original
+
+            for thinking_block in thinking_blocks:
+                thinking_dict = thinking_block.model_dump()
+                content.append(thinking_dict)
+
         for item in self.content:
             # All content types now return list[dict[str, Any]]
             item_dicts = item.to_llm_dict()
@@ -242,10 +283,22 @@ class Message(BaseModel):
         Provider-agnostic mapping for reasoning and tool calls:
         - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
         - Normalize provider `tool_calls` to LLMToolCall
+        - Extract `thinking_blocks` from content array (Anthropic-specific)
         """
         assert message.role != "function", "Function role is not supported"
 
         rc = getattr(message, "reasoning_content", None)
+        thinking_blocks = getattr(message, "thinking_blocks", None)
+        # Convert to list of ThinkingBlock or RedactedThinkingBlock
+        if thinking_blocks is not None:
+            thinking_blocks = [
+                ThinkingBlock(**tb)
+                if tb.get("type") == "thinking"
+                else RedactedThinkingBlock(**tb)
+                for tb in thinking_blocks
+            ]
+        else:
+            thinking_blocks = []
 
         # Normalize tool calls, if present on the provider message
         norm_tool_calls: list[LLMToolCall] | None = None
@@ -253,62 +306,7 @@ class Message(BaseModel):
         if raw_tool_calls:
             norm_tool_calls = []
             for item in raw_tool_calls:
-                # Expect OpenAI-style shape (dict or pydantic object)
-                fn = getattr(item, "function", None) or (
-                    item.get("function") if isinstance(item, dict) else None
-                )
-                if fn is None:
-                    name = None
-                    args = None
-                elif isinstance(fn, dict):
-                    name = fn.get("name")
-                    args = fn.get("arguments")
-                else:
-                    name = getattr(fn, "name", None)
-                    args = getattr(fn, "arguments", None)
-                call_id = getattr(item, "id", None) or (
-                    item.get("id") if isinstance(item, dict) else None
-                )
-
-                # Ensure arguments are a JSON string
-                if args is None:
-                    args_str = "{}"
-                elif isinstance(args, str):
-                    args_str = args
-                else:
-                    try:
-                        args_str = json.dumps(args)
-                    except Exception:
-                        args_str = str(args)
-
-                # Fallbacks to keep data flow resilient
-                name = name or "unknown_function"
-                call_id = call_id or "toolu_0"
-
-                # Preserve raw only if it matches expected types
-                safe_raw = None
-                try:
-                    from litellm import (
-                        ChatCompletionMessageToolCall,
-                        ResponseFunctionToolCall,
-                    )
-
-                    if not isinstance(item, dict) and isinstance(
-                        item, (ChatCompletionMessageToolCall, ResponseFunctionToolCall)
-                    ):
-                        safe_raw = item
-                except Exception:
-                    safe_raw = None
-
-                norm_tool_calls.append(
-                    LLMToolCall(
-                        id=str(call_id),
-                        name=str(name),
-                        arguments_json=args_str,
-                        origin="completion",
-                        raw=safe_raw,
-                    )
-                )
+                norm_tool_calls.append(LLMToolCall.from_provider_call(item))
 
         return Message(
             role=message.role,
@@ -317,6 +315,7 @@ class Message(BaseModel):
             else [],
             tool_calls=norm_tool_calls,
             reasoning_content=rc,
+            thinking_blocks=thinking_blocks,
         )
 
 

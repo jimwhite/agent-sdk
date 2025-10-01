@@ -8,16 +8,18 @@ from rich.text import Text
 
 from openhands.sdk.event.types import EventID, SourceType
 from openhands.sdk.llm import ImageContent, Message, TextContent
+from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
 
 
 if TYPE_CHECKING:
     from openhands.sdk.event.llm_convertible import ActionEvent
+    from openhands.sdk.llm.llm_tool_call import LLMToolCall
 
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(DiscriminatedUnionMixin, ABC):
+class Event(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -55,7 +57,7 @@ class EventBase(DiscriminatedUnionMixin, ABC):
         )
 
 
-class LLMConvertibleEvent(EventBase, ABC):
+class LLMConvertibleEvent(Event, ABC):
     """Base class for events that can be converted to LLM messages."""
 
     @abstractmethod
@@ -142,5 +144,9 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
     return Message(
         role="assistant",
         content=events[0].thought,  # Shared thought content only in the first event
-        tool_calls=[event.tool_call for event in events],
+        tool_calls=[
+            LLMToolCall.from_provider_call(event.tool_call) for event in events
+        ],
+        reasoning_content=events[0].reasoning_content,  # Shared reasoning content
+        thinking_blocks=events[0].thinking_blocks,  # Shared thinking blocks
     )

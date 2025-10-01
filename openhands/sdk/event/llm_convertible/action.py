@@ -1,14 +1,21 @@
 from collections.abc import Sequence
+from typing import Any
 
-from pydantic import Field
+from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
+from pydantic import Field, field_validator
 from rich.text import Text
 
 from openhands.sdk.event.base import N_CHAR_PREVIEW, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType, ToolCallID
-from openhands.sdk.llm import Message, TextContent
+from openhands.sdk.llm import (
+    Message,
+    RedactedThinkingBlock,
+    TextContent,
+    ThinkingBlock,
+)
 from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.security import risk
-from openhands.sdk.tool.schema import ActionBase
+from openhands.sdk.tool.schema import Action
 
 
 class ActionEvent(LLMConvertibleEvent):
@@ -20,21 +27,25 @@ class ActionEvent(LLMConvertibleEvent):
         default=None,
         description="Intermediate reasoning/thinking content from reasoning models",
     )
-    action: ActionBase = Field(
-        ..., description="Single action (tool call) returned by LLM"
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
+        default_factory=list,
+        description="Anthropic thinking blocks from the LLM response",
     )
+    action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
     )
-    tool_call: LLMToolCall = Field(
+    tool_call: (
+        LLMToolCall
+        | ChatCompletionMessageToolCall
+        | ResponseFunctionToolCall
+        | dict[str, Any]
+    ) = Field(
         ...,
         description=(
-            "The tool call received from the LLM response. We keep a copy of it "
-            "so it is easier to construct it into LLM message"
-            "This could be different from `action`: e.g., `tool_call` may contain "
-            "`security_risk` field predicted by LLM when LLM risk analyzer is enabled"
-            ", while `action` does not."
+            "The tool call received from the LLM response. Accepts provider tool call "
+            "objects or dicts and normalizes to LLMToolCall internally."
         ),
     )
     llm_response_id: EventID = Field(
@@ -50,6 +61,17 @@ class ActionEvent(LLMConvertibleEvent):
         default=risk.SecurityRisk.UNKNOWN,
         description="The LLM's assessment of the safety risk of this action.",
     )
+
+    @field_validator("tool_call", mode="before")
+    @classmethod
+    def _coerce_tool_call(cls, v: Any) -> LLMToolCall:
+        # Accept dict/provider objects and normalize to LLMToolCall
+        if isinstance(
+            v, (LLMToolCall, ChatCompletionMessageToolCall, ResponseFunctionToolCall)
+        ) or isinstance(v, dict):
+            return LLMToolCall.from_provider_call(v)
+        # Fallback: best-effort conversion
+        return LLMToolCall.from_provider_call(v)
 
     @property
     def visualize(self) -> Text:
@@ -82,8 +104,9 @@ class ActionEvent(LLMConvertibleEvent):
         return Message(
             role="assistant",
             content=self.thought,
-            tool_calls=[self.tool_call],
+            tool_calls=[LLMToolCall.from_provider_call(self.tool_call)],
             reasoning_content=self.reasoning_content,
+            thinking_blocks=self.thinking_blocks,
         )
 
     def __str__(self) -> str:

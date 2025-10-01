@@ -16,20 +16,20 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
+    RedactedThinkingBlock,
     TextContent,
-    get_llm_metadata,
+    ThinkingBlock,
 )
 from openhands.sdk.llm.llm_tool_call import LLMToolCall
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
-    ActionBase,
+    Action,
     FinishTool,
-    ObservationBase,
+    Observation,
 )
 from openhands.sdk.tool.builtins import FinishAction
 
@@ -135,7 +135,7 @@ class Agent(AgentBase):
     ) -> None:
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
-        pending_actions = get_unmatched_actions(state.events)
+        pending_actions = ConversationState.get_unmatched_actions(state.events)
         if pending_actions:
             logger.info(
                 "Confirmation mode: Executing %d pending action(s)",
@@ -165,110 +165,98 @@ class Agent(AgentBase):
                 e for e in state.events if isinstance(e, LLMConvertibleEvent)
             ]
 
-        # Decide path: Responses vs Chat Completions (centralized in LLM)
-        is_responses = self.llm.is_responses_call(state.previous_response_id)
+        # Get LLM Response (Action)
+        _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
+        logger.debug(
+            "Sending messages to LLM: "
+            f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+        )
 
-        if is_responses:
-            # Build Responses inputs using structured blocks
-            # 1) instructions from first system message (first turn only)
-            system_text = None
-            for e in llm_convertible_events:
-                if isinstance(e, SystemPromptEvent):
-                    system_text = e.system_prompt.text
-                    break
+        # Decide routing: Responses API for GPT-5 family or when continuing
+        use_responses = self.llm.is_responses_call(state.previous_response_id)
 
-            # 2) If continuing a prior Responses turn, return ONLY tool outputs
-            #    (function_call_output items) corresponding to the last response's
-            #    function call IDs.
-            prev_id = state.previous_response_id
-            inputs: list[dict] = []
-            if prev_id:
-                last_tool_call_ids = {
-                    a.tool_call_id
-                    for a in state.events
-                    if isinstance(a, ActionEvent) and a.llm_response_id == prev_id
-                }
-                if last_tool_call_ids:
-                    # Collect observations corresponding to last tool calls.
-                    from openhands.sdk.event import ObservationBaseEvent
+        try:
+            if use_responses:
+                # Build instructions from latest SystemPromptEvent
+                instructions: str | None = None
+                for ev in reversed(llm_convertible_events):
+                    if isinstance(ev, SystemPromptEvent):
+                        instructions = ev.system_prompt.text
+                        break
+                if instructions is None:
+                    instructions = self.system_message
 
-                    for ev in state.events:
-                        if (
-                            isinstance(ev, ObservationBaseEvent)
-                            and getattr(ev, "tool_call_id", None) in last_tool_call_ids
-                        ):
-                            inputs.extend(
-                                ev.to_llm_message().to_responses_input_items()
-                            )
+                # Build minimal Responses input items: latest user message +
+                # recent tool outputs
+                last_user: Message | None = None
+                for m in reversed(_messages):
+                    if m.role == "user":
+                        last_user = m
+                        break
 
-            # 3) For a fresh turn, include the latest user message as input
-            if prev_id is None:
-                for e in reversed(llm_convertible_events):
-                    if isinstance(e, MessageEvent):
-                        msg = e.to_llm_message()
-                        if msg.role == "user":
-                            inputs.extend(msg.to_responses_input_items())
-                            break
+                # Find tool outputs corresponding to the last assistant tool calls
+                tool_output_msgs: list[Message] = []
+                last_assistant_idx: int | None = None
+                last_tool_ids: set[str] = set()
+                for idx in range(len(_messages) - 1, -1, -1):
+                    m = _messages[idx]
+                    if m.role == "assistant" and m.tool_calls:
+                        last_assistant_idx = idx
+                        last_tool_ids = {tc.id for tc in m.tool_calls}
+                        break
+                if last_assistant_idx is not None and last_tool_ids:
+                    for j in range(last_assistant_idx + 1, len(_messages)):
+                        m = _messages[j]
+                        if m.role == "tool" and m.tool_call_id in last_tool_ids:
+                            tool_output_msgs.append(m)
 
-            llm_response = self.llm.responses(
-                instructions=system_text if prev_id is None else None,
-                inputs=inputs or None,
-                tools=list(self.tools_map.values()),
-                previous_response_id=prev_id,
-                store=True,
-                parallel_tool_calls=True,
-                add_security_risk_prediction=self._add_security_risk_prediction,
-            )
+                inputs: list[dict] = []
+                if last_user is not None:
+                    inputs.extend(last_user.to_responses_input_items())
+                for tm in tool_output_msgs:
+                    inputs.extend(tm.to_responses_input_items())
 
-            # Persist continuation id
-            try:
-                state.previous_response_id = getattr(
-                    llm_response.raw_response, "id", None
+                llm_response = self.llm.responses(
+                    instructions=instructions,
+                    inputs=inputs,
+                    tools=list(self.tools_map.values()),
+                    previous_response_id=state.previous_response_id,
+                    extra_body={"metadata": self.llm.metadata},
+                    add_security_risk_prediction=self._add_security_risk_prediction,
                 )
-            except Exception:
-                pass
-        else:
-            # Chat Completions path (existing behavior)
-            _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
-            logger.debug(
-                "Sending messages to LLM: "
-                f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
-            )
-
-            try:
+                # Persist continuation handle
+                state.previous_response_id = llm_response.id
+            else:
                 llm_response = self.llm.completion(
                     messages=_messages,
                     tools=list(self.tools_map.values()),
-                    extra_body={
-                        "metadata": get_llm_metadata(
-                            model_name=self.llm.model, agent_name=self.name
-                        )
-                    },
+                    extra_body={"metadata": self.llm.metadata},
                     add_security_risk_prediction=self._add_security_risk_prediction,
                 )
-            except Exception as e:
-                # If condenser is registered and the exception is a context window
-                # exceeded, we can recover by triggering a condensation request.
-                if (
-                    self.condenser is not None
-                    and self.condenser.handles_condensation_requests()
-                    and self.llm.is_context_window_exceeded_exception(e)
-                ):
-                    logger.warning(
-                        "LLM raised context window exceeded; triggering condensation"
-                    )
-                    on_event(CondensationRequest())
-                    return
+        except Exception as e:
+            # If there is a condenser registered and the exception is a context window
+            # exceeded, we can recover by triggering a condensation request.
+            if (
+                self.condenser is not None
+                and self.condenser.handles_condensation_requests()
+                and self.llm.is_context_window_exceeded_exception(e)
+            ):
+                logger.warning(
+                    "LLM raised context window exceeded error, triggering condensation"
+                )
+                on_event(CondensationRequest())
+                return
 
-                # If the error isn't recoverable, keep propagating it up the stack.
-                else:
-                    raise e
+            # If the error isn't recoverable, keep propagating it up the stack.
+            else:
+                raise e
 
         # LLMResponse already contains the converted message and metrics snapshot
         message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
-            tool_calls: list[LLMToolCall] = message.tool_calls
+            # All tool calls are normalized to LLMToolCall
+            tool_calls: list[LLMToolCall] = list(message.tool_calls)
             if not all(isinstance(c, TextContent) for c in message.content):
                 logger.warning(
                     "LLM returned tool calls but message content is not all "
@@ -290,6 +278,8 @@ class Agent(AgentBase):
                     else [],  # Only first gets thought
                     # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
+                    # Only first gets thinking blocks
+                    thinking_blocks=list(message.thinking_blocks) if i == 0 else [],
                 )
                 if action_event is None:
                     continue
@@ -359,6 +349,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
         reasoning_content: str | None = None,
+        thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [],
     ) -> ActionEvent | None:
         """Converts a tool call into an ActionEvent, validating arguments.
 
@@ -378,7 +369,6 @@ class Agent(AgentBase):
                 tool_call_id=tool_call.id,
             )
             on_event(event)
-            state.agent_status = AgentExecutionStatus.FINISHED
             return
 
         # Validate arguments
@@ -403,7 +393,7 @@ class Agent(AgentBase):
 
             # Arguments we passed in should not contains `security_risk`
             # as a field
-            action: ActionBase = tool.action_from_arguments(arguments)
+            action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.arguments_json} for tool "
@@ -421,6 +411,7 @@ class Agent(AgentBase):
             action=action,
             thought=thought,
             reasoning_content=reasoning_content,
+            thinking_blocks=thinking_blocks,
             tool_name=tool.name,
             tool_call_id=tool_call.id,
             tool_call=tool_call,
@@ -449,16 +440,16 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: ObservationBase = tool(action_event.action)
-        assert isinstance(observation, ObservationBase), (
-            f"Tool '{tool.name}' executor must return an ObservationBase"
+        observation: Observation = tool(action_event.action)
+        assert isinstance(observation, Observation), (
+            f"Tool '{tool.name}' executor must return an Observation"
         )
 
         obs_event = ObservationEvent(
             observation=observation,
             action_id=action_event.id,
             tool_name=tool.name,
-            tool_call_id=action_event.tool_call.id,
+            tool_call_id=LLMToolCall.from_provider_call(action_event.tool_call).id,
         )
         on_event(obs_event)
 
