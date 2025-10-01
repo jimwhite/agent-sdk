@@ -82,7 +82,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
     print("\n=== Step 2: User requests complex task ===")
     execution_agent_instruction = (
         COMPLEX_TASK
-        + "You MUST use the spawn_planning_child tool - do not create the plan yourself."
+        + "You MUST use the spawn_planning_child tool - do not create the plan "
+        + "yourself."
     )
 
     print(f"User request: {execution_agent_instruction}")
@@ -117,6 +118,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     print("Waiting for ExecutionAgent to spawn planning child...")
     max_wait = 30  # 30 seconds max
     wait_interval = 2
+    main_child_ids = []
     elapsed = 0
 
     while elapsed < max_wait:
@@ -250,19 +252,23 @@ with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Planning child appears to be closed: {e}")
 
     # Check if planning child has any execution children (should be none)
+    execution_child_ids = []
     if hasattr(planning_child, "list_child_conversations"):
         execution_child_ids = planning_child.list_child_conversations()
         if execution_child_ids:
             print(
-                f"\n⚠️  Unexpected: Planning child has {len(execution_child_ids)} children"
+                f"\n⚠️  Unexpected: Planning child has "
+                f"{len(execution_child_ids)} children"
             )
             print(
-                "This suggests the old behavior (creating grandchildren) is still active"
+                "This suggests the old behavior (creating grandchildren) is "
+                "still active"
             )
         else:
             print("\n✅ Assertion 5 passed: Planning child has no execution children")
             print(
-                "This confirms the execute_plan tool returns control to parent instead of creating grandchildren"
+                "This confirms the execute_plan tool returns control to parent "
+                "instead of creating grandchildren"
             )
 
     # Display full hierarchy
