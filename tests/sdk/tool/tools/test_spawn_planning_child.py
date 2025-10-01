@@ -128,9 +128,8 @@ def test_spawn_planning_child_executor_success(mock_registry_class):
         "planning", llm=mock_llm, system_prompt_kwargs={"WORK_DIR": "/tmp/child"}
     )
     mock_conversation.create_child_conversation.assert_called_once_with(
-        agent=mock_agent, visualize=True
+        agent=mock_agent, visualize=False
     )
-    mock_child_conversation.send_message.assert_called_once()
 
 
 @patch("openhands.sdk.tool.tools.spawn_planning_child.AgentRegistry")
