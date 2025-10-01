@@ -45,7 +45,8 @@ EXECUTION_AGENT_MESSAGE = (
 PLANNING_AGENT_MESSAGE = (
     "Create a simple calculator class with a Python module with basic arithmetic "
     "operations (add, subtract, multiply, divide). "
-    "Create a PLAN.md file with the task breakdown and then immediately call the execute_plan tool."
+    "Create a PLAN.md file with the task breakdown "
+    "and then immediately call the execute_plan tool."
 )
 
 
