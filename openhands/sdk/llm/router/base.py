@@ -12,6 +12,7 @@ from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.logger import get_logger
 from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 logger = get_logger(__name__)
@@ -29,6 +30,7 @@ class RouterLLM(LLM):
     - Provides routing interface through select_llm() method
     """
 
+    llm_type: str = Field(default="router", description="Discriminator for RouterLLM")
     router_name: str = Field(default="base_router", description="Name of the router")
     llms_for_routing: dict[str, LLM] = Field(
         default_factory=dict
@@ -82,7 +84,20 @@ class RouterLLM(LLM):
 
     def __getattr__(self, name):
         """Delegate other attributes/methods to the active LLM."""
-        fallback_llm = next(iter(self.llms_for_routing.values()))
+        try:
+            llms = object.__getattribute__(self, "llms_for_routing")
+        except AttributeError:
+            # Still initializing, don't have llms_for_routing yet
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
+
+        if not llms:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
+
+        fallback_llm = next(iter(llms.values()))
         logger.info(f"RouterLLM: No active LLM, using first LLM for attribute '{name}'")
         return getattr(fallback_llm, name)
 
@@ -103,3 +118,81 @@ class RouterLLM(LLM):
             d["model"] = d.get("router_name", "router")
 
         return d
+
+    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+        """Resolve differences between a deserialized RouterLLM and the current
+        instance.
+
+        This method handles the reconciliation of nested LLMs in llms_for_routing,
+        ensuring that secret fields (like api_key) are properly restored from the
+        runtime instance to the deserialized instance.
+
+        Args:
+            persisted: The deserialized RouterLLM instance from persistence
+
+        Returns:
+            A new RouterLLM instance equivalent to `persisted` but with secrets
+            from the runtime instance properly restored in all nested LLMs
+
+        Raises:
+            ValueError: If the classes don't match or if reconciliation fails
+        """
+        # If persisted is not a RouterLLM at all, this is an incompatible state
+        if not isinstance(persisted, RouterLLM):
+            # Check if the persisted data even has the router fields
+            persisted_dict = persisted.model_dump()
+            if "llms_for_routing" not in persisted_dict:
+                raise ValueError(
+                    f"Cannot resolve_diff_from_deserialized: persisted LLM is not a "
+                    "RouterLLM and doesn't contain router data. Got "
+                    f"{persisted.__class__}"
+                )
+            # Try to reconstruct as the correct RouterLLM subclass
+            persisted = self.__class__.model_validate(persisted_dict)
+
+        # Check classes match exactly
+        if type(persisted) is not type(self):
+            raise ValueError(
+                f"Cannot resolve_diff_from_deserialized between {type(self)} "
+                f"and {type(persisted)}"
+            )
+
+        # Reconcile each nested LLM in llms_for_routing
+        reconciled_llms = {}
+        for name, persisted_llm in persisted.llms_for_routing.items():
+            if name not in self.llms_for_routing:
+                raise ValueError(
+                    f"LLM '{name}' found in persisted state but not in runtime router"
+                )
+            runtime_llm = self.llms_for_routing[name]
+            reconciled_llms[name] = runtime_llm.resolve_diff_from_deserialized(
+                persisted_llm
+            )
+
+        # Check for LLMs in runtime that aren't in persisted state
+        for name in self.llms_for_routing:
+            if name not in persisted.llms_for_routing:
+                raise ValueError(
+                    f"LLM '{name}' found in runtime router but not in persisted state"
+                )
+
+        # Create reconciled router with updated nested LLMs
+        # Note: active_llm is runtime state and should not be persisted/restored
+        reconciled = persisted.model_copy(
+            update={"llms_for_routing": reconciled_llms, "active_llm": None}
+        )
+
+        # Validate that the reconciled router matches the runtime router
+        # (excluding active_llm which is runtime-only state)
+        runtime_dump = self.model_dump(exclude_none=True, exclude={"active_llm"})
+        reconciled_dump = reconciled.model_dump(
+            exclude_none=True, exclude={"active_llm"}
+        )
+
+        if runtime_dump != reconciled_dump:
+            raise ValueError(
+                "The RouterLLM provided is different from the one in persisted state.\n"
+                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+            )
+
+        return reconciled
