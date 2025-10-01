@@ -102,7 +102,7 @@ def test_spawn_planning_child_executor_success(mock_registry_class):
 
     mock_child_conversation = Mock()
     mock_child_conversation._state.id = "child-123"
-    mock_child_conversation._state.working_dir = "/tmp/child"
+    mock_child_conversation._state.workspace.working_dir = "/tmp/child"
     mock_conversation.create_child_conversation.return_value = mock_child_conversation
 
     # Create executor and set conversation
@@ -111,18 +111,21 @@ def test_spawn_planning_child_executor_success(mock_registry_class):
 
     # Execute
     action = SpawnPlanningChildAction(task_description="Build a web app")
-    result = executor(action)
+
+    # Mock os.path.exists to return True for PLAN.md
+    with patch("os.path.exists", return_value=True):
+        result = executor(action)
 
     # Verify
     assert result.success is True
     assert result.child_conversation_id == "child-123"
     assert result.working_directory == "/tmp/child"
-    assert "Created planning child conversation" in result.message
+    assert "Planning completed successfully" in result.message
 
     # Verify calls
     mock_registry.create.assert_called_once_with("planning", llm=mock_llm)
     mock_conversation.create_child_conversation.assert_called_once_with(
-        agent=mock_agent, visualize=False
+        agent=mock_agent, visualize=True
     )
     mock_child_conversation.send_message.assert_called_once()
 
@@ -149,14 +152,23 @@ def test_spawn_planning_child_executor_failure(mock_registry_class):
     # Verify
     assert result.success is False
     assert result.error is not None
-    assert "Failed to spawn planning child conversation" in result.error
+    assert "Failed to complete planning" in result.error
     assert "Registry error" in result.error
 
 
 def test_spawn_planning_child_tool_structure():
     """Test the tool structure and properties."""
-    tool = SpawnPlanningChildTool
+    from unittest.mock import Mock
 
+    from openhands.sdk.conversation.state import ConversationState
+
+    # Create a mock conversation state
+    mock_conv_state = Mock(spec=ConversationState)
+
+    tools = SpawnPlanningChildTool.create(mock_conv_state)
+    assert len(tools) == 1
+
+    tool = tools[0]
     assert tool.name == "spawn_planning_child"
     assert "spawn a child conversation" in tool.description.lower()
     assert tool.action_type == SpawnPlanningChildAction

@@ -102,13 +102,14 @@ def temp_dir():
 def test_conversation_state_parent_id(test_agent, temp_dir):
     """Test that ConversationState supports parent_id."""
     from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.workspace import LocalWorkspace
 
     parent_id = uuid.uuid4()
 
     state = ConversationState.create(
         id=uuid.uuid4(),
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=LocalWorkspace(working_dir=temp_dir),
         parent_id=parent_id,
     )
 
@@ -118,11 +119,12 @@ def test_conversation_state_parent_id(test_agent, temp_dir):
 def test_conversation_state_no_parent_id(test_agent, temp_dir):
     """Test that ConversationState works without parent_id."""
     from openhands.sdk.conversation.state import ConversationState
+    from openhands.sdk.workspace import LocalWorkspace
 
     state = ConversationState.create(
         id=uuid.uuid4(),
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=LocalWorkspace(working_dir=temp_dir),
     )
 
     assert state.parent_id is None
@@ -132,7 +134,7 @@ def test_local_conversation_child_tracking_initialization(test_agent, temp_dir):
     """Test that LocalConversation initializes child conversation tracking."""
     conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -145,7 +147,7 @@ def test_create_child_conversation(test_agent, child_agent, temp_dir):
     """Test creating a child conversation."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -169,7 +171,7 @@ def test_create_child_conversation(test_agent, child_agent, temp_dir):
     expected_path = os.path.join(
         temp_dir, ".conversations", str(parent_id), str(child_id)
     )
-    assert child_conversation._state.working_dir == expected_path
+    assert child_conversation._state.workspace.working_dir == expected_path
     assert os.path.exists(expected_path)
 
     # Check children.json mapping exists
@@ -195,7 +197,7 @@ def test_create_child_conversation_custom_working_dir(
     """Test creating a child conversation with custom working directory."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -207,14 +209,14 @@ def test_create_child_conversation_custom_working_dir(
         visualize=False,
     )
 
-    assert child_conversation._state.working_dir == custom_dir
+    assert child_conversation._state.workspace.working_dir == custom_dir
 
 
 def test_get_child_conversation(test_agent, child_agent, temp_dir):
     """Test retrieving a child conversation by ID."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -233,7 +235,7 @@ def test_get_nonexistent_child_conversation(test_agent, temp_dir):
     """Test retrieving a non-existent child conversation."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -247,7 +249,7 @@ def test_close_child_conversation(test_agent, child_agent, temp_dir):
     """Test closing a child conversation."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -280,7 +282,7 @@ def test_close_nonexistent_child_conversation(test_agent, temp_dir):
     """Test closing a non-existent child conversation."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -294,7 +296,7 @@ def test_list_child_conversations(test_agent, child_agent, temp_dir):
     """Test listing child conversation IDs."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -321,7 +323,7 @@ def test_parent_conversation_close_closes_children(test_agent, child_agent, temp
     """Test that closing parent conversation closes all children."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -363,7 +365,7 @@ def test_agent_type_directory_naming(
     for agent, expected_type in test_cases:
         parent_conversation = LocalConversation(
             agent=test_agent,
-            working_dir=temp_dir,
+            workspace=temp_dir,
             visualize=False,
         )
 
@@ -379,7 +381,7 @@ def test_agent_type_directory_naming(
         expected_path = os.path.join(
             temp_dir, ".conversations", str(parent_id), str(child_id)
         )
-        assert child_conversation._state.working_dir == expected_path
+        assert child_conversation._state.workspace.working_dir == expected_path
 
         # Check children.json mapping contains correct agent type
         children_mapping = parent_conversation.get_children_mapping()
@@ -396,7 +398,7 @@ def test_multiple_child_conversations_parallel(
     """Test that multiple child conversations can exist simultaneously."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 
@@ -414,8 +416,8 @@ def test_multiple_child_conversations_parallel(
     assert len(parent_conversation.list_child_conversations()) == 2
 
     # Should be in different directories under parent UUID
-    execution_path = execution_child._state.working_dir
-    planning_path = planning_child._state.working_dir
+    execution_path = execution_child._state.workspace.working_dir
+    planning_path = planning_child._state.workspace.working_dir
     parent_id = parent_conversation._state.id
 
     assert str(parent_id) in execution_path
@@ -449,7 +451,7 @@ def test_get_children_mapping(test_agent, child_agent, temp_dir):
     """Test getting children mapping from children.json."""
     parent_conversation = LocalConversation(
         agent=test_agent,
-        working_dir=temp_dir,
+        workspace=temp_dir,
         visualize=False,
     )
 

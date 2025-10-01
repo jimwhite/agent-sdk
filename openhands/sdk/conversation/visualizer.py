@@ -71,7 +71,8 @@ class ConversationVisualizer:
             skip_user_messages: If True, skip displaying user messages. Useful for
                                 scenarios where user input is not relevant to show.
             conversation_stats: ConversationStats object to display metrics information.
-            agent_name: Name of the agent to display in panel titles (e.g., "ExecutionAgent")
+            agent_name: Name of the agent to display in panel titles (e.g.,
+                "ExecutionAgent")
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
@@ -123,7 +124,9 @@ class ConversationVisualizer:
         # Determine panel styling based on event type
         if isinstance(event, SystemPromptEvent):
             agent_prefix = f"{self._agent_name} " if self._agent_name else ""
-            system_title = f"{agent_prefix}System Prompt" if agent_prefix else "System Prompt"
+            system_title = (
+                f"{agent_prefix}System Prompt" if agent_prefix else "System Prompt"
+            )
             return Panel(
                 content,
                 title=f"[bold {_SYSTEM_COLOR}]{system_title}[/bold {_SYSTEM_COLOR}]",
@@ -174,8 +177,8 @@ class ConversationVisualizer:
             # For user messages, show target agent; for assistant messages, show source
             if event.llm_message.role == "user" and self._agent_name:
                 title_text = (
-                    f"[bold {role_color}]Message From {source_display} to {self._agent_name}"
-                    f"[/bold {role_color}]"
+                    f"[bold {role_color}]Message From {source_display} to "
+                    f"{self._agent_name}[/bold {role_color}]"
                 )
             else:
                 title_text = (
@@ -194,7 +197,10 @@ class ConversationVisualizer:
             agent_prefix = f"{self._agent_name} " if self._agent_name else ""
             return Panel(
                 content,
-                title=f"[bold {_ERROR_COLOR}]{agent_prefix}Agent Error[/bold {_ERROR_COLOR}]",
+                title=(
+                    f"[bold {_ERROR_COLOR}]{agent_prefix}Agent Error"
+                    f"[/bold {_ERROR_COLOR}]"
+                ),
                 subtitle=self._format_metrics_subtitle(),
                 border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
@@ -292,7 +298,8 @@ def create_default_visualizer(
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
         conversation_stats: ConversationStats object to display metrics information.
-        agent_name: Name of the agent to display in panel titles (e.g., "ExecutionAgent")
+        agent_name: Name of the agent to display in panel titles (e.g.,
+            "ExecutionAgent")
     """
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX

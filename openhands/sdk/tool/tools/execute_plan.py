@@ -119,7 +119,9 @@ class ExecutePlanExecutor(ToolExecutor):
 
         try:
             # Check if plan file exists
-            plan_path = os.path.join(conversation._state.workspace.working_dir, action.plan_file)
+            plan_path = os.path.join(
+                conversation._state.workspace.working_dir, action.plan_file
+            )
             if not os.path.exists(plan_path):
                 return ExecutePlanObservation(
                     success=False,
@@ -151,7 +153,10 @@ class ExecutePlanExecutor(ToolExecutor):
                 )
 
             # Send plan back to parent
-            parent_message = f"You can find the plan here: {plan_path}\n\nPlan content:\n{plan_content}"
+            parent_message = (
+                f"You can find the plan here: {plan_path}\n\n"
+                f"Plan content:\n{plan_content}"
+            )
             parent_conversation.send_message(parent_message)
 
             # Run the parent conversation to execute the plan
@@ -164,9 +169,9 @@ class ExecutePlanExecutor(ToolExecutor):
                 success=True,
                 child_conversation_id=None,  # No child created
                 message=(
-                    f"Plan sent back to parent conversation. "
-                    f"Parent will now execute the plan. "
-                    f"This planning conversation is closed."
+                    "Plan sent back to parent conversation. "
+                    "Parent will now execute the plan. "
+                    "This planning conversation is closed."
                 ),
                 working_directory=plan_path,
                 plan_content=plan_content[:500] + "..."
@@ -186,7 +191,7 @@ class ExecutePlanTool(ToolBase):
     @classmethod
     def create(
         cls, conv_state: "ConversationState", **params
-    ) -> list["ExecutePlanTool"]:
+    ) -> list[Tool[ExecutePlanAction, ExecutePlanObservation]]:
         """Create an ExecutePlanTool instance.
 
         Note: The conversation context will be injected by LocalConversation

@@ -96,7 +96,7 @@ def test_execute_plan_executor_no_conversation():
 def test_execute_plan_executor_file_not_found():
     """Test executor when plan file doesn't exist."""
     mock_conversation = Mock()
-    mock_conversation._state.working_dir = "/tmp/test"
+    mock_conversation._state.workspace.working_dir = "/tmp/test"
 
     executor = ExecutePlanExecutor()
     executor._conversation = mock_conversation  # type: ignore[attr-defined]
@@ -114,7 +114,7 @@ def test_execute_plan_executor_file_not_found():
 def test_execute_plan_executor_empty_file():
     """Test executor when plan file is empty."""
     mock_conversation = Mock()
-    mock_conversation._state.working_dir = "/tmp/test"
+    mock_conversation._state.workspace.working_dir = "/tmp/test"
 
     executor = ExecutePlanExecutor()
     executor._conversation = mock_conversation  # type: ignore[attr-defined]
@@ -132,26 +132,13 @@ def test_execute_plan_executor_empty_file():
     assert "Plan file PLAN.md is empty" in result.error
 
 
-@patch("openhands.sdk.agent.registry.AgentRegistry")
-def test_execute_plan_executor_success(mock_registry_class):
+def test_execute_plan_executor_success():
     """Test successful execution of execute_plan."""
-    # Setup mocks
-    mock_llm = Mock()
-    mock_agent = Mock()
-
-    # Mock the registry instance
-    mock_registry = Mock()
-    mock_registry.create.return_value = mock_agent
-    mock_registry_class.return_value = mock_registry
-
     mock_conversation = Mock()
-    mock_conversation.agent.llm = mock_llm
-    mock_conversation._state.working_dir = "/tmp/test"
+    mock_conversation._state.workspace.working_dir = "/tmp/test"
 
-    mock_child_conversation = Mock()
-    mock_child_conversation._state.id = "exec-123"
-    mock_child_conversation._state.working_dir = "/tmp/exec"
-    mock_conversation.create_child_conversation.return_value = mock_child_conversation
+    mock_parent_conversation = Mock()
+    mock_conversation.get_parent_conversation.return_value = mock_parent_conversation
 
     # Create executor and set conversation
     executor = ExecutePlanExecutor()
@@ -169,30 +156,24 @@ def test_execute_plan_executor_success(mock_registry_class):
 
     # Verify
     assert result.success is True
-    assert result.child_conversation_id == "exec-123"
-    assert result.working_directory == "/tmp/exec"
-    assert "Started execution of plan" in result.message
+    assert result.child_conversation_id is None  # No child created
+    assert result.working_directory == "/tmp/test/PLAN.md"
+    assert "Plan sent back to parent conversation" in result.message
     assert result.plan_content == plan_content
 
     # Verify calls
-    mock_registry.create.assert_called_once_with("execution", llm=mock_llm)
-    mock_conversation.create_child_conversation.assert_called_once_with(
-        agent=mock_agent, visualize=False
-    )
-    mock_child_conversation.send_message.assert_called_once()
+    mock_parent_conversation.send_message.assert_called_once()
+    mock_parent_conversation.run.assert_called_once()
+    mock_conversation.close.assert_called_once()
 
 
-@patch("openhands.sdk.agent.registry.AgentRegistry")
-def test_execute_plan_executor_failure(mock_registry_class):
+def test_execute_plan_executor_failure():
     """Test executor failure handling."""
-    # Setup mocks to raise exception
-    mock_registry = Mock()
-    mock_registry.create.side_effect = Exception("Registry error")
-    mock_registry_class.return_value = mock_registry
-
     mock_conversation = Mock()
-    mock_conversation.agent.llm = Mock()
-    mock_conversation._state.working_dir = "/tmp/test"
+    mock_conversation._state.workspace.working_dir = "/tmp/test"
+
+    # Mock get_parent_conversation to return None (no parent)
+    mock_conversation.get_parent_conversation.return_value = None
 
     # Create executor and set conversation
     executor = ExecutePlanExecutor()
@@ -211,14 +192,22 @@ def test_execute_plan_executor_failure(mock_registry_class):
     # Verify
     assert result.success is False
     assert result.error is not None
-    assert "Failed to execute plan" in result.error
-    assert "Registry error" in result.error
+    assert "No parent conversation found" in result.error
 
 
 def test_execute_plan_tool_structure():
     """Test the tool structure and properties."""
-    tool = ExecutePlanTool
+    from unittest.mock import Mock
 
+    from openhands.sdk.conversation.state import ConversationState
+
+    # Create a mock conversation state
+    mock_conv_state = Mock(spec=ConversationState)
+
+    tools = ExecutePlanTool.create(mock_conv_state)
+    assert len(tools) == 1
+
+    tool = tools[0]
     assert tool.name == "execute_plan"
     assert "execute the plan" in tool.description.lower()
     assert tool.action_type == ExecutePlanAction
@@ -245,12 +234,12 @@ def test_execute_plan_with_real_file():
 
         # Setup mocks
         mock_conversation = Mock()
-        mock_conversation._state.working_dir = temp_dir
+        mock_conversation._state.workspace.working_dir = temp_dir
         mock_conversation._agent.llm = Mock()
 
         mock_child_conversation = Mock()
         mock_child_conversation._state.id = "exec-456"
-        mock_child_conversation._state.working_dir = "/tmp/exec"
+        mock_child_conversation._state.workspace.working_dir = "/tmp/exec"
         mock_conversation.create_child_conversation.return_value = (
             mock_child_conversation
         )

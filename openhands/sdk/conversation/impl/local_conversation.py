@@ -112,7 +112,7 @@ class LocalConversation(BaseConversation):
             if (
                 tool.executor
                 and hasattr(tool.executor, "_conversation")
-                and tool.executor._conversation is None
+                and tool.executor._conversation is None  # type: ignore[attr-defined]
             ):
                 tool.executor._conversation = self  # type: ignore[attr-defined]
 
@@ -411,7 +411,7 @@ class LocalConversation(BaseConversation):
             child._state.parent_id = self._state.id
 
         # Set parent conversation reference in child
-        child._parent_conversation = self
+        child._parent_conversation = self  # type: ignore[attr-defined]
 
         # Track the child conversation
         self._child_conversations[child_id] = child

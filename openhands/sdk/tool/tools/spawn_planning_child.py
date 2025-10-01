@@ -113,6 +113,7 @@ class SpawnPlanningChildExecutor(ToolExecutor):
         self, action: SpawnPlanningChildAction
     ) -> SpawnPlanningChildObservation:
         import os
+
         from openhands.sdk.agent.registry import AgentRegistry
 
         # Get the current conversation from the tool's context
@@ -143,27 +144,29 @@ class SpawnPlanningChildExecutor(ToolExecutor):
                 f"Please create a detailed plan for the following task:\n\n"
                 f"{action.task_description}\n\n"
                 f"Create a PLAN.md file with specific, actionable steps. "
-                f"When you're done planning, use the execute_plan tool to execute the plan."
+                f"When you're done planning, use the execute_plan tool to "
+                f"execute the plan."
             )
-            
+
             child_conversation.send_message(planning_message)
-            
+
             # Run the child conversation until it calls execute_plan
             # The execute_plan tool will send the plan back to this parent conversation
             # and close the child conversation
             child_conversation.run()
-            
+
             # After the child runs and calls execute_plan, look for PLAN.md
             working_dir = child_conversation._state.workspace.working_dir
             plan_file_path = os.path.join(working_dir, "PLAN.md")
-            
+
             if os.path.exists(plan_file_path):
                 return SpawnPlanningChildObservation(
                     success=True,
                     child_conversation_id=str(child_conversation._state.id),
                     message=(
                         f"Planning completed successfully. "
-                        f"Child conversation {child_conversation._state.id} created a plan "
+                        f"Child conversation {child_conversation._state.id} created a "
+                        f"plan "
                         f"and called execute_plan. The plan is ready for execution."
                     ),
                     working_directory=working_dir,
@@ -175,7 +178,8 @@ class SpawnPlanningChildExecutor(ToolExecutor):
                     message="",
                     error=(
                         f"Planning child completed but no PLAN.md file was found at "
-                        f"{plan_file_path}. The planning agent may not have created the plan."
+                        f"{plan_file_path}. The planning agent may not have "
+                        f"created the plan."
                     ),
                 )
 
@@ -193,7 +197,7 @@ class SpawnPlanningChildTool(ToolBase):
     @classmethod
     def create(
         cls, conv_state: "ConversationState", **params
-    ) -> list["SpawnPlanningChildTool"]:
+    ) -> list[Tool[SpawnPlanningChildAction, SpawnPlanningChildObservation]]:
         """Create a SpawnPlanningChildTool instance.
 
         Note: The conversation context will be injected by LocalConversation
