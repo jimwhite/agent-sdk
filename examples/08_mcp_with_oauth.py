@@ -21,8 +21,8 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    service_id="main-llm",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -31,7 +31,9 @@ cwd = os.getcwd()
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tool_specs = [
-    ToolSpec(name="BashTool", params={"working_dir": cwd}),
+    ToolSpec(
+        name="BashTool",
+    ),
     ToolSpec(name="FileEditorTool"),
 ]
 

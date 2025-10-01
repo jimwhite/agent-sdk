@@ -233,6 +233,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "This is a string that can be one of 'low', 'medium', 'high', or 'none'. "
         "Can apply to all reasoning models.",
     )
+    extended_thinking_budget: int | None = Field(
+        default=200000,
+        description="The budget tokens for extended thinking, "
+        "supported by Anthropic models.",
+    )
     seed: int | None = Field(
         default=None, description="The seed to use for random number generation."
     )
@@ -245,6 +250,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     service_id: str = Field(
         default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Additional metadata for the LLM instance. "
+            "Example structure: "
+            "{'trace_version': '1.0.0', 'tags': ['model:gpt-4', 'agent:my-agent'], "
+            "'session_id': 'session-123', 'trace_user_id': 'user-456'}"
+        ),
     )
 
     # =========================================================================
@@ -308,7 +322,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # default reasoning_effort unless Gemini 2.5
         # (we keep consistent with old behavior)
-        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+        if d.get("reasoning_effort") is None and (
+            "gemini-2.5-pro" not in model_val and "claude-sonnet-4-5" not in model_val
+        ):
             d["reasoning_effort"] = "high"
 
         # Azure default version
@@ -1070,7 +1086,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        return [message.to_llm_dict() for message in messages]
+        formatted_messages = [message.to_llm_dict() for message in messages]
+
+        return formatted_messages
 
     def get_token_count(self, messages: list[Message]) -> int:
         logger.debug(
@@ -1159,21 +1177,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             v = _cast_value(value, fields[field_name])
             if v is not None:
                 data[field_name] = v
-        return cls(**data)
-
-    @classmethod
-    def load_from_toml(cls, toml_path: str) -> LLM:
-        try:
-            import tomllib
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore
-            except ImportError:
-                raise ImportError("tomllib or tomli is required to load TOML files")
-        with open(toml_path, "rb") as f:
-            data = tomllib.load(f)
-        if "llm" in data:
-            data = data["llm"]
         return cls(**data)
 
     def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:

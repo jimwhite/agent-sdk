@@ -25,8 +25,8 @@ assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
 # Create LLM instance
 main_llm = LLM(
-    service_id="primary-llm",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -36,12 +36,12 @@ llm_registry = LLMRegistry()
 llm_registry.add(main_llm)
 
 # Get LLM from registry
-llm = llm_registry.get("main_agent")
+llm = llm_registry.get("agent")
 
 # Tools
 cwd = os.getcwd()
 register_tool("BashTool", BashTool)
-tools = [ToolSpec(name="BashTool", params={"working_dir": cwd})]
+tools = [ToolSpec(name="BashTool")]
 
 # Agent
 agent = Agent(llm=llm, tools=tools)
@@ -54,7 +54,9 @@ def conversation_callback(event: EventBase):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
+)
 
 conversation.send_message("Please echo 'Hello!'")
 conversation.run()
@@ -68,7 +70,7 @@ print("=" * 100)
 print(f"LLM Registry services: {llm_registry.list_services()}")
 
 # Demonstrate getting the same LLM instance from registry
-same_llm = llm_registry.get("main_agent")
+same_llm = llm_registry.get("agent")
 print(f"Same LLM instance: {llm is same_llm}")
 
 # Demonstrate requesting a completion directly from an LLM
