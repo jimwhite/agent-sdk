@@ -6,33 +6,13 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
+    RemoteConversation,
+    Workspace,
     get_logger,
 )
-from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
-from openhands.sdk.preset.default import get_default_agent
 from openhands.sdk.sandbox import DockerSandboxedAgentServer
+from openhands.tools.preset.default import get_default_agent
 
-
-"""
-Example 23: Hello World with a sandboxed Agent Server (Docker)
-
-This example demonstrates how to:
-  1) Start a DEV (source) Docker build of the OpenHands Agent Server
-  2) Get the image name automatically
-  3) Launch the Docker container
-  4) Connect to the server inside Docker and interact with it
-  5) Run the same conversation flow as in example 22
-
-Prerequisites:
-  - Docker and docker buildx installed
-  - LITELLM_API_KEY set in your shell env (used by the agent)
-
-Notes:
-  - We mount the current repo into /workspace inside the container so agent
-    actions affect your local files, mirroring the behavior of example 22.
-  - The dev image target runs the server from source with a virtualenv inside
-    the container for quick iteration.
-"""
 
 logger = get_logger(__name__)
 
@@ -43,7 +23,8 @@ def main() -> None:
     assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 
     llm = LLM(
-        model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+        service_id="agent",
+        model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
         base_url="https://llm-proxy.eval.all-hands.dev",
         api_key=SecretStr(api_key),
     )
@@ -60,7 +41,6 @@ def main() -> None:
         #    where we mounted the current repo.
         agent = get_default_agent(
             llm=llm,
-            working_dir="/",
             cli_mode=True,
         )
 
@@ -75,9 +55,14 @@ def main() -> None:
             last_event_time["ts"] = time.time()
 
         # 5) Create RemoteConversation and do the same 2-step task
+        workspace = Workspace(host=server.base_url)
+        result = workspace.execute_command(
+            "echo 'Hello from sandboxed environment!' && pwd"
+        )
+        logger.info(f"Result of command execution: {result}")
         conversation = Conversation(
             agent=agent,
-            host=server.base_url,
+            workspace=workspace,
             callbacks=[event_callback],
             visualize=True,
         )
@@ -85,6 +70,7 @@ def main() -> None:
 
         try:
             logger.info(f"\n📋 Conversation ID: {conversation.state.id}")
+
             logger.info("📝 Sending first message...")
             conversation.send_message(
                 "Read the current repo and write 3 facts about the project into "

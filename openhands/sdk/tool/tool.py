@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, Protocol, Self, TypeVar
 
@@ -14,7 +14,7 @@ from pydantic import (
 from pydantic.json_schema import SkipJsonSchema
 
 from openhands.sdk.security import risk
-from openhands.sdk.tool.schema import ActionBase, ObservationBase, Schema
+from openhands.sdk.tool.schema import Action, Observation, Schema
 from openhands.sdk.utils.models import (
     DiscriminatedUnionMixin,
     get_known_concrete_subclasses,
@@ -22,8 +22,8 @@ from openhands.sdk.utils.models import (
 )
 
 
-ActionT = TypeVar("ActionT", bound=ActionBase)
-ObservationT = TypeVar("ObservationT", bound=ObservationBase)
+ActionT = TypeVar("ActionT", bound=Action)
+ObservationT = TypeVar("ObservationT", bound=Observation)
 _action_types_with_risk: dict[type, type] = {}
 
 
@@ -62,11 +62,20 @@ class ToolAnnotations(BaseModel):
     )
 
 
-class ToolExecutor[ActionT, ObservationT]:
+class ToolExecutor[ActionT, ObservationT](ABC):
     """Executor function type for a Tool."""
 
+    @abstractmethod
     def __call__(self, action: ActionT) -> ObservationT:
-        raise NotImplementedError
+        """Execute the tool with the given action and return an observation.
+
+        Args:
+            action: The action to execute, containing the parameters and context
+                   needed for the tool operation.
+
+        Returns:
+            An observation containing the results of the tool execution.
+        """
 
     def close(self) -> None:
         """Close the executor and clean up resources.
@@ -88,7 +97,7 @@ class ExecutableTool(Protocol):
     name: str
     executor: ToolExecutor[Any, Any]  # Non-optional executor
 
-    def __call__(self, action: ActionBase) -> ObservationBase:
+    def __call__(self, action: Action) -> Observation:
         """Execute the tool with the given action."""
         ...
 
@@ -106,8 +115,8 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
 
     name: str
     description: str
-    action_type: type[ActionBase] = Field(repr=False)
-    observation_type: type[ObservationBase] | None = Field(default=None, repr=False)
+    action_type: type[Action] = Field(repr=False)
+    observation_type: type[Observation] | None = Field(default=None, repr=False)
 
     annotations: ToolAnnotations | None = None
     meta: dict[str, Any] | None = None
@@ -118,7 +127,8 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
     )
 
     @classmethod
-    def create(cls, *args, **kwargs) -> Sequence["Self"]:
+    @abstractmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
         """Create a sequence of Tool instances. Placeholder for subclasses.
 
         This can be overridden in subclasses to provide custom initialization logic
@@ -128,7 +138,6 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             A sequence of Tool instances. Even single tools are returned as a sequence
             to provide a consistent interface and eliminate union return types.
         """
-        raise NotImplementedError("Tool.create() must be implemented in subclasses")
 
     @computed_field(return_type=str, alias="title")
     @property
@@ -138,21 +147,21 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         return self.name
 
     @field_serializer("action_type")
-    def _ser_action_type(self, t: type[ActionBase]) -> str:
+    def _ser_action_type(self, t: type[Action]) -> str:
         # serialize as a plain kind string
         return kind_of(t)
 
     @field_serializer("observation_type")
-    def _ser_observation_type(self, t: type[ObservationBase] | None) -> str | None:
+    def _ser_observation_type(self, t: type[Observation] | None) -> str | None:
         return None if t is None else kind_of(t)
 
     @field_validator("action_type", mode="before")
     @classmethod
     def _val_action_type(cls, v):
         if isinstance(v, str):
-            return ActionBase.resolve_kind(v)
-        assert isinstance(v, type) and issubclass(v, ActionBase), (
-            f"action_type must be a subclass of ActionBase, but got {type(v)}"
+            return Action.resolve_kind(v)
+        assert isinstance(v, type) and issubclass(v, Action), (
+            f"action_type must be a subclass of Action, but got {type(v)}"
         )
         return v
 
@@ -162,9 +171,9 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         if v is None:
             return None
         if isinstance(v, str):
-            v = ObservationBase.resolve_kind(v)
-        assert isinstance(v, type) and issubclass(v, ObservationBase), (
-            f"observation_type must be a subclass of ObservationBase, but got {type(v)}"
+            v = Observation.resolve_kind(v)
+        assert isinstance(v, type) and issubclass(v, Observation), (
+            f"observation_type must be a subclass of Observation, but got {type(v)}"
         )
         return v
 
@@ -188,7 +197,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             raise NotImplementedError(f"Tool '{self.name}' has no executor")
         return self  # type: ignore[return-value]
 
-    def action_from_arguments(self, arguments: dict[str, Any]) -> ActionBase:
+    def action_from_arguments(self, arguments: dict[str, Any]) -> Action:
         """Create an action from parsed arguments.
 
         This method can be overridden by subclasses to provide custom logic
@@ -202,10 +211,10 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         return self.action_type.model_validate(arguments)
 
-    def __call__(self, action: ActionT) -> ObservationBase:
+    def __call__(self, action: ActionT) -> Observation:
         """Validate input, execute, and coerce output.
 
-        We always return some ObservationBase subclass, but not always the
+        We always return some Observation subclass, but not always the
         generic ObservationT.
         """
         if self.executor is None:
@@ -214,19 +223,19 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         # Execute
         result = self.executor(action)
 
-        # Coerce output only if we declared a model; else wrap in base ObservationBase
+        # Coerce output only if we declared a model; else wrap in base Observation
         if self.observation_type:
             if isinstance(result, self.observation_type):
                 return result
             return self.observation_type.model_validate(result)
         else:
-            # When no output schema is defined, wrap the result in ObservationBase
-            if isinstance(result, ObservationBase):
+            # When no output schema is defined, wrap the result in Observation
+            if isinstance(result, Observation):
                 return result
             elif isinstance(result, BaseModel):
-                return ObservationBase.model_validate(result.model_dump())
+                return Observation.model_validate(result.model_dump())
             elif isinstance(result, dict):
-                return ObservationBase.model_validate(result)
+                return Observation.model_validate(result)
             raise TypeError(
                 "Output must be dict or BaseModel when no output schema is defined"
             )
@@ -305,15 +314,36 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         for subclass in get_known_concrete_subclasses(cls):
             if subclass.__name__ == kind:
                 return subclass
-        # Fallback to "Tool" for unknown type
-        return Tool
+        # Fallback to "ToolDefinition" for unknown type
+        return ToolDefinition
 
 
-class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
-    pass
+class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
+    """Concrete tool class that inherits from ToolBase.
+
+    This class serves as a concrete implementation of ToolBase for cases where
+    you want to create a tool instance directly without implementing a custom
+    subclass. Built-in tools (like FinishTool, ThinkTool) are instantiated
+    directly from this class, while more complex tools (like BashTool,
+    FileEditorTool) inherit from this class and provide their own create()
+    method implementations.
+    """
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> Sequence[Self]:
+        """Create a sequence of ToolDefinition instances.
+
+        TODO https://github.com/All-Hands-AI/agent-sdk/issues/493
+        Refactor this - the ToolDefinition class should not have a concrete create()
+        implementation. Built-in tools should be refactored to not rely on this
+        method, and then this should be made abstract with @abstractmethod.
+        """
+        raise NotImplementedError(
+            "ToolDefinition.create() should be implemented by subclasses"
+        )
 
 
-def _create_action_type_with_risk(action_type: type[ActionBase]) -> type[ActionBase]:
+def _create_action_type_with_risk(action_type: type[Action]) -> type[Action]:
     action_type_with_risk = _action_types_with_risk.get(action_type)
     if action_type_with_risk:
         return action_type_with_risk

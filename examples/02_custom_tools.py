@@ -8,18 +8,18 @@ from pydantic import Field, SecretStr
 
 from openhands.sdk import (
     LLM,
+    Action,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
+    Observation,
     TextContent,
-    Tool,
+    ToolDefinition,
     get_logger,
 )
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
     ToolExecutor,
     ToolSpec,
     register_tool,
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 # --- Action / Observation ---
 
 
-class GrepAction(ActionBase):
+class GrepAction(Action):
     pattern: str = Field(description="Regex to search for")
     path: str = Field(
         default=".", description="Directory to search (absolute or relative)"
@@ -48,13 +48,13 @@ class GrepAction(ActionBase):
     )
 
 
-class GrepObservation(ObservationBase):
+class GrepObservation(Observation):
     matches: list[str] = Field(default_factory=list)
     files: list[str] = Field(default_factory=list)
     count: int = 0
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if not self.count:
             return [TextContent(text="No matches found.")]
         files_list = "\n".join(f"- {f}" for f in self.files[:20])
@@ -119,7 +119,8 @@ _GREP_DESCRIPTION = """Fast content search tool.
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -128,14 +129,14 @@ llm = LLM(
 cwd = os.getcwd()
 
 
-def _make_bash_and_grep_tools(working_dir: str) -> list[Tool]:
+def _make_bash_and_grep_tools(working_dir: str) -> list[ToolDefinition]:
     """Create execute_bash and custom grep tools sharing one executor."""
 
     bash_executor = BashExecutor(working_dir=working_dir)
     bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
 
     grep_executor = GrepExecutor(bash_executor)
-    grep_tool = Tool(
+    grep_tool = ToolDefinition(
         name="grep",
         description=_GREP_DESCRIPTION,
         action_type=GrepAction,
@@ -160,12 +161,14 @@ agent = Agent(llm=llm, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent, callbacks=[conversation_callback], workspace=cwd
+)
 
 conversation.send_message(
     "Hello! Can you use the grep tool to find all files "

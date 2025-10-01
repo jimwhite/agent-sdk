@@ -16,7 +16,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     Message,
     TextContent,
@@ -54,7 +54,7 @@ def create_llm(
     }
     if log_completions_folder:
         llm_kwargs["log_completions_folder"] = log_completions_folder
-    return LLM(**llm_kwargs)
+    return LLM(**llm_kwargs, service_id="test-llm")
 
 
 def create_tools(working_dir: str | None = None) -> list[ToolSpec]:
@@ -84,7 +84,7 @@ def run_conversation(
 
     llm_messages = []
 
-    def conversation_callback(event: EventBase):
+    def conversation_callback(event: Event):
         logger.info(f"Found a conversation message: {str(event)[:200]}...")
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message().to_llm_dict())

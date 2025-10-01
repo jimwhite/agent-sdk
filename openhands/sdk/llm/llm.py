@@ -51,11 +51,13 @@ from litellm.utils import (
     token_counter,
 )
 
-# OpenHands utilities
 from openhands.sdk.llm.exceptions import LLMNoResponseError
+
+# OpenHands utilities
+from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
-from openhands.sdk.llm.utils.metrics import Metrics
+from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
 from openhands.sdk.llm.utils.retry_mixin import RetryMixin
 from openhands.sdk.llm.utils.telemetry import Telemetry
@@ -177,6 +179,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         "This is a string that can be one of 'low', 'medium', 'high', or 'none'. "
         "Can apply to all reasoning models.",
     )
+    extended_thinking_budget: int | None = Field(
+        default=48_000,
+        description="The budget tokens for extended thinking, "
+        "supported by Anthropic models.",
+    )
     seed: int | None = Field(
         default=None, description="The seed to use for random number generation."
     )
@@ -189,6 +196,15 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     service_id: str = Field(
         default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Additional metadata for the LLM instance. "
+            "Example structure: "
+            "{'trace_version': '1.0.0', 'tags': ['model:gpt-4', 'agent:my-agent'], "
+            "'session_id': 'session-123', 'trace_user_id': 'user-456'}"
+        ),
     )
 
     # =========================================================================
@@ -252,7 +268,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # default reasoning_effort unless Gemini 2.5
         # (we keep consistent with old behavior)
-        if d.get("reasoning_effort") is None and "gemini-2.5-pro" not in model_val:
+        if d.get("reasoning_effort") is None and (
+            "gemini-2.5-pro" not in model_val and "claude-sonnet-4-5" not in model_val
+        ):
             d["reasoning_effort"] = "high"
 
         # Azure default version
@@ -350,7 +368,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
-    ) -> ModelResponse:
+    ) -> LLMResponse:
         """Single entry point for LLM completion.
 
         Normalize → (maybe) mock tools → transport → postprocess.
@@ -439,7 +457,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         try:
             resp = _one_attempt()
-            return resp
+
+            # Convert the first choice to an OpenHands Message
+            first_choice = resp["choices"][0]
+            message = Message.from_litellm_message(first_choice["message"])
+
+            # Get current metrics snapshot
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            # Create and return LLMResponse
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
         except Exception as e:
             self._telemetry.on_error(e)
             raise
@@ -528,12 +562,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 if self.reasoning_effort in {None, "none"}:
                     out["reasoning_effort"] = "low"
 
-        # Anthropic Opus 4.1: prefer temperature when
-        # both provided; disable extended thinking
-        if "claude-opus-4-1" in self.model.lower():
-            if "temperature" in out and "top_p" in out:
-                out.pop("top_p", None)
-            out.setdefault("thinking", {"type": "disabled"})
+        # Extended thinking models
+        if get_features(self.model).supports_extended_thinking:
+            if self.extended_thinking_budget:
+                out["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": self.extended_thinking_budget,
+                }
+                # We need this to enable interleaved thinking
+                # https://docs.claude.com/en/docs/build-with-claude/extended-thinking#interleaved-thinking # noqa: E501
+                out["extra_headers"] = {
+                    "anthropic-beta": "interleaved-thinking-2025-05-14"
+                }
+            # Anthropic models ignore temp/top_p
+            out.pop("temperature", None)
+            out.pop("top_p", None)
 
         # Mistral / Gemini safety
         if self.safety_settings:
@@ -622,6 +665,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 self.max_output_tokens = (
                     64000  # practical cap (litellm may allow 128k with header)
+                )
+                logger.debug(
+                    f"Setting max_output_tokens to {self.max_output_tokens} "
+                    f"for {self.model}"
                 )
             elif self._model_info is not None:
                 if isinstance(self._model_info.get("max_output_tokens"), int):
@@ -724,7 +771,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             ):
                 message.force_string_serializer = True
 
-        return [message.to_llm_dict() for message in messages]
+        formatted_messages = [message.to_llm_dict() for message in messages]
+
+        return formatted_messages
 
     def get_token_count(self, messages: list[Message]) -> int:
         logger.debug(
@@ -813,21 +862,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             v = _cast_value(value, fields[field_name])
             if v is not None:
                 data[field_name] = v
-        return cls(**data)
-
-    @classmethod
-    def load_from_toml(cls, toml_path: str) -> LLM:
-        try:
-            import tomllib
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore
-            except ImportError:
-                raise ImportError("tomllib or tomli is required to load TOML files")
-        with open(toml_path, "rb") as f:
-            data = tomllib.load(f)
-        if "llm" in data:
-            data = data["llm"]
         return cls(**data)
 
     def resolve_diff_from_deserialized(self, persisted: LLM) -> LLM:

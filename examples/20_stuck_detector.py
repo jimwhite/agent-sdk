@@ -5,11 +5,11 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -18,17 +18,18 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    service_id="agent",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
 
-agent = get_default_agent(llm=llm, working_dir=os.getcwd())
+agent = get_default_agent(llm=llm)
 
 llm_messages = []
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -37,6 +38,7 @@ def conversation_callback(event: EventBase):
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
+    workspace=os.getcwd(),
     # This is by default True, shown here for clarity of the example
     stuck_detection=True,
 )

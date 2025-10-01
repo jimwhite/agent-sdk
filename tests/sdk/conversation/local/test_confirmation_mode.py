@@ -19,32 +19,35 @@ from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import UserRejectObservation
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import LLM, ImageContent, Message, MetricsSnapshot, TextContent
 from openhands.sdk.llm.utils.metrics import TokenUsage
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
-from openhands.sdk.tool import ToolExecutor, ToolSpec, register_tool
-from openhands.sdk.tool.schema import ActionBase, ObservationBase
-from openhands.sdk.tool.tool import Tool
+from openhands.sdk.tool import (
+    ToolDefinition,
+    ToolExecutor,
+    ToolSpec,
+    register_tool,
+)
+from openhands.sdk.tool.schema import Action, Observation
 
 
-class MockConfirmationModeAction(ActionBase):
+class MockConfirmationModeAction(Action):
     """Mock action schema for testing."""
 
     command: str
 
 
-class MockConfirmationModeObservation(ObservationBase):
+class MockConfirmationModeObservation(Observation):
     """Mock observation schema for testing."""
 
     result: str
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         return [TextContent(text=self.result)]
 
 
@@ -55,7 +58,9 @@ class TestConfirmationMode:
         """Set up test fixtures."""
 
         # Create a real LLM instance for Agent validation
-        self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
+        self.llm = LLM(
+            model="gpt-4", api_key=SecretStr("test-key"), service_id="test-llm"
+        )
 
         # Create a MagicMock to override the completion method
         self.mock_llm = MagicMock()
@@ -89,9 +94,9 @@ class TestConfirmationMode:
                     result=f"Executed: {action.command}"
                 )
 
-        def _make_tool() -> Sequence[Tool]:
+        def _make_tool(conv_state=None, **params) -> Sequence[ToolDefinition]:
             return [
-                Tool(
+                ToolDefinition(
                     name="test_tool",
                     description="A test tool",
                     action_type=MockConfirmationModeAction,
@@ -248,7 +253,7 @@ class TestConfirmationMode:
         )
 
     def test_mock_observation(self):
-        # First test a round trip in the context of ObservationBase
+        # First test a round trip in the context of Observation
         obs = MockConfirmationModeObservation(result="executed")
 
         # Now test embeddding this into an ObservationEvent
@@ -271,7 +276,10 @@ class TestConfirmationMode:
         # Test initial state
         assert self.conversation.state.confirmation_policy == NeverConfirm()
         assert self.conversation.state.agent_status == AgentExecutionStatus.IDLE
-        assert get_unmatched_actions(self.conversation.state.events) == []
+        assert (
+            ConversationState.get_unmatched_actions(self.conversation.state.events)
+            == []
+        )
 
         # Enable confirmation mode
         self.conversation.set_confirmation_policy(AlwaysConfirm())
@@ -294,10 +302,10 @@ class TestConfirmationMode:
         """Test getting unmatched events (actions without observations)."""
         # Create test action
         action_event = self._create_test_action()
-        events: list[EventBase] = [action_event]
+        events: list[Event] = [action_event]
 
         # Test: action without observation should be pending
-        unmatched = get_unmatched_actions(events)
+        unmatched = ConversationState.get_unmatched_actions(events)
         assert len(unmatched) == 1
         assert unmatched[0].id == action_event.id
 
@@ -314,7 +322,7 @@ class TestConfirmationMode:
         events.append(obs_event)
 
         # Test: action with observation should not be pending
-        unmatched = get_unmatched_actions(events)
+        unmatched = ConversationState.get_unmatched_actions(events)
         assert len(unmatched) == 0
 
         # Test rejection functionality
@@ -331,7 +339,7 @@ class TestConfirmationMode:
         events.append(rejection)
 
         # Test: rejected action should not be pending
-        unmatched = get_unmatched_actions(events)
+        unmatched = ConversationState.get_unmatched_actions(events)
         assert len(unmatched) == 0
 
         # Test UserRejectObservation functionality
@@ -448,7 +456,9 @@ class TestConfirmationMode:
         )  # Agent should be finished
 
         # Should have no pending actions (FinishAction was executed immediately)
-        pending_actions = get_unmatched_actions(self.conversation.state.events)
+        pending_actions = ConversationState.get_unmatched_actions(
+            self.conversation.state.events
+        )
         assert len(pending_actions) == 0
 
         # Should have an observation event (action was executed)
@@ -489,7 +499,9 @@ class TestConfirmationMode:
         )
 
         # Should have pending actions (both actions)
-        pending_actions = get_unmatched_actions(self.conversation.state.events)
+        pending_actions = ConversationState.get_unmatched_actions(
+            self.conversation.state.events
+        )
         assert len(pending_actions) == 2
         action_tools = [action.tool_name for action in pending_actions]
         assert "test_tool" in action_tools

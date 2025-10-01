@@ -1,10 +1,6 @@
 import json
 
-from litellm.types.utils import (
-    ChatCompletionMessageToolCall,
-    Choices,
-    Message as LiteLLMMessage,
-)
+from litellm.types.utils import ChatCompletionMessageToolCall
 from pydantic import ValidationError
 
 import openhands.sdk.security.risk as risk
@@ -21,19 +17,19 @@ from openhands.sdk.event import (
     SystemPromptEvent,
 )
 from openhands.sdk.event.condenser import Condensation, CondensationRequest
-from openhands.sdk.event.utils import get_unmatched_actions
 from openhands.sdk.llm import (
     Message,
+    RedactedThinkingBlock,
     TextContent,
-    get_llm_metadata,
+    ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import (
-    ActionBase,
+    Action,
     FinishTool,
-    ObservationBase,
+    Observation,
 )
 from openhands.sdk.tool.builtins import FinishAction
 
@@ -139,7 +135,7 @@ class Agent(AgentBase):
     ) -> None:
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
-        pending_actions = get_unmatched_actions(state.events)
+        pending_actions = ConversationState.get_unmatched_actions(state.events)
         if pending_actions:
             logger.info(
                 "Confirmation mode: Executing %d pending action(s)",
@@ -177,14 +173,10 @@ class Agent(AgentBase):
         )
 
         try:
-            response = self.llm.completion(
+            llm_response = self.llm.completion(
                 messages=_messages,
                 tools=list(self.tools_map.values()),
-                extra_body={
-                    "metadata": get_llm_metadata(
-                        model_name=self.llm.model, agent_name=self.name
-                    )
-                },
+                extra_body={"metadata": self.llm.metadata},
                 add_security_risk_prediction=self._add_security_risk_prediction,
             )
         except Exception as e:
@@ -205,9 +197,8 @@ class Agent(AgentBase):
             else:
                 raise e
 
-        assert len(response.choices) == 1 and isinstance(response.choices[0], Choices)
-        llm_message: LiteLLMMessage = response.choices[0].message  # type: ignore
-        message = Message.from_litellm_message(llm_message)
+        # LLMResponse already contains the converted message and metrics snapshot
+        message: Message = llm_response.message
 
         if message.tool_calls and len(message.tool_calls) > 0:
             tool_call: ChatCompletionMessageToolCall
@@ -239,13 +230,15 @@ class Agent(AgentBase):
                 action_event = self._get_action_event(
                     state,
                     tool_call,
-                    llm_response_id=response.id,
+                    llm_response_id=llm_response.id,
                     on_event=on_event,
                     thought=thought_content
                     if i == 0
                     else [],  # Only first gets thought
                     # Only first gets reasoning content
                     reasoning_content=message.reasoning_content if i == 0 else None,
+                    # Only first gets thinking blocks
+                    thinking_blocks=list(message.thinking_blocks) if i == 0 else [],
                 )
                 if action_event is None:
                     continue
@@ -315,6 +308,7 @@ class Agent(AgentBase):
         on_event: ConversationCallbackType,
         thought: list[TextContent] = [],
         reasoning_content: str | None = None,
+        thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [],
     ) -> ActionEvent | None:
         """Converts a tool call into an ActionEvent, validating arguments.
 
@@ -335,7 +329,6 @@ class Agent(AgentBase):
                 tool_call_id=tool_call.id,
             )
             on_event(event)
-            state.agent_status = AgentExecutionStatus.FINISHED
             return
 
         # Validate arguments
@@ -360,7 +353,7 @@ class Agent(AgentBase):
 
             # Arguments we passed in should not contains `security_risk`
             # as a field
-            action: ActionBase = tool.action_from_arguments(arguments)
+            action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
                 f"Error validating args {tool_call.function.arguments} for tool "
@@ -378,6 +371,7 @@ class Agent(AgentBase):
             action=action,
             thought=thought,
             reasoning_content=reasoning_content,
+            thinking_blocks=thinking_blocks,
             tool_name=tool.name,
             tool_call_id=tool_call.id,
             tool_call=tool_call,
@@ -406,9 +400,9 @@ class Agent(AgentBase):
             )
 
         # Execute actions!
-        observation: ObservationBase = tool(action_event.action)
-        assert isinstance(observation, ObservationBase), (
-            f"Tool '{tool.name}' executor must return an ObservationBase"
+        observation: Observation = tool(action_event.action)
+        assert isinstance(observation, Observation), (
+            f"Tool '{tool.name}' executor must return an Observation"
         )
 
         obs_event = ObservationEvent(

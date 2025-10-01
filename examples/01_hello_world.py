@@ -5,11 +5,11 @@ from pydantic import SecretStr
 from openhands.sdk import (
     LLM,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.preset.default import get_default_agent
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -18,15 +18,16 @@ logger = get_logger(__name__)
 api_key = os.getenv("LITELLM_API_KEY")
 assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
 llm = LLM(
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
+    service_id="agent",
+    drop_params=True,
 )
 
 cwd = os.getcwd()
 agent = get_default_agent(
     llm=llm,
-    working_dir=cwd,
     # CLI mode will disable any browser tools
     # which requires dependency like playwright that may not be
     # available in all environments.
@@ -47,21 +48,25 @@ agent = get_default_agent(
 # agent = Agent(
 #     llm=llm,
 #     tools=[
-#         ToolSpec(name="BashTool", params={"working_dir": cwd}),
+#         ToolSpec(name="BashTool"),
 #         ToolSpec(name="FileEditorTool"),
-#         ToolSpec(name="TaskTrackerTool", params={"save_dir": cwd}),
+#         ToolSpec(name="TaskTrackerTool"),
 #     ],
 # )
 
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
 
-conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+conversation = Conversation(
+    agent=agent,
+    callbacks=[conversation_callback],
+    workspace=cwd,
+)
 
 conversation.send_message(
     "Read the current repo and write 3 facts about the project into FACTS.txt."

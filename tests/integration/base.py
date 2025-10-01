@@ -15,7 +15,7 @@ from openhands.sdk import (
     TextContent,
 )
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import (
     MessageEvent,
 )
@@ -70,15 +70,17 @@ class BaseIntegrationTest(ABC):
             "api_key": SecretStr(api_key),
         }
 
-        self.llm = LLM(**llm_kwargs)
+        self.llm = LLM(**llm_kwargs, service_id="test-llm")
         self.agent = Agent(llm=self.llm, tools=self.tools)
-        self.collected_events: list[EventBase] = []
+        self.collected_events: list[Event] = []
         self.llm_messages: list[dict[str, Any]] = []
         self.conversation: LocalConversation = LocalConversation(
-            agent=self.agent, callbacks=[self.conversation_callback]
+            agent=self.agent,
+            workspace=self.cwd or "/tmp",
+            callbacks=[self.conversation_callback],
         )
 
-    def conversation_callback(self, event: EventBase):
+    def conversation_callback(self, event: Event):
         """Callback to collect conversation events."""
         self.collected_events.append(event)
         if isinstance(event, MessageEvent):
