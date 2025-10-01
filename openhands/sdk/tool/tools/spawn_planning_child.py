@@ -123,18 +123,20 @@ class SpawnPlanningChildExecutor(ToolExecutor):
             )
 
         try:
+            # Get working directory from parent conversation before creating child
+            working_dir = conversation._state.workspace.working_dir
+
             registry = AgentRegistry()
-            planning_agent = registry.create("planning", llm=conversation.agent.llm)
+            planning_agent = registry.create(
+                "planning",
+                llm=conversation.agent.llm,
+                system_prompt_kwargs={"WORK_DIR": working_dir},
+            )
 
             child_conversation = conversation.create_child_conversation(
                 agent=planning_agent,
                 visualize=False,  # Disable visualization to avoid I/O blocking issues
             )
-
-            # Parent can detect completion by observing that the child conversation
-            # is closed.
-
-            working_dir = child_conversation._state.workspace.working_dir
             plan_file_path = os.path.join(working_dir, "PLAN.md")
 
             return SpawnPlanningChildObservation(

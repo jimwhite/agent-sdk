@@ -85,7 +85,7 @@ def test_spawn_planning_child_executor_no_conversation():
     assert "No active conversation found" in result.error
 
 
-@patch("openhands.sdk.agent.registry.AgentRegistry")
+@patch("openhands.sdk.tool.tools.spawn_planning_child.AgentRegistry")
 def test_spawn_planning_child_executor_success(mock_registry_class):
     """Test successful execution of spawn_planning_child."""
     # Setup mocks
@@ -99,6 +99,7 @@ def test_spawn_planning_child_executor_success(mock_registry_class):
 
     mock_conversation = Mock()
     mock_conversation.agent.llm = mock_llm
+    mock_conversation._state.workspace.working_dir = "/tmp/child"
 
     mock_child_conversation = Mock()
     mock_child_conversation._state.id = "child-123"
@@ -120,17 +121,19 @@ def test_spawn_planning_child_executor_success(mock_registry_class):
     assert result.success is True
     assert result.child_conversation_id == "child-123"
     assert result.working_directory == "/tmp/child"
-    assert "Planning completed successfully" in result.message
+    assert "Planning child created." in result.message
 
     # Verify calls
-    mock_registry.create.assert_called_once_with("planning", llm=mock_llm)
+    mock_registry.create.assert_called_once_with(
+        "planning", llm=mock_llm, system_prompt_kwargs={"WORK_DIR": "/tmp/child"}
+    )
     mock_conversation.create_child_conversation.assert_called_once_with(
         agent=mock_agent, visualize=True
     )
     mock_child_conversation.send_message.assert_called_once()
 
 
-@patch("openhands.sdk.agent.registry.AgentRegistry")
+@patch("openhands.sdk.tool.tools.spawn_planning_child.AgentRegistry")
 def test_spawn_planning_child_executor_failure(mock_registry_class):
     """Test executor failure handling."""
     # Setup mocks to raise exception
@@ -140,6 +143,7 @@ def test_spawn_planning_child_executor_failure(mock_registry_class):
 
     mock_conversation = Mock()
     mock_conversation.agent.llm = Mock()
+    mock_conversation._state.workspace.working_dir = "/tmp/child"
 
     # Create executor and set conversation
     executor = SpawnPlanningChildExecutor()
@@ -152,7 +156,7 @@ def test_spawn_planning_child_executor_failure(mock_registry_class):
     # Verify
     assert result.success is False
     assert result.error is not None
-    assert "Failed to complete planning" in result.error
+    assert "Failed to spawn planning child" in result.error
     assert "Registry error" in result.error
 
 
