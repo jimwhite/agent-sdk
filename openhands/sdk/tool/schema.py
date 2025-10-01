@@ -154,6 +154,18 @@ class ActionBase(Schema, DiscriminatedUnionMixin, ABC):
     """Base schema for input action."""
 
     @property
+    def title(self) -> str:
+        """Return a brief title/summary for this action.
+
+        This method can be overridden by subclasses to provide a more
+        informative title. The base implementation returns the action class name.
+
+        Returns:
+            A brief string suitable for displaying as a title in UI.
+        """
+        return self.__class__.__name__
+
+    @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this action.
 

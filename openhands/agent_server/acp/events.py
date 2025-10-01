@@ -11,6 +11,7 @@ from acp.schema import (
     SessionUpdate4,
     SessionUpdate5,
     ToolCallContent1,
+    ToolCallLocation,
 )
 
 from openhands.agent_server.pub_sub import Subscriber
@@ -30,6 +31,60 @@ if TYPE_CHECKING:
     from acp import AgentSideConnection
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_locations(event: ActionEvent) -> list[ToolCallLocation] | None:
+    """Extract file locations from an action event if available.
+
+    Returns a list of ToolCallLocation objects if the action contains location
+    information (e.g., file paths, directories), otherwise returns None.
+
+    Supports:
+    - str_replace_editor: path, view_range, insert_line
+    - repomix_pack_codebase: directory
+    - Other tools with 'path' or 'directory' attributes
+    """
+    locations = []
+
+    # Check if action has a 'path' field (e.g., str_replace_editor)
+    if hasattr(event.action, "path"):
+        path = getattr(event.action, "path", None)
+        if path:
+            location = ToolCallLocation(path=path)
+
+            # Check for line number information
+            if hasattr(event.action, "view_range"):
+                view_range = getattr(event.action, "view_range", None)
+                if view_range and isinstance(view_range, list) and len(view_range) > 0:
+                    location.line = view_range[0]
+            elif hasattr(event.action, "insert_line"):
+                insert_line = getattr(event.action, "insert_line", None)
+                if insert_line is not None:
+                    location.line = insert_line
+
+            locations.append(location)
+
+    # Check if action has a 'directory' field (e.g., repomix_pack_codebase)
+    elif hasattr(event.action, "directory"):
+        directory = getattr(event.action, "directory", None)
+        if directory:
+            locations.append(ToolCallLocation(path=directory))
+
+    return locations if locations else None
+
+
+def _rich_text_to_plain(text) -> str:
+    """Convert Rich Text object to plain string.
+
+    Args:
+        text: Rich Text object or string
+
+    Returns:
+        Plain text string
+    """
+    if hasattr(text, "plain"):
+        return text.plain
+    return str(text)
 
 
 class EventSubscriber(Subscriber):
@@ -59,16 +114,52 @@ class EventSubscriber(Subscriber):
             await self._handle_llm_convertible_event(event)
 
     async def _handle_action_event(self, event: ActionEvent):
-        """Handle ActionEvent by sending tool_call notification."""
+        """Handle ActionEvent: send thought as agent_message_chunk, then tool_call."""
         try:
+            # First, send thoughts/reasoning as agent_message_chunk if available
+            thought_text = " ".join([t.text for t in event.thought])
+
+            # Send reasoning content first if available
+            if event.reasoning_content and event.reasoning_content.strip():
+                await self.conn.sessionUpdate(
+                    SessionNotification(
+                        sessionId=self.session_id,
+                        update=SessionUpdate2(
+                            sessionUpdate="agent_message_chunk",
+                            content=ContentBlock1(
+                                type="text",
+                                text=event.reasoning_content,
+                            ),
+                        ),
+                    )
+                )
+
+            # Then send thought as agent_message_chunk
+            if thought_text.strip():
+                await self.conn.sessionUpdate(
+                    SessionNotification(
+                        sessionId=self.session_id,
+                        update=SessionUpdate2(
+                            sessionUpdate="agent_message_chunk",
+                            content=ContentBlock1(
+                                type="text",
+                                text=thought_text,
+                            ),
+                        ),
+                    )
+                )
+
+            # Now send the tool_call with action.visualize content
             tool_kind = get_tool_kind(event.tool_name)
 
-            # Create a human-readable title
-            action_name = event.action.__class__.__name__
-            title = f"{action_name} with {event.tool_name}"
+            # Use action.title for a brief summary
+            title = event.action.title
 
-            # Extract thought content as text
-            thought_text = " ".join([t.text for t in event.thought])
+            # Use action.visualize for rich content
+            action_viz = _rich_text_to_plain(event.action.visualize)
+
+            # Extract locations if available
+            locations = _extract_locations(event)
 
             await self.conn.sessionUpdate(
                 SessionNotification(
@@ -84,14 +175,13 @@ class EventSubscriber(Subscriber):
                                 type="content",
                                 content=ContentBlock1(
                                     type="text",
-                                    text=thought_text
-                                    if thought_text.strip()
-                                    else f"Executing {action_name}",
+                                    text=action_viz,
                                 ),
                             )
                         ]
-                        if thought_text.strip()
+                        if action_viz.strip()
                         else None,
+                        locations=locations,
                         rawInput=event.tool_call.function.arguments
                         if hasattr(event.tool_call.function, "arguments")
                         else None,
@@ -106,10 +196,19 @@ class EventSubscriber(Subscriber):
     ):
         """Handle observation events by sending tool_call_update notification."""
         try:
+            # Use visualize property for rich content
+            viz_text = _rich_text_to_plain(event.visualize)
+
+            # Determine status
             if isinstance(event, ObservationEvent):
-                # Successful tool execution
                 status = "completed"
-                # Extract content from observation
+            else:  # UserRejectObservation or AgentErrorEvent
+                status = "failed"
+
+            # Extract raw output for structured data
+            raw_output = None
+            if isinstance(event, ObservationEvent):
+                # Extract content from observation for raw output
                 content_parts = []
                 for item in event.observation.agent_observation:
                     if isinstance(item, TextContent):
@@ -119,14 +218,12 @@ class EventSubscriber(Subscriber):
                     else:
                         content_parts.append(str(item))
                 content_text = "".join(content_parts)
+                if content_text.strip():
+                    raw_output = {"result": content_text}
             elif isinstance(event, UserRejectObservation):
-                # User rejected the action
-                status = "failed"
-                content_text = f"User rejected: {event.rejection_reason}"
+                raw_output = {"rejection_reason": event.rejection_reason}
             else:  # AgentErrorEvent
-                # Agent error
-                status = "failed"
-                content_text = f"Error: {event.error}"
+                raw_output = {"error": event.error}
 
             await self.conn.sessionUpdate(
                 SessionNotification(
@@ -140,15 +237,13 @@ class EventSubscriber(Subscriber):
                                 type="content",
                                 content=ContentBlock1(
                                     type="text",
-                                    text=content_text,
+                                    text=viz_text,
                                 ),
                             )
                         ]
-                        if content_text.strip()
+                        if viz_text.strip()
                         else None,
-                        rawOutput={"result": content_text}
-                        if content_text.strip()
-                        else None,
+                        rawOutput=raw_output,
                     ),
                 )
             )
