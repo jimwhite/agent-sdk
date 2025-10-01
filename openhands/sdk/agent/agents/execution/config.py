@@ -50,6 +50,7 @@ class ExecutionAgentConfig(AgentConfig):
             from openhands.tools.str_replace_editor import FileEditorTool
             from openhands.tools.task_tracker import TaskTrackerTool
 
+            # Core tools
             register_tool("BashTool", BashTool)
             register_tool("FileEditorTool", FileEditorTool)
             register_tool("TaskTrackerTool", TaskTrackerTool)
@@ -58,6 +59,13 @@ class ExecutionAgentConfig(AgentConfig):
                 from openhands.tools.browser_use import BrowserToolSet
 
                 register_tool("BrowserToolSet", BrowserToolSet)
+
+            # Agent-specific tools (registered here to avoid import-time cycles)
+            from openhands.sdk.tool.tools.spawn_planning_child import (
+                SpawnPlanningChildTool,
+            )
+
+            register_tool("SpawnPlanningChildTool", SpawnPlanningChildTool)
 
         except ImportError as e:
             logger.warning(f"Failed to register some tools for ExecutionAgent: {e}")

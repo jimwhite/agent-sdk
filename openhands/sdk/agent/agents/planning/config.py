@@ -46,9 +46,11 @@ class PlanningAgentConfig(AgentConfig):
     def _register_tools(self) -> None:
         """Register the tools required by PlanningAgent."""
         try:
+            from openhands.sdk.tool.tools.execute_plan import ExecutePlanTool
             from openhands.tools.str_replace_editor import FileEditorTool
 
             register_tool("FileEditorTool", FileEditorTool)
+            register_tool("ExecutePlanTool", ExecutePlanTool)
 
         except ImportError as e:
             logger.warning(f"Failed to register some tools for PlanningAgent: {e}")

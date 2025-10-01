@@ -18,13 +18,6 @@ from openhands.sdk.tool.tool import (
     ToolBase,
     ToolExecutor,
 )
-from openhands.sdk.tool.tools.execute_plan import ExecutePlanTool
-from openhands.sdk.tool.tools.spawn_planning_child import SpawnPlanningChildTool
-
-
-# Register the new agent-specific tools
-register_tool("SpawnPlanningChildTool", SpawnPlanningChildTool)
-register_tool("ExecutePlanTool", ExecutePlanTool)
 
 
 __all__ = [

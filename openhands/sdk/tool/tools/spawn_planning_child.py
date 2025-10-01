@@ -1,11 +1,13 @@
 """Tool for spawning a planning child conversation."""
 
+import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
 
+from openhands.sdk.agent.registry import AgentRegistry
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     ActionBase,
@@ -90,17 +92,13 @@ class SpawnPlanningChildObservation(ObservationBase):
 
 SPAWN_PLANNING_CHILD_DESCRIPTION = (
     "Spawn a child conversation with a PlanningAgent to create a detailed plan. "
-    "This tool BLOCKS until the planning is complete and returns the path to PLAN.md. "
+    "This tool is non-BLOCKING."
     "Use this when you need to break down a complex task into a structured plan.\n\n"
     "The tool will:\n"
     "1. Create a PlanningAgent child conversation\n"
-    "2. Send the task description to the planning agent\n"
-    "3. Wait for the planning agent to create a PLAN.md file\n"
-    "4. Wait for the planning agent to call execute_plan tool\n"
-    "5. Return the path to the generated PLAN.md file\n\n"
+    "3. Return an observation.\n"
     "The planning agent will analyze requirements, break down tasks into steps, "
-    "identify dependencies, and create actionable instructions. This tool provides "
-    "synchronous planning - it will not return until planning is complete."
+    "identify dependencies, and create actionable instructions."
 )
 
 
@@ -112,10 +110,6 @@ class SpawnPlanningChildExecutor(ToolExecutor):
     def __call__(
         self, action: SpawnPlanningChildAction
     ) -> SpawnPlanningChildObservation:
-        import os
-
-        from openhands.sdk.agent.registry import AgentRegistry
-
         # Get the current conversation from the tool's context
         conversation = self._conversation
         if not conversation:
@@ -129,65 +123,35 @@ class SpawnPlanningChildExecutor(ToolExecutor):
             )
 
         try:
-            # Create a planning agent
             registry = AgentRegistry()
             planning_agent = registry.create("planning", llm=conversation.agent.llm)
 
-            # Create child conversation
             child_conversation = conversation.create_child_conversation(
                 agent=planning_agent,
-                visualize=True,  # Enable visualization to see child's logs
+                visualize=False,  # Disable visualization to avoid I/O blocking issues
             )
 
-            # Send the task description to the planning agent
-            planning_message = (
-                f"Please create a detailed plan for the following task:\n\n"
-                f"{action.task_description}\n\n"
-                f"Create a PLAN.md file with specific, actionable steps. "
-                f"When you're done planning, use the execute_plan tool to "
-                f"execute the plan."
-            )
+            # Parent can detect completion by observing that the child conversation
+            # is closed.
 
-            child_conversation.send_message(planning_message)
-
-            # Run the child conversation until it calls execute_plan
-            # The execute_plan tool will send the plan back to this parent conversation
-            # and close the child conversation
-            child_conversation.run()
-
-            # After the child runs and calls execute_plan, look for PLAN.md
             working_dir = child_conversation._state.workspace.working_dir
             plan_file_path = os.path.join(working_dir, "PLAN.md")
 
-            if os.path.exists(plan_file_path):
-                return SpawnPlanningChildObservation(
-                    success=True,
-                    child_conversation_id=str(child_conversation._state.id),
-                    message=(
-                        f"Planning completed successfully. "
-                        f"Child conversation {child_conversation._state.id} created a "
-                        f"plan "
-                        f"and called execute_plan. The plan is ready for execution."
-                    ),
-                    working_directory=working_dir,
-                    plan_file_path=plan_file_path,
-                )
-            else:
-                return SpawnPlanningChildObservation(
-                    success=False,
-                    message="",
-                    error=(
-                        f"Planning child completed but no PLAN.md file was found at "
-                        f"{plan_file_path}. The planning agent may not have "
-                        f"created the plan."
-                    ),
-                )
+            return SpawnPlanningChildObservation(
+                success=True,
+                child_conversation_id=str(child_conversation._state.id),
+                message=("Planning child created."),
+                working_directory=working_dir,
+                plan_file_path=plan_file_path
+                if os.path.exists(plan_file_path)
+                else None,
+            )
 
         except Exception as e:
             return SpawnPlanningChildObservation(
                 success=False,
                 message="",
-                error=f"Failed to complete planning: {str(e)}",
+                error=f"Failed to spawn planning child: {str(e)}",
             )
 
 

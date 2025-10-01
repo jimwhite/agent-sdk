@@ -54,6 +54,7 @@ class LocalConversation(BaseConversation):
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
         """
+        self._is_closed = False
         self.agent = agent
         if isinstance(workspace, str):
             workspace = LocalWorkspace(working_dir=workspace)
@@ -508,6 +509,9 @@ class LocalConversation(BaseConversation):
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
+        if getattr(self, "_is_closed", False):
+            return
+
         logger.debug("Closing conversation and cleaning up tool executors")
 
         # Close all child conversations first (if they exist)
@@ -524,6 +528,7 @@ class LocalConversation(BaseConversation):
                 continue
             except Exception as e:
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
+        self._is_closed = True
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

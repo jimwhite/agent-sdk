@@ -92,9 +92,8 @@ EXECUTE_PLAN_DESCRIPTION = (
     "This tool will:\n"
     "1. Read the specified plan file (default: PLAN.md)\n"
     "2. Send the plan content back to the parent ExecutionAgent conversation\n"
-    "3. Run the parent conversation to execute the plan\n"
-    "4. Close this planning child conversation\n\n"
-    "The parent execution agent will follow the plan sequence, verify each step, "
+    "3. Close this planning child conversation\n\n"
+    "The parent execution agent will then follow the plan sequence, verify each step, "
     "handle errors, and provide progress updates."
 )
 
@@ -159,9 +158,6 @@ class ExecutePlanExecutor(ToolExecutor):
             )
             parent_conversation.send_message(parent_message)
 
-            # Run the parent conversation to execute the plan
-            parent_conversation.run()
-
             # Close this planning child conversation
             conversation.close()
 
@@ -170,8 +166,8 @@ class ExecutePlanExecutor(ToolExecutor):
                 child_conversation_id=None,  # No child created
                 message=(
                     "Plan sent back to parent conversation. "
-                    "Parent will now execute the plan. "
-                    "This planning conversation is closed."
+                    "This planning conversation is closed. "
+                    "The parent conversation will execute the plan."
                 ),
                 working_directory=plan_path,
                 plan_content=plan_content[:500] + "..."
