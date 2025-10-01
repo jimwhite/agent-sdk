@@ -210,7 +210,7 @@ class EventSubscriber(Subscriber):
             if isinstance(event, ObservationEvent):
                 # Extract content from observation for raw output
                 content_parts = []
-                for item in event.observation.agent_observation:
+                for item in event.observation.to_llm_content:
                     if isinstance(item, TextContent):
                         content_parts.append(item.text)
                     elif hasattr(item, "text") and not isinstance(item, ImageContent):
