@@ -248,6 +248,11 @@ class Telemetry(BaseModel):
                 "timestamp": time.time(),
                 "latency_sec": self._last_latency,
             }
+            # Promote selected request context to top-level for quick filtering
+            if "user_id" in req:
+                data["user_id"] = req["user_id"]
+            if "context_window" in req:
+                data["context_window"] = req["context_window"]
 
             # Usage summary (prompt, completion, reasoning tokens) for quick inspection
             try:

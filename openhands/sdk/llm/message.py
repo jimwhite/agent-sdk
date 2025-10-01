@@ -1,3 +1,4 @@
+import json
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
@@ -238,19 +239,83 @@ class Message(BaseModel):
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
         """Convert a LiteLLMMessage to our Message class.
 
-        Provider-agnostic mapping for reasoning:
+        Provider-agnostic mapping for reasoning and tool calls:
         - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
+        - Normalize provider `tool_calls` to LLMToolCall
         """
         assert message.role != "function", "Function role is not supported"
 
         rc = getattr(message, "reasoning_content", None)
 
-        # TODO: tool_calls need normalized HERE
+        # Normalize tool calls, if present on the provider message
+        norm_tool_calls: list[LLMToolCall] | None = None
+        raw_tool_calls = getattr(message, "tool_calls", None)
+        if raw_tool_calls:
+            norm_tool_calls = []
+            for item in raw_tool_calls:
+                # Expect OpenAI-style shape (dict or pydantic object)
+                fn = getattr(item, "function", None) or (
+                    item.get("function") if isinstance(item, dict) else None
+                )
+                if fn is None:
+                    name = None
+                    args = None
+                elif isinstance(fn, dict):
+                    name = fn.get("name")
+                    args = fn.get("arguments")
+                else:
+                    name = getattr(fn, "name", None)
+                    args = getattr(fn, "arguments", None)
+                call_id = getattr(item, "id", None) or (
+                    item.get("id") if isinstance(item, dict) else None
+                )
+
+                # Ensure arguments are a JSON string
+                if args is None:
+                    args_str = "{}"
+                elif isinstance(args, str):
+                    args_str = args
+                else:
+                    try:
+                        args_str = json.dumps(args)
+                    except Exception:
+                        args_str = str(args)
+
+                # Fallbacks to keep data flow resilient
+                name = name or "unknown_function"
+                call_id = call_id or "toolu_0"
+
+                # Preserve raw only if it matches expected types
+                safe_raw = None
+                try:
+                    from litellm import (
+                        ChatCompletionMessageToolCall,
+                        ResponseFunctionToolCall,
+                    )
+
+                    if not isinstance(item, dict) and isinstance(
+                        item, (ChatCompletionMessageToolCall, ResponseFunctionToolCall)
+                    ):
+                        safe_raw = item
+                except Exception:
+                    safe_raw = None
+
+                norm_tool_calls.append(
+                    LLMToolCall(
+                        id=str(call_id),
+                        name=str(name),
+                        arguments_json=args_str,
+                        origin="completion",
+                        raw=safe_raw,
+                    )
+                )
+
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
+            tool_calls=norm_tool_calls,
             reasoning_content=rc,
         )
 

@@ -34,7 +34,6 @@ with warnings.catch_warnings():
 from litellm import (
     ChatCompletionToolParam,
     completion as litellm_completion,
-    responses as litellm_responses,
 )
 from litellm.exceptions import (
     APIConnectionError,
@@ -430,7 +429,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # transport
         try:
             with self._litellm_modify_params_ctx(self.modify_params):
-                resp = litellm_responses(**call_kwargs)
+                resp = litellm.responses(**call_kwargs)
         except Exception as e:
             # Ensure errors are logged to file if enabled
             try:
