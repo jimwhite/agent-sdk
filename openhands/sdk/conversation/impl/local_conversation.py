@@ -103,6 +103,9 @@ class LocalConversation(BaseConversation):
         # Initialize stuck detector
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
+        # Initialize child conversations tracking
+        self._child_conversations: dict[ConversationID, BaseConversation] = {}
+
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
 
