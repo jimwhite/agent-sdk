@@ -38,7 +38,29 @@ from openhands.sdk.llm import LLM
 
 COMPLEX_TASK = (
     "Create a simple calculator class with a Python module with basic arithmetic "
-    "operations (add, subtract, multiply, divide)"
+    "operations (add, subtract, multiply, divide). "
+)
+
+EXECUTION_AGENT_MESSAGE = (
+    COMPLEX_TASK + "Use the spawn_planning_child tool. Do not create the plan yourself."
+)
+
+PLANNING_AGENT_FIRST_MESSSAGE = (
+    "Please analyze the following task and create a detailed plan:\n\n"
+    + COMPLEX_TASK
+    + "Please create a PLAN.md file with task breakdown into specific steps\n"
+    "Focus on creating a clear plan that an execution agent can follow."
+    "Then call the execute plan tool to delegate the implementation."
+    "Do not start by exploring the current project structure. Just think"  # TODO https://github.com/All-Hands-AI/agent-sdk/issues/581
+    "about the task and create the plan once you are done. "
+    "If a plan is already there, just overwrite it."
+)
+
+PLANNING_AGENT_FOLLOW_UP_MESSAGE = (
+    "If you are happy with your plan, "
+    "write it in PLAN.md and then "
+    "use the execute_plan tool to delegate the implementation to the "
+    "execution agent."
 )
 
 
@@ -80,13 +102,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     # Step 2: User asks a complex task requiring planning
     print("\n=== Step 2: User requests complex task ===")
-    execution_agent_instruction = (
-        COMPLEX_TASK
-        + "You MUST use the spawn_planning_child tool - do not create the plan "
-        + "yourself."
-    )
 
-    print(f"User request: {execution_agent_instruction}")
+    print(f"User request: {EXECUTION_AGENT_MESSAGE}")
 
     # Step 3: Send the complex task to ExecutionAgent
     # The ExecutionAgent should use spawn_planning_child tool
@@ -97,7 +114,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     )
 
     # Send the message first
-    conversation.send_message(execution_agent_instruction)
+    conversation.send_message(EXECUTION_AGENT_MESSAGE)
 
     # Use threading to run the main conversation and child conversations concurrently
     def run_main_conversation():
@@ -181,16 +198,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
     print("Now the user needs to send the initial task description.\n")
 
     # Send the initial task description (this is what was in the original request)
-    initial_task_message = (
-        "Please analyze the following task and create a detailed plan:\n\n"
-        + COMPLEX_TASK
-        + "Please create a PLAN.md file with task breakdown into specific steps\n"
-        "Focus on creating a clear plan that an execution agent can follow."
-        "Then call the execute plan tool to delegate the implementation."
-    )
 
-    print(f"User's first message to planning child:\n{initial_task_message}\n")
-    planning_child.send_message(initial_task_message)
+    print(f"User's first message to planning child:\n{PLANNING_AGENT_FIRST_MESSSAGE}\n")
+    planning_child.send_message(PLANNING_AGENT_FIRST_MESSSAGE)
 
     # Run the planning child to process the first message
     print("Running planning child to process task description...")
@@ -203,14 +213,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
     print("\nNow asking the planning agent to create PLAN.md and execute it.\n")
 
     # Send a follow-up message asking to create plan and execute
-    followup_message = (
-        "Please create the PLAN.md file now, and after creating it, "
-        "use the execute_plan tool to delegate the implementation to the "
-        "execution agent."
-    )
 
-    print(f"User's follow-up message:\n{followup_message}\n")
-    planning_child.send_message(followup_message)
+    print(f"User's follow-up message:\n{PLANNING_AGENT_FOLLOW_UP_MESSAGE}\n")
+    planning_child.send_message(PLANNING_AGENT_FOLLOW_UP_MESSAGE)
 
     # Run the planning child to process the follow-up
     print("Running planning child to create plan and spawn execution child...")
