@@ -1,16 +1,18 @@
 """Tests for AgentDispatcher."""
 
-import pytest
 import uuid
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+import pytest
+
+from openhands.sdk.conversation.types import ConversationID
+from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.tools.agent_dispatcher import (
     AgentDispatcher,
     SpawnChildAction,
-    SpawnChildObservation,
     SpawnChildExecutor,
+    SpawnChildObservation,
 )
-from openhands.sdk.conversation.types import ConversationID
 
 
 class TestAgentDispatcher:
@@ -138,6 +140,7 @@ class TestSpawnChildExecutor:
         result = executor(action)
 
         assert not result.success
+        assert result.error is not None
         assert "No conversation ID provided" in result.error
         assert result.agent_type == "planning"
 
@@ -155,6 +158,7 @@ class TestSpawnChildExecutor:
         result = executor(action)
 
         assert not result.success
+        assert result.error is not None
         assert "not found in registry" in result.error
         assert result.agent_type == "planning"
 
@@ -175,7 +179,9 @@ class TestSpawnChildExecutor:
         child_id = str(uuid.uuid4())
         mock_child_conversation = Mock()
         mock_child_conversation._state.id = ConversationID(child_id)
-        mock_conv_registry.create_child_conversation.return_value = mock_child_conversation
+        mock_conv_registry.create_child_conversation.return_value = (
+            mock_child_conversation
+        )
 
         # Mock agent registry
         mock_agent_registry_instance = Mock()
@@ -210,6 +216,7 @@ class TestSpawnChildExecutor:
         try:
             result = executor(action)
             assert not result.success
+            assert result.error is not None
             assert "Failed to spawn planning child" in result.error
             assert "Test exception" in result.error
             assert result.agent_type == "planning"
@@ -261,10 +268,12 @@ class TestSpawnChildObservation:
             agent_type="planning",
         )
 
-        agent_obs = observation.agent_observation
+        agent_obs = observation.to_llm_content
 
         assert len(agent_obs) == 1
-        text_content = agent_obs[0].text
+        content = agent_obs[0]
+        assert isinstance(content, TextContent)
+        text_content = content.text
         assert "✅ Child created successfully" in text_content
         assert "Child ID: child-123" in text_content
         assert "Agent Type: planning" in text_content
@@ -279,10 +288,12 @@ class TestSpawnChildObservation:
             error="Failed to create child",
         )
 
-        agent_obs = observation.agent_observation
+        agent_obs = observation.to_llm_content
 
         assert len(agent_obs) == 1
-        text_content = agent_obs[0].text
+        content = agent_obs[0]
+        assert isinstance(content, TextContent)
+        text_content = content.text
         assert "❌ Failed to create child" in text_content
 
     def test_visualize_success(self):
