@@ -18,7 +18,9 @@ from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelRespons
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, Conversation
+from openhands.sdk.conversation import RemoteConversation
 from openhands.sdk.sandbox.port_utils import find_available_tcp_port
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 @pytest.fixture
@@ -53,7 +55,7 @@ def server_env(
     from openhands.agent_server.api import create_app
     from openhands.agent_server.config import Config
 
-    cfg_obj = Config.from_json_file(cfg_file)
+    cfg_obj = Config.model_validate_json(cfg_file.read_text())
     app = create_app(cfg_obj)
 
     # Start uvicorn on a free port
@@ -105,7 +107,12 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
     agent = Agent(llm=llm, tools=[])
 
     # Create conversation via factory pointing at the live server
-    conv = Conversation(agent=agent, host=server_env["host"])  # RemoteConversation
+    workspace = RemoteWorkspace(
+        host=server_env["host"], working_dir="/workspace/project"
+    )
+    conv: RemoteConversation = Conversation(
+        agent=agent, workspace=workspace
+    )  # RemoteConversation
 
     # Send a message and run
     conv.send_message("Say hello")

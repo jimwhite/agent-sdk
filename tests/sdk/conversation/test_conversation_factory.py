@@ -9,6 +9,7 @@ from openhands.sdk import Conversation
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.llm import LLM
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 class TestConversationFactory:
@@ -55,7 +56,10 @@ class TestConversationFactory:
         # Mock WebSocket client
         _mock_ws_instance = mock_ws_client.return_value
 
-        conversation = Conversation(agent=self.agent, host="http://localhost:8000")
+        workspace = RemoteWorkspace(
+            host="http://localhost:8000", working_dir="/workspace/project"
+        )
+        conversation = Conversation(agent=self.agent, workspace=workspace)
 
         assert isinstance(conversation, RemoteConversation)
         assert not isinstance(conversation, LocalConversation)
@@ -98,9 +102,12 @@ class TestConversationFactory:
         # Mock WebSocket client
         _mock_ws_instance = mock_ws_client.return_value
 
+        workspace = RemoteWorkspace(
+            host="http://localhost:8000", working_dir="/workspace/project"
+        )
         conversation = Conversation(
             agent=self.agent,
-            host="http://localhost:8000",
+            workspace=workspace,
             conversation_id=None,
             callbacks=[],
             max_iteration_per_run=200,
@@ -137,22 +144,25 @@ class TestConversationFactory:
             mock_events_response.raise_for_status.return_value = None
             mock_events_response.json.return_value = {"items": [], "next_page_id": None}
 
-            remote_conv = Conversation(agent=self.agent, host="http://localhost:8000")
+            workspace = RemoteWorkspace(
+                host="http://localhost:8000", working_dir="/workspace/project"
+            )
+            remote_conv = Conversation(agent=self.agent, workspace=workspace)
             # Type checker should infer this as RemoteConversation
 
         # Runtime verification
         assert isinstance(local_conv, LocalConversation)
         assert isinstance(remote_conv, RemoteConversation)
 
-    def test_conversation_factory_empty_host_creates_local(self):
-        """Test that empty host string creates LocalConversation."""
-        conversation = Conversation(agent=self.agent, host="")
+    def test_conversation_factory_string_workspace_creates_local(self):
+        """Test that string workspace creates LocalConversation."""
+        conversation = Conversation(agent=self.agent, workspace="")
 
-        # Empty string should be falsy and create LocalConversation
+        # String workspace should create LocalConversation
         assert isinstance(conversation, LocalConversation)
 
-    def test_conversation_factory_none_host_creates_local(self):
-        """Test that None host creates LocalConversation."""
+    def test_conversation_factory_default_workspace_creates_local(self):
+        """Test that default workspace creates LocalConversation."""
         conversation = Conversation(agent=self.agent)
 
         assert isinstance(conversation, LocalConversation)
@@ -161,10 +171,10 @@ class TestConversationFactory:
         "openhands.sdk.conversation.impl.remote_conversation.WebSocketCallbackClient"
     )
     @patch("httpx.Client")
-    def test_conversation_factory_whitespace_host_creates_remote(
+    def test_conversation_factory_remote_workspace_creates_remote(
         self, mock_httpx_client, mock_ws_client
     ):
-        """Test that whitespace-only host still creates RemoteConversation."""
+        """Test that RemoteWorkspace creates RemoteConversation."""
         # Mock HTTP client and responses
         mock_client_instance = mock_httpx_client.return_value
 
@@ -181,7 +191,8 @@ class TestConversationFactory:
         # Mock WebSocket client
         _mock_ws_instance = mock_ws_client.return_value
 
-        conversation = Conversation(agent=self.agent, host="   ")
+        workspace = RemoteWorkspace(host="   ", working_dir="/workspace/project")
+        conversation = Conversation(agent=self.agent, workspace=workspace)
 
-        # Whitespace-only string is truthy and should create RemoteConversation
+        # RemoteWorkspace should create RemoteConversation
         assert isinstance(conversation, RemoteConversation)

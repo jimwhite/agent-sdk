@@ -395,5 +395,6 @@ class TestRemoteState:
         _ = state.agent_status
         _ = state.confirmation_policy
 
-        # Should have made 3 API calls total (1 for events, 2 for info)
-        assert self.mock_client.get.call_count == 3
+        # Should have made 2 API calls total
+        # (1 for events, 1 for info which gets cached)
+        assert self.mock_client.get.call_count == 2

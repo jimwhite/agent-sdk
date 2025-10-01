@@ -6,20 +6,20 @@ import httpx
 import pytest
 
 from openhands.sdk.conversation.impl.remote_conversation import RemoteEventsList
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import MessageEvent
 
 
 # Create test event classes at module level to avoid duplicate registration
-class MockActionEvent(EventBase):
+class MockActionEvent(Event):
     pass
 
 
-class MockObservationEvent(EventBase):
+class MockObservationEvent(Event):
     pass
 
 
-class MockGenericEvent(EventBase):
+class MockGenericEvent(Event):
     pass
 
 
@@ -33,7 +33,7 @@ class TestRemoteEventsList:
 
     def create_mock_event(
         self, event_id: str, event_type: str = "MessageEvent"
-    ) -> EventBase:
+    ) -> Event:
         """Create a mock event for testing."""
         from datetime import datetime
 
@@ -63,7 +63,7 @@ class TestRemoteEventsList:
             return MockGenericEvent(id=event_id, timestamp=timestamp, source="agent")
 
     def create_mock_api_response(
-        self, events: list[EventBase], next_page_id: str | None = None
+        self, events: list[Event], next_page_id: str | None = None
     ):
         """Create a mock API response."""
         mock_response = Mock()
@@ -251,19 +251,21 @@ class TestRemoteEventsList:
         assert len(events_list) == 1
         assert events_list[0].id == "callback-event"
 
-    def test_remote_events_list_append_not_implemented(self):
-        """Test that append method raises NotImplementedError."""
+    def test_remote_events_list_append_adds_event(self):
+        """Test that append method adds event to local cache."""
         mock_response = self.create_mock_api_response([])
         self.mock_client.get.return_value = mock_response
 
         events_list = RemoteEventsList(self.mock_client, self.conversation_id)
         test_event = self.create_mock_event("test-event", "MessageEvent")
 
-        with pytest.raises(
-            NotImplementedError,
-            match="Cannot directly append events to remote conversation",
-        ):
-            events_list.append(test_event)
+        # Initially empty
+        assert len(events_list) == 0
+
+        # Append should add the event
+        events_list.append(test_event)
+        assert len(events_list) == 1
+        assert events_list[0] == test_event
 
     def test_remote_events_list_api_error_handling(self):
         """Test error handling when API calls fail."""

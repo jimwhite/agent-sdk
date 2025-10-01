@@ -4,7 +4,7 @@ import time
 from unittest.mock import MagicMock, patch
 
 from openhands.sdk.conversation.impl.remote_conversation import WebSocketCallbackClient
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.llm_convertible import MessageEvent
 
 
@@ -16,33 +16,31 @@ class TestWebSocketCallbackClient:
         self.received_events = []
         self.callback_calls = []
 
-    def event_callback(self, event: EventBase):
+    def event_callback(self, event: Event):
         """Test callback to capture events."""
         self.received_events.append(event)
         self.callback_calls.append(event)
 
     def test_websocket_client_initialization(self):
         """Test WebSocketCallbackClient initialization."""
-        callbacks = [self.event_callback]
         client = WebSocketCallbackClient(
             host="http://localhost:8000",
             conversation_id="test-conv-id",
-            callbacks=callbacks,
+            callback=self.event_callback,
         )
 
         assert client.host == "http://localhost:8000"
         assert client.conversation_id == "test-conv-id"
-        assert client.callbacks == callbacks
+        assert client.callback == self.event_callback
         assert client._thread is None
         assert not client._stop.is_set()
 
     def test_websocket_client_start_stop(self):
         """Test starting and stopping the WebSocket client."""
-        callbacks = [self.event_callback]
         client = WebSocketCallbackClient(
             host="http://localhost:8000",
             conversation_id="test-conv-id",
-            callbacks=callbacks,
+            callback=self.event_callback,
         )
 
         # Mock the _run method to avoid actual WebSocket connection
@@ -65,21 +63,18 @@ class TestWebSocketCallbackClient:
 
     def test_websocket_client_error_handling(self):
         """Test error handling in WebSocket client."""
-        callbacks = [self.event_callback]
         client = WebSocketCallbackClient(
             host="http://localhost:8000",
             conversation_id="test-conv-id",
-            callbacks=callbacks,
+            callback=self.event_callback,
         )
 
-        # Test that exceptions in callbacks don't crash the client
+        # Test that exceptions in callback don't crash the client
         def failing_callback(event):
             raise ValueError("Test error")
 
-        def working_callback(event):
-            self.received_events.append(event)
-
-        client.callbacks = [failing_callback, working_callback]
+        # Replace the callback with a failing one
+        client.callback = failing_callback
 
         # Create a test event
         from datetime import datetime
@@ -100,28 +95,23 @@ class TestWebSocketCallbackClient:
             "openhands.sdk.conversation.impl.remote_conversation.logger"
         ) as mock_logger:
             # Process event - should handle the exception gracefully
-            for cb in client.callbacks:
-                try:
-                    cb(test_event)
-                except Exception:
-                    # This simulates the exception handling in the actual client
-                    mock_logger.exception("ws_event_processing_error", stack_info=True)
+            try:
+                client.callback(test_event)
+            except Exception:
+                # This simulates the exception handling in the actual client
+                mock_logger.exception("ws_event_processing_error", stack_info=True)
 
             # Verify that the logger was called for the exception
             mock_logger.exception.assert_called_with(
                 "ws_event_processing_error", stack_info=True
             )
 
-            # The working callback should still have been called
-            assert len(self.received_events) == 1
-
     def test_websocket_client_stop_timeout(self):
         """Test WebSocket client stop with timeout."""
-        callbacks = [self.event_callback]
         client = WebSocketCallbackClient(
             host="http://localhost:8000",
             conversation_id="test-conv-id",
-            callbacks=callbacks,
+            callback=self.event_callback,
         )
 
         # Create a mock thread that doesn't respond to join
@@ -140,22 +130,17 @@ class TestWebSocketCallbackClient:
         assert end_time - start_time < 1.0
         assert client._thread is None
 
-    def test_websocket_client_multiple_callbacks(self):
-        """Test WebSocket client with multiple callbacks."""
-        callback1_events = []
-        callback2_events = []
+    def test_websocket_client_callback_invocation(self):
+        """Test WebSocket client callback invocation."""
+        callback_events = []
 
-        def callback1(event):
-            callback1_events.append(event)
+        def test_callback(event):
+            callback_events.append(event)
 
-        def callback2(event):
-            callback2_events.append(event)
-
-        callbacks = [callback1, callback2]
         client = WebSocketCallbackClient(
             host="http://localhost:8000",
             conversation_id="test-conv-id",
-            callbacks=callbacks,
+            callback=test_callback,
         )
 
         # Create a test event
@@ -173,25 +158,26 @@ class TestWebSocketCallbackClient:
         )
 
         # Simulate event processing
-        for cb in client.callbacks:
-            cb(test_event)
+        client.callback(test_event)
 
-        # Both callbacks should have received the event
-        assert len(callback1_events) == 1
-        assert len(callback2_events) == 1
-        assert callback1_events[0].id == test_event.id
-        assert callback2_events[0].id == test_event.id
+        # Callback should have received the event
+        assert len(callback_events) == 1
+        assert callback_events[0].id == test_event.id
 
-    def test_websocket_client_no_callbacks(self):
-        """Test WebSocket client with no callbacks."""
+    def test_websocket_client_noop_callback(self):
+        """Test WebSocket client with no-op callback."""
+
+        def noop_callback(event):
+            pass
+
         client = WebSocketCallbackClient(
             host="http://localhost:8000",
             conversation_id="test-conv-id",
-            callbacks=[],
+            callback=noop_callback,
         )
 
-        # Should not crash with empty callbacks
-        assert client.callbacks == []
+        # Should not crash with no-op callback
+        assert client.callback is noop_callback
 
         # Create a test event
         from datetime import datetime
@@ -207,9 +193,8 @@ class TestWebSocketCallbackClient:
             ),
         )
 
-        # Should handle event processing with no callbacks
-        for cb in client.callbacks:
-            cb(test_event)  # This loop should not execute
+        # Should handle event processing with no-op callback
+        client.callback(test_event)  # Should not crash
 
-        # No events should be processed
+        # No events should be processed by our test callback
         assert len(self.received_events) == 0

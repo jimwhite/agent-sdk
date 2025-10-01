@@ -12,6 +12,7 @@ from openhands.sdk.conversation.impl.remote_conversation import RemoteConversati
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 class TestRemoteConversation:
@@ -23,6 +24,7 @@ class TestRemoteConversation:
         self.llm = LLM(model="gpt-4", api_key=SecretStr("test-key"))
         self.agent = Agent(llm=self.llm, tools=[])
         self.mock_client = Mock(spec=httpx.Client)
+        self.workspace = RemoteWorkspace(host=self.host, working_dir="/tmp")
 
     def create_mock_conversation_response(self, conversation_id: str | None = None):
         """Create mock conversation creation response."""
@@ -79,7 +81,7 @@ class TestRemoteConversation:
         # Create RemoteConversation
         conversation = RemoteConversation(
             agent=self.agent,
-            host=self.host,
+            workspace=self.workspace,
             max_iteration_per_run=100,
             stuck_detection=True,
         )
@@ -106,7 +108,7 @@ class TestRemoteConversation:
 
         # Verify conversation properties
         assert conversation.id == uuid.UUID(conversation_id)
-        assert conversation._host == self.host
+        assert conversation.workspace.host == self.host
         assert conversation.max_iteration_per_run == 100
 
     @patch(
@@ -138,7 +140,7 @@ class TestRemoteConversation:
         # Create RemoteConversation with existing ID
         conversation = RemoteConversation(
             agent=self.agent,
-            host=self.host,
+            workspace=self.workspace,
             conversation_id=conversation_id,
         )
 
@@ -176,7 +178,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and send message
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         conversation.send_message("Hello, world!")
 
         # Verify message API call was made (the exact payload structure may vary)
@@ -216,7 +218,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and send message
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
 
         message = Message(
             role="user",
@@ -256,7 +258,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
 
         # Try to send message with invalid role
         invalid_message = Message(
@@ -291,7 +293,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and run
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         conversation.run()
 
         # Verify run API call
@@ -325,7 +327,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and run
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         conversation.run()  # Should not raise an exception
 
         # Verify run API call was made
@@ -362,7 +364,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and set policy
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         policy = AlwaysConfirm()
         conversation.set_confirmation_policy(policy)
 
@@ -401,7 +403,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and reject actions
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         conversation.reject_pending_actions("Custom rejection reason")
 
         # Verify reject API call
@@ -437,7 +439,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and pause
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         conversation.pause()
 
         # Verify pause API call
@@ -473,7 +475,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and update secrets
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
 
         # Test with string secrets
         from typing import cast
@@ -524,7 +526,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and update secrets with callable
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
 
         def get_secret():
             return "callable_secret_value"
@@ -568,7 +570,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation and close
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
         conversation.close()
 
         # Verify WebSocket client was stopped
@@ -600,7 +602,7 @@ class TestRemoteConversation:
         mock_ws_client.return_value = mock_ws_instance
 
         # Create conversation
-        conversation = RemoteConversation(agent=self.agent, host=self.host)
+        conversation = RemoteConversation(agent=self.agent, workspace=self.workspace)
 
         # Accessing stuck_detector should raise NotImplementedError
         with pytest.raises(
@@ -639,7 +641,7 @@ class TestRemoteConversation:
         # Create conversation with callback
         _conversation = RemoteConversation(
             agent=self.agent,
-            host=self.host,
+            workspace=self.workspace,
             callbacks=[custom_callback],
         )
 
@@ -682,7 +684,7 @@ class TestRemoteConversation:
             # Create conversation with visualize=True
             conversation = RemoteConversation(
                 agent=self.agent,
-                host=self.host,
+                workspace=self.workspace,
                 visualize=True,
             )
 
@@ -714,12 +716,15 @@ class TestRemoteConversation:
 
         # Test with trailing slash
         host_with_slash = "http://localhost:8000/"
-        conversation = RemoteConversation(agent=self.agent, host=host_with_slash)
+        workspace_with_slash = RemoteWorkspace(host=host_with_slash, working_dir="/tmp")
+        conversation = RemoteConversation(
+            agent=self.agent, workspace=workspace_with_slash
+        )
 
         # Verify trailing slash was removed
-        assert conversation._host == "http://localhost:8000"
+        assert conversation.workspace.host == "http://localhost:8000"
 
         # Verify HTTP client was created with normalized URL
         mock_httpx_client.assert_called_with(
-            base_url="http://localhost:8000", timeout=30.0
+            base_url="http://localhost:8000", timeout=30.0, headers={}
         )
