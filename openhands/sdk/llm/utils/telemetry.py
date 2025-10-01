@@ -4,6 +4,7 @@ import time
 import warnings
 from typing import Any
 
+from litellm import ResponsesAPIResponse
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
@@ -49,7 +50,9 @@ class Telemetry(BaseModel):
         self._req_ctx = log_ctx or {}
 
     def on_response(
-        self, resp: ModelResponse, raw_resp: ModelResponse | None = None
+        self,
+        resp: ModelResponse | ResponsesAPIResponse,
+        raw_resp: ModelResponse | None = None,
     ) -> Metrics:
         """
         Side-effects:
@@ -161,7 +164,7 @@ class Telemetry(BaseModel):
             response_id=response_id,
         )
 
-    def _compute_cost(self, resp: ModelResponse) -> float | None:
+    def _compute_cost(self, resp: ModelResponse | ResponsesAPIResponse) -> float | None:
         """Try provider header → litellm direct. Return None on failure."""
         extra_kwargs = {}
         if (
@@ -202,7 +205,7 @@ class Telemetry(BaseModel):
 
     def _log_completion(
         self,
-        resp: ModelResponse,
+        resp: ModelResponse | ResponsesAPIResponse,
         cost: float | None,
         raw_resp: ModelResponse | None = None,
     ) -> None:

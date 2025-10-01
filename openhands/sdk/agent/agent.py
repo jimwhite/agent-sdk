@@ -179,7 +179,7 @@ class Agent(AgentBase):
 
             # 2) If continuing a prior Responses turn, return ONLY tool outputs
             #    (function_call_output items) corresponding to the last response's
-            #    function call IDs. Do NOT include new user messages in a continuation.
+            #    function call IDs.
             prev_id = state.previous_response_id
             inputs: list[dict] = []
             if prev_id:
@@ -200,14 +200,6 @@ class Agent(AgentBase):
                             inputs.extend(
                                 ev.to_llm_message().to_responses_input_items()
                             )
-                # If no tool outputs are available for continuation, we must start
-                # a fresh turn (no previous_response_id) per Responses protocol.
-                if not inputs:
-                    logger.warning(
-                        "Responses continuation requested but no tool outputs "
-                        "available; starting a fresh turn instead"
-                    )
-                    prev_id = None
 
             # 3) For a fresh turn, include the latest user message as input
             if prev_id is None:

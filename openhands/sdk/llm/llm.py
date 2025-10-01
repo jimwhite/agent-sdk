@@ -31,7 +31,11 @@ from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+from litellm import (
+    ChatCompletionToolParam,
+    completion as litellm_completion,
+    responses as litellm_responses,
+)
 from litellm.exceptions import (
     APIConnectionError,
     BadRequestError,
@@ -426,7 +430,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # transport
         try:
             with self._litellm_modify_params_ctx(self.modify_params):
-                litellm_responses = getattr(litellm, "responses")
                 resp = litellm_responses(**call_kwargs)
         except Exception as e:
             # Ensure errors are logged to file if enabled
@@ -435,6 +438,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             except Exception:
                 pass
             raise
+
+        assert isinstance(resp, litellm.ResponsesAPIResponse)
 
         # telemetry
         self._telemetry.on_response(resp)  # Usage mapping if present
@@ -610,37 +615,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 max_budget_per_task=self.metrics.max_budget_per_task,
                 accumulated_token_usage=self.metrics.accumulated_token_usage,
             )
-
-            # Normalize tool calls from provider message into transport-agnostic form
-            # when present on the provider response
-            try:
-                raw_tc = first_choice["message"].tool_calls  # type: ignore[reportGeneralTypeIssues]
-                norm: list[LLMToolCall] = []
-                if raw_tc:
-                    for tc in raw_tc:
-                        # Support both dict-like and object-like access
-                        tc_id = getattr(tc, "id", None) or tc.get("id")
-                        fn = getattr(tc, "function", None) or tc.get("function")
-                        name = None
-                        args = None
-                        if fn is not None:
-                            name = getattr(fn, "name", None) or fn.get("name")
-                            args = getattr(fn, "arguments", None) or fn.get("arguments")
-                        if tc_id and name and args is not None:
-                            norm.append(
-                                LLMToolCall(
-                                    id=str(tc_id),
-                                    name=str(name),
-                                    arguments_json=str(args),
-                                    origin="completion",
-                                    raw=tc,
-                                )
-                            )
-                if norm:
-                    message.tool_calls = norm
-            except Exception:
-                # Best-effort normalization only
-                pass
 
             # Create and return LLMResponse
             return LLMResponse(

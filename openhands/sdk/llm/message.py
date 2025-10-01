@@ -245,7 +245,7 @@ class Message(BaseModel):
 
         rc = getattr(message, "reasoning_content", None)
 
-        # Note: tool_calls will be normalized at the LLM layer; here we pass through
+        # TODO: tool_calls need normalized HERE
         return Message(
             role=message.role,
             content=[TextContent(text=message.content)]
