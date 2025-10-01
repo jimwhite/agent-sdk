@@ -36,6 +36,22 @@ def server_env(
     # Create an isolated config pointing to tmp dirs
     conversations_path = tmp_path / "conversations"
     workspace_path = tmp_path / "workspace"
+
+    # Ensure clean directories (both tmp and any leftover in cwd)
+    import shutil
+    from pathlib import Path
+
+    # Clean up any leftover directories from previous runs in current working directory
+    cwd_conversations = Path("workspace/conversations")
+    if cwd_conversations.exists():
+        shutil.rmtree(cwd_conversations)
+
+    # Clean up tmp directories
+    if conversations_path.exists():
+        shutil.rmtree(conversations_path)
+    if workspace_path.exists():
+        shutil.rmtree(workspace_path)
+
     conversations_path.mkdir(parents=True, exist_ok=True)
     workspace_path.mkdir(parents=True, exist_ok=True)
 
@@ -66,8 +82,21 @@ def server_env(
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
 
-    # Wait a bit for the server to be ready
-    time.sleep(0.3)
+    # Wait for the server to be ready with health check
+    import httpx
+
+    base_url = f"http://127.0.0.1:{port}"
+    for _ in range(30):  # Wait up to 3 seconds
+        try:
+            with httpx.Client() as client:
+                response = client.get(f"{base_url}/health", timeout=1.0)
+                if response.status_code == 200:
+                    break
+        except (httpx.RequestError, httpx.TimeoutException):
+            pass
+        time.sleep(0.1)
+    else:
+        raise RuntimeError("Server failed to start within timeout")
 
     try:
         yield {"host": f"http://127.0.0.1:{port}"}
@@ -75,6 +104,11 @@ def server_env(
         # uvicorn.Server lacks a robust shutdown API here; rely on daemon thread exit.
         server.should_exit = True
         thread.join(timeout=2)
+
+        # Clean up any leftover directories created during the test
+        cwd_conversations = Path("workspace/conversations")
+        if cwd_conversations.exists():
+            shutil.rmtree(cwd_conversations)
 
 
 @pytest.fixture
