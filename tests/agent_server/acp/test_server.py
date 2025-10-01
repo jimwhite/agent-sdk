@@ -1,8 +1,9 @@
 """Tests for ACP server implementation."""
 
+import os
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from litellm import ChatCompletionMessageToolCall
@@ -843,3 +844,140 @@ async def test_acp_tool_call_user_rejection():
     assert notification.update.sessionUpdate == "tool_call_update"
     assert notification.update.status == "failed"
     assert notification.update.toolCallId == "call_reject"
+
+
+@pytest.mark.asyncio
+async def test_initialize_mcp_capabilities(mock_conn, temp_persistence_dir):
+    """Test that MCP capabilities are advertised correctly."""
+    from acp import InitializeRequest
+    from acp.schema import ClientCapabilities
+
+    agent = OpenHandsACPAgent(mock_conn, temp_persistence_dir)
+    request = InitializeRequest(
+        protocolVersion=1,
+        clientCapabilities=ClientCapabilities(),
+    )
+
+    response = await agent.initialize(request)
+
+    # Check MCP capabilities are enabled
+    assert response.agentCapabilities is not None
+    assert response.agentCapabilities.mcpCapabilities is not None
+    assert response.agentCapabilities.mcpCapabilities.http is True
+    assert response.agentCapabilities.mcpCapabilities.sse is True
+
+
+@pytest.mark.asyncio
+async def test_new_session_with_mcp_servers(mock_conn, temp_persistence_dir):
+    """Test creating a new session with MCP servers."""
+
+    from acp.schema import (
+        EnvVariable,
+        McpServer1,
+        McpServer2,
+        McpServer3,
+        NewSessionRequest,
+    )
+
+    agent = OpenHandsACPAgent(mock_conn, temp_persistence_dir)
+
+    # Create MCP server configurations
+    mcp_servers: list[McpServer1 | McpServer2 | McpServer3] = [
+        McpServer3(
+            name="test-server",
+            command="uvx",
+            args=["mcp-server-test"],
+            env=[EnvVariable(name="TEST_ENV", value="test-value")],
+        ),
+        McpServer3(
+            name="another-server",
+            command="npx",
+            args=["-y", "another-mcp-server"],
+            env=[],
+        ),
+    ]
+
+    request = NewSessionRequest(cwd=str(temp_persistence_dir), mcpServers=mcp_servers)
+
+    with patch.dict(os.environ, {"LITELLM_API_KEY": "test-key"}):
+        response = await agent.newSession(request)
+
+    assert response.sessionId is not None
+    # Verify session was created successfully
+    assert agent._sessions[response.sessionId] is not None
+
+
+def test_convert_acp_mcp_servers_to_openhands_config():
+    """Test conversion of ACP MCP server configs to OpenHands format."""
+
+    from acp.schema import EnvVariable, McpServer1, McpServer2, McpServer3
+
+    from openhands.agent_server.acp.server import (
+        convert_acp_mcp_servers_to_openhands_config,
+    )
+
+    # Test command-line MCP server (supported)
+    mcp_servers: list[McpServer1 | McpServer2 | McpServer3] = [
+        McpServer3(
+            name="fetch-server",
+            command="uvx",
+            args=["mcp-server-fetch"],
+            env=[EnvVariable(name="API_KEY", value="secret")],
+        ),
+        McpServer3(name="simple-server", command="node", args=["server.js"], env=[]),
+    ]
+
+    result = convert_acp_mcp_servers_to_openhands_config(mcp_servers)
+
+    expected = {
+        "mcpServers": {
+            "fetch-server": {
+                "command": "uvx",
+                "args": ["mcp-server-fetch"],
+                "env": {"API_KEY": "secret"},
+            },
+            "simple-server": {"command": "node", "args": ["server.js"]},
+        }
+    }
+
+    assert result == expected
+
+
+def test_convert_acp_mcp_servers_http_sse_warning():
+    """Test that HTTP/SSE MCP servers generate warnings and are skipped."""
+
+    from acp.schema import HttpHeader, McpServer1, McpServer2
+
+    from openhands.agent_server.acp.server import (
+        convert_acp_mcp_servers_to_openhands_config,
+    )
+
+    # Test HTTP and SSE MCP servers (not yet supported)
+    mcp_servers = [
+        McpServer1(
+            name="http-server",
+            type="http",
+            url="https://example.com/mcp",
+            headers=[HttpHeader(name="Authorization", value="Bearer token")],
+        ),
+        McpServer2(
+            name="sse-server", type="sse", url="https://example.com/mcp/sse", headers=[]
+        ),
+    ]
+
+    with patch("openhands.agent_server.acp.server.logger") as mock_logger:
+        result = convert_acp_mcp_servers_to_openhands_config(mcp_servers)
+
+    # Should return empty config since HTTP/SSE servers are not supported
+    assert result == {}
+
+    # Should log warnings for unsupported server types
+    assert mock_logger.warning.call_count == 2
+    mock_logger.warning.assert_any_call(
+        "MCP server 'http-server' uses HTTP transport "
+        "which is not yet supported by OpenHands. Skipping."
+    )
+    mock_logger.warning.assert_any_call(
+        "MCP server 'sse-server' uses SSE transport "
+        "which is not yet supported by OpenHands. Skipping."
+    )

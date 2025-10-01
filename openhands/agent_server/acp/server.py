@@ -29,6 +29,9 @@ from acp.schema import (
     ContentBlock1,
     LoadSessionRequest,
     McpCapabilities,
+    McpServer1,
+    McpServer2,
+    McpServer3,
     PromptCapabilities,
     SessionUpdate2,
     SetSessionModeRequest,
@@ -45,6 +48,43 @@ from .events import EventSubscriber
 
 
 logger = logging.getLogger(__name__)
+
+
+def convert_acp_mcp_servers_to_openhands_config(
+    acp_mcp_servers: list[McpServer1 | McpServer2 | McpServer3],
+) -> dict[str, Any]:
+    """Convert ACP MCP server configurations to OpenHands agent mcp_config format.
+
+    Args:
+        acp_mcp_servers: List of ACP MCP server configurations
+
+    Returns:
+        Dictionary in OpenHands mcp_config format
+    """
+    mcp_servers = {}
+
+    for server in acp_mcp_servers:
+        if isinstance(server, McpServer3):
+            # Command-line executable MCP server (supported by OpenHands)
+            mcp_servers[server.name] = {
+                "command": server.command,
+                "args": server.args,
+            }
+            # Add environment variables if provided
+            if server.env:
+                env_dict = {env_var.name: env_var.value for env_var in server.env}
+                mcp_servers[server.name]["env"] = env_dict
+        elif isinstance(server, (McpServer1, McpServer2)):
+            # HTTP/SSE MCP servers - not directly supported by OpenHands yet
+            # Log a warning for now
+            server_type = "HTTP" if isinstance(server, McpServer1) else "SSE"
+            logger.warning(
+                f"MCP server '{server.name}' uses {server_type} transport "
+                f"which is not yet supported by OpenHands. Skipping."
+            )
+            continue
+
+    return {"mcpServers": mcp_servers} if mcp_servers else {}
 
 
 class OpenHandsACPAgent(ACPAgent):
@@ -115,7 +155,7 @@ class OpenHandsACPAgent(ACPAgent):
             authMethods=auth_methods,
             agentCapabilities=AgentCapabilities(
                 loadSession=False,
-                mcpCapabilities=McpCapabilities(http=False, sse=False),
+                mcpCapabilities=McpCapabilities(http=True, sse=True),
                 promptCapabilities=PromptCapabilities(
                     audio=False,
                     embeddedContext=False,
@@ -185,8 +225,50 @@ class OpenHandsACPAgent(ACPAgent):
             llm = LLM(**llm_kwargs)
             logger.info(f"Created LLM with model: {llm.model}")
 
-            logger.info("Creating default agent")
-            agent = get_default_agent(llm=llm, cli_mode=True)
+            logger.info("Creating agent with MCP configuration")
+
+            # Process MCP servers from the request
+            mcp_config = {}
+            if params.mcpServers:
+                logger.info(
+                    f"Processing {len(params.mcpServers)} MCP servers from request"
+                )
+                client_mcp_config = convert_acp_mcp_servers_to_openhands_config(
+                    params.mcpServers
+                )
+                if client_mcp_config:
+                    mcp_config.update(client_mcp_config)
+                    server_names = list(client_mcp_config.get("mcpServers", {}).keys())
+                    logger.info(f"Added client MCP servers: {server_names}")
+
+            # Get default agent with custom MCP config if provided
+            if mcp_config:
+                # Import Agent and create custom agent with MCP config
+                from openhands.sdk import Agent
+                from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+                from openhands.tools.preset.default import (
+                    get_default_condenser,
+                    get_default_tools,
+                )
+
+                tool_specs = get_default_tools(enable_browser=False)  # CLI mode
+                agent = Agent(
+                    llm=llm,
+                    tools=tool_specs,
+                    mcp_config=mcp_config,
+                    filter_tools_regex="^(?!repomix)(.*)|^repomix.*pack_codebase.*$",
+                    system_prompt_kwargs={"cli_mode": True},
+                    condenser=get_default_condenser(
+                        llm=llm.model_copy(update={"service_id": "condenser"})
+                    ),
+                    security_analyzer=LLMSecurityAnalyzer(),
+                )
+                server_names = list(mcp_config.get("mcpServers", {}).keys())
+                logger.info(f"Created custom agent with MCP servers: {server_names}")
+            else:
+                # Use default agent
+                agent = get_default_agent(llm=llm, cli_mode=True)
+                logger.info("Created default agent with built-in MCP servers")
 
             # Create a new conversation
             from openhands.sdk.workspace.local import LocalWorkspace

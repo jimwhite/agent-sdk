@@ -18,6 +18,7 @@ The ACP implementation uses the [agent-client-protocol](https://github.com/PsiAC
 - **Streaming responses**: Real-time updates via `session/update` notifications
 - **Tool integration**: Tool calls and results are streamed to the client
 - **Error handling**: Comprehensive error handling and reporting
+- **MCP support**: Model Context Protocol integration for external tools and data sources
 
 ## Usage
 
@@ -142,6 +143,120 @@ The ACP server **requires proper JSON-RPC 2.0 format**. Raw JSON without the JSO
 }
 ```
 
+## Model Context Protocol (MCP) Support
+
+The ACP server supports MCP integration, allowing clients to configure external MCP servers that provide additional tools and data sources to the agent.
+
+### MCP Capabilities
+
+The server advertises MCP support in the `initialize` response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "protocolVersion": 1,
+    "agentCapabilities": {
+      "mcpCapabilities": {
+        "http": true,
+        "sse": true
+      }
+    }
+  }
+}
+```
+
+### Configuring MCP Servers
+
+MCP servers can be configured when creating a new session using the `mcpServers` parameter:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "session/new",
+  "params": {
+    "cwd": "/path/to/project",
+    "mcpServers": [
+      {
+        "name": "filesystem",
+        "command": "uvx",
+        "args": ["mcp-server-filesystem", "/path/to/allowed/directory"],
+        "env": [
+          {"name": "LOG_LEVEL", "value": "INFO"}
+        ]
+      },
+      {
+        "name": "git",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-git"],
+        "env": []
+      }
+    ]
+  },
+  "id": 2
+}
+```
+
+### Supported MCP Server Types
+
+Currently, the ACP server supports **command-line MCP servers** (type 3):
+
+- ✅ **Command-line servers**: Executable MCP servers that communicate via stdio
+- ⚠️ **HTTP servers**: Not yet supported (will log a warning and be skipped)
+- ⚠️ **SSE servers**: Not yet supported (will log a warning and be skipped)
+
+### MCP Server Configuration Format
+
+Command-line MCP servers use this format:
+
+```typescript
+{
+  name: string;           // Unique identifier for the MCP server
+  command: string;        // Executable command (e.g., "uvx", "npx", "python")
+  args: string[];         // Command arguments
+  env?: Array<{           // Optional environment variables
+    name: string;
+    value: string;
+  }>;
+}
+```
+
+### Built-in MCP Servers
+
+OpenHands includes several built-in MCP servers by default:
+
+- **fetch**: HTTP client for making web requests
+- **repomix**: Repository analysis and code packing tools
+
+Client-provided MCP servers are merged with these defaults, allowing you to extend the agent's capabilities with custom tools and data sources.
+
+### Example: Adding a Custom MCP Server
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "session/new",
+  "params": {
+    "cwd": "/home/user/project",
+    "mcpServers": [
+      {
+        "name": "database",
+        "command": "python",
+        "args": ["-m", "my_mcp_server.database"],
+        "env": [
+          {"name": "DB_CONNECTION_STRING", "value": "postgresql://..."},
+          {"name": "DB_TIMEOUT", "value": "30"}
+        ]
+      }
+    ]
+  },
+  "id": 2
+}
+```
+
+This configuration will make the custom database MCP server available to the agent, allowing it to query databases, execute SQL, and integrate database operations into its workflow.
+
 ## Architecture
 
 The ACP implementation acts as an adapter layer:
@@ -175,5 +290,5 @@ python examples/acp_client_example.py
 - Session persistence (`session/load` method)
 - Rich content support (images, audio)
 - Authentication mechanisms
-- MCP (Model Context Protocol) integration
+- HTTP and SSE MCP server support
 - Advanced streaming capabilities
