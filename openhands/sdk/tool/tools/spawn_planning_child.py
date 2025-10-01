@@ -8,6 +8,8 @@ from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.agent.registry import AgentRegistry
+from openhands.sdk.conversation.registry import get_conversation_registry
+from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import ImageContent, TextContent
 from openhands.sdk.tool.tool import (
     ActionBase,
@@ -103,23 +105,31 @@ SPAWN_PLANNING_CHILD_DESCRIPTION = (
 
 
 class SpawnPlanningChildExecutor(ToolExecutor):
-    def __init__(self):
-        """Initialize the executor with no conversation context."""
-        self._conversation = None
+    def __init__(self, conversation_id: ConversationID | None = None):
+        """Initialize the executor with conversation ID."""
+        self._conversation_id = conversation_id
 
     def __call__(
         self, action: SpawnPlanningChildAction
     ) -> SpawnPlanningChildObservation:
-        # Get the current conversation from the tool's context
-        conversation = self._conversation
-        if not conversation:
+        # Get the current conversation from the global registry
+        if not self._conversation_id:
             return SpawnPlanningChildObservation(
                 success=False,
                 message="",
                 error=(
-                    "No active conversation found. This tool can only be used within a "
+                    "No conversation ID provided. This tool can only be used within a "
                     "conversation context."
                 ),
+            )
+
+        registry = get_conversation_registry()
+        conversation = registry.get(self._conversation_id)
+        if not conversation:
+            return SpawnPlanningChildObservation(
+                success=False,
+                message="",
+                error=(f"Conversation {self._conversation_id} not found in registry."),
             )
 
         try:
@@ -133,9 +143,12 @@ class SpawnPlanningChildExecutor(ToolExecutor):
                 system_prompt_kwargs={"WORK_DIR": working_dir},
             )
 
-            child_conversation = conversation.create_child_conversation(
+            # Create child conversation directly through registry
+            conv_registry = get_conversation_registry()
+            child_conversation = conv_registry.create_child_conversation(
+                parent_id=conversation._state.id,
                 agent=planning_agent,
-                visualize=False,  # Disable visualization to avoid I/O blocking issues
+                visualize=True,  # Disable visualization to avoid I/O blocking issues
             )
             plan_file_path = os.path.join(working_dir, "PLAN.md")
 
@@ -166,17 +179,14 @@ class SpawnPlanningChildTool(ToolBase):
     ) -> list[Tool[SpawnPlanningChildAction, SpawnPlanningChildObservation]]:
         """Create a SpawnPlanningChildTool instance.
 
-        Note: The conversation context will be injected by LocalConversation
-        after tool initialization.
-
         Args:
-            conv_state: The conversation state (not used but required by protocol)
+            conv_state: The conversation state containing the conversation ID
             **params: Additional parameters (not used)
 
         Returns:
             A list containing a single Tool instance.
         """
-        executor = SpawnPlanningChildExecutor()
+        executor = SpawnPlanningChildExecutor(conversation_id=conv_state.id)
 
         tool = Tool(
             name="spawn_planning_child",
