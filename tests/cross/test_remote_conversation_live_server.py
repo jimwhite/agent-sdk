@@ -46,6 +46,14 @@ def server_env(
     if cwd_conversations.exists():
         shutil.rmtree(cwd_conversations)
 
+    # Also clean up the workspace directory entirely to be safe
+    cwd_workspace = Path("workspace")
+    if cwd_workspace.exists():
+        # Only remove conversations subdirectory to avoid interfering with other tests
+        for item in cwd_workspace.iterdir():
+            if item.name == "conversations":
+                shutil.rmtree(item)
+
     # Clean up tmp directories
     if conversations_path.exists():
         shutil.rmtree(conversations_path)
@@ -54,6 +62,11 @@ def server_env(
 
     conversations_path.mkdir(parents=True, exist_ok=True)
     workspace_path.mkdir(parents=True, exist_ok=True)
+
+    # Verify the conversations directory is truly empty
+    assert not list(conversations_path.iterdir()), (
+        f"Conversations path not empty: {list(conversations_path.iterdir())}"
+    )
 
     cfg = {
         "session_api_keys": [],  # disable auth for tests
@@ -72,6 +85,7 @@ def server_env(
     from openhands.agent_server.config import Config
 
     cfg_obj = Config.model_validate_json(cfg_file.read_text())
+
     app = create_app(cfg_obj)
 
     # Start uvicorn on a free port
@@ -86,16 +100,19 @@ def server_env(
     import httpx
 
     base_url = f"http://127.0.0.1:{port}"
-    for _ in range(30):  # Wait up to 3 seconds
+    server_ready = False
+    for attempt in range(50):  # Wait up to 5 seconds
         try:
             with httpx.Client() as client:
-                response = client.get(f"{base_url}/health", timeout=1.0)
+                response = client.get(f"{base_url}/health", timeout=2.0)
                 if response.status_code == 200:
+                    server_ready = True
                     break
         except (httpx.RequestError, httpx.TimeoutException):
             pass
         time.sleep(0.1)
-    else:
+
+    if not server_ready:
         raise RuntimeError("Server failed to start within timeout")
 
     try:
@@ -161,6 +178,9 @@ def patched_llm(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_remote_conversation_over_real_server(server_env, patched_llm):
+    import shutil
+    from pathlib import Path
+
     # Create an Agent with a real LLM object (patched for determinism)
     llm = LLM(model="gpt-4", api_key=SecretStr("test"))
     agent = Agent(llm=llm, tools=[])
@@ -221,3 +241,8 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
     assert found_agent
 
     conv.close()
+
+    # Clean up any conversation directories that might have been created in cwd
+    cwd_conversations = Path("workspace/conversations")
+    if cwd_conversations.exists():
+        shutil.rmtree(cwd_conversations)
