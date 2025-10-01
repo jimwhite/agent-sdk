@@ -8,12 +8,12 @@ from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool.tool import (
-    ActionBase,
-    ObservationBase,
-    Tool,
+from openhands.sdk.tool import (
+    Action,
+    Observation,
     ToolAnnotations,
     ToolBase,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
 
-class ExecutePlanAction(ActionBase):
+class ExecutePlanAction(Action):
     """Action for executing a plan via an ExecutionAgent child conversation."""
 
     plan_file: str = Field(
@@ -39,7 +39,7 @@ class ExecutePlanAction(ActionBase):
         return content
 
 
-class ExecutePlanObservation(ObservationBase):
+class ExecutePlanObservation(Observation):
     """Observation returned after executing a plan."""
 
     success: bool = Field(description="Whether the operation was successful")
@@ -56,7 +56,7 @@ class ExecutePlanObservation(ObservationBase):
     error: str | None = Field(default=None, description="Error message if failed")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.success:
             return [
                 TextContent(
@@ -157,6 +157,7 @@ class ExecutePlanExecutor(ToolExecutor):
                 f"Plan content:\n{plan_content}"
             )
             parent_conversation.send_message(parent_message)
+            parent_conversation.run()
 
             # Close this planning child conversation
             conversation.close()
@@ -187,7 +188,7 @@ class ExecutePlanTool(ToolBase):
     @classmethod
     def create(
         cls, conv_state: "ConversationState", **params
-    ) -> list[Tool[ExecutePlanAction, ExecutePlanObservation]]:
+    ) -> list[ToolBase[ExecutePlanAction, ExecutePlanObservation]]:
         """Create an ExecutePlanTool instance.
 
         Note: The conversation context will be injected by LocalConversation
@@ -202,7 +203,7 @@ class ExecutePlanTool(ToolBase):
         """
         executor = ExecutePlanExecutor()
 
-        tool = Tool(
+        tool = ToolDefinition(
             name="execute_plan",
             description=EXECUTE_PLAN_DESCRIPTION,
             action_type=ExecutePlanAction,

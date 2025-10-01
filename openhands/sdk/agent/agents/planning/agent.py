@@ -4,7 +4,7 @@ from typing import Any
 
 from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
-from openhands.sdk.tool import ToolSpec
+from openhands.sdk.tool import Tool
 
 
 class PlanningAgent(Agent):
@@ -29,8 +29,8 @@ class PlanningAgent(Agent):
         """
         # Only read-only tools for planning agent
         tools = [
-            ToolSpec(name="FileEditorTool"),
-            ToolSpec(name="ExecutePlanTool"),
+            Tool(name="FileEditorTool"),
+            Tool(name="ExecutePlanTool"),
         ]
 
         # Use custom system prompt

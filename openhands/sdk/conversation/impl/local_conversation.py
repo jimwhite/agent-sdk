@@ -36,6 +36,7 @@ class LocalConversation(BaseConversation):
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
         visualize: bool = True,
+        secrets: dict[str, str] | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -110,6 +111,12 @@ class LocalConversation(BaseConversation):
         self.llm_registry.subscribe(self._state.stats.register_llm)
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
+
+        # Initialize secrets if provided
+        if secrets:
+            # Convert dict[str, str] to dict[str, SecretValue]
+            secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
+            self.update_secrets(secret_values)
 
     @property
     def id(self) -> ConversationID:
@@ -338,9 +345,11 @@ class LocalConversation(BaseConversation):
         logger.debug("Closing conversation and cleaning up tool executors")
 
         # Close all child conversations first (if they exist)
-        if hasattr(self, "_child_conversations"):
-            for child_id in list(self._child_conversations.keys()):
-                self.close_child_conversation(child_id)
+        child_conversations = getattr(self, "_child_conversations", None)
+        close_child_method = getattr(self, "close_child_conversation", None)
+        if child_conversations is not None and close_child_method is not None:
+            for child_id in list(child_conversations.keys()):
+                close_child_method(child_id)
 
         for tool in self.agent.tools_map.values():
             try:

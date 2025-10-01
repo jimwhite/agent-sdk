@@ -10,12 +10,12 @@ from openhands.sdk.agent.registry import AgentRegistry
 from openhands.sdk.conversation.registry import get_conversation_registry
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool.tool import (
-    ActionBase,
-    ObservationBase,
-    Tool,
+from openhands.sdk.tool import (
+    Action,
+    Observation,
     ToolAnnotations,
     ToolBase,
+    ToolDefinition,
     ToolExecutor,
 )
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.state import ConversationState
 
 
-class SpawnChildAction(ActionBase):
+class SpawnChildAction(Action):
     """Generic action for spawning a child conversation with any agent type."""
 
     task_description: str = Field(
@@ -60,7 +60,7 @@ class SpawnChildAction(ActionBase):
         return content
 
 
-class SpawnChildObservation(ObservationBase):
+class SpawnChildObservation(Observation):
     """Generic observation returned after spawning a child conversation."""
 
     success: bool = Field(description="Whether the operation was successful")
@@ -75,7 +75,7 @@ class SpawnChildObservation(ObservationBase):
     error: str | None = Field(default=None, description="Error message if failed")
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.success:
             text_parts = [
                 f"✅ {self.message}",
@@ -135,26 +135,37 @@ class SpawnChildExecutor(ToolExecutor):
 
         try:
             # Get working directory from parent conversation before creating child
-            working_dir = conversation._state.workspace.working_dir
+            state = getattr(conversation, "_state", None)
+            if not state:
+                raise ValueError("Conversation state not available")
+            working_dir = state.workspace.working_dir
 
             agent_registry = AgentRegistry()
+            parent_agent = getattr(conversation, "agent", None)
+            if not parent_agent:
+                raise ValueError("Parent conversation agent not available")
+
             child_agent = agent_registry.create(
                 self._agent_type,
-                llm=conversation.agent.llm,
+                llm=parent_agent.llm,
                 system_prompt_kwargs={"WORK_DIR": working_dir},
             )
 
             # Create child conversation directly through registry
             conv_registry = get_conversation_registry()
             child_conversation = conv_registry.create_child_conversation(
-                parent_id=conversation._state.id,
+                parent_id=state.id,
                 agent=child_agent,
                 visualize=True,
             )
 
+            child_state = getattr(child_conversation, "_state", None)
+            if not child_state:
+                raise ValueError("Child conversation state not available")
+
             return SpawnChildObservation(
                 success=True,
-                child_conversation_id=str(child_conversation._state.id),
+                child_conversation_id=str(child_state.id),
                 message=f"{self._agent_type.title()} child created.",
                 working_directory=working_dir,
                 agent_type=self._agent_type,
@@ -178,7 +189,7 @@ class AgentDispatcher:
 
     def create_spawn_tool(
         self, agent_type: str, conv_state: "ConversationState"
-    ) -> Tool[SpawnChildAction, SpawnChildObservation]:
+    ) -> ToolBase[SpawnChildAction, SpawnChildObservation]:
         """Create a spawn tool for the specified agent type.
 
         Args:
@@ -213,7 +224,7 @@ class AgentDispatcher:
         )
 
         # Create and return the tool
-        return Tool(
+        return ToolDefinition(
             name=tool_name,
             description=tool_description,
             action_type=SpawnChildAction,
@@ -258,7 +269,7 @@ class AgentDispatcher:
             @classmethod
             def create(
                 cls, conv_state: "ConversationState", **params
-            ) -> list[Tool[SpawnChildAction, SpawnChildObservation]]:
+            ) -> list[ToolBase[SpawnChildAction, SpawnChildObservation]]:
                 """Create a spawn tool instance.
 
                 Args:
@@ -272,7 +283,7 @@ class AgentDispatcher:
                     agent_type=agent_type, conversation_id=conv_state.id
                 )
 
-                tool = Tool(
+                tool = ToolDefinition(
                     name=f"spawn_{agent_type}_child",
                     description=tool_description,
                     action_type=SpawnChildAction,

@@ -8,10 +8,11 @@ from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool.tool import (
-    Tool,
+from openhands.sdk.tool import (
     ToolAnnotations,
     ToolBase,
+    ToolDefinition,
+    ToolExecutor,
 )
 from openhands.sdk.tool.tools.agent_dispatcher import (
     AgentDispatcher,
@@ -50,7 +51,7 @@ class SpawnPlanningChildObservation(SpawnChildObservation):
     )
 
     @property
-    def agent_observation(self) -> Sequence[TextContent | ImageContent]:
+    def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         if self.success:
             text_parts = [
                 f"✅ {self.message}",
@@ -71,7 +72,7 @@ class SpawnPlanningChildTool(ToolBase):
     @classmethod
     def create(
         cls, conv_state: "ConversationState", **params
-    ) -> list[Tool[SpawnPlanningChildAction, SpawnPlanningChildObservation]]:
+    ) -> list[ToolBase[SpawnPlanningChildAction, SpawnPlanningChildObservation]]:
         """Create a SpawnPlanningChildTool instance using AgentDispatcher.
 
         Args:
@@ -87,7 +88,9 @@ class SpawnPlanningChildTool(ToolBase):
         base_tool = dispatcher.create_spawn_tool("planning", conv_state)
 
         # Create a custom executor that adds plan file path information
-        class PlanningChildExecutor:
+        class PlanningChildExecutor(
+            ToolExecutor[SpawnPlanningChildAction, SpawnPlanningChildObservation]
+        ):
             def __init__(self, base_executor):
                 self._base_executor = base_executor
 
@@ -119,7 +122,7 @@ class SpawnPlanningChildTool(ToolBase):
         # Create the enhanced tool
         enhanced_executor = PlanningChildExecutor(base_tool.executor)
 
-        tool = Tool(
+        tool = ToolDefinition(
             name="spawn_planning_child",
             description=base_tool.description,
             action_type=SpawnPlanningChildAction,

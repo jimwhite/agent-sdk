@@ -8,12 +8,12 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     RedactedThinkingBlock,
     ThinkingBlock,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
 
 
@@ -26,17 +26,15 @@ llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
-    temperature=0.1,
-    extended_thinking_budget=10000,  # Set high budget for testing
 )
 
 # Setup agent with bash tool
 register_tool("BashTool", BashTool)
-agent = Agent(llm=llm, tools=[ToolSpec(name="BashTool")])
+agent = Agent(llm=llm, tools=[Tool(name="BashTool")])
 
 
 # Callback to display thinking blocks
-def show_thinking(event: EventBase):
+def show_thinking(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         message = event.to_llm_message()
         if hasattr(message, "thinking_blocks") and message.thinking_blocks:

@@ -6,7 +6,7 @@ from openhands.sdk.agent.agent import Agent
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.llm import LLM
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import ToolSpec
+from openhands.sdk.tool import Tool
 
 
 class ExecutionAgent(Agent):
@@ -35,14 +35,14 @@ class ExecutionAgent(Agent):
         """
         # Default tools for execution agent
         tools = [
-            ToolSpec(name="BashTool"),
-            ToolSpec(name="FileEditorTool"),
-            ToolSpec(name="TaskTrackerTool"),
-            ToolSpec(name="SpawnPlanningChildTool"),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
+            Tool(name="TaskTrackerTool"),
+            Tool(name="SpawnPlanningChildTool"),
         ]
 
         if enable_browser:
-            tools.append(ToolSpec(name="BrowserToolSet"))
+            tools.append(Tool(name="BrowserToolSet"))
 
         # Default MCP configuration
         mcp_config = {}

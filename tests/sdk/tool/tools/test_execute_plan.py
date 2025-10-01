@@ -47,7 +47,7 @@ def test_execute_plan_observation_success():
     assert obs.error is None
 
     # Test agent observation
-    agent_obs = obs.agent_observation
+    agent_obs = obs.to_llm_content
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
     assert "✅" in agent_obs[0].text
@@ -70,7 +70,7 @@ def test_execute_plan_observation_failure():
     assert obs.error == "Plan file not found"
 
     # Test agent observation
-    agent_obs = obs.agent_observation
+    agent_obs = obs.to_llm_content
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
     assert "❌" in agent_obs[0].text
