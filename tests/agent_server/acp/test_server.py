@@ -30,7 +30,7 @@ def temp_persistence_dir():
 
 @pytest.mark.asyncio
 async def test_initialize(mock_conn, temp_persistence_dir):
-    """Test initialize method."""
+    """Test initialize method with API key available (no auth required)."""
     from acp import InitializeRequest
     from acp.schema import ClientCapabilities
 
@@ -47,6 +47,35 @@ async def test_initialize(mock_conn, temp_persistence_dir):
     assert response.agentCapabilities is not None
     assert hasattr(response.agentCapabilities, "promptCapabilities")
     assert response.authMethods is not None
+    # With LITELLM_API_KEY available, no authentication should be required
+    assert len(response.authMethods) == 0
+
+
+@pytest.mark.asyncio
+async def test_initialize_no_api_key(mock_conn, temp_persistence_dir, monkeypatch):
+    """Test initialize method without API key (auth required)."""
+    from acp import InitializeRequest
+    from acp.schema import ClientCapabilities
+
+    # Remove all API keys from environment
+    monkeypatch.delenv("LITELLM_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    agent = OpenHandsACPAgent(mock_conn, temp_persistence_dir)
+
+    request = InitializeRequest(
+        protocolVersion=1,
+        clientCapabilities=ClientCapabilities(),
+    )
+
+    response = await agent.initialize(request)
+
+    assert response.protocolVersion == 1
+    assert response.agentCapabilities is not None
+    assert hasattr(response.agentCapabilities, "promptCapabilities")
+    assert response.authMethods is not None
+    # Without API key, authentication should be required
     assert len(response.authMethods) == 1
     assert response.authMethods[0].id == "llm_config"
     assert response.authMethods[0].name == "LLM Configuration"

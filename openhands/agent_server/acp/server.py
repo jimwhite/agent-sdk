@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -85,9 +86,17 @@ class OpenHandsACPAgent(ACPAgent):
         """Initialize the ACP protocol."""
         logger.info(f"Initializing ACP with protocol version: {params.protocolVersion}")
 
-        return InitializeResponse(
-            protocolVersion=params.protocolVersion,
-            authMethods=[
+        # Check if we have API keys available from environment
+        has_api_key = bool(
+            os.getenv("OPENAI_API_KEY")
+            or os.getenv("ANTHROPIC_API_KEY")
+            or os.getenv("LITELLM_API_KEY")
+        )
+
+        # Only require authentication if no API key is available
+        auth_methods = []
+        if not has_api_key:
+            auth_methods = [
                 AuthMethod(
                     id="llm_config",
                     name="LLM Configuration",
@@ -96,7 +105,14 @@ class OpenHandsACPAgent(ACPAgent):
                         "and other parameters"
                     ),
                 )
-            ],
+            ]
+            logger.info("No API key found in environment, requiring authentication")
+        else:
+            logger.info("API key found in environment, authentication not required")
+
+        return InitializeResponse(
+            protocolVersion=params.protocolVersion,
+            authMethods=auth_methods,
             agentCapabilities=AgentCapabilities(
                 loadSession=False,
                 mcpCapabilities=McpCapabilities(http=False, sse=False),
@@ -144,8 +160,6 @@ class OpenHandsACPAgent(ACPAgent):
                 llm_kwargs.update(self._llm_params)
             else:
                 # Use environment defaults
-                import os
-
                 api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
                 if api_key:
                     llm_kwargs["api_key"] = api_key
