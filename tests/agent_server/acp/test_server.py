@@ -981,3 +981,142 @@ def test_convert_acp_mcp_servers_http_sse_warning():
         "MCP server 'sse-server' uses SSE transport "
         "which is not yet supported by OpenHands. Skipping."
     )
+
+
+@pytest.mark.asyncio
+async def test_load_session():
+    """Test loading an existing session and streaming conversation history."""
+    from unittest.mock import AsyncMock, MagicMock
+    from uuid import UUID
+
+    from acp.schema import LoadSessionRequest
+
+    from openhands.agent_server.acp.server import OpenHandsACPAgent
+    from openhands.agent_server.conversation_service import ConversationService
+    from openhands.sdk.event.llm_convertible.message import MessageEvent
+    from openhands.sdk.llm import Message, TextContent
+
+    # Mock connection
+    mock_conn = MagicMock()
+    mock_conn.sessionUpdate = AsyncMock()
+
+    # Create server instance
+    server = OpenHandsACPAgent(conn=mock_conn)
+
+    # Mock the conversation service
+    mock_conversation_service = MagicMock(spec=ConversationService)
+
+    # Create mock conversation with message events
+    conversation_id = UUID("12345678-1234-5678-9012-123456789012")
+    user_message = MessageEvent(
+        source="user",
+        llm_message=Message(
+            role="user", content=[TextContent(text="Hello, how are you?")]
+        ),
+    )
+    agent_message = MessageEvent(
+        source="agent",
+        llm_message=Message(
+            role="assistant", content=[TextContent(text="I'm doing well, thank you!")]
+        ),
+    )
+
+    # Create a simple mock conversation info with just the events we need
+    mock_conversation_info = MagicMock()
+    mock_conversation_info.events = [user_message, agent_message]
+    mock_conversation_service.get_conversation.return_value = mock_conversation_info
+
+    # Replace the conversation service with our mock
+    server._conversation_service = mock_conversation_service
+
+    # Add session to server's session mapping
+    session_id = "sess_test123"
+    server._sessions[session_id] = str(conversation_id)
+
+    # Create load session request
+    request = LoadSessionRequest(sessionId=session_id, cwd="/test/path", mcpServers=[])
+
+    # Call loadSession
+    await server.loadSession(request)
+
+    # Verify conversation service was called
+    mock_conversation_service.get_conversation.assert_called_once_with(conversation_id)
+
+    # Verify session updates were sent for both messages
+    assert mock_conn.sessionUpdate.call_count == 2
+
+    calls = mock_conn.sessionUpdate.call_args_list
+
+    # Check user message was streamed correctly
+    user_call = calls[0][0][0]
+    assert user_call.sessionId == session_id
+    assert user_call.update.sessionUpdate == "user_message_chunk"
+    assert user_call.update.content.type == "text"
+    assert user_call.update.content.text == "Hello, how are you?"
+
+    # Check agent message was streamed correctly
+    agent_call = calls[1][0][0]
+    assert agent_call.sessionId == session_id
+    assert agent_call.update.sessionUpdate == "agent_message_chunk"
+    assert agent_call.update.content.type == "text"
+    assert agent_call.update.content.text == "I'm doing well, thank you!"
+
+
+@pytest.mark.asyncio
+async def test_load_session_not_found():
+    """Test loading a session that doesn't exist."""
+    from unittest.mock import MagicMock
+
+    from acp.schema import LoadSessionRequest
+
+    from openhands.agent_server.acp.server import OpenHandsACPAgent
+
+    # Mock connection
+    mock_conn = MagicMock()
+
+    # Create server instance
+    server = OpenHandsACPAgent(conn=mock_conn)
+
+    # Create load session request for non-existent session
+    request = LoadSessionRequest(
+        sessionId="sess_nonexistent", cwd="/test/path", mcpServers=[]
+    )
+
+    # Call loadSession and expect ValueError
+    with pytest.raises(ValueError, match="Session not found: sess_nonexistent"):
+        await server.loadSession(request)
+
+
+@pytest.mark.asyncio
+async def test_load_session_conversation_not_found():
+    """Test loading a session where the conversation doesn't exist."""
+    from unittest.mock import MagicMock
+    from uuid import UUID
+
+    from acp.schema import LoadSessionRequest
+
+    from openhands.agent_server.acp.server import OpenHandsACPAgent
+    from openhands.agent_server.conversation_service import ConversationService
+
+    # Mock connection
+    mock_conn = MagicMock()
+
+    # Create server instance
+    server = OpenHandsACPAgent(conn=mock_conn)
+
+    # Mock the conversation service
+    mock_conversation_service = MagicMock(spec=ConversationService)
+    mock_conversation_service.get_conversation.return_value = None
+    server._conversation_service = mock_conversation_service
+
+    # Add session to server's session mapping
+    session_id = "sess_test123"
+    conversation_id = UUID("12345678-1234-5678-9012-123456789012")
+    server._sessions[session_id] = str(conversation_id)
+
+    # Create load session request
+    request = LoadSessionRequest(sessionId=session_id, cwd="/test/path", mcpServers=[])
+
+    # Call loadSession and expect ValueError
+    with pytest.raises(ValueError, match=f"Conversation not found: {conversation_id}"):
+        await server.loadSession(request)

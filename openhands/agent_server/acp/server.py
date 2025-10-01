@@ -33,6 +33,7 @@ from acp.schema import (
     McpServer2,
     McpServer3,
     PromptCapabilities,
+    SessionUpdate1,
     SessionUpdate2,
     SetSessionModeRequest,
     SetSessionModeResponse,
@@ -41,6 +42,7 @@ from acp.schema import (
 from openhands.agent_server.conversation_service import ConversationService
 from openhands.agent_server.models import StartConversationRequest
 from openhands.sdk import Message, TextContent
+from openhands.sdk.event.llm_convertible.message import MessageEvent
 from openhands.sdk.llm import LLM
 from openhands.tools.preset.default import get_default_agent
 
@@ -154,7 +156,7 @@ class OpenHandsACPAgent(ACPAgent):
             protocolVersion=params.protocolVersion,
             authMethods=auth_methods,
             agentCapabilities=AgentCapabilities(
-                loadSession=False,
+                loadSession=True,
                 mcpCapabilities=McpCapabilities(http=True, sse=True),
                 promptCapabilities=PromptCapabilities(
                     audio=False,
@@ -398,8 +400,97 @@ class OpenHandsACPAgent(ACPAgent):
         logger.info("Cancel requested (no-op)")
 
     async def loadSession(self, params: LoadSessionRequest) -> None:
-        """Load a session (not supported)."""
-        logger.info("Load session requested (not supported)")
+        """Load an existing session and replay conversation history."""
+        session_id = params.sessionId
+        logger.info(f"Loading session: {session_id}")
+
+        try:
+            # Check if session exists in our mapping
+            if session_id not in self._sessions:
+                raise ValueError(f"Session not found: {session_id}")
+
+            conversation_id_str = self._sessions[session_id]
+            conversation_id = UUID(conversation_id_str)
+
+            # Get the conversation from the service
+            conversation_info = await self._conversation_service.get_conversation(
+                conversation_id
+            )
+            if conversation_info is None:
+                raise ValueError(f"Conversation not found: {conversation_id}")
+
+            logger.info(
+                f"Found conversation {conversation_id} with "
+                f"{len(conversation_info.events)} events"
+            )
+
+            # Set up MCP servers if provided (similar to newSession)
+            # Note: We don't recreate the agent here, just validate MCP servers
+            if params.mcpServers:
+                logger.info(
+                    f"MCP servers provided for session load: "
+                    f"{len(params.mcpServers)} servers"
+                )
+                # We could validate MCP server configs here if needed
+
+            # Validate working directory
+            working_dir = params.cwd or str(Path.cwd())
+            working_path = Path(working_dir)
+            if not working_path.exists():
+                logger.warning(
+                    f"Working directory {working_dir} doesn't exist for loaded session"
+                )
+
+            # Stream conversation history to client
+            logger.info("Streaming conversation history to client")
+            for event in conversation_info.events:
+                if isinstance(event, MessageEvent):
+                    # Convert MessageEvent to ACP session update
+                    if event.source == "user":
+                        # Stream user message
+                        text_content = ""
+                        for content in event.llm_message.content:
+                            if isinstance(content, TextContent):
+                                text_content += content.text
+
+                        if text_content.strip():
+                            await self._conn.sessionUpdate(
+                                SessionNotification(
+                                    sessionId=session_id,
+                                    update=SessionUpdate1(
+                                        sessionUpdate="user_message_chunk",
+                                        content=ContentBlock1(
+                                            type="text", text=text_content
+                                        ),
+                                    ),
+                                )
+                            )
+
+                    elif event.source == "agent":
+                        # Stream agent message
+                        text_content = ""
+                        for content in event.llm_message.content:
+                            if isinstance(content, TextContent):
+                                text_content += content.text
+
+                        if text_content.strip():
+                            await self._conn.sessionUpdate(
+                                SessionNotification(
+                                    sessionId=session_id,
+                                    update=SessionUpdate2(
+                                        sessionUpdate="agent_message_chunk",
+                                        content=ContentBlock1(
+                                            type="text", text=text_content
+                                        ),
+                                    ),
+                                )
+                            )
+
+            logger.info(f"Successfully loaded session {session_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to load session {session_id}: {e}", exc_info=True)
+            raise
 
     async def setSessionMode(
         self, params: SetSessionModeRequest
