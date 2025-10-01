@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from collections.abc import Sequence
+from typing import Literal
 
 from pydantic import (
     Field,
@@ -30,11 +31,14 @@ class RouterLLM(LLM):
     - Provides routing interface through select_llm() method
     """
 
-    llm_type: str = Field(default="router", description="Discriminator for RouterLLM")
+    llm_type: Literal["router"] = Field(  # type: ignore
+        default="router", description="Discriminator for RouterLLM"
+    )
     router_name: str = Field(default="base_router", description="Name of the router")
     llms_for_routing: dict[str, LLM] = Field(
         default_factory=dict
     )  # Mapping of LLM name to LLM instance for routing
+
     active_llm: LLM | None = Field(
         default=None, description="Currently selected LLM instance"
     )

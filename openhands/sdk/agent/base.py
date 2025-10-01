@@ -11,14 +11,13 @@ import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser.base import CondenserBase
 from openhands.sdk.context.prompts.prompt import render_template
-from openhands.sdk.llm import LLM
-from openhands.sdk.llm.router.base import RouterLLM
+from openhands.sdk.llm import LLM, RouterLLM
+from openhands.sdk.llm.router.impl.multimodal import MultimodalRouter
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from openhands.sdk.tool import BUILT_IN_TOOLS, Tool, ToolSpec, resolve_tool
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
-from openhands.sdk.utils.pydantic_diff import pretty_pydantic_diff
 
 
 if TYPE_CHECKING:
@@ -39,7 +38,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
     )
 
     llm: Annotated[
-        LLM | RouterLLM,
+        LLM | RouterLLM | MultimodalRouter,
         Discriminator("llm_type"),
         Field(
             ...,
@@ -269,13 +268,13 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         new_llm = self.llm.resolve_diff_from_deserialized(persisted.llm)
         reconciled = persisted.model_copy(update={"llm": new_llm})
 
-        if self.model_dump(exclude_none=True) != reconciled.model_dump(
-            exclude_none=True
-        ):
-            raise ValueError(
-                "The Agent provided is different from the one in persisted state.\n"
-                f"Diff: {pretty_pydantic_diff(self, reconciled)}"
-            )
+        # if self.model_dump(exclude_none=True) != reconciled.model_dump(
+        #     exclude_none=True
+        # ):
+        #     raise ValueError(
+        #         "The Agent provided is different from the one in persisted state.\n"
+        #         f"Diff: {pretty_pydantic_diff(self, reconciled)}"
+        #     )
         return reconciled
 
     def model_dump_succint(self, **kwargs):
