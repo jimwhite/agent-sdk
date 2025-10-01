@@ -59,6 +59,7 @@ class ConversationVisualizer:
         highlight_regex: dict[str, str] | None = None,
         skip_user_messages: bool = False,
         conversation_stats: "ConversationStats | None" = None,
+        agent_name: str | None = None,
     ):
         """Initialize the visualizer.
 
@@ -70,11 +71,13 @@ class ConversationVisualizer:
             skip_user_messages: If True, skip displaying user messages. Useful for
                                 scenarios where user input is not relevant to show.
             conversation_stats: ConversationStats object to display metrics information.
+            agent_name: Name of the agent to display in panel titles (e.g., "ExecutionAgent")
         """
         self._console = Console()
         self._skip_user_messages = skip_user_messages
         self._highlight_patterns: dict[str, str] = highlight_regex or {}
         self._conversation_stats = conversation_stats
+        self._agent_name = agent_name
 
     def on_event(self, event: EventBase) -> None:
         """Main event handler that displays events with Rich formatting."""
@@ -119,17 +122,21 @@ class ConversationVisualizer:
 
         # Determine panel styling based on event type
         if isinstance(event, SystemPromptEvent):
+            agent_prefix = f"{self._agent_name} " if self._agent_name else ""
+            system_title = f"{agent_prefix}System Prompt" if agent_prefix else "System Prompt"
             return Panel(
                 content,
-                title=f"[bold {_SYSTEM_COLOR}]System Prompt[/bold {_SYSTEM_COLOR}]",
+                title=f"[bold {_SYSTEM_COLOR}]{system_title}[/bold {_SYSTEM_COLOR}]",
                 border_style=_SYSTEM_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
         elif isinstance(event, ActionEvent):
+            agent_prefix = f"{self._agent_name} " if self._agent_name else ""
+            action_title = f"{agent_prefix}Action" if agent_prefix else "Agent Action"
             return Panel(
                 content,
-                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
+                title=f"[bold {_ACTION_COLOR}]{action_title}[/bold {_ACTION_COLOR}]",
                 subtitle=self._format_metrics_subtitle(),
                 border_style=_ACTION_COLOR,
                 padding=_PANEL_PADDING,
@@ -159,10 +166,22 @@ class ConversationVisualizer:
             }
             role_color = role_colors.get(event.llm_message.role, "white")
 
-            title_text = (
-                f"[bold {role_color}]Message from {event.source.capitalize()}"
-                f"[/bold {role_color}]"
-            )
+            # Add agent name for assistant messages
+            source_display = event.source.capitalize()
+            if event.llm_message.role == "assistant" and self._agent_name:
+                source_display = self._agent_name
+
+            # For user messages, show target agent; for assistant messages, show source
+            if event.llm_message.role == "user" and self._agent_name:
+                title_text = (
+                    f"[bold {role_color}]Message From {source_display} to {self._agent_name}"
+                    f"[/bold {role_color}]"
+                )
+            else:
+                title_text = (
+                    f"[bold {role_color}]Message from {source_display}"
+                    f"[/bold {role_color}]"
+                )
             return Panel(
                 content,
                 title=title_text,
@@ -172,9 +191,10 @@ class ConversationVisualizer:
                 expand=True,
             )
         elif isinstance(event, AgentErrorEvent):
+            agent_prefix = f"{self._agent_name} " if self._agent_name else ""
             return Panel(
                 content,
-                title=f"[bold {_ERROR_COLOR}]Agent Error[/bold {_ERROR_COLOR}]",
+                title=f"[bold {_ERROR_COLOR}]{agent_prefix}Agent Error[/bold {_ERROR_COLOR}]",
                 subtitle=self._format_metrics_subtitle(),
                 border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
@@ -261,6 +281,7 @@ class ConversationVisualizer:
 def create_default_visualizer(
     highlight_regex: dict[str, str] | None = None,
     conversation_stats: "ConversationStats | None" = None,
+    agent_name: str | None = None,
     **kwargs,
 ) -> ConversationVisualizer:
     """Create a default conversation visualizer instance.
@@ -271,11 +292,13 @@ def create_default_visualizer(
                        For example: {"Reasoning:": "bold blue",
                        "Thought:": "bold green"}
         conversation_stats: ConversationStats object to display metrics information.
+        agent_name: Name of the agent to display in panel titles (e.g., "ExecutionAgent")
     """
     return ConversationVisualizer(
         highlight_regex=DEFAULT_HIGHLIGHT_REGEX
         if highlight_regex is None
         else highlight_regex,
         conversation_stats=conversation_stats,
+        agent_name=agent_name,
         **kwargs,
     )

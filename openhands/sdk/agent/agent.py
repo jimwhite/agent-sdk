@@ -393,11 +393,23 @@ class Agent(AgentBase):
                 "as it was checked earlier."
             )
 
-        # Execute actions!
-        observation: ObservationBase = tool(action_event.action)
-        assert isinstance(observation, ObservationBase), (
-            f"Tool '{tool.name}' executor must return an ObservationBase"
-        )
+        # Execute actions with proper exception handling
+        try:
+            observation: ObservationBase = tool(action_event.action)
+            assert isinstance(observation, ObservationBase), (
+                f"Tool '{tool.name}' executor must return an ObservationBase"
+            )
+        except Exception as e:
+            # Create an error event to ensure tool_result is always generated
+            from openhands.sdk.event.llm_convertible.observation import AgentErrorEvent
+            
+            error_event = AgentErrorEvent(
+                error=f"Tool execution failed: {type(e).__name__}: {str(e)}",
+                tool_name=tool.name,
+                tool_call_id=action_event.tool_call.id,
+            )
+            on_event(error_event)
+            return
 
         obs_event = ObservationEvent(
             observation=observation,

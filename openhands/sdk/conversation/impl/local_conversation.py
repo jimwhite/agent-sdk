@@ -81,8 +81,11 @@ class LocalConversation(BaseConversation):
         composed_list = (callbacks if callbacks else []) + [_default_callback]
         # Add default visualizer if requested
         if visualize:
+            # Get agent name for display
+            agent_name = agent.__class__.__name__
             self._visualizer = create_default_visualizer(
-                conversation_stats=self._state.stats
+                conversation_stats=self._state.stats,
+                agent_name=agent_name,
             )
             composed_list = [self._visualizer.on_event] + composed_list
             # visualize should happen first for visibility
@@ -100,6 +103,15 @@ class LocalConversation(BaseConversation):
 
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
+
+        # Inject conversation context into tools that need it
+        for tool in self.agent._tools.values():
+            if (
+                tool.executor
+                and hasattr(tool.executor, "_conversation")
+                and tool.executor._conversation is None
+            ):
+                tool.executor._conversation = self  # type: ignore[attr-defined]
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()
@@ -350,7 +362,9 @@ class LocalConversation(BaseConversation):
 
         # Generate working directory if not provided
         if working_dir is None:
-            conversations_dir = os.path.join(self._state.working_dir, ".conversations")
+            conversations_dir = os.path.join(
+                self._state.workspace.working_dir, ".conversations"
+            )
             parent_dir = os.path.join(conversations_dir, str(self._state.id))
             working_dir = os.path.join(parent_dir, str(child_id))
             os.makedirs(working_dir, exist_ok=True)
@@ -378,7 +392,7 @@ class LocalConversation(BaseConversation):
 
         child = LocalConversation(
             agent=agent,
-            working_dir=working_dir,
+            workspace=working_dir,
             conversation_id=child_id,
             persistence_dir=self._state.persistence_dir,
             callbacks=cast(list, kwargs.get("callbacks"))
@@ -392,6 +406,9 @@ class LocalConversation(BaseConversation):
         # Set parent_id in child state
         with child._state:
             child._state.parent_id = self._state.id
+
+        # Set parent conversation reference in child
+        child._parent_conversation = self
 
         # Track the child conversation
         self._child_conversations[child_id] = child
@@ -416,6 +433,14 @@ class LocalConversation(BaseConversation):
         """
         return self._child_conversations.get(conversation_id)
 
+    def get_parent_conversation(self) -> "LocalConversation | None":
+        """Get the parent conversation if this is a child conversation.
+
+        Returns:
+            The parent conversation instance, or None if this is not a child
+        """
+        return getattr(self, "_parent_conversation", None)
+
     def close_child_conversation(self, conversation_id: ConversationID) -> None:
         """Close and remove a child conversation.
 
@@ -430,7 +455,9 @@ class LocalConversation(BaseConversation):
             child.close()
 
             # Update children.json mapping to remove the child
-            conversations_dir = os.path.join(self._state.working_dir, ".conversations")
+            conversations_dir = os.path.join(
+                self._state.workspace.working_dir, ".conversations"
+            )
             parent_dir = os.path.join(conversations_dir, str(self._state.id))
             children_file = os.path.join(parent_dir, "children.json")
 
@@ -465,7 +492,9 @@ class LocalConversation(BaseConversation):
         import json
         import os
 
-        conversations_dir = os.path.join(self._state.working_dir, ".conversations")
+        conversations_dir = os.path.join(
+            self._state.workspace.working_dir, ".conversations"
+        )
         parent_dir = os.path.join(conversations_dir, str(self._state.id))
         children_file = os.path.join(parent_dir, "children.json")
 

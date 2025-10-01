@@ -2,6 +2,7 @@
 
 import os
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 from rich.text import Text
@@ -12,8 +13,13 @@ from openhands.sdk.tool.tool import (
     ObservationBase,
     Tool,
     ToolAnnotations,
+    ToolBase,
     ToolExecutor,
 )
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 
 
 class ExecutePlanAction(ActionBase):
@@ -80,25 +86,27 @@ class ExecutePlanObservation(ObservationBase):
 
 
 EXECUTE_PLAN_DESCRIPTION = (
-    "Execute the plan by sending the content of PLAN.md to a new ExecutionAgent "
-    "child conversation. "
-    "The ExecutionAgent will implement the plan step by step.\n\n"
+    "Execute the plan by sending the content of PLAN.md back to the parent "
+    "ExecutionAgent conversation. "
+    "The parent ExecutionAgent will implement the plan step by step.\n\n"
     "This tool will:\n"
     "1. Read the specified plan file (default: PLAN.md)\n"
-    "2. Create an ExecutionAgent child conversation\n"
-    "3. Send the plan content to the execution agent\n"
-    "4. Let the execution agent implement the plan step by step\n\n"
-    "The execution agent will follow the plan sequence, verify each step, "
+    "2. Send the plan content back to the parent ExecutionAgent conversation\n"
+    "3. Run the parent conversation to execute the plan\n"
+    "4. Close this planning child conversation\n\n"
+    "The parent execution agent will follow the plan sequence, verify each step, "
     "handle errors, and provide progress updates."
 )
 
 
 class ExecutePlanExecutor(ToolExecutor):
-    def __call__(self, action: ExecutePlanAction) -> ExecutePlanObservation:
-        from openhands.sdk.agent.registry import AgentRegistry
+    def __init__(self):
+        """Initialize the executor with no conversation context."""
+        self._conversation = None
 
+    def __call__(self, action: ExecutePlanAction) -> ExecutePlanObservation:
         # Get the current conversation from the tool's context
-        conversation = getattr(self, "_conversation", None)
+        conversation = self._conversation
         if not conversation:
             return ExecutePlanObservation(
                 success=False,
@@ -111,14 +119,14 @@ class ExecutePlanExecutor(ToolExecutor):
 
         try:
             # Check if plan file exists
-            plan_path = os.path.join(conversation._state.working_dir, action.plan_file)
+            plan_path = os.path.join(conversation._state.workspace.working_dir, action.plan_file)
             if not os.path.exists(plan_path):
                 return ExecutePlanObservation(
                     success=False,
                     message="",
                     error=(
                         f"Plan file {action.plan_file} not found in "
-                        f"{conversation._state.working_dir}"
+                        f"{conversation._state.workspace.working_dir}"
                     ),
                 )
 
@@ -133,41 +141,34 @@ class ExecutePlanExecutor(ToolExecutor):
                     error=f"Plan file {action.plan_file} is empty",
                 )
 
-            # Create an execution agent
-            registry = AgentRegistry()
-            execution_agent = registry.create("execution", llm=conversation.agent.llm)
+            # Get parent conversation
+            parent_conversation = conversation.get_parent_conversation()
+            if not parent_conversation:
+                return ExecutePlanObservation(
+                    success=False,
+                    message="",
+                    error="No parent conversation found. Cannot send plan back.",
+                )
 
-            # Create child conversation
-            child_conversation = conversation.create_child_conversation(
-                agent=execution_agent,
-                visualize=False,
-            )
+            # Send plan back to parent
+            parent_message = f"You can find the plan here: {plan_path}\n\nPlan content:\n{plan_content}"
+            parent_conversation.send_message(parent_message)
 
-            # Send the plan to the execution agent
-            execution_message = f"""Please implement the following plan step by step:
+            # Run the parent conversation to execute the plan
+            parent_conversation.run()
 
-{plan_content}
-
-Execute each step carefully and provide updates on your progress. Make sure to:
-1. Follow the plan sequence
-2. Verify each step is completed successfully
-3. Handle any errors or issues that arise
-4. Provide a summary when all steps are complete"""
-
-            # Send the execution message to the child conversation
-            child_conversation.send_message(execution_message)
-
-            child_id = str(child_conversation._state.id)
-            working_dir = child_conversation._state.working_dir
+            # Close this planning child conversation
+            conversation.close()
 
             return ExecutePlanObservation(
                 success=True,
-                child_conversation_id=child_id,
+                child_conversation_id=None,  # No child created
                 message=(
-                    f"Started execution of plan via ExecutionAgent child conversation "
-                    f"{child_id}"
+                    f"Plan sent back to parent conversation. "
+                    f"Parent will now execute the plan. "
+                    f"This planning conversation is closed."
                 ),
-                working_directory=working_dir,
+                working_directory=plan_path,
                 plan_content=plan_content[:500] + "..."
                 if len(plan_content) > 500
                 else plan_content,
@@ -179,16 +180,38 @@ Execute each step carefully and provide updates on your progress. Make sure to:
             )
 
 
-ExecutePlanTool = Tool(
-    name="execute_plan",
-    description=EXECUTE_PLAN_DESCRIPTION,
-    action_type=ExecutePlanAction,
-    observation_type=ExecutePlanObservation,
-    executor=ExecutePlanExecutor(),
-    annotations=ToolAnnotations(
-        readOnlyHint=False,
-        destructiveHint=False,
-        idempotentHint=False,
-        openWorldHint=True,
-    ),
-)
+class ExecutePlanTool(ToolBase):
+    """Tool for executing a plan via an ExecutionAgent child conversation."""
+
+    @classmethod
+    def create(
+        cls, conv_state: "ConversationState", **params
+    ) -> list["ExecutePlanTool"]:
+        """Create an ExecutePlanTool instance.
+
+        Note: The conversation context will be injected by LocalConversation
+        after tool initialization.
+
+        Args:
+            conv_state: The conversation state (not used but required by protocol)
+            **params: Additional parameters (not used)
+
+        Returns:
+            A list containing a single Tool instance.
+        """
+        executor = ExecutePlanExecutor()
+
+        tool = Tool(
+            name="execute_plan",
+            description=EXECUTE_PLAN_DESCRIPTION,
+            action_type=ExecutePlanAction,
+            observation_type=ExecutePlanObservation,
+            executor=executor,
+            annotations=ToolAnnotations(
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
+        )
+        return [tool]
