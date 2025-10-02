@@ -2,6 +2,8 @@
 
 from typing import Any, ClassVar
 
+from pydantic import ConfigDict
+
 from openhands.sdk.agent.agent import Agent
 from openhands.sdk.llm import LLM
 from openhands.sdk.logger import get_logger
@@ -20,6 +22,9 @@ class PlanningAgent(Agent):
     - No bash execution or file modification capabilities
     - Planning completion tracking
     """
+
+    # Allow mutating instance for task completion flag
+    model_config = ConfigDict(frozen=False)
 
     # Agent configuration
     agent_name: ClassVar[str] = "planning"
