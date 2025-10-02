@@ -303,6 +303,7 @@ class AgentDispatcher:
         agent_type: str,
         tool_name: str | None = None,
         description: str | None = None,
+        conv_state=None,
     ) -> ToolDefinition:
         """Create a spawn child agent tool for the specified agent type.
 
@@ -311,9 +312,10 @@ class AgentDispatcher:
             tool_name: Optional custom name for the tool.
                 Defaults to 'spawn_{agent_type}_child'
             description: Optional custom description. Defaults to generic description
+            conv_state: The conversation state to get the conversation ID from
 
         Returns:
-            ToolBase: Configured tool for spawning the specified agent type
+            ToolDefinition: Configured tool for spawning the specified agent type
         """
         if tool_name is None:
             tool_name = f"spawn_{agent_type}_child"
@@ -321,11 +323,15 @@ class AgentDispatcher:
         if description is None:
             description = f"Spawn a child {agent_type} agent to handle a specific task"
 
+        conversation_id = conv_state.id if conv_state else None
+
         return ToolDefinition(
             name=tool_name,
             description=description,
             action_type=SpawnChildAction,
             observation_type=SpawnChildObservation,
-            executor=SpawnChildExecutor(agent_type=agent_type),
+            executor=SpawnChildExecutor(
+                agent_type=agent_type, conversation_id=conversation_id
+            ),
             annotations=ToolAnnotations(),
         )
