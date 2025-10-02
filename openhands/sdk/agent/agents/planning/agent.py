@@ -18,6 +18,7 @@ class PlanningAgent(Agent):
     - Read-only access: FileEditorTool (view only)
     - Custom system prompt for planning tasks
     - No bash execution or file modification capabilities
+    - Planning completion tracking
     """
 
     # Agent configuration
@@ -26,6 +27,9 @@ class PlanningAgent(Agent):
         "Read-only agent specialized in analysis and planning. "
         "Can view files and create detailed implementation plans."
     )
+
+    # Task completion state
+    task_complete: bool = False
 
     def __init__(
         self,

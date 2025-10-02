@@ -183,6 +183,12 @@ class ExecutePlanExecutor(ToolExecutor):
             parent_conversation.send_message(parent_message)
             parent_conversation.run()
 
+            # Mark task as complete before closing
+            from openhands.sdk.agent.agents.planning.agent import PlanningAgent
+
+            if isinstance(local_conversation.agent, PlanningAgent):
+                local_conversation.agent.task_complete = True
+
             # Close this planning child conversation
             local_conversation.close()
 

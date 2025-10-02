@@ -1,5 +1,6 @@
 """AgentDispatcher for creating spawn child agent tools systematically."""
 
+import time
 from typing import TYPE_CHECKING, cast
 
 from pydantic import Field
@@ -17,6 +18,34 @@ from openhands.sdk.tool import (
     ToolDefinition,
     ToolExecutor,
 )
+
+
+def wait_for_task_completion(
+    child_conversation: LocalConversation, timeout: int = 300
+) -> bool:
+    """Wait for a child conversation's agent to complete its task.
+
+    Args:
+        child_conversation: The child conversation to monitor
+        timeout: Maximum time to wait in seconds (default: 5 minutes)
+
+    Returns:
+        True if task completed successfully, False if timeout or error
+    """
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        # Check if agent has task_complete attribute and if it's True
+        if hasattr(child_conversation.agent, "task_complete") and getattr(
+            child_conversation.agent, "task_complete", False
+        ):
+            return True
+
+        # Wait 1 second before checking again
+        time.sleep(1)
+
+    # Timeout reached
+    return False
 
 
 if TYPE_CHECKING:
@@ -151,6 +180,45 @@ class SpawnChildExecutor(ToolExecutor):
             )
 
             child_local_conv = cast(LocalConversation, child_conversation)
+
+            # For agents with task_complete attribute, send task and wait for completion
+            if hasattr(child_local_conv.agent, "task_complete"):
+                # Send the task to the child automatically
+                task_message = (
+                    f"{action.task_description} "
+                    f"Create a PLAN.md file with the task breakdown "
+                    f"and then immediately call the execute_plan tool."
+                )
+                child_local_conv.send_message(task_message)
+
+                # Run the child to process the message
+                child_local_conv.run()
+
+                # Wait for task completion
+                if wait_for_task_completion(child_local_conv):
+                    return SpawnChildObservation(
+                        success=True,
+                        agent_type=self._agent_type,
+                        child_conversation_id=str(child_local_conv._state.id),
+                        working_directory=parent_local_conv._state.workspace.working_dir,
+                        message=(
+                            f"{self._agent_type.title()} task completed successfully. "
+                            f"Results sent back to parent conversation."
+                        ),
+                    )
+                else:
+                    return SpawnChildObservation(
+                        success=False,
+                        agent_type=self._agent_type,
+                        child_conversation_id=str(child_local_conv._state.id),
+                        error=(
+                            f"{self._agent_type.title()} task did not complete "
+                            f"within timeout"
+                        ),
+                        message=f"{self._agent_type.title()} task timed out",
+                    )
+
+            # For other agents, return immediately
             return SpawnChildObservation(
                 success=True,
                 agent_type=self._agent_type,
