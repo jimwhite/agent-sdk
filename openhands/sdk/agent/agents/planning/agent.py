@@ -72,7 +72,9 @@ class PlanningAgent(Agent):
     def _register_tools(self) -> None:
         """Register the tools required by PlanningAgent."""
         try:
-            from openhands.sdk.tool.tools.execute_plan import ExecutePlanTool
+            from openhands.sdk.agent.agents.planning.tools.execute_plan import (
+                ExecutePlanTool,
+            )
             from openhands.tools.str_replace_editor import FileEditorTool
 
             register_tool("FileEditorTool", FileEditorTool)

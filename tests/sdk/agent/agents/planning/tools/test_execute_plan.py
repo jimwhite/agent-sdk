@@ -4,13 +4,13 @@ import os
 import tempfile
 from unittest.mock import Mock, mock_open, patch
 
-from openhands.sdk.llm.message import TextContent
-from openhands.sdk.tool.tools.execute_plan import (
+from openhands.sdk.agent.agents.planning.tools.execute_plan import (
     ExecutePlanAction,
     ExecutePlanExecutor,
     ExecutePlanObservation,
     ExecutePlanTool,
 )
+from openhands.sdk.llm.message import TextContent
 
 
 def test_execute_plan_action():
