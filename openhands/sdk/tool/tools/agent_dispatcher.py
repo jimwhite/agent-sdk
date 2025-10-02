@@ -272,16 +272,31 @@ class AgentDispatcher:
         )
 
     @staticmethod
-    def create_planning_tool() -> ToolDefinition:
-        """Create a spawn planning child tool with planning-specific configuration."""
-        return AgentDispatcher().create_tool(
-            agent_type="planning",
-            tool_name="spawn_planning_child",
+    def create_planning_tool(conv_state=None) -> list[ToolDefinition]:
+        """Create a spawn planning child tool with planning-specific configuration.
+
+        Args:
+            conv_state: The conversation state to get the conversation ID from
+
+        Returns:
+            List containing a single ToolDefinition for the planning child tool
+        """
+        conversation_id = conv_state.id if conv_state else None
+
+        tool = ToolDefinition(
+            name="spawn_planning_child",
             description=(
                 "Spawn a child planning agent to create detailed plans "
                 "for complex tasks"
             ),
+            action_type=SpawnChildAction,
+            observation_type=SpawnChildObservation,
+            executor=SpawnChildExecutor(
+                agent_type="planning", conversation_id=conversation_id
+            ),
+            annotations=ToolAnnotations(),
         )
+        return [tool]
 
     @staticmethod
     def create_tool(
