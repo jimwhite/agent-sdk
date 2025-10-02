@@ -360,6 +360,23 @@ class ConversationRegistry:
             else:
                 logger.warning(f"Child conversation {child_id} not found")
 
+    def close_all_children(self, parent_id: ConversationID) -> None:
+        """Close all child conversations of a parent.
+
+        Args:
+            parent_id: The ID of the parent conversation
+        """
+        with self._registry_lock:
+            child_ids = self.get_child_ids(
+                parent_id
+            ).copy()  # Copy to avoid modification during iteration
+            for child_id in child_ids:
+                self.close_child_conversation(parent_id, child_id)
+            logger.info(
+                f"Closed all {len(child_ids)} child conversations for parent "
+                f"{parent_id}"
+            )
+
     def list_child_conversations(
         self, parent_id: ConversationID
     ) -> list[ConversationID]:

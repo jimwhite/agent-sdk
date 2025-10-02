@@ -55,7 +55,6 @@ class LocalConversation(BaseConversation):
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
         """
-        self._is_closed = False
         self.agent = agent
         if isinstance(workspace, str):
             workspace = LocalWorkspace(working_dir=workspace)
@@ -102,9 +101,6 @@ class LocalConversation(BaseConversation):
 
         # Initialize stuck detector
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
-
-        # Initialize child conversations tracking
-        self._child_conversations: dict[ConversationID, BaseConversation] = {}
 
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
@@ -348,17 +344,13 @@ class LocalConversation(BaseConversation):
 
     def close(self) -> None:
         """Close the conversation and clean up all tool executors."""
-        if getattr(self, "_is_closed", False):
-            return
-
         logger.debug("Closing conversation and cleaning up tool executors")
 
-        # Close all child conversations first (if they exist)
-        child_conversations = getattr(self, "_child_conversations", None)
-        close_child_method = getattr(self, "close_child_conversation", None)
-        if child_conversations is not None and close_child_method is not None:
-            for child_id in list(child_conversations.keys()):
-                close_child_method(child_id)
+        # Close all child conversations via registry
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        registry.close_all_children(self._state.id)
 
         for tool in self.agent.tools_map.values():
             try:
@@ -369,8 +361,6 @@ class LocalConversation(BaseConversation):
                 continue
             except Exception as e:
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
-
-        self._is_closed = True
 
     def create_child_conversation(
         self,
@@ -402,9 +392,6 @@ class LocalConversation(BaseConversation):
         # Cast to LocalConversation since we know the registry returns LocalConversation
         assert isinstance(child_conversation, LocalConversation)
 
-        # Track the child conversation locally
-        self._child_conversations[child_conversation._state.id] = child_conversation
-
         return child_conversation
 
     def get_child_conversation(
@@ -418,7 +405,10 @@ class LocalConversation(BaseConversation):
         Returns:
             The child conversation instance or None if not found
         """
-        child_conv = self._child_conversations.get(child_id)
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        child_conv = registry.get_child_conversation(self._state.id, child_id)
         if child_conv is not None:
             assert isinstance(child_conv, LocalConversation)
         return child_conv
@@ -429,22 +419,10 @@ class LocalConversation(BaseConversation):
         Returns:
             Dictionary mapping child IDs to their metadata
         """
-        mapping = {}
-        for child_id, child_conv in self._child_conversations.items():
-            assert isinstance(child_conv, LocalConversation)
-            # Normalize agent type: remove "Agent" suffix and convert to lowercase
-            agent_type = child_conv.agent.__class__.__name__.replace(
-                "Agent", ""
-            ).lower()
-            mapping[str(child_id)] = {
-                "agent_type": agent_type,
-                "agent_class": child_conv.agent.__class__.__name__,
-                "working_directory": child_conv.workspace.working_dir,
-                "created_at": str(
-                    child_conv._state.id.time
-                ),  # Use UUID time for created_at
-            }
-        return mapping
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        return registry.get_children_mapping(self._state.id)
 
     def close_child_conversation(self, child_id: ConversationID) -> None:
         """Close and remove a child conversation.
@@ -452,10 +430,10 @@ class LocalConversation(BaseConversation):
         Args:
             child_id: The ID of the child conversation to close
         """
-        child_conversation = self._child_conversations.get(child_id)
-        if child_conversation:
-            child_conversation.close()
-            del self._child_conversations[child_id]
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        registry.close_child_conversation(self._state.id, child_id)
 
     def list_child_conversations(self) -> list[ConversationID]:
         """List all active child conversation IDs.
@@ -463,7 +441,10 @@ class LocalConversation(BaseConversation):
         Returns:
             List of child conversation IDs
         """
-        return list(self._child_conversations.keys())
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        return registry.list_child_conversations(self._state.id)
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""

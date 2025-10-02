@@ -131,16 +131,21 @@ def test_conversation_state_no_parent_id(test_agent, temp_dir):
 
 
 def test_local_conversation_child_tracking_initialization(test_agent, temp_dir):
-    """Test that LocalConversation initializes child conversation tracking."""
+    """Test that LocalConversation initializes without local child tracking."""
     conversation = LocalConversation(
         agent=test_agent,
         workspace=temp_dir,
         visualize=False,
     )
 
-    assert hasattr(conversation, "_child_conversations")
-    assert isinstance(conversation._child_conversations, dict)
-    assert len(conversation._child_conversations) == 0
+    # Verify that local child tracking is not present (delegated to registry)
+    assert not hasattr(conversation, "_child_conversations")
+    # Verify that child conversation methods are available
+    assert hasattr(conversation, "list_child_conversations")
+    assert hasattr(conversation, "create_child_conversation")
+    assert hasattr(conversation, "get_child_conversation")
+    # Verify initial state has no children
+    assert len(conversation.list_child_conversations()) == 0
 
 
 def test_create_child_conversation(test_agent, child_agent, temp_dir):
@@ -161,10 +166,10 @@ def test_create_child_conversation(test_agent, child_agent, temp_dir):
     assert child_conversation.agent is child_agent
     assert child_conversation._state.parent_id == parent_conversation._state.id
 
-    # Check parent tracking
+    # Check parent tracking via registry
     child_id = child_conversation._state.id
-    assert child_id in parent_conversation._child_conversations
-    assert parent_conversation._child_conversations[child_id] is child_conversation
+    assert child_id in parent_conversation.list_child_conversations()
+    assert parent_conversation.get_child_conversation(child_id) is child_conversation
 
     # Check working directory structure (new pattern: parent-uuid/child-uuid)
     parent_id = parent_conversation._state.id
@@ -271,7 +276,7 @@ def test_close_child_conversation(test_agent, child_agent, temp_dir):
 
     # Check that child was closed and removed
     child_conversation.close.assert_called_once()
-    assert child_id not in parent_conversation._child_conversations
+    assert child_id not in parent_conversation.list_child_conversations()
 
     # Check that child was removed from children.json
     children_mapping = parent_conversation.get_children_mapping()
@@ -349,7 +354,7 @@ def test_parent_conversation_close_closes_children(test_agent, child_agent, temp
     child2.close.assert_called_once()
 
     # Check that children were removed from tracking
-    assert len(parent_conversation._child_conversations) == 0
+    assert len(parent_conversation.list_child_conversations()) == 0
 
 
 def test_agent_type_directory_naming(
