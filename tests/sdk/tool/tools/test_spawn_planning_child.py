@@ -1,8 +1,7 @@
 """Tests for spawn_planning_child tool."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-from openhands.sdk.llm.message import TextContent
 from openhands.sdk.tool.tools.spawn_planning_child import (
     SpawnPlanningChildAction,
     SpawnPlanningChildObservation,
@@ -13,8 +12,7 @@ from openhands.sdk.tool.tools.spawn_planning_child import (
 def test_spawn_planning_child_action():
     """Test SpawnPlanningChildAction creation and properties."""
     action = SpawnPlanningChildAction(
-        task_description="Build a web app",
-        agent_type="planning"
+        task_description="Build a web app", agent_type="planning"
     )
 
     assert action.task_description == "Build a web app"
@@ -28,8 +26,7 @@ def test_spawn_planning_child_action():
 def test_spawn_planning_child_action_without_plan_file():
     """Test SpawnPlanningChildAction without plan file path."""
     action = SpawnPlanningChildAction(
-        task_description="Build a web app",
-        agent_type="planning"
+        task_description="Build a web app", agent_type="planning"
     )
 
     assert action.task_description == "Build a web app"
@@ -44,7 +41,7 @@ def test_spawn_planning_child_observation_success():
         working_directory="/test/dir",
         agent_type="planning",
         message="Planning child created successfully",
-        plan_file_path="/path/to/plan.md"
+        plan_file_path="/path/to/plan.md",
     )
 
     assert obs.success
@@ -61,7 +58,7 @@ def test_spawn_planning_child_observation_failure():
         success=False,
         error="Failed to spawn planning child: Test error",
         agent_type="planning",
-        message="Error occurred"
+        message="Error occurred",
     )
 
     assert not obs.success
@@ -76,15 +73,20 @@ def test_spawn_planning_child_tool_creation():
     mock_conversation_state.conversation_id = "test-conv-id"
 
     # Test that the create method exists and can be called
-    # We don't need to test the full functionality here since that's tested in AgentDispatcher tests
+    # We don't need to test the full functionality here since that's tested in
+    # AgentDispatcher tests
     try:
-        tools = SpawnPlanningChildTool.create(mock_conversation_state)
+        SpawnPlanningChildTool.create(mock_conversation_state)
         # If we get here without exception, the method works
         assert True
     except Exception as e:
         # If there's an exception, it should be related to missing agent registry
         # which is expected in a test environment
-        assert "agent type" in str(e).lower() or "conversation" in str(e).lower() or "registry" in str(e).lower()
+        assert (
+            "agent type" in str(e).lower()
+            or "conversation" in str(e).lower()
+            or "registry" in str(e).lower()
+        )
 
 
 def test_spawn_planning_child_observation_visualization():
@@ -96,7 +98,7 @@ def test_spawn_planning_child_observation_visualization():
         working_directory="/test/dir",
         agent_type="planning",
         message="Planning child created successfully",
-        plan_file_path="/path/to/plan.md"
+        plan_file_path="/path/to/plan.md",
     )
 
     viz = obs_success.visualize
@@ -108,7 +110,7 @@ def test_spawn_planning_child_observation_visualization():
         success=False,
         error="Failed to spawn planning child: Test error",
         agent_type="planning",
-        message="Error occurred"
+        message="Error occurred",
     )
 
     viz = obs_failure.visualize

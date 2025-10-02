@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 
 class ConversationRegistry:
-    """Global registry for managing all conversations with parent-child relationships."""
+    """Global registry for managing all conversations with parent-child relationships."""  # noqa: E501
 
     _instance: Optional["ConversationRegistry"] = None
     _lock = threading.Lock()
@@ -66,7 +66,8 @@ class ConversationRegistry:
                 self._child_parent_map[conversation_id] = parent_id
 
                 logger.debug(
-                    f"Registered child conversation {conversation_id} with parent {parent_id}"
+                    f"Registered child conversation {conversation_id} "
+                    f"with parent {parent_id}"
                 )
             else:
                 logger.debug(f"Registered root conversation {conversation_id}")
@@ -80,7 +81,8 @@ class ConversationRegistry:
         with self._registry_lock:
             if conversation_id not in self._conversations:
                 logger.warning(
-                    f"Attempted to unregister non-existent conversation {conversation_id}"
+                    f"Attempted to unregister non-existent conversation "
+                    f"{conversation_id}"
                 )
                 return
 
@@ -261,7 +263,7 @@ class ConversationRegistry:
             # Set parent conversation reference in child
             child._parent_conversation = parent  # type: ignore[attr-defined]
 
-            # Update parent-child relationship (child already registered itself in __init__)
+            # Update parent-child relationship (child already registered itself in __init__)  # noqa: E501
             if parent_id not in self._parent_child_map:
                 self._parent_child_map[parent_id] = set()
             self._parent_child_map[parent_id].add(child_id)
@@ -284,7 +286,8 @@ class ConversationRegistry:
             child_id: The ID of the child conversation
 
         Returns:
-            The child conversation instance, or None if not found or not a child of parent
+            The child conversation instance, or None if not found or not a child of
+            parent
         """
         with self._registry_lock:
             child = self._conversations.get(child_id)

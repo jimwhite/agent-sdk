@@ -269,7 +269,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
     print("3. ✅ ExecutionAgent used spawn_planning_child tool")
     print("4. ✅ PlanningAgent child created (no messages sent by tool)")
     print(
-        "5. ✅ User sent single message to PlanningAgent with task and execute instruction"
+        "5. ✅ User sent single message to PlanningAgent with task and execute "
+        "instruction"
     )
     print("6. ✅ PlanningAgent created PLAN.md and called execute_plan tool")
     if execution_child_ids:
