@@ -1,5 +1,6 @@
 """Remote workspace implementations."""
 
+from .api import APIRemoteWorkspace
 from .base import RemoteWorkspace
 from .docker import DockerWorkspace
 
@@ -7,4 +8,5 @@ from .docker import DockerWorkspace
 __all__ = [
     "RemoteWorkspace",
     "DockerWorkspace",
+    "APIRemoteWorkspace",
 ]
