@@ -190,6 +190,61 @@ class TestSpawnChildExecutor:
         mock_agent_registry.return_value = mock_agent_registry_instance
 
         conv_id = ConversationID(str(uuid.uuid4()))
+        executor = SpawnChildExecutor(
+            "execution", conv_id
+        )  # Use execution instead of planning to avoid blocking
+        action = SpawnChildAction(task_description="Test task", agent_type="execution")
+
+        result = executor(action)
+
+        assert result.success
+        assert result.child_conversation_id == child_id
+        assert result.working_directory == "/test/dir"
+        assert result.agent_type == "execution"
+        assert "Execution child created" in result.message
+
+    @patch("openhands.sdk.tool.tools.agent_dispatcher.get_conversation_registry")
+    @patch("openhands.sdk.tool.tools.agent_dispatcher.AgentRegistry")
+    @patch("time.sleep")  # Mock sleep to avoid actual waiting
+    def test_call_planning_success(
+        self, mock_sleep, mock_agent_registry, mock_get_conv_registry
+    ):
+        """Test successful planning executor call with blocking behavior."""
+        from openhands.sdk.agent.agents.planning.agent import PlanningAgent
+
+        # Mock conversation registry
+        mock_conv_registry = Mock()
+        mock_conversation = Mock()
+        mock_conversation._state.workspace.working_dir = "/test/dir"
+        mock_conversation._state.id = ConversationID(str(uuid.uuid4()))
+        mock_conversation.agent.llm = Mock()
+        mock_conv_registry.get.return_value = mock_conversation
+        mock_get_conv_registry.return_value = mock_conv_registry
+
+        # Mock child conversation creation
+        child_id = str(uuid.uuid4())
+        mock_child_conversation = Mock()
+        mock_child_conversation._state.id = ConversationID(child_id)
+        mock_child_conversation.send_message = Mock()
+        mock_child_conversation.run = Mock()
+
+        # Mock planning agent with completion tracking
+        mock_planning_agent = Mock(spec=PlanningAgent)
+        mock_planning_agent.is_planning_complete.return_value = (
+            True  # Planning completes immediately
+        )
+        mock_child_conversation.agent = mock_planning_agent
+
+        mock_conv_registry.create_child_conversation.return_value = (
+            mock_child_conversation
+        )
+
+        # Mock agent registry
+        mock_agent_registry_instance = Mock()
+        mock_agent_registry_instance.create.return_value = mock_planning_agent
+        mock_agent_registry.return_value = mock_agent_registry_instance
+
+        conv_id = ConversationID(str(uuid.uuid4()))
         executor = SpawnChildExecutor("planning", conv_id)
         action = SpawnChildAction(task_description="Test task", agent_type="planning")
 
@@ -199,7 +254,12 @@ class TestSpawnChildExecutor:
         assert result.child_conversation_id == child_id
         assert result.working_directory == "/test/dir"
         assert result.agent_type == "planning"
-        assert "Planning child created" in result.message
+        assert "Planning completed successfully" in result.message
+
+        # Verify planning-specific behavior
+        mock_child_conversation.send_message.assert_called_once()
+        mock_child_conversation.run.assert_called_once()
+        mock_planning_agent.is_planning_complete.assert_called()
 
     @patch("openhands.sdk.tool.tools.agent_dispatcher.get_conversation_registry")
     def test_call_exception_handling(self, mock_get_registry):
