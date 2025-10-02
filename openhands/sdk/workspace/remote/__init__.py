@@ -6,7 +6,7 @@ from .docker import DockerWorkspace
 
 
 __all__ = [
+    "APIRemoteWorkspace",
     "RemoteWorkspace",
     "DockerWorkspace",
-    "APIRemoteWorkspace",
 ]
