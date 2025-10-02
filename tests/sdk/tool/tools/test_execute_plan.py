@@ -50,12 +50,12 @@ def test_execute_plan_observation_success():
     agent_obs = obs.to_llm_content
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
-    assert "✅" in agent_obs[0].text
+    assert "SUCCESS:" in agent_obs[0].text
     assert "exec-123" in agent_obs[0].text
 
     # Test visualization
     viz = obs.visualize
-    assert "✅" in str(viz)
+    assert "SUCCESS:" in str(viz)
 
 
 def test_execute_plan_observation_failure():
@@ -73,12 +73,12 @@ def test_execute_plan_observation_failure():
     agent_obs = obs.to_llm_content
     assert len(agent_obs) == 1
     assert isinstance(agent_obs[0], TextContent)
-    assert "❌" in agent_obs[0].text
+    assert "ERROR:" in agent_obs[0].text
     assert "Plan file not found" in agent_obs[0].text
 
     # Test visualization
     viz = obs.visualize
-    assert "❌" in str(viz)
+    assert "ERROR:" in str(viz)
 
 
 def test_execute_plan_executor_no_conversation():

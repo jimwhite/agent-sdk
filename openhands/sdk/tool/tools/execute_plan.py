@@ -61,26 +61,26 @@ class ExecutePlanObservation(Observation):
             return [
                 TextContent(
                     text=(
-                        f"✅ {self.message}\n"
+                        f"SUCCESS: {self.message}\n"
                         f"Child ID: {self.child_conversation_id}\n"
                         f"Working Directory: {self.working_directory}"
                     )
                 )
             ]
         else:
-            return [TextContent(text=f"❌ {self.error}")]
+            return [TextContent(text=f"ERROR: {self.error}")]
 
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation."""
         content = Text()
         if self.success:
-            content.append("✅ ", style="green")
+            content.append("SUCCESS: ", style="green")
             content.append(self.message, style="green")
             if self.child_conversation_id:
                 content.append(f"\nChild ID: {self.child_conversation_id}", style="dim")
         else:
-            content.append("❌ ", style="red")
+            content.append("ERROR: ", style="red")
             content.append(self.error or "Unknown error", style="red")
         return content
 

@@ -55,12 +55,12 @@ class AgentRegistry:
 
             self._configs[config.name] = config
 
-    def create(self, name: str, llm: LLM, **kwargs: Any) -> AgentBase:
+    def create(self, name: str, llm: LLM | None = None, **kwargs: Any) -> AgentBase:
         """Create an agent instance by name.
 
         Args:
             name: The name of the agent type to create
-            llm: The LLM to use for the agent
+            llm: The LLM to use for the agent. If None, agent may use a default LLM.
             **kwargs: Additional configuration parameters
 
         Returns:

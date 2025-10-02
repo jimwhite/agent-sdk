@@ -61,11 +61,11 @@ class ExecutionAgentConfig(AgentConfig):
                 register_tool("BrowserToolSet", BrowserToolSet)
 
             # Agent-specific tools (registered here to avoid import-time cycles)
-            from openhands.sdk.tool.tools.spawn_planning_child import (
-                SpawnPlanningChildTool,
-            )
+            from openhands.sdk.tool.tools.agent_dispatcher import AgentDispatcher
 
-            register_tool("SpawnPlanningChildTool", SpawnPlanningChildTool)
+            # Register planning child tool using AgentDispatcher
+            planning_tool = AgentDispatcher.create_planning_tool()
+            register_tool("SpawnPlanningChildTool", planning_tool)
 
         except ImportError as e:
             logger.warning(f"Failed to register some tools for ExecutionAgent: {e}")

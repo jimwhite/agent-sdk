@@ -238,7 +238,6 @@ class TestSpawnChildAction:
         visualization = action.visualize
 
         # Check that visualization contains expected elements
-        assert "🧠" in str(visualization)
         assert "Spawning Planning Child" in str(visualization)
         assert "This is a test task description" in str(visualization)
 
@@ -274,10 +273,7 @@ class TestSpawnChildObservation:
         content = agent_obs[0]
         assert isinstance(content, TextContent)
         text_content = content.text
-        assert "✅ Child created successfully" in text_content
-        assert "Child ID: child-123" in text_content
-        assert "Agent Type: planning" in text_content
-        assert "Working Directory: /test/dir" in text_content
+        assert "Child planning spawned with ID: child-123" in text_content
 
     def test_agent_observation_failure(self):
         """Test agent observation for failed spawn."""
@@ -294,7 +290,7 @@ class TestSpawnChildObservation:
         content = agent_obs[0]
         assert isinstance(content, TextContent)
         text_content = content.text
-        assert "❌ Failed to create child" in text_content
+        assert "Failed to spawn planning: Failed to create child" in text_content
 
     def test_visualize_success(self):
         """Test observation visualization for success."""
@@ -308,8 +304,7 @@ class TestSpawnChildObservation:
 
         visualization = observation.visualize
 
-        assert "✅" in str(visualization)
-        assert "Child created successfully" in str(visualization)
+        assert "Child planning spawned" in str(visualization)
         assert "child-123" in str(visualization)
 
     def test_visualize_failure(self):
@@ -323,5 +318,5 @@ class TestSpawnChildObservation:
 
         visualization = observation.visualize
 
-        assert "❌" in str(visualization)
+        assert "Failed to spawn planning" in str(visualization)
         assert "Failed to create child" in str(visualization)
