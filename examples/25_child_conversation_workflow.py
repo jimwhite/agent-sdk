@@ -82,7 +82,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     conversation = LocalConversation(
         agent=execution_agent,
         workspace=temp_dir,
-        visualize=False,  # Disable visualization to avoid I/O blocking issues
+        visualize=True,  # TODO Disable visualization to avoid I/O blocking issues
     )
 
     print(f"Created conversation with ExecutionAgent: {conversation._state.id}")

@@ -253,7 +253,7 @@ class ConversationRegistry:
                     int, kwargs.get("max_iteration_per_run", 10)
                 ),
                 stuck_detection=cast(bool, kwargs.get("stuck_detection", True)),
-                visualize=cast(bool, kwargs.get("visualize", False)),
+                visualize=True,  # TODO disable
             )
 
             # Parent-child relationship is managed by the registry
