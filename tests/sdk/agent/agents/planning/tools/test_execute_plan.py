@@ -90,21 +90,27 @@ def test_execute_plan_executor_no_conversation():
 
     assert result.success is False
     assert result.error is not None
-    assert "No active conversation found" in result.error
+    assert "No conversation ID provided" in result.error
 
 
 def test_execute_plan_executor_file_not_found():
     """Test executor when plan file doesn't exist."""
+    from uuid import uuid4
+
+    conversation_id = str(uuid4())
     mock_conversation = Mock()
     mock_conversation._state.workspace.working_dir = "/tmp/test"
 
-    executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation  # type: ignore[attr-defined]
+    executor = ExecutePlanExecutor(conversation_id)
 
     action = ExecutePlanAction(plan_file="PLAN.md")
 
-    with patch("os.path.exists", return_value=False):
-        result = executor(action)
+    with patch(
+        "openhands.sdk.conversation.registry.get_conversation_registry"
+    ) as mock_registry:
+        mock_registry.return_value.get.return_value = mock_conversation
+        with patch("os.path.exists", return_value=False):
+            result = executor(action)
 
     assert result.success is False
     assert result.error is not None
@@ -113,19 +119,25 @@ def test_execute_plan_executor_file_not_found():
 
 def test_execute_plan_executor_empty_file():
     """Test executor when plan file is empty."""
+    from uuid import uuid4
+
+    conversation_id = str(uuid4())
     mock_conversation = Mock()
     mock_conversation._state.workspace.working_dir = "/tmp/test"
 
-    executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation  # type: ignore[attr-defined]
+    executor = ExecutePlanExecutor(conversation_id)
 
     action = ExecutePlanAction(plan_file="PLAN.md")
 
-    with (
-        patch("os.path.exists", return_value=True),
-        patch("builtins.open", mock_open(read_data="")),
-    ):
-        result = executor(action)
+    with patch(
+        "openhands.sdk.conversation.registry.get_conversation_registry"
+    ) as mock_registry:
+        mock_registry.return_value.get.return_value = mock_conversation
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data="")),
+        ):
+            result = executor(action)
 
     assert result.success is False
     assert result.error is not None
@@ -134,25 +146,33 @@ def test_execute_plan_executor_empty_file():
 
 def test_execute_plan_executor_success():
     """Test successful execution of execute_plan."""
+    from uuid import uuid4
+
+    conversation_id = str(uuid4())
     mock_conversation = Mock()
     mock_conversation._state.workspace.working_dir = "/tmp/test"
 
     mock_parent_conversation = Mock()
-    mock_conversation.get_parent_conversation.return_value = mock_parent_conversation
 
-    # Create executor and set conversation
-    executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation  # type: ignore[attr-defined]
+    # Create executor
+    executor = ExecutePlanExecutor(conversation_id)
 
     # Execute
     action = ExecutePlanAction(plan_file="PLAN.md")
     plan_content = "# Plan\n1. Step one\n2. Step two"
 
-    with (
-        patch("os.path.exists", return_value=True),
-        patch("builtins.open", mock_open(read_data=plan_content)),
-    ):
-        result = executor(action)
+    with patch(
+        "openhands.sdk.conversation.registry.get_conversation_registry"
+    ) as mock_registry:
+        mock_registry.return_value.get.return_value = mock_conversation
+        mock_registry.return_value.get_parent_conversation.return_value = (
+            mock_parent_conversation
+        )
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data=plan_content)),
+        ):
+            result = executor(action)
 
     # Verify
     assert result.success is True
@@ -169,25 +189,30 @@ def test_execute_plan_executor_success():
 
 def test_execute_plan_executor_failure():
     """Test executor failure handling."""
+    from uuid import uuid4
+
+    conversation_id = str(uuid4())
     mock_conversation = Mock()
     mock_conversation._state.workspace.working_dir = "/tmp/test"
 
-    # Mock get_parent_conversation to return None (no parent)
-    mock_conversation.get_parent_conversation.return_value = None
-
-    # Create executor and set conversation
-    executor = ExecutePlanExecutor()
-    executor._conversation = mock_conversation  # type: ignore[attr-defined]
+    # Create executor
+    executor = ExecutePlanExecutor(conversation_id)
 
     # Execute
     action = ExecutePlanAction(plan_file="PLAN.md")
     plan_content = "# Plan\n1. Step one"
 
-    with (
-        patch("os.path.exists", return_value=True),
-        patch("builtins.open", mock_open(read_data=plan_content)),
-    ):
-        result = executor(action)
+    with patch(
+        "openhands.sdk.conversation.registry.get_conversation_registry"
+    ) as mock_registry:
+        mock_registry.return_value.get.return_value = mock_conversation
+        # Mock get_parent_conversation to return None (no parent)
+        mock_registry.return_value.get_parent_conversation.return_value = None
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data=plan_content)),
+        ):
+            result = executor(action)
 
     # Verify
     assert result.success is False
@@ -198,11 +223,13 @@ def test_execute_plan_executor_failure():
 def test_execute_plan_tool_structure():
     """Test the tool structure and properties."""
     from unittest.mock import Mock
+    from uuid import uuid4
 
     from openhands.sdk.conversation.state import ConversationState
 
     # Create a mock conversation state
     mock_conv_state = Mock(spec=ConversationState)
+    mock_conv_state.id = uuid4()
 
     tools = ExecutePlanTool.create(mock_conv_state)
     assert len(tools) == 1
@@ -224,6 +251,8 @@ def test_execute_plan_tool_structure():
 
 def test_execute_plan_with_real_file():
     """Test executor with a real temporary file."""
+    from uuid import uuid4
+
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a real plan file
         plan_file = os.path.join(temp_dir, "PLAN.md")
@@ -233,6 +262,7 @@ def test_execute_plan_with_real_file():
             f.write(plan_content)
 
         # Setup mocks
+        conversation_id = str(uuid4())
         mock_conversation = Mock()
         mock_conversation._state.workspace.working_dir = temp_dir
         mock_conversation._agent.llm = Mock()
@@ -244,16 +274,22 @@ def test_execute_plan_with_real_file():
             mock_child_conversation
         )
 
-        # Create executor and set conversation
-        executor = ExecutePlanExecutor()
-        executor._conversation = mock_conversation  # type: ignore[attr-defined]
+        # Create executor
+        executor = ExecutePlanExecutor(conversation_id)
 
         # Execute
         action = ExecutePlanAction(plan_file="PLAN.md")
 
-        with patch("openhands.sdk.agent.registry.AgentRegistry") as mock_registry:
-            mock_registry.create.return_value = Mock()
-            result = executor(action)
+        with patch(
+            "openhands.sdk.conversation.registry.get_conversation_registry"
+        ) as mock_registry:
+            mock_registry.return_value.get.return_value = mock_conversation
+            mock_registry.return_value.get_parent_conversation.return_value = Mock()
+            with patch(
+                "openhands.sdk.agent.registry.AgentRegistry"
+            ) as mock_agent_registry:
+                mock_agent_registry.create.return_value = Mock()
+                result = executor(action)
 
         # Verify
         assert result.success is True

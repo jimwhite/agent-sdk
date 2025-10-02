@@ -99,27 +99,49 @@ EXECUTE_PLAN_DESCRIPTION = (
 
 
 class ExecutePlanExecutor(ToolExecutor):
-    def __init__(self):
-        """Initialize the executor with no conversation context."""
-        self._conversation = None
+    def __init__(self, conversation_id: str | None = None):
+        """Initialize the executor with conversation context."""
+        self._conversation_id = conversation_id
 
     def __call__(self, action: ExecutePlanAction) -> ExecutePlanObservation:
-        # Get the current conversation from the tool's context
-        conversation = self._conversation
+        # Get the current conversation from the registry
+        if self._conversation_id is None:
+            return ExecutePlanObservation(
+                success=False,
+                message="",
+                error=(
+                    "No conversation ID provided. This tool can only be used within a "
+                    "conversation context."
+                ),
+            )
+
+        from uuid import UUID
+
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        conversation = registry.get(UUID(self._conversation_id))
         if not conversation:
             return ExecutePlanObservation(
                 success=False,
                 message="",
                 error=(
-                    "No active conversation found. This tool can only be used within a "
-                    "conversation context."
+                    f"Conversation {self._conversation_id} not found in registry. "
+                    "This tool can only be used within a conversation context."
                 ),
             )
+
+        # Cast to LocalConversation to access _state
+        from typing import cast
+
+        from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+
+        local_conversation = cast(LocalConversation, conversation)
 
         try:
             # Check if plan file exists
             plan_path = os.path.join(
-                conversation._state.workspace.working_dir, action.plan_file
+                local_conversation._state.workspace.working_dir, action.plan_file
             )
             if not os.path.exists(plan_path):
                 return ExecutePlanObservation(
@@ -127,7 +149,7 @@ class ExecutePlanExecutor(ToolExecutor):
                     message="",
                     error=(
                         f"Plan file {action.plan_file} not found in "
-                        f"{conversation._state.workspace.working_dir}"
+                        f"{local_conversation._state.workspace.working_dir}"
                     ),
                 )
 
@@ -143,7 +165,9 @@ class ExecutePlanExecutor(ToolExecutor):
                 )
 
             # Get parent conversation
-            parent_conversation = conversation.get_parent_conversation()
+            parent_conversation = registry.get_parent_conversation(
+                UUID(self._conversation_id)
+            )
             if not parent_conversation:
                 return ExecutePlanObservation(
                     success=False,
@@ -160,7 +184,7 @@ class ExecutePlanExecutor(ToolExecutor):
             parent_conversation.run()
 
             # Close this planning child conversation
-            conversation.close()
+            local_conversation.close()
 
             return ExecutePlanObservation(
                 success=True,
@@ -191,17 +215,15 @@ class ExecutePlanTool(ToolBase):
     ) -> list[ToolBase[ExecutePlanAction, ExecutePlanObservation]]:
         """Create an ExecutePlanTool instance.
 
-        Note: The conversation context will be injected by LocalConversation
-        after tool initialization.
-
         Args:
-            conv_state: The conversation state (not used but required by protocol)
+            conv_state: The conversation state to get the conversation ID from
             **params: Additional parameters (not used)
 
         Returns:
             A list containing a single Tool instance.
         """
-        executor = ExecutePlanExecutor()
+        conversation_id = str(conv_state.id)
+        executor = ExecutePlanExecutor(conversation_id=conversation_id)
 
         tool = ToolDefinition(
             name="execute_plan",
