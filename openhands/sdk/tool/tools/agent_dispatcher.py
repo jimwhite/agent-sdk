@@ -168,7 +168,7 @@ class SpawnChildExecutor(ToolExecutor):
             # Create the child agent
             agent_registry = AgentRegistry()
             child_agent = agent_registry.create(
-                name=action.agent_type,
+                name=self._agent_type,
                 llm=child_llm,
             )
 
