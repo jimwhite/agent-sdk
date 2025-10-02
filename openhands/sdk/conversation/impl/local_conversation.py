@@ -115,6 +115,12 @@ class LocalConversation(BaseConversation):
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
 
+        # Register this conversation in the global registry
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        registry.register(self, parent_id=self._state.parent_id)
+
         # Initialize secrets if provided
         if secrets:
             # Convert dict[str, str] to dict[str, SecretValue]
@@ -365,6 +371,99 @@ class LocalConversation(BaseConversation):
                 logger.warning(f"Error closing executor for tool '{tool.name}': {e}")
 
         self._is_closed = True
+
+    def create_child_conversation(
+        self,
+        agent: AgentBase,
+        working_dir: str | None = None,
+        **kwargs,
+    ) -> "LocalConversation":
+        """Create a child conversation with the specified agent.
+
+        Args:
+            agent: The agent to use for the child conversation
+            working_dir: Working directory for the child. If None, creates a
+                        directory under .conversations/{parent-uuid}/{child-uuid}/
+            **kwargs: Additional arguments passed to LocalConversation
+
+        Returns:
+            The child conversation instance
+        """
+        from openhands.sdk.conversation.registry import get_conversation_registry
+
+        registry = get_conversation_registry()
+        child_conversation = registry.create_child_conversation(
+            parent_id=self._state.id,
+            agent=agent,
+            working_dir=working_dir,
+            **kwargs,
+        )
+
+        # Cast to LocalConversation since we know the registry returns LocalConversation
+        assert isinstance(child_conversation, LocalConversation)
+
+        # Track the child conversation locally
+        self._child_conversations[child_conversation._state.id] = child_conversation
+
+        return child_conversation
+
+    def get_child_conversation(
+        self, child_id: ConversationID
+    ) -> "LocalConversation | None":
+        """Get a child conversation by ID.
+
+        Args:
+            child_id: The ID of the child conversation
+
+        Returns:
+            The child conversation instance or None if not found
+        """
+        child_conv = self._child_conversations.get(child_id)
+        if child_conv is not None:
+            assert isinstance(child_conv, LocalConversation)
+        return child_conv
+
+    def get_children_mapping(self) -> dict[str, dict]:
+        """Get mapping of child conversation IDs to their metadata.
+
+        Returns:
+            Dictionary mapping child IDs to their metadata
+        """
+        mapping = {}
+        for child_id, child_conv in self._child_conversations.items():
+            assert isinstance(child_conv, LocalConversation)
+            # Normalize agent type: remove "Agent" suffix and convert to lowercase
+            agent_type = child_conv.agent.__class__.__name__.replace(
+                "Agent", ""
+            ).lower()
+            mapping[str(child_id)] = {
+                "agent_type": agent_type,
+                "agent_class": child_conv.agent.__class__.__name__,
+                "working_directory": child_conv.workspace.working_dir,
+                "created_at": str(
+                    child_conv._state.id.time
+                ),  # Use UUID time for created_at
+            }
+        return mapping
+
+    def close_child_conversation(self, child_id: ConversationID) -> None:
+        """Close and remove a child conversation.
+
+        Args:
+            child_id: The ID of the child conversation to close
+        """
+        child_conversation = self._child_conversations.get(child_id)
+        if child_conversation:
+            child_conversation.close()
+            del self._child_conversations[child_id]
+
+    def list_child_conversations(self) -> list[ConversationID]:
+        """List all active child conversation IDs.
+
+        Returns:
+            List of child conversation IDs
+        """
+        return list(self._child_conversations.keys())
 
     def __del__(self) -> None:
         """Ensure cleanup happens when conversation is destroyed."""
