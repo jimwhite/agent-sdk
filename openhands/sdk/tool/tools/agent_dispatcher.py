@@ -14,7 +14,6 @@ from openhands.sdk.tool import (
     Action,
     Observation,
     ToolAnnotations,
-    ToolBase,
     ToolDefinition,
     ToolExecutor,
 )
@@ -184,7 +183,7 @@ class AgentDispatcher:
         """
         return self._agent_registry.list_agents()
 
-    def create_spawn_tool(self, agent_type: str, conversation_state) -> ToolBase:
+    def create_spawn_tool(self, agent_type: str, conversation_state) -> ToolDefinition:
         """Create a spawn child agent tool for the specified agent type.
 
         Args:
@@ -192,7 +191,7 @@ class AgentDispatcher:
             conversation_state: The parent conversation state
 
         Returns:
-            ToolBase: Configured tool for spawning the specified agent type
+            ToolDefinition: Configured tool for spawning the specified agent type
 
         Raises:
             ValueError: If agent_type is not available
