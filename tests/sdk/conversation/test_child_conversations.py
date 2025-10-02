@@ -9,6 +9,7 @@ import pytest
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.registry import get_conversation_registry
 from openhands.sdk.llm import LLM
 
 
@@ -140,12 +141,10 @@ def test_local_conversation_child_tracking_initialization(test_agent, temp_dir):
 
     # Verify that local child tracking is not present (delegated to registry)
     assert not hasattr(conversation, "_child_conversations")
-    # Verify that child conversation methods are available
-    assert hasattr(conversation, "list_child_conversations")
-    assert hasattr(conversation, "create_child_conversation")
-    assert hasattr(conversation, "get_child_conversation")
-    # Verify initial state has no children
-    assert len(conversation.list_child_conversations()) == 0
+    # Verify that child conversation methods are not present (delegated to registry)
+    assert not hasattr(conversation, "list_child_conversations")
+    assert not hasattr(conversation, "create_child_conversation")
+    assert not hasattr(conversation, "get_child_conversation")
 
 
 def test_create_child_conversation(test_agent, child_agent, temp_dir):
@@ -156,20 +155,26 @@ def test_create_child_conversation(test_agent, child_agent, temp_dir):
         visualize=False,
     )
 
-    child_conversation = parent_conversation.create_child_conversation(
+    registry = get_conversation_registry()
+    child_conversation = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
 
     # Check child conversation properties
     assert child_conversation is not None
+    assert isinstance(child_conversation, LocalConversation)
     assert child_conversation.agent is child_agent
     assert child_conversation._state.parent_id == parent_conversation._state.id
 
     # Check parent tracking via registry
     child_id = child_conversation._state.id
-    assert child_id in parent_conversation.list_child_conversations()
-    assert parent_conversation.get_child_conversation(child_id) is child_conversation
+    assert child_id in registry.list_child_conversations(parent_conversation._state.id)
+    assert (
+        registry.get_child_conversation(parent_conversation._state.id, child_id)
+        is child_conversation
+    )
 
     # Check working directory structure (new pattern: parent-uuid/child-uuid)
     parent_id = parent_conversation._state.id
@@ -208,12 +213,15 @@ def test_create_child_conversation_custom_working_dir(
 
     custom_dir = os.path.join(temp_dir, "custom_child_dir")
 
-    child_conversation = parent_conversation.create_child_conversation(
+    registry = get_conversation_registry()
+    child_conversation = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         working_dir=custom_dir,
         visualize=False,
     )
 
+    assert isinstance(child_conversation, LocalConversation)
     assert child_conversation._state.workspace.working_dir == custom_dir
 
 
@@ -225,13 +233,18 @@ def test_get_child_conversation(test_agent, child_agent, temp_dir):
         visualize=False,
     )
 
-    child_conversation = parent_conversation.create_child_conversation(
+    registry = get_conversation_registry()
+    child_conversation = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
 
+    assert isinstance(child_conversation, LocalConversation)
     child_id = child_conversation._state.id
-    retrieved_child = parent_conversation.get_child_conversation(child_id)
+    retrieved_child = registry.get_child_conversation(
+        parent_conversation._state.id, child_id
+    )
 
     assert retrieved_child is child_conversation
 
@@ -244,8 +257,11 @@ def test_get_nonexistent_child_conversation(test_agent, temp_dir):
         visualize=False,
     )
 
+    registry = get_conversation_registry()
     nonexistent_id = uuid.uuid4()
-    retrieved_child = parent_conversation.get_child_conversation(nonexistent_id)
+    retrieved_child = registry.get_child_conversation(
+        parent_conversation._state.id, nonexistent_id
+    )
 
     assert retrieved_child is None
 
@@ -258,28 +274,33 @@ def test_close_child_conversation(test_agent, child_agent, temp_dir):
         visualize=False,
     )
 
-    child_conversation = parent_conversation.create_child_conversation(
+    registry = get_conversation_registry()
+    child_conversation = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
 
+    assert isinstance(child_conversation, LocalConversation)
     child_id = child_conversation._state.id
 
     # Verify child exists in children.json before closing
-    children_mapping = parent_conversation.get_children_mapping()
+    children_mapping = registry.get_children_mapping(parent_conversation._state.id)
     assert str(child_id) in children_mapping
 
     # Mock the close method to track if it was called
     child_conversation.close = Mock()
 
-    parent_conversation.close_child_conversation(child_id)
+    registry.close_child_conversation(parent_conversation._state.id, child_id)
 
     # Check that child was closed and removed
     child_conversation.close.assert_called_once()
-    assert child_id not in parent_conversation.list_child_conversations()
+    assert child_id not in registry.list_child_conversations(
+        parent_conversation._state.id
+    )
 
     # Check that child was removed from children.json
-    children_mapping = parent_conversation.get_children_mapping()
+    children_mapping = registry.get_children_mapping(parent_conversation._state.id)
     assert str(child_id) not in children_mapping
 
 
@@ -291,10 +312,11 @@ def test_close_nonexistent_child_conversation(test_agent, temp_dir):
         visualize=False,
     )
 
+    registry = get_conversation_registry()
     nonexistent_id = uuid.uuid4()
 
     # Should not raise an exception
-    parent_conversation.close_child_conversation(nonexistent_id)
+    registry.close_child_conversation(parent_conversation._state.id, nonexistent_id)
 
 
 def test_list_child_conversations(test_agent, child_agent, temp_dir):
@@ -305,20 +327,26 @@ def test_list_child_conversations(test_agent, child_agent, temp_dir):
         visualize=False,
     )
 
+    registry = get_conversation_registry()
+
     # Initially no children
-    assert parent_conversation.list_child_conversations() == []
+    assert registry.list_child_conversations(parent_conversation._state.id) == []
 
     # Create multiple children
-    child1 = parent_conversation.create_child_conversation(
+    child1 = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
-    child2 = parent_conversation.create_child_conversation(
+    child2 = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
 
-    child_ids = parent_conversation.list_child_conversations()
+    assert isinstance(child1, LocalConversation)
+    assert isinstance(child2, LocalConversation)
+    child_ids = registry.list_child_conversations(parent_conversation._state.id)
     assert len(child_ids) == 2
     assert child1._state.id in child_ids
     assert child2._state.id in child_ids
@@ -332,15 +360,22 @@ def test_parent_conversation_close_closes_children(test_agent, child_agent, temp
         visualize=False,
     )
 
+    registry = get_conversation_registry()
+
     # Create child conversations
-    child1 = parent_conversation.create_child_conversation(
+    child1 = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
-    child2 = parent_conversation.create_child_conversation(
+    child2 = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
+
+    assert isinstance(child1, LocalConversation)
+    assert isinstance(child2, LocalConversation)
 
     # Mock close methods
     child1.close = Mock()
@@ -354,7 +389,7 @@ def test_parent_conversation_close_closes_children(test_agent, child_agent, temp
     child2.close.assert_called_once()
 
     # Check that children were removed from tracking
-    assert len(parent_conversation.list_child_conversations()) == 0
+    assert len(registry.list_child_conversations(parent_conversation._state.id)) == 0
 
 
 def test_agent_type_directory_naming(
@@ -374,11 +409,14 @@ def test_agent_type_directory_naming(
             visualize=False,
         )
 
-        child_conversation = parent_conversation.create_child_conversation(
+        registry = get_conversation_registry()
+        child_conversation = registry.create_child_conversation(
+            parent_id=parent_conversation._state.id,
             agent=agent,
             visualize=False,
         )
 
+        assert isinstance(child_conversation, LocalConversation)
         child_id = child_conversation._state.id
         parent_id = parent_conversation._state.id
 
@@ -389,7 +427,7 @@ def test_agent_type_directory_naming(
         assert child_conversation._state.workspace.working_dir == expected_path
 
         # Check children.json mapping contains correct agent type
-        children_mapping = parent_conversation.get_children_mapping()
+        children_mapping = registry.get_children_mapping(parent_conversation._state.id)
         assert str(child_id) in children_mapping
         assert children_mapping[str(child_id)]["agent_type"] == expected_type
 
@@ -407,18 +445,25 @@ def test_multiple_child_conversations_parallel(
         visualize=False,
     )
 
+    registry = get_conversation_registry()
+
     # Create children
-    execution_child = parent_conversation.create_child_conversation(
+    execution_child = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=execution_agent,
         visualize=False,
     )
-    planning_child = parent_conversation.create_child_conversation(
+    planning_child = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=planning_agent,
         visualize=False,
     )
 
+    assert isinstance(execution_child, LocalConversation)
+    assert isinstance(planning_child, LocalConversation)
+
     # Both should exist simultaneously
-    assert len(parent_conversation.list_child_conversations()) == 2
+    assert len(registry.list_child_conversations(parent_conversation._state.id)) == 2
 
     # Should be in different directories under parent UUID
     execution_path = execution_child._state.workspace.working_dir
@@ -431,16 +476,20 @@ def test_multiple_child_conversations_parallel(
 
     # Both should be retrievable
     assert (
-        parent_conversation.get_child_conversation(execution_child._state.id)
+        registry.get_child_conversation(
+            parent_conversation._state.id, execution_child._state.id
+        )
         is execution_child
     )
     assert (
-        parent_conversation.get_child_conversation(planning_child._state.id)
+        registry.get_child_conversation(
+            parent_conversation._state.id, planning_child._state.id
+        )
         is planning_child
     )
 
     # Both should be in children.json mapping
-    children_mapping = parent_conversation.get_children_mapping()
+    children_mapping = registry.get_children_mapping(parent_conversation._state.id)
     assert str(execution_child._state.id) in children_mapping
     assert str(planning_child._state.id) in children_mapping
     assert (
@@ -460,19 +509,23 @@ def test_get_children_mapping(test_agent, child_agent, temp_dir):
         visualize=False,
     )
 
+    registry = get_conversation_registry()
+
     # Initially no children
-    children_mapping = parent_conversation.get_children_mapping()
+    children_mapping = registry.get_children_mapping(parent_conversation._state.id)
     assert children_mapping == {}
 
     # Create a child
-    child_conversation = parent_conversation.create_child_conversation(
+    child_conversation = registry.create_child_conversation(
+        parent_id=parent_conversation._state.id,
         agent=child_agent,
         visualize=False,
     )
+    assert isinstance(child_conversation, LocalConversation)
     child_id = child_conversation._state.id
 
     # Check mapping contains the child
-    children_mapping = parent_conversation.get_children_mapping()
+    children_mapping = registry.get_children_mapping(parent_conversation._state.id)
     assert str(child_id) in children_mapping
     assert children_mapping[str(child_id)]["agent_type"] == "child"
     assert children_mapping[str(child_id)]["agent_class"] == "ChildAgent"
