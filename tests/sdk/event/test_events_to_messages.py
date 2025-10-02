@@ -11,6 +11,7 @@ from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
+    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -417,3 +418,30 @@ class TestEventsToMessages:
             match="Expected empty thought for multi-action events after the first one",
         ):
             LLMConvertibleEvent.events_to_messages(events)  # type: ignore
+
+    def test_non_executable_action_event_round_trip_and_observation_match(self):
+        thought = [TextContent(text="thinking...")]
+        tc = create_tool_call("call_ne", "missing_tool", {"x": 1})
+        nea = NonExecutableActionEvent(source="agent", thought=thought, tool_call=tc)
+
+        # Convert to messages and ensure assistant message has single tool_call
+        messages = LLMConvertibleEvent.events_to_messages([nea])
+        assert len(messages) == 1
+        assert messages[0].role == "assistant"
+        assert messages[0].tool_calls is not None and len(messages[0].tool_calls) == 1
+        assert messages[0].tool_calls[0].id == "call_ne"
+        assert messages[0].tool_calls[0].name == "missing_tool"
+
+        # Simulate an AgentErrorEvent that carries the same tool_call_id
+        err = AgentErrorEvent(
+            error="not found",
+            tool_call_id="call_ne",
+            tool_name="missing_tool",
+        )
+
+        msgs = LLMConvertibleEvent.events_to_messages([nea, err])
+        # Should produce two messages: assistant tool call + tool error
+        assert len(msgs) == 2
+        assert msgs[0].role == "assistant"
+        assert msgs[1].role == "tool"
+        assert msgs[1].tool_call_id == "call_ne"
