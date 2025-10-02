@@ -8,8 +8,9 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.state import ConversationState
 from openhands.sdk.llm import LLM
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import ToolDefinition
 from openhands.sdk.tool.tool import ToolBase
+from openhands.sdk.workspace import LocalWorkspace
 from openhands.tools.browser_use import (
     BrowserToolSet,
     browser_click_tool,
@@ -33,7 +34,7 @@ def _create_test_conv_state(temp_dir: str) -> ConversationState:
     return ConversationState.create(
         id=uuid4(),
         agent=agent,
-        working_dir=temp_dir,
+        workspace=LocalWorkspace(working_dir=temp_dir),
     )
 
 
@@ -48,7 +49,7 @@ def test_browser_toolset_create_returns_list():
 
         # Verify all items are Tool instances
         for tool in tools:
-            assert isinstance(tool, Tool)
+            assert isinstance(tool, ToolDefinition)
 
 
 def test_browser_toolset_create_includes_all_browser_tools():

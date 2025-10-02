@@ -2,7 +2,7 @@
 import json
 from collections.abc import Sequence
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import Field, PrivateAttr
 
@@ -14,7 +14,7 @@ from openhands.sdk.conversation.persistence_const import BASE_STATE, EVENTS_DIR
 from openhands.sdk.conversation.secrets_manager import SecretsManager
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.event import ActionEvent, ObservationEvent, UserRejectObservation
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.io import FileStore, InMemoryFileStore, LocalFileStore
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
-class ConversationState(OpenHandsModel, FIFOLock):
+class ConversationState(OpenHandsModel):
     # ===== Public, validated fields =====
     id: ConversationID = Field(description="Unique conversation ID")
 
@@ -105,11 +105,9 @@ class ConversationState(OpenHandsModel, FIFOLock):
     _on_state_change: ConversationCallbackType | None = PrivateAttr(
         default=None
     )  # callback for state changes
-
-    def model_post_init(self, __context) -> None:
-        """Initialize FIFOLock after Pydantic model initialization."""
-        # Initialize FIFOLock
-        FIFOLock.__init__(self)
+    _lock: FIFOLock = PrivateAttr(
+        default_factory=FIFOLock
+    )  # FIFO lock for thread safety
 
     # ===== Public "events" facade (Sequence[Event]) =====
     @property
@@ -125,7 +123,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
         """Set a callback to be called when state changes.
 
         Args:
-            callback: A function that takes an EventBase (ConversationStateUpdateEvent)
+            callback: A function that takes an Event (ConversationStateUpdateEvent)
                      or None to remove the callback
         """
         self._on_state_change = callback
@@ -263,7 +261,7 @@ class ConversationState(OpenHandsModel, FIFOLock):
                     )
 
     @staticmethod
-    def get_unmatched_actions(events: Sequence[EventBase]) -> list[ActionEvent]:
+    def get_unmatched_actions(events: Sequence[Event]) -> list[ActionEvent]:
         """Find actions in the event history that don't have matching observations.
 
         This method identifies ActionEvents that don't have corresponding
@@ -289,3 +287,49 @@ class ConversationState(OpenHandsModel, FIFOLock):
                     unmatched_actions.insert(0, event)
 
         return unmatched_actions
+
+    # ===== FIFOLock delegation methods =====
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        """
+        Acquire the lock.
+
+        Args:
+            blocking: If True, block until lock is acquired. If False, return
+                     immediately.
+            timeout: Maximum time to wait for lock (ignored if blocking=False).
+                    -1 means wait indefinitely.
+
+        Returns:
+            True if lock was acquired, False otherwise.
+        """
+        return self._lock.acquire(blocking=blocking, timeout=timeout)
+
+    def release(self) -> None:
+        """
+        Release the lock.
+
+        Raises:
+            RuntimeError: If the current thread doesn't own the lock.
+        """
+        self._lock.release()
+
+    def __enter__(self: Self) -> Self:
+        """Context manager entry."""
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit."""
+        self._lock.release()
+
+    def locked(self) -> bool:
+        """
+        Return True if the lock is currently held by any thread.
+        """
+        return self._lock.locked()
+
+    def owned(self) -> bool:
+        """
+        Return True if the lock is currently held by the calling thread.
+        """
+        return self._lock.owned()
