@@ -1,14 +1,10 @@
 """Tests for agent configurations."""
 
-from unittest.mock import patch
-
 import pytest
 from pydantic import SecretStr
 
 from openhands.sdk.agent.agents.execution.agent import ExecutionAgent
-from openhands.sdk.agent.agents.execution.config import ExecutionAgentConfig
 from openhands.sdk.agent.agents.planning.agent import PlanningAgent
-from openhands.sdk.agent.agents.planning.config import PlanningAgentConfig
 
 
 @pytest.fixture
@@ -21,64 +17,19 @@ def mock_llm():
     )
 
 
-def test_execution_agent_config_properties():
-    """Test ExecutionAgentConfig properties."""
-    config = ExecutionAgentConfig()
-
-    assert config.name == "execution"
-    assert "Full read-write agent" in config.description
-    assert "bash execution" in config.description
-    assert "file editing" in config.description
+def test_execution_agent_class_properties():
+    """Test ExecutionAgent class properties."""
+    assert ExecutionAgent.agent_name == "execution"
+    assert "Full read-write agent" in ExecutionAgent.agent_description
+    assert "bash execution" in ExecutionAgent.agent_description
+    assert "file editing" in ExecutionAgent.agent_description
 
 
-def test_planning_agent_config_properties():
-    """Test PlanningAgentConfig properties."""
-    config = PlanningAgentConfig()
-
-    assert config.name == "planning"
-    assert "Read-only agent" in config.description
-    assert "analysis and planning" in config.description
-
-
-@patch("openhands.sdk.agent.agents.execution.config.register_tool")
-def test_execution_agent_config_create(mock_register_tool, mock_llm):
-    """Test ExecutionAgentConfig.create method."""
-    config = ExecutionAgentConfig()
-
-    agent = config.create(mock_llm, enable_browser=True)
-
-    assert isinstance(agent, ExecutionAgent)
-    assert agent.llm is mock_llm
-
-    # Verify tools were registered
-    assert (
-        mock_register_tool.call_count >= 3
-    )  # At least BashTool, FileEditorTool, TaskTrackerTool
-
-
-@patch("openhands.sdk.agent.agents.execution.config.register_tool")
-def test_execution_agent_config_create_no_browser(mock_register_tool, mock_llm):
-    """Test ExecutionAgentConfig.create without browser tools."""
-    config = ExecutionAgentConfig()
-
-    agent = config.create(mock_llm, enable_browser=False)
-
-    assert isinstance(agent, ExecutionAgent)
-    assert agent.llm is mock_llm
-
-
-@patch("openhands.sdk.agent.agents.planning.config.register_tool")
-def test_planning_agent_config_create(mock_register_tool, mock_llm):
-    """Test PlanningAgentConfig.create method."""
-    config = PlanningAgentConfig()
-
-    agent = config.create(mock_llm)
-
-    assert isinstance(agent, PlanningAgent)
-    assert agent.llm is mock_llm
-
-    # Verify FileEditorTool was registered
-    mock_register_tool.assert_called()
+def test_planning_agent_class_properties():
+    """Test PlanningAgent class properties."""
+    assert PlanningAgent.agent_name == "planning"
+    assert "Read-only agent" in PlanningAgent.agent_description
+    assert "analysis and planning" in PlanningAgent.agent_description
 
 
 def test_execution_agent_initialization(mock_llm):
@@ -151,8 +102,8 @@ def test_planning_agent_no_security_features(mock_llm):
     assert agent.mcp_config == {}
 
 
-def test_agent_config_override_defaults(mock_llm):
-    """Test that agent configs can override default parameters."""
+def test_agent_override_defaults(mock_llm):
+    """Test that agents can override default parameters."""
     # Test ExecutionAgent overrides
     custom_tools = []
     agent = ExecutionAgent(

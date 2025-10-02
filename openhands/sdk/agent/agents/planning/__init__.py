@@ -1,6 +1,6 @@
 """Planning agent implementation."""
 
-from openhands.sdk.agent.agents.planning.agent import PlanningAgent, PlanningAgentConfig
+from openhands.sdk.agent.agents.planning.agent import PlanningAgent
 
 
-__all__ = ["PlanningAgent", "PlanningAgentConfig"]
+__all__ = ["PlanningAgent"]

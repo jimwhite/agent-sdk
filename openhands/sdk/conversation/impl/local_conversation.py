@@ -115,7 +115,7 @@ class LocalConversation(BaseConversation):
         from openhands.sdk.conversation.registry import get_conversation_registry
 
         registry = get_conversation_registry()
-        registry.register(self, parent_id=self._state.parent_id)
+        registry.register(self)
 
         # Initialize secrets if provided
         if secrets:

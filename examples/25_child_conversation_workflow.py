@@ -23,13 +23,14 @@ This demonstrates the agent delegation system with minimal user interaction.
 
 import os
 import tempfile
+from typing import cast
 
 from pydantic import SecretStr
 
-import openhands.sdk.agent.agents.execution.config  # noqa: F401
-import openhands.sdk.agent.agents.planning.config  # noqa: F401
+import openhands.sdk.agent.agents  # noqa: F401 - Trigger agent registration
 from openhands.sdk.agent.registry import create_agent, list_agents
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.registry import get_conversation_registry
 from openhands.sdk.llm import LLM
 
 
@@ -106,7 +107,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
     conversation.run()
 
     # Check for child conversations
-    main_child_ids = conversation.list_child_conversations()
+    registry = get_conversation_registry()
+    main_child_ids = registry.list_child_conversations(conversation._state.id)
     print(f"Found {len(main_child_ids)} child conversations")
 
     # Verify assertions
@@ -115,7 +117,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     # 1. Verify that a child conversation was spawned
     print("\n=== Child Conversations Hierarchy ===")
     # Get latest list
-    main_child_ids = conversation.list_child_conversations()
+    main_child_ids = registry.list_child_conversations(conversation._state.id)
     print(f"Main conversation children: {main_child_ids}")
 
     # Assert that at least one child was created
@@ -128,11 +130,15 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     # Get the child conversation
     planning_child_id = main_child_ids[0]
-    planning_child = conversation.get_child_conversation(planning_child_id)
+    planning_child = registry.get_child_conversation(
+        conversation._state.id, planning_child_id
+    )
     assert planning_child is not None, "Could not retrieve planning child conversation"
 
     # Assert that it's a PlanningAgent)
-    planning_agent_name = planning_child.agent.__class__.__name__
+    planning_agent_name = cast(
+        LocalConversation, planning_child
+    ).agent.__class__.__name__
     print(f"Child agent type: {planning_agent_name}")
     assert "Planning" in planning_agent_name, (
         f"Expected PlanningAgent but got {planning_agent_name}"
@@ -161,7 +167,10 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     # Possible locations for PLAN.md
     possible_paths = [
-        os.path.join(planning_child._state.workspace.working_dir, "PLAN.md"),
+        os.path.join(
+            cast(LocalConversation, planning_child)._state.workspace.working_dir,
+            "PLAN.md",
+        ),
         os.path.join(temp_dir, "PLAN.md"),
         "/tmp/PLAN.md",
     ]
@@ -207,54 +216,59 @@ with tempfile.TemporaryDirectory() as temp_dir:
     # The planning child should be closed after execute_plan
     try:
         # Try to check if planning child is still active
-        planning_child_status = planning_child._state.agent_status
+        planning_child_status = cast(
+            LocalConversation, planning_child
+        )._state.agent_status
         print(f"Planning child status: {planning_child_status}")
     except Exception as e:
         print(f"Planning child appears to be closed: {e}")
 
     # Check if planning child has any execution children (should be none)
-    execution_child_ids = []
-    if hasattr(planning_child, "list_child_conversations"):
-        execution_child_ids = planning_child.list_child_conversations()
-        if execution_child_ids:
-            print(
-                f"\n⚠️  Unexpected: Planning child has "
-                f"{len(execution_child_ids)} children"
-            )
-            print(
-                "This suggests the old behavior (creating grandchildren) is "
-                "still active"
-            )
-        else:
-            print("\n✅ Assertion 5 passed: Planning child has no execution children")
-            print(
-                "This confirms the execute_plan tool returns control to parent "
-                "instead of creating grandchildren"
-            )
+    execution_child_ids = registry.list_child_conversations(
+        cast(LocalConversation, planning_child)._state.id
+    )
+    if execution_child_ids:
+        print(
+            f"\n⚠️  Unexpected: Planning child has {len(execution_child_ids)} children"
+        )
+        print("This suggests the old behavior (creating grandchildren) is still active")
+    else:
+        print("\n✅ Assertion 5 passed: Planning child has no execution children")
+        print(
+            "This confirms the execute_plan tool returns control to parent "
+            "instead of creating grandchildren"
+        )
 
     # Display full hierarchy
     print("\n=== Full Hierarchy ===")
     for child_id in main_child_ids:
-        child = conversation.get_child_conversation(child_id)
+        child = registry.get_child_conversation(
+            cast(LocalConversation, conversation)._state.id, child_id
+        )
         if child:
+            child_conv = cast(LocalConversation, child)
             print(
-                f"  {child_id}: {child.agent.__class__.__name__} in "
-                f"{child._state.workspace.working_dir}"
+                f"  {child_id}: {child_conv.agent.__class__.__name__} in "
+                f"{child_conv._state.workspace.working_dir}"
             )
 
             # Check if this child has its own children
-            if hasattr(child, "list_child_conversations"):
-                grandchild_ids = child.list_child_conversations()
-                if grandchild_ids:
-                    print(f"    └─ Children: {grandchild_ids}")
-                    for grandchild_id in grandchild_ids:
-                        grandchild = child.get_child_conversation(grandchild_id)
-                        if grandchild:
-                            print(
-                                f"      {grandchild_id}: "
-                                f"{grandchild.agent.__class__.__name__} in "
-                                f"{grandchild._state.workspace.working_dir}"
-                            )
+            grandchild_ids = registry.list_child_conversations(
+                cast(LocalConversation, child)._state.id
+            )
+            if grandchild_ids:
+                print(f"    └─ Children: {grandchild_ids}")
+                for grandchild_id in grandchild_ids:
+                    grandchild = registry.get_child_conversation(
+                        cast(LocalConversation, child)._state.id, grandchild_id
+                    )
+                    if grandchild:
+                        grandchild_conv = cast(LocalConversation, grandchild)
+                        print(
+                            f"      {grandchild_id}: "
+                            f"{grandchild_conv.agent.__class__.__name__} in "
+                            f"{grandchild_conv._state.workspace.working_dir}"
+                        )
 
     # Main conversation has completed
     print("\n=== Main Conversation Status ===")

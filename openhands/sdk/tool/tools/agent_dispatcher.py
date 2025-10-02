@@ -1,11 +1,12 @@
 """AgentDispatcher for creating spawn child agent tools systematically."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import Field
 from rich.text import Text
 
 from openhands.sdk.agent.registry import AgentRegistry
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.registry import get_conversation_registry
 from openhands.sdk.conversation.types import ConversationID
 from openhands.sdk.llm.message import TextContent
@@ -65,7 +66,10 @@ class SpawnChildObservation(Observation):
         if self.success:
             return [
                 TextContent(
-                    text=f"Child {self.agent_type} spawned with ID: {self.child_conversation_id}"
+                    text=(
+                        f"Child {self.agent_type} spawned with ID: "
+                        f"{self.child_conversation_id}"
+                    )
                 )
             ]
         else:
@@ -119,32 +123,40 @@ class SpawnChildExecutor(ToolExecutor):
                 return SpawnChildObservation(
                     success=False,
                     agent_type=self._agent_type,
-                    error=f"Parent conversation {self._conversation_id} not found in registry",
-                    message=f"Parent conversation {self._conversation_id} not found in registry",
+                    error=(
+                        f"Parent conversation {self._conversation_id} "
+                        f"not found in registry"
+                    ),
+                    message=(
+                        f"Parent conversation {self._conversation_id} "
+                        f"not found in registry"
+                    ),
                 )
 
             # Use parent agent's LLM for child agent
-            child_llm = parent_conversation.agent.llm
+            parent_local_conv = cast(LocalConversation, parent_conversation)
+            child_llm = parent_local_conv.agent.llm
 
             # Create the child agent
             agent_registry = AgentRegistry()
             child_agent = agent_registry.create(
-                agent_type=action.agent_type,
+                name=action.agent_type,
                 llm=child_llm,
             )
 
             # Create child conversation
             child_conversation = conversation_registry.create_child_conversation(
-                parent_conversation=parent_conversation,
+                parent_id=self._conversation_id,
                 agent=child_agent,
                 task_description=action.task_description,
             )
 
+            child_local_conv = cast(LocalConversation, child_conversation)
             return SpawnChildObservation(
                 success=True,
                 agent_type=self._agent_type,
-                child_conversation_id=str(child_conversation._state.id),
-                working_directory=parent_conversation._state.workspace.working_dir,
+                child_conversation_id=str(child_local_conv._state.id),
+                working_directory=parent_local_conv._state.workspace.working_dir,
                 message=f"{self._agent_type.title()} child created successfully",
             )
 
@@ -188,7 +200,8 @@ class AgentDispatcher:
         available_types = self.get_available_agent_types()
         if agent_type not in available_types:
             raise ValueError(
-                f"Agent type '{agent_type}' not found. Available types: {list(available_types.keys())}"
+                f"Agent type '{agent_type}' not found. "
+                f"Available types: {list(available_types.keys())}"
             )
 
         tool_name = f"spawn_{agent_type}_child"
@@ -222,7 +235,8 @@ class AgentDispatcher:
         available_types = self.get_available_agent_types()
         if agent_type not in available_types:
             raise ValueError(
-                f"Agent type '{agent_type}' not found. Available types: {list(available_types.keys())}"
+                f"Agent type '{agent_type}' not found. "
+                f"Available types: {list(available_types.keys())}"
             )
 
         class_name = f"Spawn{agent_type.title()}ChildTool"
@@ -253,17 +267,20 @@ class AgentDispatcher:
         return (
             f"Spawn a child {agent_name} to handle specialized tasks. "
             f"{agent_description} "
-            f"This operation is non-BLOCKING and leverages the agent's specialized capabilities "
-            f"to work independently on the assigned task."
+            f"This operation is non-BLOCKING and leverages the agent's "
+            f"specialized capabilities to work independently on the assigned task."
         )
 
     @staticmethod
-    def create_planning_tool() -> ToolBase:
+    def create_planning_tool() -> ToolDefinition:
         """Create a spawn planning child tool with planning-specific configuration."""
         return AgentDispatcher().create_tool(
             agent_type="planning",
             tool_name="spawn_planning_child",
-            description="Spawn a child planning agent to create detailed plans for complex tasks",
+            description=(
+                "Spawn a child planning agent to create detailed plans "
+                "for complex tasks"
+            ),
         )
 
     @staticmethod
@@ -271,12 +288,13 @@ class AgentDispatcher:
         agent_type: str,
         tool_name: str | None = None,
         description: str | None = None,
-    ) -> ToolBase:
+    ) -> ToolDefinition:
         """Create a spawn child agent tool for the specified agent type.
 
         Args:
-            agent_type: Type of agent to spawn (e.g., 'planning', 'execution', 'research')
-            tool_name: Optional custom name for the tool. Defaults to 'spawn_{agent_type}_child'
+            agent_type: Type of agent to spawn (e.g., 'planning', 'execution')
+            tool_name: Optional custom name for the tool.
+                Defaults to 'spawn_{agent_type}_child'
             description: Optional custom description. Defaults to generic description
 
         Returns:

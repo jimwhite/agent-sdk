@@ -256,9 +256,7 @@ class ConversationRegistry:
                 visualize=cast(bool, kwargs.get("visualize", False)),
             )
 
-            # Set parent_id in child state
-            with child._state:
-                child._state.parent_id = parent_id
+            # Parent-child relationship is managed by the registry
 
             # Set parent conversation reference in child
             child._parent_conversation = parent  # type: ignore[attr-defined]

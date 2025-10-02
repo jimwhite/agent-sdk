@@ -1,12 +1,16 @@
 """ExecutionAgent - Full read-write agent with comprehensive tool access."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 from openhands.sdk.agent.agent import Agent
 from openhands.sdk.context.condenser import LLMSummarizingCondenser
 from openhands.sdk.llm import LLM
+from openhands.sdk.logger import get_logger
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.tool import Tool
+from openhands.sdk.tool import Tool, register_tool
+
+
+logger = get_logger(__name__)
 
 
 class ExecutionAgent(Agent):
@@ -17,6 +21,13 @@ class ExecutionAgent(Agent):
     - Security analyzer and context condenser enabled by default
     - MCP tools for external resource fetching
     """
+
+    # Agent configuration
+    agent_name: ClassVar[str] = "execution"
+    agent_description: ClassVar[str] = (
+        "Full read-write agent with comprehensive tool access including "
+        "bash execution, file editing, task tracking, and browser tools"
+    )
 
     def __init__(
         self,
@@ -33,6 +44,9 @@ class ExecutionAgent(Agent):
             enable_mcp: Whether to enable MCP tools
             **kwargs: Additional configuration parameters
         """
+        # Register required tools
+        self._register_tools(enable_browser)
+
         # Default tools for execution agent
         tools = [
             Tool(name="BashTool"),
@@ -73,3 +87,40 @@ class ExecutionAgent(Agent):
             condenser=kwargs.pop("condenser", condenser),
             **kwargs,
         )
+
+    def _register_tools(self, enable_browser: bool = True) -> None:
+        """Register the tools required by ExecutionAgent."""
+        try:
+            from openhands.tools.execute_bash import BashTool
+            from openhands.tools.str_replace_editor import FileEditorTool
+            from openhands.tools.task_tracker import TaskTrackerTool
+
+            # Core tools
+            register_tool("BashTool", BashTool)
+            register_tool("FileEditorTool", FileEditorTool)
+            register_tool("TaskTrackerTool", TaskTrackerTool)
+
+            if enable_browser:
+                from openhands.tools.browser_use import BrowserToolSet
+
+                register_tool("BrowserToolSet", BrowserToolSet)
+
+            # Agent-specific tools (registered here to avoid import-time cycles)
+            from openhands.sdk.tool.tools.agent_dispatcher import AgentDispatcher
+
+            # Register planning child tool using AgentDispatcher
+            planning_tool = AgentDispatcher.create_planning_tool()
+            register_tool("SpawnPlanningChildTool", planning_tool)
+
+        except ImportError as e:
+            logger.warning(f"Failed to register some tools for ExecutionAgent: {e}")
+
+
+# Auto-register the agent
+try:
+    from openhands.sdk.agent.registry import register_agent
+
+    register_agent(ExecutionAgent)
+    logger.debug("ExecutionAgent registered successfully")
+except Exception as e:
+    logger.warning(f"Failed to register ExecutionAgent: {e}")

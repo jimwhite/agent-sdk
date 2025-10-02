@@ -101,24 +101,22 @@ def temp_dir():
 
 
 def test_conversation_state_parent_id(test_agent, temp_dir):
-    """Test that ConversationState supports parent_id."""
+    """Test that ConversationState can be created (parent_id handled by registry)."""
     from openhands.sdk.conversation.state import ConversationState
     from openhands.sdk.workspace import LocalWorkspace
-
-    parent_id = uuid.uuid4()
 
     state = ConversationState.create(
         id=uuid.uuid4(),
         agent=test_agent,
         workspace=LocalWorkspace(working_dir=temp_dir),
-        parent_id=parent_id,
     )
 
-    assert state.parent_id == parent_id
+    # Parent-child relationships are now managed by the registry, not the state
+    assert hasattr(state, "id")
 
 
 def test_conversation_state_no_parent_id(test_agent, temp_dir):
-    """Test that ConversationState works without parent_id."""
+    """Test that ConversationState works (parent_id is now handled by registry)."""
     from openhands.sdk.conversation.state import ConversationState
     from openhands.sdk.workspace import LocalWorkspace
 
@@ -128,7 +126,8 @@ def test_conversation_state_no_parent_id(test_agent, temp_dir):
         workspace=LocalWorkspace(working_dir=temp_dir),
     )
 
-    assert state.parent_id is None
+    # Parent-child relationships are now managed by the registry, not the state
+    assert hasattr(state, "id")
 
 
 def test_local_conversation_child_tracking_initialization(test_agent, temp_dir):
@@ -166,7 +165,7 @@ def test_create_child_conversation(test_agent, child_agent, temp_dir):
     assert child_conversation is not None
     assert isinstance(child_conversation, LocalConversation)
     assert child_conversation.agent is child_agent
-    assert child_conversation._state.parent_id == parent_conversation._state.id
+    # Parent-child relationship is now managed by the registry
 
     # Check parent tracking via registry
     child_id = child_conversation._state.id
