@@ -150,6 +150,17 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
     "deepseek-r1-0528*",
 ]
 
+# Models that should use the OpenAI Responses API path by default
+RESPONSES_API_PATTERNS: list[str] = [
+    # OpenAI GPT-5 family (includes mini variants)
+    "gpt-5-2025*",
+]
+
+
+def supports_responses_api(model: str) -> bool:
+    """Return True if the model should use the Responses API path."""
+    return model_matches(model, RESPONSES_API_PATTERNS)
+
 
 def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(

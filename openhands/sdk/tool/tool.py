@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from typing import Any, Protocol, Self, TypeVar
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+from litellm.types.llms.openai import ToolParam
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -308,6 +309,36 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
                 else action_type.to_mcp_schema(),
             ),
         )
+
+    def to_responses_tool(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
+    ) -> ToolParam:
+        """Convert a Tool to a Responses API function tool (LiteLLM typed).
+
+        For Responses API, function tools expect top-level keys:
+        { "type": "function", "name": ..., "description": ..., "parameters": ... }
+        """
+        action_type = action_type or self.action_type
+        action_type_with_risk = _create_action_type_with_risk(action_type)
+
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
+        schema = (
+            action_type_with_risk.to_mcp_schema()
+            if add_security_risk_prediction
+            else action_type.to_mcp_schema()
+        )
+
+        # ToolParam is a TypedDict, so returning a dict with the correct keys is typed
+        return {
+            "type": "function",
+            "name": self.name,
+            "description": self.description,
+            "parameters": schema,
+        }
 
     @classmethod
     def resolve_kind(cls, kind: str) -> type:

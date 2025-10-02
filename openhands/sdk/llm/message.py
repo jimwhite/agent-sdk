@@ -1,3 +1,4 @@
+import json
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
@@ -28,28 +29,17 @@ class MessageToolCall(BaseModel):
     )
 
     @classmethod
-    def from_litellm_tool_call(
+    def from_chat_tool_call(
         cls, tool_call: ChatCompletionMessageToolCall
     ) -> "MessageToolCall":
-        """Create a MessageToolCall from a litellm ChatCompletionMessageToolCall.
-
-        This method provides a migration path from litellm tool calls to our
-        native implementation.
-
-        Args:
-            tool_call: The litellm tool call to convert
-
-        Returns:
-            A new MessageToolCall instance with the same data
-        """
+        """Create a MessageToolCall from a Chat Completions tool call."""
         if not tool_call.type == "function":
             raise ValueError(
-                f"Unsupported tool call type for {tool_call=}, expected 'function'  "
+                f"Unsupported tool call type for {tool_call=}, expected 'function' "
                 f"not {tool_call.type}'"
             )
         if tool_call.function is None:
             raise ValueError(f"tool_call.function is None for {tool_call=}")
-
         if tool_call.function.name is None:
             raise ValueError(f"tool_call.function.name is None for {tool_call=}")
 
@@ -59,6 +49,66 @@ class MessageToolCall(BaseModel):
             arguments=tool_call.function.arguments,
             origin="completion",
         )
+
+    @classmethod
+    def from_responses_function_call(cls, item: Any) -> "MessageToolCall":
+        """Create a MessageToolCall from an OpenAI Responses function_call item."""
+        # item may be a pydantic model or a dict
+        get = (
+            (lambda k: getattr(item, k, None))
+            if not isinstance(item, dict)
+            else item.get
+        )
+        call_id = get("call_id") or get("id") or ""
+        name = get("name") or ""
+        args = get("arguments")
+        # Ensure JSON string for arguments
+        if isinstance(args, (dict, list)):
+            try:
+                args = json.dumps(args)
+            except Exception:
+                args = str(args)
+        elif args is None:
+            args = ""
+        else:
+            args = str(args)
+
+        return cls(
+            id=str(call_id),
+            name=str(name),
+            arguments=args,
+            origin="responses",
+            raw=item,
+        )
+
+    def to_chat_dict(self) -> dict[str, Any]:
+        """Serialize to OpenAI Chat Completions tool_calls format."""
+        return {
+            "id": self.id,
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "arguments": self.arguments,
+            },
+        }
+
+    def to_responses_dict(self) -> dict[str, Any]:
+        """Serialize to OpenAI Responses 'function_call' input item format."""
+        # Responses requires ids to begin with 'fc'
+        resp_id = self.id if str(self.id).startswith("fc") else f"fc_{self.id}"
+        # Responses requires arguments to be a JSON string
+        args_str = (
+            self.arguments
+            if isinstance(self.arguments, str)
+            else json.dumps(self.arguments)
+        )
+        return {
+            "type": "function_call",
+            "id": resp_id,
+            "call_id": resp_id,
+            "name": self.name,
+            "arguments": args_str,
+        }
 
 
 class ThinkingBlock(BaseModel):
@@ -198,7 +248,8 @@ class Message(BaseModel):
             # single string
             message_dict = self._string_serializer()
 
-        return message_dict
+        # add tool call keys if we have a tool call or response (Chat Completions path)
+        return self._add_tool_call_keys(message_dict)
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
@@ -207,8 +258,8 @@ class Message(BaseModel):
         )
         message_dict: dict[str, Any] = {"content": content, "role": self.role}
 
-        # add tool call keys if we have a tool call or response
-        return self._add_tool_call_keys(message_dict)
+        # tool call keys are added in to_llm_dict to centralize behavior
+        return message_dict
 
     def _list_serializer(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
@@ -248,7 +299,8 @@ class Message(BaseModel):
         if role_tool_with_prompt_caching:
             message_dict["cache_control"] = {"type": "ephemeral"}
 
-        return self._add_tool_call_keys(message_dict)
+        # tool call keys are added in to_llm_dict to centralize behavior
+        return message_dict
 
     def _add_tool_call_keys(self, message_dict: dict[str, Any]) -> dict[str, Any]:
         """Add tool call keys if we have a tool call or response.
@@ -257,17 +309,7 @@ class Message(BaseModel):
         """
         # an assistant message calling a tool
         if self.tool_calls is not None:
-            message_dict["tool_calls"] = [
-                {
-                    "id": tool_call.id,
-                    "type": "function",
-                    "function": {
-                        "name": tool_call.name,
-                        "arguments": tool_call.arguments,
-                    },
-                }
-                for tool_call in self.tool_calls
-            ]
+            message_dict["tool_calls"] = [tc.to_chat_dict() for tc in self.tool_calls]
 
         # an observation message with tool response
         if self.tool_call_id is not None:
@@ -278,6 +320,77 @@ class Message(BaseModel):
             message_dict["name"] = self.name
 
         return message_dict
+
+    def to_responses_input(self, *, vision_enabled: bool) -> list[dict[str, Any]]:
+        """Serialize this Message into OpenAI Responses API input items.
+
+        Mapping policy:
+        - system: returned as [], system content is expected to be sent via 'instructions'
+        - user: one 'message' item with content parts -> input_text / input_image (when vision enabled)
+        - assistant: prior assistant turns become plain input_text items (no message wrapper)
+        - tool: tool execution result(s) become function_call_output items (one per TextContent)
+        """
+        items: list[dict[str, Any]] = []
+
+        if self.role == "system":
+            return items
+
+        if self.role == "user":
+            content_items: list[dict[str, Any]] = []
+            for c in self.content:
+                if isinstance(c, TextContent):
+                    content_items.append({"type": "input_text", "text": c.text})
+                elif isinstance(c, ImageContent) and vision_enabled:
+                    for url in c.image_urls:
+                        content_items.append(
+                            {"type": "input_image", "image_url": url, "detail": "auto"}
+                        )
+            items.append(
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": content_items
+                    or [
+                        {
+                            "type": "input_text",
+                            "text": "",
+                        }
+                    ],
+                }
+            )
+            return items
+
+        if self.role == "assistant":
+            # Emit any assistant text as input_text
+            for c in self.content:
+                if isinstance(c, TextContent) and c.text:
+                    items.append({"type": "input_text", "text": c.text})
+            # Emit assistant tool calls so subsequent function_call_output can match call_id
+            if self.tool_calls:
+                for tc in self.tool_calls:
+                    items.append(tc.to_responses_dict())
+            return items
+
+        if self.role == "tool":
+            if self.tool_call_id is not None:
+                # Responses requires function_call_output.call_id to match a previous function_call id
+                resp_call_id = (
+                    self.tool_call_id
+                    if str(self.tool_call_id).startswith("fc")
+                    else f"fc_{self.tool_call_id}"
+                )
+                for c in self.content:
+                    if isinstance(c, TextContent):
+                        items.append(
+                            {
+                                "type": "function_call_output",
+                                "call_id": resp_call_id,
+                                "output": c.text,
+                            }
+                        )
+            return items
+
+        return items
 
     @classmethod
     def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
@@ -318,7 +431,7 @@ class Message(BaseModel):
 
             if len(function_tool_calls) > 0:
                 converted_tool_calls = [
-                    MessageToolCall.from_litellm_tool_call(tc)
+                    MessageToolCall.from_chat_tool_call(tc)
                     for tc in function_tool_calls
                 ]
             else:

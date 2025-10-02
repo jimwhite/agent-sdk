@@ -105,3 +105,65 @@ class ActionEvent(LLMConvertibleEvent):
         )
         action_name = self.action.__class__.__name__
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
+
+
+class NonExecutableActionEvent(LLMConvertibleEvent):
+    """Assistant function_call(s) persisted without a validated Action.
+
+    Emitted when LLM returned tool call(s) but validation failed (or tool missing),
+    so we still persist the function_call(s) for the next turn to match tool outputs.
+    """
+
+    source: SourceType = "agent"
+    thought: Sequence[TextContent] = Field(
+        default_factory=list,
+        description="The assistant's thought content returned alongside tool calls",
+    )
+    reasoning_content: str | None = Field(
+        default=None,
+        description="Intermediate reasoning content from reasoning models",
+    )
+    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
+        default_factory=list,
+        description="Anthropic thinking blocks from the LLM response",
+    )
+    tool_calls: list[MessageToolCall] = Field(
+        default_factory=list, description="Raw tool calls returned by the LLM"
+    )
+
+    def to_llm_message(self) -> Message:
+        return Message(
+            role="assistant",
+            content=self.thought,
+            tool_calls=self.tool_calls,
+            reasoning_content=self.reasoning_content,
+            thinking_blocks=self.thinking_blocks,
+        )
+
+    @property
+    def visualize(self) -> Text:
+        content = Text()
+        if self.reasoning_content:
+            content.append("Reasoning:\n", style="bold")
+            content.append(self.reasoning_content)
+            content.append("\n\n")
+        thought_text = " ".join([t.text for t in self.thought])
+        if thought_text:
+            content.append("Thought:\n", style="bold")
+            content.append(thought_text)
+            content.append("\n\n")
+        content.append("Function calls:\n", style="bold")
+        for tc in self.tool_calls:
+            content.append(f"- {tc.name} ({tc.id})\n")
+        return content
+
+    def __str__(self) -> str:
+        base_str = f"{self.__class__.__name__} ({self.source})"
+        thought_text = " ".join([t.text for t in self.thought])
+        thought_preview = (
+            thought_text[:N_CHAR_PREVIEW] + "..."
+            if len(thought_text) > N_CHAR_PREVIEW
+            else thought_text
+        )
+        calls = ", ".join([f"{tc.name}:{tc.id}" for tc in self.tool_calls]) or "[]"
+        return f"{base_str}\n  Thought: {thought_preview}\n  Calls: {calls}"

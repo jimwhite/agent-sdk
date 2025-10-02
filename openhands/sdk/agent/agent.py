@@ -12,6 +12,7 @@ from openhands.sdk.event import (
     AgentErrorEvent,
     LLMConvertibleEvent,
     MessageEvent,
+    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -23,6 +24,7 @@ from openhands.sdk.llm import (
     TextContent,
     ThinkingBlock,
 )
+from openhands.sdk.llm.utils.model_features import supports_responses_api
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -169,16 +171,28 @@ class Agent(AgentBase):
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
         logger.debug(
             "Sending messages to LLM: "
-            f"{json.dumps([m.model_dump() for m in _messages], indent=2)}"
+            f"{json.dumps([m.model_dump() for m in _messages[1:]], indent=2)}"
         )
 
         try:
-            llm_response = self.llm.completion(
-                messages=_messages,
-                tools=list(self.tools_map.values()),
-                extra_body={"metadata": self.llm.metadata},
-                add_security_risk_prediction=self._add_security_risk_prediction,
-            )
+            if supports_responses_api(self.llm.model):
+                llm_response = self.llm.responses(
+                    messages=_messages,
+                    tools=list(self.tools_map.values()),
+                    # route metadata through typed param for Responses path
+                    # (LLM.responses will merge with instance metadata)
+                    include=None,
+                    store=False,
+                    add_security_risk_prediction=self._add_security_risk_prediction,
+                    metadata=self.llm.metadata,
+                )
+            else:
+                llm_response = self.llm.completion(
+                    messages=_messages,
+                    tools=list(self.tools_map.values()),
+                    extra_body={"metadata": self.llm.metadata},
+                    add_security_risk_prediction=self._add_security_risk_prediction,
+                )
         except Exception as e:
             # If there is a condenser registered and the exception is a context window
             # exceeded, we can recover by triggering a condensation request.
@@ -304,6 +318,15 @@ class Agent(AgentBase):
             available = list(self.tools_map.keys())
             err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
+            # Persist assistant function_call(s) so next turn has matching call_id for tool output
+            tc_event = NonExecutableActionEvent(
+                source="agent",
+                thought=thought,
+                reasoning_content=reasoning_content,
+                thinking_blocks=thinking_blocks,
+                tool_calls=[tool_call],
+            )
+            on_event(tc_event)
             event = AgentErrorEvent(
                 error=err,
                 tool_name=tool_name,
@@ -340,6 +363,15 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
+            # Persist assistant function_call(s) so next turn has matching call_id for tool output
+            tc_event = NonExecutableActionEvent(
+                source="agent",
+                thought=thought,
+                reasoning_content=reasoning_content,
+                thinking_blocks=thinking_blocks,
+                tool_calls=[tool_call],
+            )
+            on_event(tc_event)
             event = AgentErrorEvent(
                 error=err,
                 tool_name=tool_name,

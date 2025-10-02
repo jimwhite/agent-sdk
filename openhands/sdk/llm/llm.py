@@ -43,6 +43,8 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout as LiteLLMTimeout,
 )
+from litellm.responses.main import responses as litellm_responses
+from litellm.types.llms.openai import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
 from litellm.utils import (
     create_pretrained_tokenizer,
@@ -55,7 +57,11 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 
 # OpenHands utilities
 from openhands.sdk.llm.llm_response import LLMResponse
-from openhands.sdk.llm.message import Message
+from openhands.sdk.llm.message import (
+    Message,
+    MessageToolCall,
+    TextContent,
+)
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.model_features import get_features
@@ -178,6 +184,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         description="The effort to put into reasoning. "
         "This is a string that can be one of 'low', 'medium', 'high', or 'none'. "
         "Can apply to all reasoning models.",
+    )
+    enable_encrypted_reasoning: bool = Field(
+        default=False,
+        description="If True and model supports it, include ['reasoning.encrypted_content'] in Responses API include.",
     )
     extended_thinking_budget: int | None = Field(
         default=200_000,
@@ -479,6 +489,148 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             raise
 
     # =========================================================================
+    # Responses API (non-stream, v1)
+    # =========================================================================
+    def responses(
+        self,
+        messages: list[Message],
+        tools: Sequence[ToolBase] | None = None,
+        include: list[str] | None = None,
+        store: bool | None = None,
+        return_metrics: bool = False,
+        add_security_risk_prediction: bool = False,
+        **kwargs,
+    ) -> LLMResponse:
+        """Alternative invocation path using OpenAI Responses API via LiteLLM.
+
+        Maps Message[] -> (instructions, input[]) and returns LLMResponse.
+        Non-stream only for v1.
+        """
+        # Streaming not yet supported
+        if kwargs.get("stream", False):
+            raise ValueError("Streaming is not supported for Responses API yet")
+
+        # Build instructions + input list using dedicated Responses formatter
+        instructions, input_items = self.format_messages_for_responses(messages)
+
+        # Convert Tool objects to Responses ToolParam (Responses path always supports function tools)
+        resp_tools = (
+            [
+                t.to_responses_tool(
+                    add_security_risk_prediction=add_security_risk_prediction
+                )
+                for t in tools
+            ]
+            if tools
+            else None
+        )
+
+        # Normalize/override Responses kwargs consistently
+        call_kwargs = self._normalize_responses_kwargs(
+            kwargs, include=include, store=store
+        )
+
+        # Optional request logging
+        assert self._telemetry is not None
+        log_ctx = None
+        if self._telemetry.log_enabled:
+            log_ctx = {
+                "llm_path": "responses",
+                "input": input_items[:],
+                "tools": tools,
+                "kwargs": {k: v for k, v in call_kwargs.items()},
+                "context_window": self.max_input_tokens,
+            }
+        self._telemetry.on_request(log_ctx=log_ctx)
+
+        # Perform call with retries
+        @self.retry_decorator(
+            num_retries=self.num_retries,
+            retry_exceptions=LLM_RETRY_EXCEPTIONS,
+            retry_min_wait=self.retry_min_wait,
+            retry_max_wait=self.retry_max_wait,
+            retry_multiplier=self.retry_multiplier,
+            retry_listener=self.retry_listener,
+        )
+        def _one_attempt(**retry_kwargs) -> ResponsesAPIResponse:
+            final_kwargs = {**call_kwargs, **retry_kwargs}
+            with self._litellm_modify_params_ctx(self.modify_params):
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    ret = litellm_responses(
+                        model=self.model,
+                        input=input_items or "",
+                        instructions=instructions,
+                        tools=resp_tools,
+                        api_key=self.api_key.get_secret_value()
+                        if self.api_key
+                        else None,
+                        api_base=self.base_url,
+                        api_version=self.api_version,
+                        timeout=self.timeout,
+                        drop_params=self.drop_params,
+                        seed=self.seed,
+                        **final_kwargs,
+                    )
+                    assert isinstance(ret, ResponsesAPIResponse), (
+                        f"Expected ResponsesAPIResponse, got {type(ret)}"
+                    )
+                    # telemetry (latency, cost). Token usage mapping we handle after.
+                    self._telemetry.on_response(ret)
+                    return ret
+
+        try:
+            resp: ResponsesAPIResponse = _one_attempt()
+
+            # Parse output -> Message
+            assistant_text_parts: list[str] = []
+            tool_calls: list[MessageToolCall] = []
+
+            for item in resp.output or []:
+                # item may be pydantic model or dict
+                t = getattr(item, "type", None) or (
+                    item.get("type") if isinstance(item, dict) else None
+                )
+
+                if t == "message":
+                    content = getattr(item, "content", None) or (
+                        item.get("content") if isinstance(item, dict) else []
+                    )
+                    for part in content or []:
+                        # part could be OutputText or dict
+                        txt = getattr(part, "text", None)
+                        if txt is None and isinstance(part, dict):
+                            txt = part.get("text")
+                        if txt:
+                            assistant_text_parts.append(str(txt))
+                elif t == "function_call":
+                    # Normalize via MessageToolCall helper to keep symmetry with chat path
+                    tc = MessageToolCall.from_responses_function_call(item)
+                    if tc.name and tc.arguments is not None:
+                        tool_calls.append(tc)
+
+            assistant_text = "\n".join(assistant_text_parts).strip()
+            message = Message(
+                role="assistant",
+                content=[TextContent(text=assistant_text)] if assistant_text else [],
+                tool_calls=tool_calls or None,
+            )
+
+            metrics_snapshot = MetricsSnapshot(
+                model_name=self.metrics.model_name,
+                accumulated_cost=self.metrics.accumulated_cost,
+                max_budget_per_task=self.metrics.max_budget_per_task,
+                accumulated_token_usage=self.metrics.accumulated_token_usage,
+            )
+
+            return LLMResponse(
+                message=message, metrics=metrics_snapshot, raw_response=resp
+            )
+        except Exception as e:
+            self._telemetry.on_error(e)
+            raise
+
+    # =========================================================================
     # Transport + helpers
     # =========================================================================
     def _transport_call(
@@ -594,6 +746,53 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
             out.pop("extra_body", None)
+
+        return out
+
+    def _normalize_responses_kwargs(
+        self,
+        opts: dict,
+        *,
+        include: list[str] | None,
+        store: bool | None,
+    ) -> dict:
+        """Central place to normalize kwargs for the Responses API path.
+
+        Policy:
+        - Start from user-provided opts and override a few keys consistently:
+          • temperature=1.0
+          • tool_choice="auto"
+          • include: append reasoning.encrypted_content if enabled
+          • store: defaults to False (unless explicitly provided)
+          • metadata: default to LLM.metadata if not provided
+          • max_output_tokens: default to LLM.max_output_tokens if not provided
+        """
+        out = dict(opts)
+
+        # Enforce sampling/tool behavior for Responses path
+        out["temperature"] = 1.0
+        out["tool_choice"] = "auto"
+
+        # Include encrypted reasoning if enabled
+        include_list = list(include) if include is not None else []
+        if self.enable_encrypted_reasoning:
+            if "reasoning.encrypted_content" not in include_list:
+                include_list.append("reasoning.encrypted_content")
+        if include_list:
+            out["include"] = include_list
+
+        # Store defaults to False (stateless) unless explicitly provided
+        if store is not None:
+            out["store"] = bool(store)
+        else:
+            out.setdefault("store", False)
+
+        # Attach metadata if not explicitly provided via kwargs
+        out.setdefault("metadata", self.metadata or None)
+
+        # Respect max_output_tokens if configured at LLM level (leave user override if provided)
+        if self.max_output_tokens is not None:
+            out.setdefault("max_output_tokens", self.max_output_tokens)
 
         return out
 
@@ -776,6 +975,42 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         formatted_messages = [message.to_llm_dict() for message in messages]
 
         return formatted_messages
+
+    def format_messages_for_responses(
+        self, messages: list[Message]
+    ) -> tuple[str | None, list[dict[str, Any]]]:
+        """Prepare (instructions, input[]) for the OpenAI Responses API.
+
+        - Skips prompt caching flags and string serializer concerns
+        - Uses Message.to_responses_input with vision gating
+        - Concatenates system messages into a single instructions string
+        """
+        msgs = copy.deepcopy(messages)
+
+        # Set only vision flag; skip cache_enabled and force_string_serializer
+        vision_active = self.vision_is_active()
+        for m in msgs:
+            m.vision_enabled = vision_active
+
+        # Concatenate system messages into instructions
+        instructions_parts: list[str] = []
+        for m in msgs:
+            if m.role == "system":
+                for c in m.content:
+                    if isinstance(c, TextContent) and c.text:
+                        instructions_parts.append(c.text)
+
+        instructions = (
+            "\n\n---\n\n".join(p for p in instructions_parts if p.strip()) or None
+        )
+
+        # Build input items from non-system messages
+        input_items: list[dict[str, Any]] = []
+        for m in msgs:
+            if m.role != "system":
+                input_items.extend(m.to_responses_input(vision_enabled=vision_active))
+
+        return instructions, input_items
 
     def get_token_count(self, messages: list[Message]) -> int:
         logger.debug(
