@@ -88,8 +88,7 @@ def test_emits_non_executable_action_event_then_error_on_missing_tool() -> None:
 
     # Verify tool_call_id continuity
     nea = next(e for e in collected if isinstance(e, NonExecutableActionEvent))
-    assert len(nea.tool_calls) == 1
-    tc_id = nea.tool_calls[0].id
+    tc_id = nea.tool_call.id
     err = next(e for e in collected if isinstance(e, AgentErrorEvent))
     assert err.tool_call_id == tc_id
 

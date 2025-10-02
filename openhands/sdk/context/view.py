@@ -116,10 +116,9 @@ class View(BaseModel):
         for event in events:
             if isinstance(event, ActionEvent) and event.tool_call_id is not None:
                 tool_call_ids.add(event.tool_call_id)
-            # For NonExecutableActionEvent, collect all tool_call ids in its tool_calls
-            elif isinstance(event, NonExecutableActionEvent) and event.tool_calls:
-                for tc in event.tool_calls:
-                    tool_call_ids.add(tc.id)
+            # For NonExecutableActionEvent, collect its single tool_call id
+            elif isinstance(event, NonExecutableActionEvent):
+                tool_call_ids.add(event.tool_call.id)
         return tool_call_ids
 
     @staticmethod
@@ -148,8 +147,8 @@ class View(BaseModel):
         elif isinstance(event, ActionEvent):
             return event.tool_call_id in observation_tool_call_ids
         elif isinstance(event, NonExecutableActionEvent):
-            # Keep if any of its tool_calls matches an observation
-            return any(tc.id in observation_tool_call_ids for tc in event.tool_calls)
+            # Keep if its tool_call matches an observation
+            return event.tool_call.id in observation_tool_call_ids
         else:
             return True
 

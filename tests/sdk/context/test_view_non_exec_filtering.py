@@ -20,7 +20,7 @@ def test_filter_keeps_non_exec_when_matched_by_observation() -> None:
     nea = NonExecutableActionEvent(
         source="agent",
         thought=[TextContent(text="...")],
-        tool_calls=[tc],
+        tool_call=tc,
     )
 
     # Matching AgentErrorEvent (observation path)

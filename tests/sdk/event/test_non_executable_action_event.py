@@ -19,7 +19,7 @@ def test_non_executable_action_event_to_llm_message_round_trip() -> None:
         thought=thought,
         reasoning_content="rc",
         thinking_blocks=[],
-        tool_calls=[tc],
+        tool_call=tc,
     )
 
     msg = evt.to_llm_message()

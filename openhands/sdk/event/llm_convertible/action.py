@@ -108,10 +108,10 @@ class ActionEvent(LLMConvertibleEvent):
 
 
 class NonExecutableActionEvent(LLMConvertibleEvent):
-    """Assistant function_call(s) persisted without a validated Action.
+    """Assistant function_call persisted without a validated Action.
 
-    Emitted when LLM returned tool call(s) but validation failed (or tool missing),
-    so we still persist the function_call(s) for the next turn to match tool outputs.
+    Emitted when LLM returned a tool call but validation failed (or tool missing),
+    so we persist the function_call for the next turn to match tool outputs.
     """
 
     source: SourceType = "agent"
@@ -127,15 +127,15 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
     )
-    tool_calls: list[MessageToolCall] = Field(
-        default_factory=list, description="Raw tool calls returned by the LLM"
+    tool_call: MessageToolCall = Field(
+        ..., description="Raw tool call returned by the LLM"
     )
 
     def to_llm_message(self) -> Message:
         return Message(
             role="assistant",
             content=self.thought,
-            tool_calls=self.tool_calls,
+            tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
             thinking_blocks=self.thinking_blocks,
         )
@@ -152,9 +152,8 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
             content.append("Thought:\n", style="bold")
             content.append(thought_text)
             content.append("\n\n")
-        content.append("Function calls:\n", style="bold")
-        for tc in self.tool_calls:
-            content.append(f"- {tc.name} ({tc.id})\n")
+        content.append("Function call:\n", style="bold")
+        content.append(f"- {self.tool_call.name} ({self.tool_call.id})\n")
         return content
 
     def __str__(self) -> str:
@@ -165,5 +164,5 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
             if len(thought_text) > N_CHAR_PREVIEW
             else thought_text
         )
-        calls = ", ".join([f"{tc.name}:{tc.id}" for tc in self.tool_calls]) or "[]"
-        return f"{base_str}\n  Thought: {thought_preview}\n  Calls: {calls}"
+        call = f"{self.tool_call.name}:{self.tool_call.id}"
+        return f"{base_str}\n  Thought: {thought_preview}\n  Call: {call}"
