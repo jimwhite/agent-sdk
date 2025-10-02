@@ -11,7 +11,11 @@ from openhands.sdk.event import (
     LLMConvertibleEvent,
 )
 from openhands.sdk.event.base import Event, EventID
-from openhands.sdk.event.llm_convertible import ActionEvent, ObservationBaseEvent
+from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
+    NonExecutableActionEvent,
+    ObservationBaseEvent,
+)
 from openhands.sdk.event.types import ToolCallID
 
 
@@ -112,6 +116,10 @@ class View(BaseModel):
         for event in events:
             if isinstance(event, ActionEvent) and event.tool_call_id is not None:
                 tool_call_ids.add(event.tool_call_id)
+            # For NonExecutableActionEvent, collect all tool_call ids in its tool_calls
+            elif isinstance(event, NonExecutableActionEvent) and event.tool_calls:
+                for tc in event.tool_calls:
+                    tool_call_ids.add(tc.id)
         return tool_call_ids
 
     @staticmethod
@@ -139,6 +147,9 @@ class View(BaseModel):
             return event.tool_call_id in action_tool_call_ids
         elif isinstance(event, ActionEvent):
             return event.tool_call_id in observation_tool_call_ids
+        elif isinstance(event, NonExecutableActionEvent):
+            # Keep if any of its tool_calls matches an observation
+            return any(tc.id in observation_tool_call_ids for tc in event.tool_calls)
         else:
             return True
 

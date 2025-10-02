@@ -12,6 +12,7 @@ from openhands.sdk.event import (
     AgentErrorEvent,
     LLMConvertibleEvent,
     MessageEvent,
+    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -304,6 +305,16 @@ class Agent(AgentBase):
             available = list(self.tools_map.keys())
             err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
+            # Persist assistant function_calls so next turn
+            # has matching call_id for tool output
+            tc_event = NonExecutableActionEvent(
+                source="agent",
+                thought=thought,
+                reasoning_content=reasoning_content,
+                thinking_blocks=thinking_blocks,
+                tool_calls=[tool_call],
+            )
+            on_event(tc_event)
             event = AgentErrorEvent(
                 error=err,
                 tool_name=tool_name,
@@ -340,6 +351,16 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
+            # Persist assistant function_calls so next turn
+            # has matching call_id for tool output
+            tc_event = NonExecutableActionEvent(
+                source="agent",
+                thought=thought,
+                reasoning_content=reasoning_content,
+                thinking_blocks=thinking_blocks,
+                tool_calls=[tool_call],
+            )
+            on_event(tc_event)
             event = AgentErrorEvent(
                 error=err,
                 tool_name=tool_name,
