@@ -313,6 +313,9 @@ class Agent(AgentBase):
                 reasoning_content=reasoning_content,
                 thinking_blocks=thinking_blocks,
                 tool_call=tool_call,
+                tool_name=tool_call.name,
+                tool_call_id=tool_call.id,
+                llm_response_id=llm_response_id,
             )
             on_event(tc_event)
             event = AgentErrorEvent(
@@ -359,6 +362,9 @@ class Agent(AgentBase):
                 reasoning_content=reasoning_content,
                 thinking_blocks=thinking_blocks,
                 tool_call=tool_call,
+                tool_name=tool_call.name,
+                tool_call_id=tool_call.id,
+                llm_response_id=llm_response_id,
             )
             on_event(tc_event)
             event = AgentErrorEvent(

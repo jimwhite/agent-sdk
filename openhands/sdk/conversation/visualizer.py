@@ -127,7 +127,9 @@ class ConversationVisualizer:
                 padding=_PANEL_PADDING,
                 expand=True,
             )
-        elif isinstance(event, ActionEvent):
+        elif isinstance(event, ActionEvent) and not isinstance(
+            event, NonExecutableActionEvent
+        ):
             return Panel(
                 content,
                 title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",

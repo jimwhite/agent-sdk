@@ -29,7 +29,10 @@ class ActionEvent(LLMConvertibleEvent):
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
     )
-    action: Action = Field(..., description="Single action (tool call) returned by LLM")
+    action: Action | None = Field(
+        default=None,
+        description="Single tool call returned by LLM (None when non-executable)",
+    )
     tool_name: str = Field(..., description="The name of the tool being called")
     tool_call_id: ToolCallID = Field(
         ..., description="The unique id returned by LLM API for this tool call"
@@ -80,7 +83,8 @@ class ActionEvent(LLMConvertibleEvent):
             content.append("\n\n")
 
         # Display action information using action's visualize method
-        content.append(self.action.visualize)
+        if self.action:
+            content.append(self.action.visualize)
 
         return content
 
@@ -107,12 +111,18 @@ class ActionEvent(LLMConvertibleEvent):
         return f"{base_str}\n  Thought: {thought_preview}\n  Action: {action_name}"
 
 
-class NonExecutableActionEvent(LLMConvertibleEvent):
+class NonExecutableActionEvent(ActionEvent):
     """Assistant function_call persisted without a validated Action.
 
     Emitted when LLM returned a tool call but validation failed (or tool missing),
     so we persist the function_call for the next turn to match tool outputs.
     """
+
+    # Inherit from ActionEvent
+    # - but mark as non-executable by omitting validated action
+    action: Action | None = Field(
+        default=None, description="No validated action is available"
+    )
 
     source: SourceType = "agent"
     thought: Sequence[TextContent] = Field(
@@ -130,15 +140,6 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
     tool_call: MessageToolCall = Field(
         ..., description="Raw tool call returned by the LLM"
     )
-
-    def to_llm_message(self) -> Message:
-        return Message(
-            role="assistant",
-            content=self.thought,
-            tool_calls=[self.tool_call],
-            reasoning_content=self.reasoning_content,
-            thinking_blocks=self.thinking_blocks,
-        )
 
     @property
     def visualize(self) -> Text:
