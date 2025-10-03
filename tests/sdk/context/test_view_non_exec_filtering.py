@@ -21,6 +21,9 @@ def test_filter_keeps_non_exec_when_matched_by_observation() -> None:
         source="agent",
         thought=[TextContent(text="...")],
         tool_call=tc,
+        tool_name=tc.name,
+        tool_call_id=tc.id,
+        llm_response_id="resp_view_1",
     )
 
     # Matching AgentErrorEvent (observation path)

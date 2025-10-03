@@ -269,6 +269,9 @@ def test_visualizer_non_executable_action_event_panel():
     nea = NonExecutableActionEvent(
         thought=[TextContent(text="...")],
         tool_call=tc,
+        tool_name=tc.name,
+        tool_call_id=tc.id,
+        llm_response_id="resp_viz_1",
     )
     panel = visualizer._create_event_panel(nea)
     assert panel is not None
