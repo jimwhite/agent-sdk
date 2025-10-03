@@ -113,7 +113,8 @@ class Telemetry(BaseModel):
         self, usage: Usage | ResponseAPIUsage, response_id: str, context_window: int
     ) -> None:
         """
-        Record token usage, supporting both Chat Completions Usage and Responses API Usage.
+        Record token usage, supporting both Chat Completions Usage and
+        Responses API Usage.
 
         Chat shape:
           - prompt_tokens, completion_tokens

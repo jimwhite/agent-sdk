@@ -34,7 +34,10 @@ with warnings.catch_warnings():
 
 from typing import cast
 
-from litellm import ChatCompletionToolParam, completion as litellm_completion
+from litellm import (
+    ChatCompletionToolParam,
+    completion as litellm_completion,
+)
 from litellm.exceptions import (
     APIConnectionError,
     BadRequestError,
