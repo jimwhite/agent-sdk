@@ -1,14 +1,13 @@
 """
-Example: Responses API path via LiteLLM + Real Agent Conversation
+Example: Responses API path via LiteLLM in a Real Agent Conversation
 
-- Verifies direct LLM.responses() with reasoning include (prints reasoning summary if present)
-- Runs a real Agent/Conversation (system prompt, tools, workspace) to ensure /responses path works end-to-end
+- Runs a real Agent/Conversation to verify /responses path works
+- Demonstrates rendering of Responses reasoning within normal conversation events
 """
 
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from pydantic import SecretStr
 
@@ -18,92 +17,11 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.llm import LLM, Message, TextContent
+from openhands.sdk.llm import LLM
 from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
-
-
-def print_assistant_and_reasoning(resp) -> None:
-    # Assistant output
-    print("\n=== Assistant Message (Direct responses()) ===")
-    if resp.message.content:
-        for part in resp.message.content:
-            if isinstance(part, TextContent):
-                print(part.text)
-    else:
-        print("(no assistant text content)")
-
-    # Reasoning (from raw ResponsesAPIResponse)
-    rr = getattr(resp.raw_response, "reasoning", None)
-    if rr is not None:
-        try:
-            # Avoid logging encrypted content; handle dict or Pydantic model
-            payload: dict[str, Any] = (
-                rr.model_dump()
-                if hasattr(rr, "model_dump")
-                else (rr if isinstance(rr, dict) else {})
-            )
-            payload.pop("encrypted_content", None)
-            print("\n=== Reasoning (sanitized) ===")
-            # Print a compact view if possible
-            effort = payload.get("effort")
-            summary = payload.get("summary")
-            status = payload.get("status")
-            if effort is not None:
-                print(f"effort: {effort}")
-            if status is not None:
-                print(f"status: {status}")
-            if summary:
-                print("summary:")
-                # summary might be a list or string
-                if isinstance(summary, list):
-                    for s in summary:
-                        print(f"- {s}")
-                else:
-                    print(f"- {summary}")
-            # If there are additional keys, print as a fallback
-            extra = {
-                k: v
-                for k, v in payload.items()
-                if k not in {"effort", "summary", "status"}
-            }
-            if extra:
-                print("extra:", extra)
-        except Exception as e:
-            print(f"(reasoning present but could not be printed due to error: {e})")
-    else:
-        print("\n(no reasoning object present)")
-
-
-def run_direct_responses(llm: LLM) -> None:
-    # Minimal turn for direct Responses call
-    messages = [
-        Message(
-            role="system",
-            content=[TextContent(text="You are a concise, helpful assistant.")],
-        ),
-        Message(
-            role="user",
-            content=[
-                TextContent(
-                    text="Summarize this repository's README in 3 bullet points. If you cannot access it, request the content succinctly."
-                )
-            ],
-        ),
-    ]
-
-    # Call Responses API directly. enable_encrypted_reasoning on LLM ensures include is set.
-    resp = llm.responses(
-        messages=messages,
-        tools=None,
-        store=False,
-    )
-    print_assistant_and_reasoning(resp)
-
-    print("\n=== Metrics Snapshot ===")
-    print(resp.metrics.model_dump())
 
 
 def run_agent_conversation(llm: LLM) -> None:
@@ -126,9 +44,7 @@ def run_agent_conversation(llm: LLM) -> None:
     )
 
     # Keep the tasks short for demo purposes
-    conversation.send_message(
-        "Read the current repo and write a single fact about the project into FACTS.txt."
-    )
+    conversation.send_message("Read the repo and write one fact into FACTS.txt.")
     conversation.run()
 
     conversation.send_message("Now delete FACTS.txt.")
@@ -162,10 +78,7 @@ def main():
         service_id="agent",
     )
 
-    # 1) Direct Responses API check with reasoning
-    run_direct_responses(llm)
-
-    # 2) Real Agent + Conversation round-trips relying on /responses routing for gpt-5 family
+    # Run Agent + Conversation using /responses routing
     run_agent_conversation(llm)
 
 
