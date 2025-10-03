@@ -7,7 +7,6 @@ from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
 from litellm.types.llms.openai import (
     GenericResponseOutputItem,
     OutputFunctionToolCall,
-    ResponseOutputItem,
 )
 from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -77,7 +76,6 @@ class MessageToolCall(BaseModel):
             name=str(name),
             arguments=arguments_str,
             origin="responses",
-            raw=item,
         )
 
     def to_chat_dict(self) -> dict[str, Any]:
@@ -318,9 +316,12 @@ class Message(BaseModel):
 
         Produces a list of "input" items for the Responses API:
         - system: returns [], system content is expected in 'instructions'
-        - user: one 'message' item with content parts -> input_text / input_image (when vision enabled)
-        - assistant: emits prior assistant content as input_text, and function_call items for tool_calls
-        - tool: emits function_call_output items (one per TextContent) with matching call_id
+        - user: one 'message' item with content parts -> input_text / input_image
+        (when vision enabled)
+        - assistant: emits prior assistant content as input_text,
+        and function_call items for tool_calls
+        - tool: emits function_call_output items (one per TextContent)
+        with matching call_id
         """
         items: list[dict[str, Any]] = []
 
@@ -357,7 +358,8 @@ class Message(BaseModel):
             for c in self.content:
                 if isinstance(c, TextContent) and c.text:
                     items.append({"type": "input_text", "text": c.text})
-            # Emit assistant tool calls so subsequent function_call_output can match call_id
+            # Emit assistant tool calls so subsequent function_call_output
+            # can match call_id
             if self.tool_calls:
                 for tc in self.tool_calls:
                     items.append(tc.to_responses_dict())
@@ -365,7 +367,8 @@ class Message(BaseModel):
 
         if self.role == "tool":
             if self.tool_call_id is not None:
-                # Responses requires function_call_output.call_id to match a previous function_call id
+                # Responses requires function_call_output.call_id
+                # to match a previous function_call id
                 resp_call_id = (
                     self.tool_call_id
                     if str(self.tool_call_id).startswith("fc")
@@ -446,9 +449,7 @@ class Message(BaseModel):
     @classmethod
     def from_llm_responses_output(
         cls,
-        output: Sequence[
-            ResponseOutputItem | GenericResponseOutputItem | OutputFunctionToolCall
-        ],
+        output: Sequence[GenericResponseOutputItem | OutputFunctionToolCall],
     ) -> "Message":
         """Convert OpenAI Responses API output items into a single assistant Message.
 
@@ -460,11 +461,16 @@ class Message(BaseModel):
         tool_calls: list[MessageToolCall] = []
 
         for item in output or []:
-            if item.type == "message":
+            if isinstance(item, GenericResponseOutputItem) and item.type == "message":
                 for part in item.content or []:
-                    if part.type == "output_text" and part.text:
+                    if getattr(part, "type", None) == "output_text" and getattr(
+                        part, "text", None
+                    ):
                         assistant_text_parts.append(str(part.text))
-            elif item.type == "function_call":
+            elif (
+                isinstance(item, OutputFunctionToolCall)
+                and item.type == "function_call"
+            ):
                 tc = MessageToolCall.from_responses_function_call(item)
                 tool_calls.append(tc)
 
