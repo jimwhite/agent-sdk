@@ -374,10 +374,19 @@ class Message(BaseModel):
             return items
 
         if self.role == "assistant":
-            # Emit any assistant text as input_text
+            # Emit prior assistant content as a single message item using output_text
+            content_items: list[dict[str, Any]] = []
             for c in self.content:
                 if isinstance(c, TextContent) and c.text:
-                    items.append({"type": "input_text", "text": c.text})
+                    content_items.append({"type": "output_text", "text": c.text})
+            if content_items:
+                items.append(
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": content_items,
+                    }
+                )
             # Emit assistant tool calls so subsequent function_call_output
             # can match call_id
             if self.tool_calls:

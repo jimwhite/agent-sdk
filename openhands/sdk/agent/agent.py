@@ -180,8 +180,6 @@ class Agent(AgentBase):
                 llm_response = self.llm.responses(
                     messages=_messages,
                     tools=list(self.tools_map.values()),
-                    # route metadata through typed param for Responses path
-                    # (LLM.responses will merge with instance metadata)
                     include=None,
                     store=False,
                     add_security_risk_prediction=self._add_security_risk_prediction,
