@@ -292,7 +292,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         """
         action_type = action_type or self.action_type
 
-        action_type_with_risk = _create_action_type_with_risk(self.action_type)
+        action_type_with_risk = _create_action_type_with_risk(action_type)
 
         # We only add security_risk if the tool is not read-only
         add_security_risk_prediction = add_security_risk_prediction and (
@@ -314,11 +314,11 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         for subclass in get_known_concrete_subclasses(cls):
             if subclass.__name__ == kind:
                 return subclass
-        # Fallback to "Tool" for unknown type
-        return Tool
+        # Fallback to "ToolDefinition" for unknown type
+        return ToolDefinition
 
 
-class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
+class ToolDefinition[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
     """Concrete tool class that inherits from ToolBase.
 
     This class serves as a concrete implementation of ToolBase for cases where
@@ -331,17 +331,19 @@ class Tool[ActionT, ObservationT](ToolBase[ActionT, ObservationT]):
 
     @classmethod
     def create(cls, *args, **kwargs) -> Sequence[Self]:
-        """Create a sequence of Tool instances.
+        """Create a sequence of ToolDefinition instances.
 
         TODO https://github.com/All-Hands-AI/agent-sdk/issues/493
-        Refactor this - the Tool class should not have a concrete create()
+        Refactor this - the ToolDefinition class should not have a concrete create()
         implementation. Built-in tools should be refactored to not rely on this
         method, and then this should be made abstract with @abstractmethod.
         """
-        raise NotImplementedError("Tool.create() should be implemented by subclasses")
+        raise NotImplementedError(
+            "ToolDefinition.create() should be implemented by subclasses"
+        )
 
 
-def _create_action_type_with_risk(action_type: type[Action]) -> type[Action]:
+def _create_action_type_with_risk(action_type: type[Schema]) -> type[Schema]:
     action_type_with_risk = _action_types_with_risk.get(action_type)
     if action_type_with_risk:
         return action_type_with_risk

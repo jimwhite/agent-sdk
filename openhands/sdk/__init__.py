@@ -27,13 +27,18 @@ from openhands.sdk.llm import (
     ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
+from openhands.sdk.mcp import (
+    MCPClient,
+    MCPToolDefinition,
+    MCPToolObservation,
+    create_mcp_tools,
+)
 from openhands.sdk.tool import (
     Action,
     Observation,
     Tool,
     ToolBase,
-    ToolSpec,
+    ToolDefinition,
     list_registered_tools,
     register_tool,
     resolve_tool,
@@ -61,14 +66,14 @@ __all__ = [
     "ThinkingBlock",
     "RedactedThinkingBlock",
     "Tool",
+    "ToolDefinition",
     "ToolBase",
-    "ToolSpec",
     "AgentBase",
     "Agent",
     "Action",
     "Observation",
     "MCPClient",
-    "MCPTool",
+    "MCPToolDefinition",
     "MCPToolObservation",
     "MessageEvent",
     "create_mcp_tools",

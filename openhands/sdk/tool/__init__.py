@@ -10,20 +10,20 @@ from openhands.sdk.tool.schema import (
     Action,
     Observation,
 )
-from openhands.sdk.tool.spec import ToolSpec
+from openhands.sdk.tool.spec import Tool
 from openhands.sdk.tool.tool import (
     ExecutableTool,
-    Tool,
     ToolAnnotations,
     ToolBase,
+    ToolDefinition,
     ToolExecutor,
 )
 
 
 __all__ = [
     "Tool",
+    "ToolDefinition",
     "ToolBase",
-    "ToolSpec",
     "ToolAnnotations",
     "ToolExecutor",
     "ExecutableTool",

@@ -16,12 +16,12 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     Observation,
     TextContent,
-    Tool,
+    ToolDefinition,
     get_logger,
 )
 from openhands.sdk.tool import (
+    Tool,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 from openhands.tools.execute_bash import (
@@ -129,14 +129,14 @@ llm = LLM(
 cwd = os.getcwd()
 
 
-def _make_bash_and_grep_tools(working_dir: str) -> list[Tool]:
+def _make_bash_and_grep_tools(conv_state) -> list[ToolDefinition]:
     """Create execute_bash and custom grep tools sharing one executor."""
 
-    bash_executor = BashExecutor(working_dir=working_dir)
+    bash_executor = BashExecutor(working_dir=conv_state.workspace.working_dir)
     bash_tool = execute_bash_tool.set_executor(executor=bash_executor)
 
     grep_executor = GrepExecutor(bash_executor)
-    grep_tool = Tool(
+    grep_tool = ToolDefinition(
         name="grep",
         description=_GREP_DESCRIPTION,
         action_type=GrepAction,
@@ -151,8 +151,8 @@ register_tool("FileEditorTool", FileEditorTool)
 register_tool("BashAndGrepToolSet", _make_bash_and_grep_tools)
 
 tools = [
-    ToolSpec(name="FileEditorTool"),
-    ToolSpec(name="BashAndGrepToolSet", params={"working_dir": cwd}),
+    Tool(name="FileEditorTool"),
+    Tool(name="BashAndGrepToolSet"),
 ]
 
 # Agent
