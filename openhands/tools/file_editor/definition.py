@@ -17,14 +17,14 @@ from openhands.sdk.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
-from openhands.tools.str_replace_editor.utils.diff import visualize_diff
+from openhands.tools.file_editor.utils.diff import visualize_diff
 
 
 CommandLiteral = Literal["view", "create", "str_replace", "insert", "undo_edit"]
 
 
-class StrReplaceEditorAction(Action):
-    """Schema for string replace editor operations."""
+class FileEditorAction(Action):
+    """Schema for file editor operations."""
 
     command: CommandLiteral = Field(
         description="The commands to run. Allowed options are: `view`, `create`, "
@@ -86,7 +86,7 @@ class StrReplaceEditorAction(Action):
             return f"{self.command} {filename}"
 
 
-class StrReplaceEditorObservation(Observation):
+class FileEditorObservation(Observation):
     """A ToolResult that can be rendered as a CLI output."""
 
     command: CommandLiteral = Field(
@@ -211,9 +211,10 @@ Remember: when making multiple file edits in a row to the same file, you should 
 """  # noqa: E501
 
 
-str_replace_editor_tool = ToolDefinition(
+file_editor_tool = ToolDefinition(
     name="str_replace_editor",
-    action_type=StrReplaceEditorAction,
+    action_type=FileEditorAction,
+    observation_type=FileEditorObservation,
     description=TOOL_DESCRIPTION,
     annotations=ToolAnnotations(
         title="str_replace_editor",
@@ -225,9 +226,7 @@ str_replace_editor_tool = ToolDefinition(
 )
 
 
-class FileEditorTool(
-    ToolDefinition[StrReplaceEditorAction, StrReplaceEditorObservation]
-):
+class FileEditorTool(ToolDefinition[FileEditorAction, FileEditorObservation]):
     """A ToolDefinition subclass that automatically initializes a FileEditorExecutor."""
 
     @classmethod
@@ -243,7 +242,7 @@ class FileEditorTool(
                          conv_state.workspace
         """
         # Import here to avoid circular imports
-        from openhands.tools.str_replace_editor.impl import FileEditorExecutor
+        from openhands.tools.file_editor.impl import FileEditorExecutor
 
         # Initialize the executor
         executor = FileEditorExecutor(workspace_root=conv_state.workspace.working_dir)
@@ -261,11 +260,11 @@ class FileEditorTool(
         # Initialize the parent Tool with the executor
         return [
             cls(
-                name=str_replace_editor_tool.name,
+                name=file_editor_tool.name,
                 description=enhanced_description,
-                action_type=StrReplaceEditorAction,
-                observation_type=StrReplaceEditorObservation,
-                annotations=str_replace_editor_tool.annotations,
+                action_type=FileEditorAction,
+                observation_type=FileEditorObservation,
+                annotations=file_editor_tool.annotations,
                 executor=executor,
             )
         ]
