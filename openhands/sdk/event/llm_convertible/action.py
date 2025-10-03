@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Sequence
 
 from pydantic import Field
@@ -8,6 +9,7 @@ from openhands.sdk.event.types import EventID, SourceType, ToolCallID
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
+    ReasoningItemModel,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -28,6 +30,9 @@ class ActionEvent(LLMConvertibleEvent):
     thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
+    )
+    responses_reasoning_item: ReasoningItemModel | None = Field(
+        default=None, description="OpenAI Responses reasoning item from model output"
     )
     action: Action = Field(..., description="Single action (tool call) returned by LLM")
     tool_name: str = Field(..., description="The name of the tool being called")
@@ -79,6 +84,28 @@ class ActionEvent(LLMConvertibleEvent):
             content.append(thought_text)
             content.append("\n\n")
 
+        # Responses API reasoning (plaintext only; never render encrypted_content)
+        ri = self.responses_reasoning_item
+        if ri is not None:
+            content.append("Reasoning (Responses):\n", style="bold")
+            rid = getattr(ri, "id", None)
+            if rid:
+                content.append(f"id: {rid}\n")
+            status = getattr(ri, "status", None)
+            if status:
+                content.append(f"status: {status}\n")
+            summaries = getattr(ri, "summary", None)
+            if summaries:
+                for s in summaries:
+                    content.append(f"- {s}\n")
+            blocks = getattr(ri, "content", None)
+            if blocks:
+                for b in blocks:
+                    content.append(f"{b}\n")
+            # print
+            print(ri)
+            sys.exit(0)
+
         # Display action information using action's visualize method
         content.append(self.action.visualize)
 
@@ -92,6 +119,7 @@ class ActionEvent(LLMConvertibleEvent):
             tool_calls=[self.tool_call],
             reasoning_content=self.reasoning_content,
             thinking_blocks=self.thinking_blocks,
+            responses_reasoning_item=self.responses_reasoning_item,
         )
 
     def __str__(self) -> str:
@@ -127,6 +155,9 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
         default_factory=list,
         description="Anthropic thinking blocks from the LLM response",
     )
+    responses_reasoning_item: ReasoningItemModel | None = Field(
+        default=None, description="OpenAI Responses reasoning item from model output"
+    )
     tool_calls: list[MessageToolCall] = Field(
         default_factory=list, description="Raw tool calls returned by the LLM"
     )
@@ -138,6 +169,7 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
             tool_calls=self.tool_calls,
             reasoning_content=self.reasoning_content,
             thinking_blocks=self.thinking_blocks,
+            responses_reasoning_item=self.responses_reasoning_item,
         )
 
     @property
@@ -152,6 +184,25 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
             content.append("Thought:\n", style="bold")
             content.append(thought_text)
             content.append("\n\n")
+        # Responses API reasoning (plaintext only; never render encrypted_content)
+        ri = self.responses_reasoning_item
+        if ri is not None:
+            content.append("Reasoning (Responses):\n", style="bold")
+            rid = getattr(ri, "id", None)
+            if rid:
+                content.append(f"id: {rid}\n")
+            status = getattr(ri, "status", None)
+            if status:
+                content.append(f"status: {status}\n")
+            summaries = getattr(ri, "summary", None)
+            if summaries:
+                for s in summaries:
+                    content.append(f"- {s}\n")
+            blocks = getattr(ri, "content", None)
+            if blocks:
+                for b in blocks:
+                    content.append(f"{b}\n")
+
         content.append("Function calls:\n", style="bold")
         for tc in self.tool_calls:
             content.append(f"- {tc.name} ({tc.id})\n")

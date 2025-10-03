@@ -4,11 +4,17 @@ from collections.abc import Sequence
 from typing import Any, Literal
 
 from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
-from litellm.types.llms.openai import (
+from litellm.types.responses.main import (
     GenericResponseOutputItem,
     OutputFunctionToolCall,
 )
 from litellm.types.utils import Message as LiteLLMMessage
+from openai.types.responses.response_output_message import (
+    ResponseOutputMessage,
+)
+from openai.types.responses.response_reasoning_item import (
+    ResponseReasoningItem,
+)
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
@@ -134,6 +140,19 @@ class RedactedThinkingBlock(BaseModel):
     data: str = Field(..., description="The redacted thinking content")
 
 
+class ReasoningItemModel(BaseModel):
+    """OpenAI Responses reasoning item (non-stream, subset we consume).
+
+    Do not log or render encrypted_content.
+    """
+
+    id: str | None = Field(default=None)
+    summary: list[str] = Field(default_factory=list)
+    content: list[str] | None = Field(default=None)
+    encrypted_content: str | None = Field(default=None)
+    status: str | None = Field(default=None)
+
+
 class BaseContent(BaseModel):
     cache_prompt: bool = False
 
@@ -211,6 +230,11 @@ class Message(BaseModel):
     thinking_blocks: Sequence[ThinkingBlock | RedactedThinkingBlock] = Field(
         default_factory=list,
         description="Raw Anthropic thinking blocks for extended thinking feature",
+    )
+    # OpenAI Responses reasoning item (when provided via Responses API output)
+    responses_reasoning_item: ReasoningItemModel | None = Field(
+        default=None,
+        description="OpenAI Responses reasoning item from model output",
     )
 
     @property
@@ -449,7 +473,13 @@ class Message(BaseModel):
     @classmethod
     def from_llm_responses_output(
         cls,
-        output: Sequence[GenericResponseOutputItem | OutputFunctionToolCall],
+        output: Sequence[
+            GenericResponseOutputItem
+            | OutputFunctionToolCall
+            | ResponseFunctionToolCall
+            | ResponseOutputMessage
+            | ResponseReasoningItem
+        ],
     ) -> "Message":
         """Convert OpenAI Responses API output items into a single assistant Message.
 
@@ -459,26 +489,49 @@ class Message(BaseModel):
         """
         assistant_text_parts: list[str] = []
         tool_calls: list[MessageToolCall] = []
+        responses_reasoning_item: ReasoningItemModel | None = None
 
         for item in output or []:
-            if isinstance(item, GenericResponseOutputItem) and item.type == "message":
+            if (
+                isinstance(item, GenericResponseOutputItem)
+                or isinstance(item, ResponseOutputMessage)
+            ) and item.type == "message":
                 for part in item.content or []:
-                    if getattr(part, "type", None) == "output_text" and getattr(
-                        part, "text", None
-                    ):
-                        assistant_text_parts.append(str(part.text))
+                    if part.type == "output_text" and part.text:
+                        assistant_text_parts.append(part.text)
             elif (
-                isinstance(item, OutputFunctionToolCall)
+                isinstance(item, (OutputFunctionToolCall, ResponseFunctionToolCall))
                 and item.type == "function_call"
             ):
                 tc = MessageToolCall.from_responses_function_call(item)
                 tool_calls.append(tc)
+            elif isinstance(item, ResponseReasoningItem) and item.type == "reasoning":
+                # Parse OpenAI typed Responses "reasoning" output item
+                # (Pydantic BaseModel)
+                rid = item.id
+                summaries = item.summary or []
+                contents = item.content or []
+                enc = item.encrypted_content
+                status = item.status
+
+                summary_list: list[str] = [s.text for s in summaries]
+                content_texts: list[str] = [c.text for c in contents]
+                content_list: list[str] | None = content_texts or None
+
+                responses_reasoning_item = ReasoningItemModel(
+                    id=rid,
+                    summary=summary_list,
+                    content=content_list,
+                    encrypted_content=enc,
+                    status=status,
+                )
 
         assistant_text = "\n".join(assistant_text_parts).strip()
         return Message(
             role="assistant",
             content=[TextContent(text=assistant_text)] if assistant_text else [],
             tool_calls=tool_calls or None,
+            responses_reasoning_item=responses_reasoning_item,
         )
 
     @classmethod

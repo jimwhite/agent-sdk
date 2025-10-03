@@ -186,7 +186,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     )
     enable_encrypted_reasoning: bool = Field(
         default=False,
-        description="If True and model supports it, include ['reasoning.encrypted_content'] in Responses API include.",
+        description="If True, ask for ['reasoning.encrypted_content'] "
+        "in Responses API include.",
     )
     extended_thinking_budget: int | None = Field(
         default=200_000,
@@ -512,7 +513,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Build instructions + input list using dedicated Responses formatter
         instructions, input_items = self.format_messages_for_responses(messages)
 
-        # Convert Tool objects to Responses ToolParam (Responses path always supports function tools)
+        # Convert Tool objects to Responses ToolParam
+        # (Responses path always supports function tools)
         resp_tools = (
             [
                 t.to_responses_tool(
@@ -743,9 +745,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Include encrypted reasoning if enabled
         include_list = list(include) if include is not None else []
-        if self.enable_encrypted_reasoning:
-            if "reasoning.encrypted_content" not in include_list:
-                include_list.append("reasoning.encrypted_content")
+        if (
+            self.enable_encrypted_reasoning
+            and "reasoning.encrypted_content" not in include_list
+        ):
+            include_list.append("reasoning.encrypted_content")
         if include_list:
             out["include"] = include_list
 
@@ -755,12 +759,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         else:
             out.setdefault("store", False)
 
-        # Attach metadata if not explicitly provided via kwargs
-        out.setdefault("metadata", self.metadata or None)
-
-        # Respect max_output_tokens if configured at LLM level (leave user override if provided)
+        # Respect max_output_tokens if configured at LLM level
         if self.max_output_tokens is not None:
             out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # Request plaintext reasoning summary
+        effort = self.reasoning_effort or "high"
+        out["reasoning"] = {"effort": effort, "summary": "detailed"}
 
         return out
 

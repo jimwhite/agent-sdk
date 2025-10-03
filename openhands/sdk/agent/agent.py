@@ -20,6 +20,7 @@ from openhands.sdk.event.condenser import Condensation, CondensationRequest
 from openhands.sdk.llm import (
     Message,
     MessageToolCall,
+    ReasoningItemModel,
     RedactedThinkingBlock,
     TextContent,
     ThinkingBlock,
@@ -237,6 +238,9 @@ class Agent(AgentBase):
                     reasoning_content=message.reasoning_content if i == 0 else None,
                     # Only first gets thinking blocks
                     thinking_blocks=list(message.thinking_blocks) if i == 0 else [],
+                    responses_reasoning_item=message.responses_reasoning_item
+                    if i == 0
+                    else None,
                 )
                 if action_event is None:
                     continue
@@ -306,6 +310,7 @@ class Agent(AgentBase):
         thought: list[TextContent] = [],
         reasoning_content: str | None = None,
         thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = [],
+        responses_reasoning_item: ReasoningItemModel | None = None,
     ) -> ActionEvent | None:
         """Converts a tool call into an ActionEvent, validating arguments.
 
@@ -318,12 +323,14 @@ class Agent(AgentBase):
             available = list(self.tools_map.keys())
             err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
-            # Persist assistant function_call(s) so next turn has matching call_id for tool output
+            # Persist assistant function_call(s)
+            # so next turn has matching call_id for tool output
             tc_event = NonExecutableActionEvent(
                 source="agent",
                 thought=thought,
                 reasoning_content=reasoning_content,
                 thinking_blocks=thinking_blocks,
+                responses_reasoning_item=responses_reasoning_item,
                 tool_calls=[tool_call],
             )
             on_event(tc_event)
@@ -363,12 +370,14 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
-            # Persist assistant function_call(s) so next turn has matching call_id for tool output
+            # Persist assistant function_call(s)
+            # so next turn has matching call_id for tool output
             tc_event = NonExecutableActionEvent(
                 source="agent",
                 thought=thought,
                 reasoning_content=reasoning_content,
                 thinking_blocks=thinking_blocks,
+                responses_reasoning_item=responses_reasoning_item,
                 tool_calls=[tool_call],
             )
             on_event(tc_event)
@@ -385,6 +394,7 @@ class Agent(AgentBase):
             thought=thought,
             reasoning_content=reasoning_content,
             thinking_blocks=thinking_blocks,
+            responses_reasoning_item=responses_reasoning_item,
             tool_name=tool.name,
             tool_call_id=tool_call.id,
             tool_call=tool_call,
