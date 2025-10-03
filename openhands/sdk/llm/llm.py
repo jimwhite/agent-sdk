@@ -59,7 +59,6 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import (
     Message,
-    MessageToolCall,
     TextContent,
 )
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin

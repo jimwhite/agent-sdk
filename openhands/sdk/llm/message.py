@@ -4,12 +4,12 @@ from collections.abc import Sequence
 from typing import Any, Literal
 
 from litellm import ChatCompletionMessageToolCall
-from litellm.types.utils import Message as LiteLLMMessage
 from litellm.types.llms.openai import (
     GenericResponseOutputItem,
     OutputFunctionToolCall,
     ResponseOutputItem,
 )
+from litellm.types.utils import Message as LiteLLMMessage
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
@@ -313,7 +313,6 @@ class Message(BaseModel):
         # tool call keys are added in to_llm_dict to centralize behavior
         return message_dict
 
-
     def to_responses_dict(self, *, vision_enabled: bool) -> list[dict[str, Any]]:
         """Serialize message for OpenAI Responses (input parameter).
 
@@ -443,7 +442,6 @@ class Message(BaseModel):
             thinking_blocks=thinking_blocks,
         )
 
-
     @classmethod
     def from_llm_responses_output(
         cls,
@@ -462,7 +460,7 @@ class Message(BaseModel):
 
         for item in output or []:
             if item.type == "message":
-                for part in (item.content or []):
+                for part in item.content or []:
                     if part.type == "output_text" and part.text:
                         assistant_text_parts.append(str(part.text))
             elif item.type == "function_call":
