@@ -73,6 +73,7 @@ class ModelFeatures:
     supports_extended_thinking: bool
     supports_prompt_cache: bool
     supports_stop_words: bool
+    supports_responses_api: bool
 
 
 # Pattern tables capturing current behavior. Keep patterns lowercase.
@@ -157,11 +158,6 @@ RESPONSES_API_PATTERNS: list[str] = [
 ]
 
 
-def supports_responses_api(model: str) -> bool:
-    """Return True if the model should use the Responses API path."""
-    return model_matches(model, RESPONSES_API_PATTERNS)
-
-
 def get_features(model: str) -> ModelFeatures:
     return ModelFeatures(
         supports_function_calling=model_matches(model, FUNCTION_CALLING_PATTERNS),
@@ -171,4 +167,5 @@ def get_features(model: str) -> ModelFeatures:
         supports_stop_words=not model_matches(
             model, SUPPORTS_STOP_WORDS_FALSE_PATTERNS
         ),
+        supports_responses_api=model_matches(model, RESPONSES_API_PATTERNS),
     )

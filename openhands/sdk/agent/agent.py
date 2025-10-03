@@ -25,7 +25,6 @@ from openhands.sdk.llm import (
     TextContent,
     ThinkingBlock,
 )
-from openhands.sdk.llm.utils.model_features import supports_responses_api
 from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -176,7 +175,7 @@ class Agent(AgentBase):
         )
 
         try:
-            if supports_responses_api(self.llm.model):
+            if self.llm.uses_responses_api():
                 llm_response = self.llm.responses(
                     messages=_messages,
                     tools=list(self.tools_map.values()),

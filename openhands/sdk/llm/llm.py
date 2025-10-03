@@ -914,6 +914,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         """
         return bool(self._function_calling_active)
 
+    def uses_responses_api(self) -> bool:
+        """Whether this model uses the OpenAI Responses API path."""
+
+        # by default, uses = supports
+        return get_features(self.model).supports_responses_api
+
     @property
     def model_info(self) -> dict | None:
         """Returns the model info dictionary."""
