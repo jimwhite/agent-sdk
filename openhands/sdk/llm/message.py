@@ -5,6 +5,11 @@ from typing import Any, Literal
 
 from litellm import ChatCompletionMessageToolCall
 from litellm.types.utils import Message as LiteLLMMessage
+from litellm.types.llms.openai import (
+    GenericResponseOutputItem,
+    OutputFunctionToolCall,
+    ResponseOutputItem,
+)
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from openhands.sdk.logger import get_logger
@@ -51,32 +56,26 @@ class MessageToolCall(BaseModel):
         )
 
     @classmethod
-    def from_responses_function_call(cls, item: Any) -> "MessageToolCall":
-        """Create a MessageToolCall from an OpenAI Responses function_call item."""
-        # item may be a pydantic model or a dict
-        get = (
-            (lambda k: getattr(item, k, None))
-            if not isinstance(item, dict)
-            else item.get
-        )
-        call_id = get("call_id") or get("id") or ""
-        name = get("name") or ""
-        args = get("arguments")
-        # Ensure JSON string for arguments
-        if isinstance(args, (dict, list)):
-            try:
-                args = json.dumps(args)
-            except Exception:
-                args = str(args)
-        elif args is None:
-            args = ""
-        else:
-            args = str(args)
+    def from_responses_function_call(
+        cls, item: ResponseFunctionToolCall | OutputFunctionToolCall
+    ) -> "MessageToolCall":
+        """Create a MessageToolCall from a typed OpenAI Responses function_call item.
+
+        Note: OpenAI Responses function_call.arguments is already a JSON string.
+        """
+        call_id = item.call_id or item.id or ""
+        name = item.name or ""
+        arguments_str = item.arguments or ""
+
+        if not call_id:
+            raise ValueError(f"Responses function_call missing call_id/id: {item!r}")
+        if not name:
+            raise ValueError(f"Responses function_call missing name: {item!r}")
 
         return cls(
             id=str(call_id),
             name=str(name),
-            arguments=args,
+            arguments=arguments_str,
             origin="responses",
             raw=item,
         )
@@ -231,25 +230,37 @@ class Message(BaseModel):
             return [TextContent(text=v)]
         return v
 
-    def to_llm_dict(self) -> dict[str, Any]:
-        """Serialize message for LLM API consumption.
+    def to_chat_dict(self) -> dict[str, Any]:
+        """Serialize message for OpenAI Chat Completions.
 
-        This method chooses the appropriate serialization format based on the message
-        configuration and provider capabilities:
-        - String format: for providers that don't support list of content items
-        - List format: for providers with vision/prompt caching/tool calls support
+        Chooses the appropriate content serializer and then injects threading keys:
+        - Assistant tool call turn: role == "assistant" and self.tool_calls
+        - Tool result turn: role == "tool" and self.tool_call_id (with name)
         """
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
             message_dict = self._list_serializer()
         else:
-            # some providers, like HF and Groq/llama, don't support a list here, but a
-            # single string
             message_dict = self._string_serializer()
 
-        # add tool call keys if we have a tool call or response (Chat Completions path)
-        return self._add_tool_call_keys(message_dict)
+        # Assistant function_call(s)
+        if self.role == "assistant" and self.tool_calls:
+            message_dict["tool_calls"] = [tc.to_chat_dict() for tc in self.tool_calls]
+
+        # Tool result (observation) threading
+        if self.role == "tool" and self.tool_call_id is not None:
+            assert self.name is not None, (
+                "name is required when tool_call_id is not None"
+            )
+            message_dict["tool_call_id"] = self.tool_call_id
+            message_dict["name"] = self.name
+
+        return message_dict
+
+    # Backward-compatible alias
+    def to_llm_dict(self) -> dict[str, Any]:
+        return self.to_chat_dict()
 
     def _string_serializer(self) -> dict[str, Any]:
         # convert content to a single string
@@ -302,33 +313,15 @@ class Message(BaseModel):
         # tool call keys are added in to_llm_dict to centralize behavior
         return message_dict
 
-    def _add_tool_call_keys(self, message_dict: dict[str, Any]) -> dict[str, Any]:
-        """Add tool call keys if we have a tool call or response.
 
-        NOTE: this is necessary for both native and non-native tool calling
-        """
-        # an assistant message calling a tool
-        if self.tool_calls is not None:
-            message_dict["tool_calls"] = [tc.to_chat_dict() for tc in self.tool_calls]
+    def to_responses_dict(self, *, vision_enabled: bool) -> list[dict[str, Any]]:
+        """Serialize message for OpenAI Responses (input parameter).
 
-        # an observation message with tool response
-        if self.tool_call_id is not None:
-            assert self.name is not None, (
-                "name is required when tool_call_id is not None"
-            )
-            message_dict["tool_call_id"] = self.tool_call_id
-            message_dict["name"] = self.name
-
-        return message_dict
-
-    def to_responses_input(self, *, vision_enabled: bool) -> list[dict[str, Any]]:
-        """Serialize this Message into OpenAI Responses API input items.
-
-        Mapping policy:
-        - system: returned as [], system content is expected to be sent via 'instructions'
+        Produces a list of "input" items for the Responses API:
+        - system: returns [], system content is expected in 'instructions'
         - user: one 'message' item with content parts -> input_text / input_image (when vision enabled)
-        - assistant: prior assistant turns become plain input_text items (no message wrapper)
-        - tool: tool execution result(s) become function_call_output items (one per TextContent)
+        - assistant: emits prior assistant content as input_text, and function_call items for tool_calls
+        - tool: emits function_call_output items (one per TextContent) with matching call_id
         """
         items: list[dict[str, Any]] = []
 
@@ -393,8 +386,8 @@ class Message(BaseModel):
         return items
 
     @classmethod
-    def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
-        """Convert a LiteLLMMessage to our Message class.
+    def from_llm_chat_message(cls, message: LiteLLMMessage) -> "Message":
+        """Convert a LiteLLMMessage (Chat Completions) to our Message class.
 
         Provider-agnostic mapping for reasoning:
         - Prefer `message.reasoning_content` if present (LiteLLM normalized field)
@@ -415,8 +408,8 @@ class Message(BaseModel):
         else:
             thinking_blocks = []
 
-        # Convert litellm tool calls to our MessageToolCall format
-        converted_tool_calls = None
+        tool_calls = None
+
         if message.tool_calls:
             # Validate tool calls - filter out non-function types
             if any(tc.type != "function" for tc in message.tool_calls):
@@ -430,7 +423,7 @@ class Message(BaseModel):
             ]
 
             if len(function_tool_calls) > 0:
-                converted_tool_calls = [
+                tool_calls = [
                     MessageToolCall.from_chat_tool_call(tc)
                     for tc in function_tool_calls
                 ]
@@ -445,10 +438,48 @@ class Message(BaseModel):
             content=[TextContent(text=message.content)]
             if isinstance(message.content, str)
             else [],
-            tool_calls=converted_tool_calls,
+            tool_calls=tool_calls,
             reasoning_content=rc,
             thinking_blocks=thinking_blocks,
         )
+
+
+    @classmethod
+    def from_llm_responses_output(
+        cls,
+        output: Sequence[
+            ResponseOutputItem | GenericResponseOutputItem | OutputFunctionToolCall
+        ],
+    ) -> "Message":
+        """Convert OpenAI Responses API output items into a single assistant Message.
+
+        Policy (non-stream):
+        - Collect assistant text by concatenating output_text parts from message items
+        - Normalize function_call items to MessageToolCall list
+        """
+        assistant_text_parts: list[str] = []
+        tool_calls: list[MessageToolCall] = []
+
+        for item in output or []:
+            if item.type == "message":
+                for part in (item.content or []):
+                    if part.type == "output_text" and part.text:
+                        assistant_text_parts.append(str(part.text))
+            elif item.type == "function_call":
+                tc = MessageToolCall.from_responses_function_call(item)
+                tool_calls.append(tc)
+
+        assistant_text = "\n".join(assistant_text_parts).strip()
+        return Message(
+            role="assistant",
+            content=[TextContent(text=assistant_text)] if assistant_text else [],
+            tool_calls=tool_calls or None,
+        )
+
+    @classmethod
+    def from_litellm_message(cls, message: LiteLLMMessage) -> "Message":
+        """Backward-compatible alias for Chat Completions path."""
+        return cls.from_llm_chat_message(message)
 
 
 def content_to_str(contents: Sequence[TextContent | ImageContent]) -> list[str]:

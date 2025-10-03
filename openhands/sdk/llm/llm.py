@@ -470,7 +470,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
             # Convert the first choice to an OpenHands Message
             first_choice = resp["choices"][0]
-            message = Message.from_litellm_message(first_choice["message"])
+            message = Message.from_llm_chat_message(first_choice["message"])
 
             # Get current metrics snapshot
             metrics_snapshot = MetricsSnapshot(
@@ -582,39 +582,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         try:
             resp: ResponsesAPIResponse = _one_attempt()
 
-            # Parse output -> Message
-            assistant_text_parts: list[str] = []
-            tool_calls: list[MessageToolCall] = []
-
-            for item in resp.output or []:
-                # item may be pydantic model or dict
-                t = getattr(item, "type", None) or (
-                    item.get("type") if isinstance(item, dict) else None
-                )
-
-                if t == "message":
-                    content = getattr(item, "content", None) or (
-                        item.get("content") if isinstance(item, dict) else []
-                    )
-                    for part in content or []:
-                        # part could be OutputText or dict
-                        txt = getattr(part, "text", None)
-                        if txt is None and isinstance(part, dict):
-                            txt = part.get("text")
-                        if txt:
-                            assistant_text_parts.append(str(txt))
-                elif t == "function_call":
-                    # Normalize via MessageToolCall helper to keep symmetry with chat path
-                    tc = MessageToolCall.from_responses_function_call(item)
-                    if tc.name and tc.arguments is not None:
-                        tool_calls.append(tc)
-
-            assistant_text = "\n".join(assistant_text_parts).strip()
-            message = Message(
-                role="assistant",
-                content=[TextContent(text=assistant_text)] if assistant_text else [],
-                tool_calls=tool_calls or None,
-            )
+            # Parse output -> Message (typed)
+            message = Message.from_llm_responses_output(resp.output or [])
 
             metrics_snapshot = MetricsSnapshot(
                 model_name=self.metrics.model_name,
@@ -982,7 +951,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         """Prepare (instructions, input[]) for the OpenAI Responses API.
 
         - Skips prompt caching flags and string serializer concerns
-        - Uses Message.to_responses_input with vision gating
+        - Uses Message.to_responses_dict with vision gating
         - Concatenates system messages into a single instructions string
         """
         msgs = copy.deepcopy(messages)
@@ -1008,7 +977,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         input_items: list[dict[str, Any]] = []
         for m in msgs:
             if m.role != "system":
-                input_items.extend(m.to_responses_input(vision_enabled=vision_active))
+                input_items.extend(m.to_responses_dict(vision_enabled=vision_active))
 
         return instructions, input_items
 

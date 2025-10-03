@@ -153,7 +153,7 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
 # Models that should use the OpenAI Responses API path by default
 RESPONSES_API_PATTERNS: list[str] = [
     # OpenAI GPT-5 family (includes mini variants)
-    "gpt-5-2025*",
+    "gpt-5*",
 ]
 
 
