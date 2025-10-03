@@ -62,7 +62,6 @@ from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import (
     Message,
-    TextContent,
 )
 from openhands.sdk.llm.mixins.non_native_fc import NonNativeToolCallingMixin
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
@@ -965,8 +964,9 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         """Prepare (instructions, input[]) for the OpenAI Responses API.
 
         - Skips prompt caching flags and string serializer concerns
-        - Uses Message.to_responses_dict with vision gating
-        - Concatenates system messages into a single instructions string
+        - Uses Message.to_responses_value to get either instructions (system)
+         or input items (others)
+        - Concatenates system instructions into a single instructions string
         """
         msgs = copy.deepcopy(messages)
 
@@ -975,24 +975,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         for m in msgs:
             m.vision_enabled = vision_active
 
-        # Concatenate system messages into instructions
-        instructions_parts: list[str] = []
-        for m in msgs:
-            if m.role == "system":
-                for c in m.content:
-                    if isinstance(c, TextContent) and c.text:
-                        instructions_parts.append(c.text)
-
-        instructions = (
-            "\n\n---\n\n".join(p for p in instructions_parts if p.strip()) or None
-        )
-
-        # Build input items from non-system messages
+        # Assign system instructions as a string, collect input items
+        instructions: str | None = None
         input_items: list[dict[str, Any]] = []
         for m in msgs:
-            if m.role != "system":
-                input_items.extend(m.to_responses_dict(vision_enabled=vision_active))
-
+            val = m.to_responses_value(vision_enabled=vision_active)
+            if isinstance(val, str):
+                s = val.strip()
+                if not s:
+                    continue
+                instructions = (
+                    s if instructions is None else f"{instructions}\n\n---\n\n{s}"
+                )
+            else:
+                if val:
+                    input_items.extend(val)
         return instructions, input_items
 
     def get_token_count(self, messages: list[Message]) -> int:

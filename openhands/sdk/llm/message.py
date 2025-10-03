@@ -331,6 +331,18 @@ class Message(BaseModel):
         # tool call keys are added in to_llm_dict to centralize behavior
         return message_dict
 
+    def to_responses_value(self, *, vision_enabled: bool) -> str | list[dict[str, Any]]:
+        """Return serialized form.
+
+        Either an instructions string (for system) or input items (for other roles)."""
+        if self.role == "system":
+            parts: list[str] = []
+            for c in self.content:
+                if isinstance(c, TextContent) and c.text:
+                    parts.append(c.text)
+            return "\n".join(parts)
+        return self.to_responses_dict(vision_enabled=vision_enabled)
+
     def to_responses_dict(self, *, vision_enabled: bool) -> list[dict[str, Any]]:
         """Serialize message for OpenAI Responses (input parameter).
 
@@ -387,6 +399,31 @@ class Message(BaseModel):
                         "content": content_items,
                     }
                 )
+            # Include prior turn's reasoning item exactly as received (if any)
+            if self.responses_reasoning_item is not None:
+                ri = self.responses_reasoning_item
+                # Only send back if we have an id; required by the param schema
+                if ri.id is not None:
+                    reasoning_item: dict[str, Any] = {
+                        "type": "reasoning",
+                        "id": ri.id,
+                    }
+                    # Always include summary exactly as received (can be empty)
+                    summary_items = [
+                        {"type": "summary_text", "text": s} for s in (ri.summary or [])
+                    ]
+                    reasoning_item["summary"] = summary_items
+                    # Optional content passthrough
+                    if ri.content:
+                        reasoning_item["content"] = [
+                            {"type": "reasoning_text", "text": t} for t in ri.content
+                        ]
+                    # Optional fields as received
+                    if ri.encrypted_content:
+                        reasoning_item["encrypted_content"] = ri.encrypted_content
+                    if ri.status:
+                        reasoning_item["status"] = ri.status
+                    items.append(reasoning_item)
             # Emit assistant tool calls so subsequent function_call_output
             # can match call_id
             if self.tool_calls:
