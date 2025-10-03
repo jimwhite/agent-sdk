@@ -116,7 +116,7 @@ class View(BaseModel):
         for event in events:
             if isinstance(event, ActionEvent) and event.tool_call_id is not None:
                 tool_call_ids.add(event.tool_call_id)
-            elif isinstance(event, NonExecutableActionEvent):
+            elif isinstance(event, NonExecutableActionEvent) and event.tool_call_id is not None:
                 tool_call_ids.add(event.tool_call.id)
         return tool_call_ids
 
