@@ -32,6 +32,8 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import litellm
 
+from typing import cast
+
 from litellm import ChatCompletionToolParam, completion as litellm_completion
 from litellm.exceptions import (
     APIConnectionError,
@@ -52,6 +54,7 @@ from litellm.utils import (
     supports_vision,
     token_counter,
 )
+from openai.types.responses.response_input_param import ResponseInputParam
 
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 
@@ -558,9 +561,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             with self._litellm_modify_params_ctx(self.modify_params):
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    typed_input: ResponseInputParam | str = (
+                        cast(ResponseInputParam, input_items) if input_items else ""
+                    )
                     ret = litellm_responses(
                         model=self.model,
-                        input=input_items or "",
+                        input=typed_input,
                         instructions=instructions,
                         tools=resp_tools,
                         api_key=self.api_key.get_secret_value()
@@ -577,6 +583,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         f"Expected ResponsesAPIResponse, got {type(ret)}"
                     )
                     # telemetry (latency, cost). Token usage mapping we handle after.
+                    assert self._telemetry is not None
                     self._telemetry.on_response(ret)
                     return ret
 
@@ -584,7 +591,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             resp: ResponsesAPIResponse = _one_attempt()
 
             # Parse output -> Message (typed)
-            message = Message.from_llm_responses_output(resp.output or [])
+            # Cast to a typed sequence
+            # accepted by from_llm_responses_output
+            output_seq = cast(Sequence[Any], resp.output or [])
+            message = Message.from_llm_responses_output(output_seq)
 
             metrics_snapshot = MetricsSnapshot(
                 model_name=self.metrics.model_name,
