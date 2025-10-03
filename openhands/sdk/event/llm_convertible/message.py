@@ -59,22 +59,14 @@ class MessageEvent(LLMConvertibleEvent):
             content.append("[no text content]")
 
         # Responses API reasoning (plaintext only; never render encrypted_content)
-        ri = getattr(self.llm_message, "responses_reasoning_item", None)
-        if ri is not None:
-            content.append("\n\nReasoning (Responses):\n", style="bold")
-            rid = getattr(ri, "id", None)
-            if rid:
-                content.append(f"id: {rid}\n")
-            status = getattr(ri, "status", None)
-            if status:
-                content.append(f"status: {status}\n")
-            summaries = getattr(ri, "summary", None)
-            if summaries:
-                for s in summaries:
+        reasoning_item = self.llm_message.responses_reasoning_item
+        if reasoning_item is not None:
+            content.append("\n\nReasoning:\n", style="bold")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
                     content.append(f"- {s}\n")
-            blocks = getattr(ri, "content", None)
-            if blocks:
-                for b in blocks:
+            if reasoning_item.content:
+                for b in reasoning_item.content:
                     content.append(f"{b}\n")
 
         # Add microagent information if present

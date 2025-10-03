@@ -86,11 +86,7 @@ class ActionEvent(LLMConvertibleEvent):
         # Responses API reasoning (plaintext only; never render encrypted_content)
         reasoning_item = self.responses_reasoning_item
         if reasoning_item is not None:
-            content.append("Reasoning (Responses):\n", style="bold")
-            if reasoning_item.id:
-                content.append(f"id: {reasoning_item.id}\n")
-            if reasoning_item.status:
-                content.append(f"status: {reasoning_item.status}\n")
+            content.append("Reasoning:\n", style="bold")
             if reasoning_item.summary:
                 for s in reasoning_item.summary:
                     content.append(f"- {s}\n")
