@@ -124,23 +124,6 @@ class NonExecutableActionEvent(ActionEvent):
         default=None, description="No validated action is available"
     )
 
-    source: SourceType = "agent"
-    thought: Sequence[TextContent] = Field(
-        default_factory=list,
-        description="The assistant's thought content returned alongside tool calls",
-    )
-    reasoning_content: str | None = Field(
-        default=None,
-        description="Intermediate reasoning content from reasoning models",
-    )
-    thinking_blocks: list[ThinkingBlock | RedactedThinkingBlock] = Field(
-        default_factory=list,
-        description="Anthropic thinking blocks from the LLM response",
-    )
-    tool_call: MessageToolCall = Field(
-        ..., description="Raw tool call returned by the LLM"
-    )
-
     @property
     def visualize(self) -> Text:
         content = Text()
