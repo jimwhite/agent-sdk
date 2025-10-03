@@ -66,8 +66,6 @@ help:
 	@echo "  $(GREEN)build$(RESET)        - Setup development environment (install deps + hooks)"
 	@echo "  $(GREEN)format$(RESET)       - Format code with uv format"
 	@echo "  $(GREEN)lint$(RESET)         - Lint code with ruff"
-	@echo "  $(GREEN)build-server$(RESET) - Build agent server executable"
-	@echo "  $(GREEN)build-acp-server$(RESET) - Build ACP server executable"
 	@echo "  $(GREEN)clean$(RESET)        - Clean up cache files"
 	@echo "  $(GREEN)help$(RESET)         - Show this help message"
 
@@ -75,11 +73,6 @@ build-server: check-uv-version
 	@echo "$(CYAN)Building agent-server executable...$(RESET)"
 	@uv run pyinstaller openhands/agent_server/agent-server.spec
 	@echo "$(GREEN)Build complete! Executable is in dist/agent-server/$(RESET)"
-
-build-acp-server: check-uv-version
-	@echo "$(CYAN)Building ACP server executable...$(RESET)"
-	@uv run pyinstaller openhands/agent_server/acp/acp-server.spec
-	@echo "$(GREEN)Build complete! Executable is in dist/openhands-acp-server$(RESET)"
 
 test-server-schema: check-uv-version
 	set -euo pipefail;
