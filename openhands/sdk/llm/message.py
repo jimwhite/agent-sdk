@@ -3,7 +3,7 @@ from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
-from litellm import ChatCompletionMessageToolCall
+from litellm import ChatCompletionMessageToolCall, ResponseFunctionToolCall
 from litellm.types.llms.openai import (
     GenericResponseOutputItem,
     OutputFunctionToolCall,
@@ -396,6 +396,7 @@ class Message(BaseModel):
 
         rc = getattr(message, "reasoning_content", None)
         thinking_blocks = getattr(message, "thinking_blocks", None)
+
         # Convert to list of ThinkingBlock or RedactedThinkingBlock
         if thinking_blocks is not None:
             thinking_blocks = [
