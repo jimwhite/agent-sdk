@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Sequence
 
 from pydantic import Field
@@ -85,26 +84,19 @@ class ActionEvent(LLMConvertibleEvent):
             content.append("\n\n")
 
         # Responses API reasoning (plaintext only; never render encrypted_content)
-        ri = self.responses_reasoning_item
-        if ri is not None:
+        reasoning_item = self.responses_reasoning_item
+        if reasoning_item is not None:
             content.append("Reasoning (Responses):\n", style="bold")
-            rid = getattr(ri, "id", None)
-            if rid:
-                content.append(f"id: {rid}\n")
-            status = getattr(ri, "status", None)
-            if status:
-                content.append(f"status: {status}\n")
-            summaries = getattr(ri, "summary", None)
-            if summaries:
-                for s in summaries:
+            if reasoning_item.id:
+                content.append(f"id: {reasoning_item.id}\n")
+            if reasoning_item.status:
+                content.append(f"status: {reasoning_item.status}\n")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
                     content.append(f"- {s}\n")
-            blocks = getattr(ri, "content", None)
-            if blocks:
-                for b in blocks:
+            if reasoning_item.content:
+                for b in reasoning_item.content:
                     content.append(f"{b}\n")
-            # print
-            print(ri)
-            sys.exit(0)
 
         # Display action information using action's visualize method
         content.append(self.action.visualize)
@@ -185,22 +177,18 @@ class NonExecutableActionEvent(LLMConvertibleEvent):
             content.append(thought_text)
             content.append("\n\n")
         # Responses API reasoning (plaintext only; never render encrypted_content)
-        ri = self.responses_reasoning_item
-        if ri is not None:
+        reasoning_item = self.responses_reasoning_item
+        if reasoning_item is not None:
             content.append("Reasoning (Responses):\n", style="bold")
-            rid = getattr(ri, "id", None)
-            if rid:
-                content.append(f"id: {rid}\n")
-            status = getattr(ri, "status", None)
-            if status:
-                content.append(f"status: {status}\n")
-            summaries = getattr(ri, "summary", None)
-            if summaries:
-                for s in summaries:
+            if reasoning_item.id:
+                content.append(f"id: {reasoning_item.id}\n")
+            if reasoning_item.status:
+                content.append(f"status: {reasoning_item.status}\n")
+            if reasoning_item.summary:
+                for s in reasoning_item.summary:
                     content.append(f"- {s}\n")
-            blocks = getattr(ri, "content", None)
-            if blocks:
-                for b in blocks:
+            if reasoning_item.content:
+                for b in reasoning_item.content:
                     content.append(f"{b}\n")
 
         content.append("Function calls:\n", style="bold")

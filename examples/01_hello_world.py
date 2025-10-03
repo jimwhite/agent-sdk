@@ -69,7 +69,8 @@ conversation = Conversation(
 )
 
 conversation.send_message(
-    "Read the current repo and write 3 facts about the project into FACTS.txt."
+    "Read the current repo README.md and write 1 line on top"
+    " of the file, using a tool call with insert line. You must use insert line."
 )
 conversation.run()
 

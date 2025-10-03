@@ -9,9 +9,6 @@ from litellm.types.responses.main import (
     OutputFunctionToolCall,
 )
 from litellm.types.utils import Message as LiteLLMMessage
-from openai.types.responses.response_output_item import (
-    ResponseOutputItem as OAResponseOutputItem,
-)
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -472,15 +469,7 @@ class Message(BaseModel):
     @classmethod
     def from_llm_responses_output(
         cls,
-        output: Sequence[
-            OAResponseOutputItem
-            | GenericResponseOutputItem
-            | OutputFunctionToolCall
-            | ResponseFunctionToolCall
-            | ResponseOutputMessage
-            | ResponseReasoningItem
-            | dict[str, Any]
-        ],
+        output: Any,
     ) -> "Message":
         """Convert OpenAI Responses API output items into a single assistant Message.
 
