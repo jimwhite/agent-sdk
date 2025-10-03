@@ -1,5 +1,6 @@
 """String replace editor tool implementation."""
 
+import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
@@ -63,11 +64,8 @@ class FileEditorAction(Action):
     )
 
     @property
-    def title(self) -> str:
-        """Return a brief title showing the command and file path."""
-        # Extract filename from path
-        import os
-
+    def summary(self) -> str:
+        """Return a brief summary showing the command and file path."""
         filename = os.path.basename(self.path) if self.path else "file"
 
         if self.command == "view":

@@ -47,8 +47,8 @@ class ExecuteBashAction(Action):
     )
 
     @property
-    def title(self) -> str:
-        """Return a brief title showing the command being executed."""
+    def summary(self) -> str:
+        """Return a brief summary showing the command being executed."""
         if not self.command:
             return "execute bash (empty command)"
 
