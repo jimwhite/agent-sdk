@@ -1,1 +1,0 @@
-This repository is the OpenHands agent SDK (openhands) and includes example scripts and an agent server.
