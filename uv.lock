@@ -1787,7 +1787,6 @@ name = "openhands-agent-server"
 version = "1.0.0"
 source = { editable = "openhands/agent_server" }
 dependencies = [
-    { name = "agent-client-protocol" },
     { name = "aiosqlite" },
     { name = "alembic" },
     { name = "docker" },
@@ -1800,7 +1799,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agent-client-protocol", specifier = ">=0.1.0" },
     { name = "aiosqlite", specifier = ">=0.19" },
     { name = "alembic", specifier = ">=1.13" },
     { name = "docker", specifier = ">=7.1,<8" },
