@@ -13,7 +13,6 @@ from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
@@ -263,11 +262,12 @@ def test_visualizer_event_panel_creation():
 
 
 def test_visualizer_non_executable_action_event_panel():
-    """NEA should render as an Action-like panel, not UNKNOWN."""
+    """ActionEvent with action=None should render like Action, not UNKNOWN."""
     visualizer = ConversationVisualizer()
     tc = create_tool_call("call_ne_1", "missing_fn", {})
-    nea = NonExecutableActionEvent(
+    nea = ActionEvent(
         thought=[TextContent(text="...")],
+        action=None,
         tool_call=tc,
         tool_name=tc.name,
         tool_call_id=tc.id,

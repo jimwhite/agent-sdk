@@ -1,4 +1,4 @@
-"""Tests that the agent emits NonExecutableActionEvent on missing tools."""
+"""Tests that the agent emits ActionEvent(action=None) on missing tools."""
 
 import json
 from unittest.mock import patch
@@ -15,9 +15,9 @@ from pydantic import SecretStr
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
 )
 from openhands.sdk.llm import LLM, Message, TextContent
 
@@ -72,23 +72,25 @@ def test_emits_non_executable_action_event_then_error_on_missing_tool() -> None:
         conv.send_message(Message(role="user", content=[TextContent(text="go")]))
         agent.step(conv.state, on_event=cb)
 
-    # We expect a NonExecutableActionEvent followed by an AgentErrorEvent
+    # We expect an ActionEvent(action=None) followed by an AgentErrorEvent
     types = [type(e) for e in collected]
-    assert NonExecutableActionEvent in types
+    assert ActionEvent in types
     assert AgentErrorEvent in types
 
-    # Ensure ordering: NEA occurs before AgentErrorEvent for same call id
-    first_nea_idx = next(
-        i for i, e in enumerate(collected) if isinstance(e, NonExecutableActionEvent)
+    # Ensure ordering: ActionEvent(None) occurs before AgentErrorEvent for same call id
+    first_action_none_idx = next(
+        i
+        for i, e in enumerate(collected)
+        if isinstance(e, ActionEvent) and e.action is None
     )
     first_err_idx = next(
         i for i, e in enumerate(collected) if isinstance(e, AgentErrorEvent)
     )
-    assert first_nea_idx < first_err_idx
+    assert first_action_none_idx < first_err_idx
 
     # Verify tool_call_id continuity
-    nea = next(e for e in collected if isinstance(e, NonExecutableActionEvent))
-    tc_id = nea.tool_call.id
+    ae = next(e for e in collected if isinstance(e, ActionEvent) and e.action is None)
+    tc_id = ae.tool_call.id
     err = next(e for e in collected if isinstance(e, AgentErrorEvent))
     assert err.tool_call_id == tc_id
 

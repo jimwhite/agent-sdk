@@ -1,7 +1,7 @@
 import json
 from collections.abc import Sequence
 
-from openhands.sdk.event.llm_convertible import NonExecutableActionEvent
+from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.llm import MessageToolCall, TextContent
 
 
@@ -14,11 +14,12 @@ def test_non_executable_action_event_to_llm_message_round_trip() -> None:
         origin="completion",
     )
 
-    evt = NonExecutableActionEvent(
+    evt = ActionEvent(
         source="agent",
         thought=thought,
         reasoning_content="rc",
         thinking_blocks=[],
+        action=None,
         tool_call=tc,
         tool_name=tc.name,
         tool_call_id=tc.id,

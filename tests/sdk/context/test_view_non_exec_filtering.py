@@ -2,9 +2,9 @@ import json
 
 from openhands.sdk.context.view import View
 from openhands.sdk.event.llm_convertible import (
+    ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
 )
 from openhands.sdk.llm import Message, MessageToolCall, TextContent
 
@@ -17,9 +17,10 @@ def test_filter_keeps_non_exec_when_matched_by_observation() -> None:
         arguments=json.dumps({}),
         origin="completion",
     )
-    nea = NonExecutableActionEvent(
+    nea = ActionEvent(
         source="agent",
         thought=[TextContent(text="...")],
+        action=None,
         tool_call=tc,
         tool_name=tc.name,
         tool_call_id=tc.id,

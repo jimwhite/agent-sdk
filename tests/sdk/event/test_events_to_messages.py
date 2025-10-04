@@ -11,7 +11,6 @@ from openhands.sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -422,9 +421,10 @@ class TestEventsToMessages:
     def test_non_executable_action_event_round_trip_and_observation_match(self):
         thought = [TextContent(text="thinking...")]
         tc = create_tool_call("call_ne", "missing_tool", {"x": 1})
-        nea = NonExecutableActionEvent(
+        nea = ActionEvent(
             source="agent",
             thought=thought,
+            action=None,
             tool_call=tc,
             tool_name=tc.name,
             tool_call_id=tc.id,
