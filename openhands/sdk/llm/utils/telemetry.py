@@ -3,6 +3,7 @@ import os
 import time
 import uuid
 import warnings
+from dataclasses import dataclass, field
 from typing import Any
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
@@ -15,13 +16,31 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
+@dataclass(eq=True, init=False)
 class Telemetry:
     """
     Boring, simple telemetry service.
-    - Plain Python class (no Pydantic)
+    - Dataclass for stable value-equality on config fields
     - Records latency, token usage, cost into provided Metrics
     - Optional JSON log writing
     """
+
+    # External dependency, excluded from equality (identity, runtime-managed)
+    _metrics: Metrics = field(init=False, compare=False, repr=False)
+
+    # Config fields (participate in equality)
+    model_name: str = "unknown"
+    log_enabled: bool = False
+    log_dir: str | None = None
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
+
+    # Runtime state: excluded from equality and initialization
+    _req_start: float = field(default=0.0, init=False, compare=False, repr=False)
+    _req_ctx: dict[str, Any] = field(
+        default_factory=dict, init=False, compare=False, repr=False
+    )
+    _last_latency: float = field(default=0.0, init=False, compare=False, repr=False)
 
     def __init__(
         self,
@@ -33,26 +52,31 @@ class Telemetry:
         output_cost_per_token: float | None = None,
         metrics: Metrics | None = None,
     ) -> None:
-        if metrics is None:
-            raise ValueError("Telemetry requires a Metrics instance")
-        if input_cost_per_token is not None and input_cost_per_token < 0:
-            raise ValueError("input_cost_per_token must be >= 0")
-        if output_cost_per_token is not None and output_cost_per_token < 0:
-            raise ValueError("output_cost_per_token must be >= 0")
-
         self.model_name = model_name
         self.log_enabled = log_enabled
         self.log_dir = log_dir
         self.input_cost_per_token = input_cost_per_token
         self.output_cost_per_token = output_cost_per_token
-        self.metrics = metrics
+        self._req_start = 0.0
+        self._req_ctx = {}
+        self._last_latency = 0.0
+        if not isinstance(metrics, Metrics):
+            raise ValueError("Telemetry requires a Metrics instance")
+        self._metrics = metrics
+        # post-init validations
+        if self.input_cost_per_token is not None and self.input_cost_per_token < 0:
+            raise ValueError("input_cost_per_token must be >= 0")
+        if self.output_cost_per_token is not None and self.output_cost_per_token < 0:
+            raise ValueError("output_cost_per_token must be >= 0")
 
-        # Runtime state
-        self._req_start: float = 0.0
-        self._req_ctx: dict[str, Any] = {}
-        self._last_latency: float = 0.0
+    @property
+    def metrics(self) -> Metrics:
+        return self._metrics
 
     # ---------- Lifecycle ----------
+    def set_metrics(self, metrics: Metrics) -> None:
+        self._metrics = metrics
+
     def on_request(self, log_ctx: dict | None) -> None:
         self._req_start = time.time()
         self._req_ctx = log_ctx or {}
@@ -67,18 +91,18 @@ class Telemetry:
         """
         # Only handle ModelResponse instances
         if not isinstance(resp, ModelResponse):
-            return self.metrics.deep_copy()
+            return self._metrics.deep_copy()
 
         # 1) latency
         self._last_latency = time.time() - (self._req_start or time.time())
         response_id = str(getattr(resp, "id", None) or "unknown")
-        self.metrics.add_response_latency(self._last_latency, response_id)
+        self._metrics.add_response_latency(self._last_latency, response_id)
 
         # 2) cost
         cost = self._compute_cost(resp)
         # Skip zero-cost (0.0) responses; only record positive cost
         if cost:
-            self.metrics.add_cost(cost)
+            self._metrics.add_cost(cost)
 
         # 3) tokens - handle both dict and ModelResponse objects
         if isinstance(resp, dict):
@@ -95,7 +119,7 @@ class Telemetry:
         if self.log_enabled:
             self._log_completion(resp, cost, raw_resp=raw_resp)
 
-        return self.metrics.deep_copy()
+        return self._metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
         # Stub for error tracking / counters
@@ -147,7 +171,7 @@ class Telemetry:
         if completion_tokens_details and completion_tokens_details.reasoning_tokens:
             reasoning_tokens = completion_tokens_details.reasoning_tokens
 
-        self.metrics.add_token_usage(
+        self._metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cache_read_tokens=cache_read,
