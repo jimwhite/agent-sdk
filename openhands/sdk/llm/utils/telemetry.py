@@ -206,7 +206,7 @@ class Telemetry(BaseModel):
                 (
                     f"{self.model_name.replace('/', '__')}-"
                     f"{time.time():.3f}-"
-                    f"{uuid.uuid4().hex[:8]}.json"
+                    f"{uuid.uuid4().hex[:4]}.json"
                 ),
             )
             data = self._req_ctx.copy()
