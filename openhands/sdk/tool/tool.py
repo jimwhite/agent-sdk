@@ -282,6 +282,7 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         self,
         add_security_risk_prediction: bool = False,
         action_type: type[Schema] | None = None,
+        responses_strict: bool = False,
     ) -> dict[str, Any]:
         action_type = action_type or self.action_type
         action_type_with_risk = _create_action_type_with_risk(action_type)
@@ -290,9 +291,9 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             self.annotations is None or (not self.annotations.readOnlyHint)
         )
         schema = (
-            action_type_with_risk.to_mcp_schema()
+            action_type_with_risk.to_mcp_schema(responses_strict=responses_strict)
             if add_security_risk_prediction
-            else action_type.to_mcp_schema()
+            else action_type.to_mcp_schema(responses_strict=responses_strict)
         )
         return schema
 
@@ -333,14 +334,16 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         For Responses API, function tools expect top-level keys:
         { "type": "function", "name": ..., "description": ..., "parameters": ... }
         """
-
+        schema = self._get_tool_schema(
+            add_security_risk_prediction,
+            action_type,
+            responses_strict=True,
+        )
         return {
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": self._get_tool_schema(
-                add_security_risk_prediction, action_type
-            ),
+            "parameters": schema,
             "strict": True,
         }
 

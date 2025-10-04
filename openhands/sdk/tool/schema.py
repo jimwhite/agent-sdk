@@ -36,6 +36,45 @@ def py_type(spec: dict[str, Any]) -> Any:
     return Any
 
 
+def _process_schema_for_responses_api_strict_mode(
+    schema: dict[str, Any],
+) -> dict[str, Any]:
+    # Process fields for strict mode
+    # https://platform.openai.com/docs/guides/function-calling#strict-mode
+
+    schema["additionalProperties"] = False  # enforce no extra fields
+    originally_required = schema.get("required", [])
+    required = []
+    for field, field_schema in schema["properties"].items():
+        # strict mode: all fields are required
+        required.append(field)
+        if field_schema["type"] == "object" and "properties" in field_schema:
+            # recursively process nested objects
+            field_schema = _process_schema_for_responses_api_strict_mode(field_schema)
+            schema["properties"][field] = field_schema
+            continue
+        elif field_schema["type"] == "array" and "items" in field_schema:
+            # recursively process array items if they are objects
+            if (
+                isinstance(field_schema["items"], dict)
+                and field_schema["items"].get("type") == "object"
+                and "properties" in field_schema["items"]
+            ):
+                field_schema["items"] = _process_schema_for_responses_api_strict_mode(
+                    field_schema["items"]
+                )
+        elif field not in originally_required:
+            assert isinstance(field_schema["type"], str)
+            # extend type to include null for originally optional fields
+            field_schema["type"] = [
+                field_schema["type"],
+                "null",
+            ]
+    # Overwrite required list
+    schema["required"] = required
+    return schema
+
+
 def _process_schema_node(node, defs):
     """Recursively process a schema node to simplify and resolve $ref.
 
@@ -101,12 +140,19 @@ class Schema(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @classmethod
-    def to_mcp_schema(cls) -> dict[str, Any]:
-        """Convert to JSON schema format compatible with MCP."""
+    def to_mcp_schema(cls, responses_strict: bool = False) -> dict[str, Any]:
+        """Convert to JSON schema format compatible with MCP.
+
+        If `responses_strict` is True, the schema will be processed to enforce
+            stricter validation rules following OpenAI Responses API strict mode.
+        """
         full_schema = cls.model_json_schema()
         # This will get rid of all "anyOf" in the schema,
         # so it is fully compatible with MCP tool schema
-        return _process_schema_node(full_schema, full_schema.get("$defs", {}))
+        schema = _process_schema_node(full_schema, full_schema.get("$defs", {}))
+        if responses_strict:
+            schema = _process_schema_for_responses_api_strict_mode(schema)
+        return schema
 
     @classmethod
     def from_mcp_schema(
