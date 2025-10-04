@@ -278,6 +278,24 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
             out["outputSchema"] = derived_output
         return out
 
+    def _get_tool_schema(
+        self,
+        add_security_risk_prediction: bool = False,
+        action_type: type[Schema] | None = None,
+    ) -> dict[str, Any]:
+        action_type = action_type or self.action_type
+        action_type_with_risk = _create_action_type_with_risk(action_type)
+
+        add_security_risk_prediction = add_security_risk_prediction and (
+            self.annotations is None or (not self.annotations.readOnlyHint)
+        )
+        schema = (
+            action_type_with_risk.to_mcp_schema()
+            if add_security_risk_prediction
+            else action_type.to_mcp_schema()
+        )
+        return schema
+
     def to_openai_tool(
         self,
         add_security_risk_prediction: bool = False,
@@ -294,22 +312,14 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
                 This is useful for MCPTool to use a dynamically created action type
                 based on the tool's input schema.
         """
-        action_type = action_type or self.action_type
-
-        action_type_with_risk = _create_action_type_with_risk(action_type)
-
-        # We only add security_risk if the tool is not read-only
-        add_security_risk_prediction = add_security_risk_prediction and (
-            self.annotations is None or (not self.annotations.readOnlyHint)
-        )
         return ChatCompletionToolParam(
             type="function",
             function=ChatCompletionToolParamFunctionChunk(
                 name=self.name,
                 description=self.description,
-                parameters=action_type_with_risk.to_mcp_schema()
-                if add_security_risk_prediction
-                else action_type.to_mcp_schema(),
+                parameters=self._get_tool_schema(
+                    add_security_risk_prediction, action_type
+                ),
             ),
         )
 
@@ -323,23 +333,14 @@ class ToolBase[ActionT, ObservationT](DiscriminatedUnionMixin, ABC):
         For Responses API, function tools expect top-level keys:
         { "type": "function", "name": ..., "description": ..., "parameters": ... }
         """
-        action_type = action_type or self.action_type
-        action_type_with_risk = _create_action_type_with_risk(action_type)
-
-        add_security_risk_prediction = add_security_risk_prediction and (
-            self.annotations is None or (not self.annotations.readOnlyHint)
-        )
-        schema = (
-            action_type_with_risk.to_mcp_schema()
-            if add_security_risk_prediction
-            else action_type.to_mcp_schema()
-        )
 
         return {
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": schema,
+            "parameters": self._get_tool_schema(
+                add_security_risk_prediction, action_type
+            ),
             "strict": True,
         }
 
