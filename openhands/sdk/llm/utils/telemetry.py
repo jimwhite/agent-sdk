@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import uuid
 import warnings
 from typing import Any
 
@@ -202,7 +203,11 @@ class Telemetry(BaseModel):
 
             fname = os.path.join(
                 self.log_dir,
-                f"{self.model_name.replace('/', '__')}-{time.time():.3f}.json",
+                (
+                    f"{self.model_name.replace('/', '__')}-"
+                    f"{time.time():.3f}-"
+                    f"{uuid.uuid4().hex[:8]}.json"
+                ),
             )
             data = self._req_ctx.copy()
             data["response"] = resp.model_dump()
@@ -237,10 +242,18 @@ class Telemetry(BaseModel):
 
             # Raw response *before* nonfncall -> call conversion
             if raw_resp:
-                data["raw_response"] = raw_resp
-            # pop duplicated tools
-            if "tool" in data and "tool" in data.get("kwargs", {}):
-                data["kwargs"].pop("tool")
+                data["raw_response"] = (
+                    raw_resp.model_dump()
+                    if hasattr(raw_resp, "model_dump")
+                    else raw_resp
+                )
+            # Pop duplicated tools to avoid logging twice
+            if (
+                "tools" in data
+                and isinstance(data.get("kwargs"), dict)
+                and "tools" in data["kwargs"]
+            ):
+                data["kwargs"].pop("tools")
             with open(fname, "w") as f:
                 f.write(json.dumps(data, default=_safe_json))
         except Exception as e:
