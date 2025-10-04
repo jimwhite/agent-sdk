@@ -7,7 +7,6 @@ from typing import Any
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from openhands.sdk.llm.utils.metrics import Metrics
 from openhands.sdk.logger import get_logger
@@ -16,33 +15,42 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-class Telemetry(BaseModel):
+class Telemetry:
     """
-    Handles latency, token/cost accounting, and optional logging.
-    All runtime state (like start times) lives in private attrs.
+    Boring, simple telemetry service.
+    - Plain Python class (no Pydantic)
+    - Records latency, token usage, cost into provided Metrics
+    - Optional JSON log writing
     """
 
-    # --- Config fields ---
-    model_name: str = Field(default="unknown", description="Name of the LLM model")
-    log_enabled: bool = Field(default=False, description="Whether to log completions")
-    log_dir: str | None = Field(
-        default=None, description="Directory to write logs if enabled"
-    )
-    input_cost_per_token: float | None = Field(
-        default=None, ge=0, description="Custom Input cost per token (USD)"
-    )
-    output_cost_per_token: float | None = Field(
-        default=None, ge=0, description="Custom Output cost per token (USD)"
-    )
+    def __init__(
+        self,
+        *,
+        model_name: str = "unknown",
+        log_enabled: bool = False,
+        log_dir: str | None = None,
+        input_cost_per_token: float | None = None,
+        output_cost_per_token: float | None = None,
+        metrics: Metrics | None = None,
+    ) -> None:
+        if metrics is None:
+            raise ValueError("Telemetry requires a Metrics instance")
+        if input_cost_per_token is not None and input_cost_per_token < 0:
+            raise ValueError("input_cost_per_token must be >= 0")
+        if output_cost_per_token is not None and output_cost_per_token < 0:
+            raise ValueError("output_cost_per_token must be >= 0")
 
-    metrics: Metrics = Field(..., description="Metrics collector instance")
+        self.model_name = model_name
+        self.log_enabled = log_enabled
+        self.log_dir = log_dir
+        self.input_cost_per_token = input_cost_per_token
+        self.output_cost_per_token = output_cost_per_token
+        self.metrics = metrics
 
-    # --- Runtime fields (not serialized) ---
-    _req_start: float = PrivateAttr(default=0.0)
-    _req_ctx: dict[str, Any] = PrivateAttr(default_factory=dict)
-    _last_latency: float = PrivateAttr(default=0.0)
-
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+        # Runtime state
+        self._req_start: float = 0.0
+        self._req_ctx: dict[str, Any] = {}
+        self._last_latency: float = 0.0
 
     # ---------- Lifecycle ----------
     def on_request(self, log_ctx: dict | None) -> None:
@@ -57,15 +65,18 @@ class Telemetry(BaseModel):
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
         """
+        # Only handle ModelResponse instances
+        if not isinstance(resp, ModelResponse):
+            return self.metrics.deep_copy()
+
         # 1) latency
         self._last_latency = time.time() - (self._req_start or time.time())
-        response_id = resp.id
+        response_id = str(getattr(resp, "id", None) or "unknown")
         self.metrics.add_response_latency(self._last_latency, response_id)
 
         # 2) cost
         cost = self._compute_cost(resp)
-        # Intentionally skip logging zero-cost (0.0) responses; only record
-        # positive cost
+        # Skip zero-cost (0.0) responses; only record positive cost
         if cost:
             self.metrics.add_cost(cost)
 
@@ -148,7 +159,7 @@ class Telemetry(BaseModel):
 
     def _compute_cost(self, resp: ModelResponse) -> float | None:
         """Try provider header → litellm direct. Return None on failure."""
-        extra_kwargs = {}
+        extra_kwargs: dict[str, Any] = {}
         if (
             self.input_cost_per_token is not None
             and self.output_cost_per_token is not None

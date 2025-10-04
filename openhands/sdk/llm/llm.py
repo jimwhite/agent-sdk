@@ -233,6 +233,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
+    def __eq__(self, other: object) -> bool:  # value-based equality for tests/consumers
+        if not isinstance(other, LLM):
+            return NotImplemented
+        return self.model_dump() == other.model_dump()
+
     # =========================================================================
     # Validators
     # =========================================================================
