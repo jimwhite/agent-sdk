@@ -309,21 +309,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if self._metrics is None:
             self._metrics = Metrics(model_name=self.model)
 
-        # Handle older tests/mocks that may not set pricing attributes
-        _input_cpt = None
-        _output_cpt = None
-        try:
-            _input_cpt = self.input_cost_per_token
-            _output_cpt = self.output_cost_per_token
-        except AttributeError:
-            pass
-
         self._telemetry = Telemetry(
             model_name=self.model,
             log_enabled=self.log_completions,
             log_dir=self.log_completions_folder if self.log_completions else None,
-            input_cost_per_token=_input_cpt,
-            output_cost_per_token=_output_cpt,
+            input_cost_per_token=self.input_cost_per_token,
+            output_cost_per_token=self.output_cost_per_token,
             metrics=self._metrics,
         )
 
