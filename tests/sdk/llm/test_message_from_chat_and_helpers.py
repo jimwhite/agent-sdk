@@ -1,13 +1,15 @@
+from types import SimpleNamespace
+
 import pytest
-from litellm.types.utils import Message as LiteLLMMessage
 
 from openhands.sdk.llm.message import Message, TextContent, content_to_str
 
 
 def test_from_llm_chat_message_raises_when_only_non_function_tool_calls():
     # tool_calls with one non-function entry should raise ValueError
-    non_function_call = type("ToolCall", (), {"type": "non_function"})
-    m = LiteLLMMessage(role="assistant", content="hi", tool_calls=[non_function_call])
+    non_function_call = SimpleNamespace(type="non_function")
+    # Use a lightweight stub instead of LiteLLMMessage to allow non-function tool_calls
+    m = SimpleNamespace(role="assistant", content="hi", tool_calls=[non_function_call])
     with pytest.raises(ValueError, match="none are of type 'function'"):
         Message.from_llm_chat_message(m)  # type: ignore[arg-type]
 
