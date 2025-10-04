@@ -3,7 +3,7 @@ from pydantic import Field
 from openhands.sdk.tool import Action, ToolAnnotations, ToolDefinition
 
 
-class A(Action):
+class TRTSAction(Action):
     x: int = Field(description="x")
 
 
@@ -12,7 +12,7 @@ def test_to_responses_tool_security_gating():
     readonly = ToolDefinition(
         name="t1",
         description="d",
-        action_type=A,
+        action_type=TRTSAction,
         observation_type=None,
         annotations=ToolAnnotations(readOnlyHint=True),
     )
@@ -27,7 +27,7 @@ def test_to_responses_tool_security_gating():
     writable = ToolDefinition(
         name="t2",
         description="d",
-        action_type=A,
+        action_type=TRTSAction,
         observation_type=None,
         annotations=ToolAnnotations(readOnlyHint=False),
     )
@@ -42,7 +42,7 @@ def test_to_responses_tool_security_gating():
     noflag = ToolDefinition(
         name="t3",
         description="d",
-        action_type=A,
+        action_type=TRTSAction,
         observation_type=None,
         annotations=None,
     )
