@@ -260,6 +260,8 @@ class Message(BaseModel):
         ):
             message_dict = self._list_serializer()
         else:
+            # some providers, like HF and Groq/llama, don't support a list here, but a
+            # single string
             message_dict = self._string_serializer()
 
         # Assistant function_call(s)
