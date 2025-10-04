@@ -409,12 +409,12 @@ class Message(BaseModel):
                     reasoning_item: dict[str, Any] = {
                         "type": "reasoning",
                         "id": ri.id,
+                        # Always include summary exactly as received (can be empty)
+                        "summary": [
+                            {"type": "summary_text", "text": s}
+                            for s in (ri.summary or [])
+                        ],
                     }
-                    # Always include summary exactly as received (can be empty)
-                    summary_items = [
-                        {"type": "summary_text", "text": s} for s in (ri.summary or [])
-                    ]
-                    reasoning_item["summary"] = summary_items
                     # Optional content passthrough
                     if ri.content:
                         reasoning_item["content"] = [
