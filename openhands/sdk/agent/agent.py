@@ -12,7 +12,6 @@ from openhands.sdk.event import (
     AgentErrorEvent,
     LLMConvertibleEvent,
     MessageEvent,
-    NonExecutableActionEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
@@ -320,15 +319,18 @@ class Agent(AgentBase):
             available = list(self.tools_map.keys())
             err = f"Tool '{tool_name}' not found. Available: {available}"
             logger.error(err)
-            # Persist assistant function_call(s)
-            # so next turn has matching call_id for tool output
-            tc_event = NonExecutableActionEvent(
+            # Persist assistant function_call so next turn has matching call_id
+            tc_event = ActionEvent(
                 source="agent",
                 thought=thought,
                 reasoning_content=reasoning_content,
                 thinking_blocks=thinking_blocks,
                 responses_reasoning_item=responses_reasoning_item,
-                tool_calls=[tool_call],
+                tool_call=tool_call,
+                tool_name=tool_call.name,
+                tool_call_id=tool_call.id,
+                llm_response_id=llm_response_id,
+                action=None,
             )
             on_event(tc_event)
             event = AgentErrorEvent(
@@ -367,15 +369,18 @@ class Agent(AgentBase):
                 f"Error validating args {tool_call.arguments} for tool "
                 f"'{tool.name}': {e}"
             )
-            # Persist assistant function_call(s)
-            # so next turn has matching call_id for tool output
-            tc_event = NonExecutableActionEvent(
+            # Persist assistant function_call so next turn has matching call_id
+            tc_event = ActionEvent(
                 source="agent",
                 thought=thought,
                 reasoning_content=reasoning_content,
                 thinking_blocks=thinking_blocks,
                 responses_reasoning_item=responses_reasoning_item,
-                tool_calls=[tool_call],
+                tool_call=tool_call,
+                tool_name=tool_call.name,
+                tool_call_id=tool_call.id,
+                llm_response_id=llm_response_id,
+                action=None,
             )
             on_event(tc_event)
             event = AgentErrorEvent(
