@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import Protocol, TypeGuard
 
 from litellm import ChatCompletionToolParam, Message as LiteLLMMessage
@@ -79,14 +78,7 @@ class NonNativeToolCallingMixin:
 
         # Preserve provider-specific reasoning fields before conversion
         orig_msg = resp.choices[0].message
-
-        # Suppress Pydantic serialization warnings from LiteLLM's Message type
-        # These warnings occur because LiteLLM's internal types have mismatches
-        # between expected and actual field counts during serialization.
-        # This is a known issue in LiteLLM (see their own code filtering these warnings)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Pydantic serializer warnings")
-            non_fn_message: dict = orig_msg.model_dump()
+        non_fn_message: dict = orig_msg.model_dump()
 
         fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
@@ -99,9 +91,5 @@ class NonNativeToolCallingMixin:
                 continue
             last[name] = val
 
-        # Suppress Pydantic serialization warnings during validation as well
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Pydantic serializer warnings")
-            resp.choices[0].message = LiteLLMMessage.model_validate(last)
-
+        resp.choices[0].message = LiteLLMMessage.model_validate(last)
         return resp
