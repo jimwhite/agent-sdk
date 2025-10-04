@@ -203,5 +203,3 @@ cache
 /workspace/
 openapi.json
 .client/
-# Git worktrees
-.worktrees/
