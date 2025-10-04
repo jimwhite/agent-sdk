@@ -58,7 +58,6 @@ def run_agent_conversation(llm: LLM) -> None:
 
 
 def main():
-    # Prefer proxy credentials commonly used in this repo's examples
     api_key = os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
     assert api_key, "Set LITELLM_API_KEY or OPENAI_API_KEY in your environment."
 
