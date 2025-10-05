@@ -25,7 +25,7 @@ Environment Variables Required:
     - DATADOG_API_KEY: Your Datadog API key
     - DATADOG_APP_KEY: Your Datadog application key
     - GITHUB_TOKEN: Your GitHub personal access token
-    - LITELLM_API_KEY: API key for the LLM service
+    - LLM_API_KEY: API key for the LLM service
 """
 
 import argparse
@@ -62,7 +62,7 @@ def validate_environment():
         "DATADOG_API_KEY",
         "DATADOG_APP_KEY",
         "GITHUB_TOKEN",
-        "LITELLM_API_KEY",
+        "LLM_API_KEY",
     ]
 
     missing_vars = []
@@ -233,14 +233,14 @@ def main():
     print()
 
     # Configure LLM
-    api_key = os.getenv("LITELLM_API_KEY")
+    api_key = os.getenv("LLM_API_KEY")
     if not api_key:
-        print("❌ LITELLM_API_KEY environment variable is required")
+        print("❌ LLM_API_KEY environment variable is required")
         sys.exit(1)
 
     # Get LLM configuration from environment
-    model = os.getenv("LLM_MODEL", "litellm_proxy/anthropic/claude-sonnet-4-20250514")
-    base_url = os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev")
+    model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+    base_url = os.getenv("LLM_BASE_URL")
 
     llm = LLM(
         model=model,
@@ -259,7 +259,7 @@ def main():
                 "DATADOG_API_KEY",
                 "DATADOG_APP_KEY",
                 "GITHUB_TOKEN",
-                "LITELLM_API_KEY",
+                "LLM_API_KEY",
             ],
         )
 
