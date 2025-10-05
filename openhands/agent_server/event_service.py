@@ -68,11 +68,8 @@ class EventService:
         if not self._conversation:
             raise ValueError("inactive_service")
         with self._conversation._state as state:
-            # TODO: It would be nice if the agent sdk had a method for
-            #       getting events by id
-            event = next(
-                (event for event in state.events if event.id == event_id), None
-            )
+            index = state.events.get_index(event_id)
+            event = state.events[index]
             return event
 
     async def search_events(
@@ -212,6 +209,7 @@ class EventService:
             max_iteration_per_run=self.stored.max_iterations,
             stuck_detection=self.stored.stuck_detection,
             visualize=False,
+            secrets=self.stored.secrets,
         )
 
         # Set confirmation mode if enabled

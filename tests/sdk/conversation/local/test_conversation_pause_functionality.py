@@ -27,14 +27,19 @@ from openhands.sdk.agent import Agent
 from openhands.sdk.conversation import Conversation
 from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.event import MessageEvent, PauseEvent
-from openhands.sdk.llm import LLM, ImageContent, Message, TextContent
+from openhands.sdk.llm import (
+    LLM,
+    ImageContent,
+    Message,
+    TextContent,
+)
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
 from openhands.sdk.tool import (
     Action,
     Observation,
+    Tool,
     ToolDefinition,
     ToolExecutor,
-    ToolSpec,
     register_tool,
 )
 
@@ -106,7 +111,7 @@ class TestPauseFunctionality:
 
         self.agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         self.conversation = Conversation(agent=self.agent)
 
@@ -221,7 +226,8 @@ class TestPauseFunctionality:
             id="call_1",
             type="function",
             function=Function(
-                name="test_tool", arguments='{"command": "test_command"}'
+                name="test_tool",
+                arguments='{"command": "test_command"}',
             ),
         )
         mock_completion.return_value = ModelResponse(
@@ -229,7 +235,9 @@ class TestPauseFunctionality:
             choices=[
                 Choices(
                     message=LiteLLMMessage(
-                        role="assistant", content="", tool_calls=[tool_call]
+                        role="assistant",
+                        content="",
+                        tool_calls=[tool_call],
                     )
                 )
             ],
@@ -300,7 +308,7 @@ class TestPauseFunctionality:
         register_tool("test_tool", _make_blocking_tool)
         agent = Agent(
             llm=self.llm,
-            tools=[ToolSpec(name="test_tool")],
+            tools=[Tool(name="test_tool")],
         )
         conversation = Conversation(agent=agent, stuck_detection=False)
 
@@ -313,7 +321,8 @@ class TestPauseFunctionality:
             id="call_loop",
             type="function",
             function=Function(
-                name="test_tool", arguments='{"command": "loop_forever"}'
+                name="test_tool",
+                arguments='{"command": "loop_forever"}',
             ),
         )
         import time
