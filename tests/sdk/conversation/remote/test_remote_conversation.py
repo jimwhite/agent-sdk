@@ -89,6 +89,9 @@ class TestRemoteConversation:
         )
 
         # Verify conversation creation API call
+        # Note: RemoteWorkspace is converted to LocalWorkspace for the server
+        from openhands.sdk.workspace import LocalWorkspace
+
         mock_client_instance.post.assert_called_once_with(
             "/api/conversations",
             json={
@@ -98,7 +101,9 @@ class TestRemoteConversation:
                 "initial_message": None,
                 "max_iterations": 100,
                 "stuck_detection": True,
-                "workspace": self.workspace.model_dump(),
+                "workspace": LocalWorkspace(
+                    working_dir=self.workspace.working_dir
+                ).model_dump(),
             },
         )
 
@@ -495,7 +500,7 @@ class TestRemoteConversation:
 
         secrets: dict[str, SecretValue] = {
             "api_key": "string_secret",
-            "callable_secret": get_secret,
+            "callable_secret": get_secret,  # type: ignore[dict-item]
         }
         conversation.update_secrets(secrets)
 

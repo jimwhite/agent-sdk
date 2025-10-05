@@ -19,8 +19,8 @@ from pydantic import SecretStr
 
 from openhands.sdk import LLM, Agent, Conversation
 from openhands.sdk.conversation import RemoteConversation
-from openhands.sdk.sandbox.port_utils import find_available_tcp_port
 from openhands.sdk.workspace import RemoteWorkspace
+from openhands.sdk.workspace.remote.docker import find_available_tcp_port
 
 
 @pytest.fixture
@@ -159,7 +159,7 @@ def patched_llm(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
         # Convert to OpenHands Message
-        message = Message.from_litellm_message(litellm_msg)
+        message = Message.from_llm_chat_message(litellm_msg)
 
         # Create metrics snapshot
         metrics_snapshot = MetricsSnapshot(
