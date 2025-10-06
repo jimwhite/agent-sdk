@@ -187,7 +187,7 @@ def test_remote_conversation_over_real_server(server_env, patched_llm):
 
     # Create conversation via factory pointing at the live server
     workspace = RemoteWorkspace(
-        host=server_env["host"], working_dir="/workspace/project"
+        host=server_env["host"], working_dir="/tmp/workspace/project"
     )
     conv: RemoteConversation = Conversation(
         agent=agent, workspace=workspace
