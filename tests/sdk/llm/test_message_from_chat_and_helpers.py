@@ -31,8 +31,8 @@ def test_content_to_str_helper():
     assert parts == ["a", "b"]
 
 
-def test_to_responses_value_system_direct():
+def test_to_responses_input_system_direct():
     # Direct test for system instructions via to_responses_value
     m = Message(role="system", content=[TextContent(text="A"), TextContent(text="B")])
-    val = m.to_responses_value(vision_enabled=False)
+    val = m.to_responses_input(vision_enabled=False)
     assert val == "A\nB"

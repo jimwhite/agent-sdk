@@ -996,7 +996,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         instructions: str | None = None
         input_items: list[dict[str, Any]] = []
         for m in msgs:
-            val = m.to_responses_value(vision_enabled=vision_active)
+            val = m.to_responses_input(vision_enabled=vision_active)
             if isinstance(val, str):
                 s = val.strip()
                 if not s:

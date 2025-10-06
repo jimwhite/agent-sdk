@@ -160,14 +160,6 @@ class BaseContent(BaseModel):
         Completions messages.
         """
 
-    # Backward-compat shim (tests may call this):
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Deprecated alias for Chat Completions serialization.
-
-        This method forwards to to_chat_content_items().
-        """
-        return self.to_chat_content_items()
-
 
 class TextContent(BaseContent):
     type: Literal["text"] = "text"
@@ -286,13 +278,6 @@ class Message(BaseModel):
 
         return message_dict
 
-    # Backward-compat: keep old private names used in tests
-    def _string_serializer(self) -> dict[str, Any]:
-        return self._to_chat_string_payload()
-
-    def _list_serializer(self) -> dict[str, Any]:
-        return self._to_chat_list_payload()
-
     def _to_chat_string_payload(self) -> dict[str, Any]:
         # convert content to a single string for Chat Completions
         content = "\n".join(
@@ -344,10 +329,10 @@ class Message(BaseModel):
         # tool call keys are added in to_chat_dict to centralize behavior
         return message_dict
 
-    def to_responses_value(self, *, vision_enabled: bool) -> str | list[dict[str, Any]]:
-        """Return serialized form.
+    def to_responses_input(self, *, vision_enabled: bool) -> str | list[dict[str, Any]]:
+        """Serialize for Responses API input.
 
-        Either an instructions string (for system) or input items (for other roles)."""
+        Returns either an instructions string (for system) or input items (for other roles)."""  # noqa: E501
         if self.role == "system":
             parts: list[str] = []
             for c in self.content:

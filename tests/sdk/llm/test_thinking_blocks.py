@@ -175,7 +175,7 @@ def test_message_list_serializer_with_thinking_blocks():
         thinking_blocks=[thinking_block],
     )
 
-    serialized = message._list_serializer()
+    serialized = message._to_chat_list_payload()
     content_list = serialized["content"]
 
     # Should have thinking block first, then text content
@@ -252,7 +252,7 @@ def test_multiple_thinking_blocks():
     assert message.thinking_blocks[1].signature is not None
 
     # Test serialization
-    serialized = message._list_serializer()
+    serialized = message._to_chat_list_payload()
     content_list = serialized["content"]
     assert len(content_list) == 3  # 2 thinking blocks + 1 text content
     assert all(item["type"] == "thinking" for item in content_list[:2])
