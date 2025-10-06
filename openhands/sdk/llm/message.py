@@ -153,12 +153,20 @@ class BaseContent(BaseModel):
     cache_prompt: bool = False
 
     @abstractmethod
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format. Always returns a list of dictionaries.
+    def to_chat_content_items(self) -> list[dict[str, str | dict[str, str]]]:
+        """Serialize content for Chat Completions API.
 
-        Subclasses should implement this method to return a list of dictionaries,
-        even if they only have a single item.
+        Always returns a list of dicts (content parts) suitable for Chat
+        Completions messages.
         """
+
+    # Backward-compat shim (tests may call this):
+    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
+        """Deprecated alias for Chat Completions serialization.
+
+        This method forwards to to_chat_content_items().
+        """
+        return self.to_chat_content_items()
 
 
 class TextContent(BaseContent):
@@ -168,8 +176,8 @@ class TextContent(BaseContent):
     # alias meta -> _meta, but .model_dumps() will output "meta"
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format."""
+    def to_chat_content_items(self) -> list[dict[str, str | dict[str, str]]]:
+        """Serialize to Chat Completions content items."""
         text = self.text
         if len(text) > DEFAULT_TEXT_CONTENT_LIMIT:
             logger.warning(
@@ -191,8 +199,8 @@ class ImageContent(BaseContent):
     type: Literal["image"] = "image"
     image_urls: list[str]
 
-    def to_llm_dict(self) -> list[dict[str, str | dict[str, str]]]:
-        """Convert to LLM API format."""
+    def to_chat_content_items(self) -> list[dict[str, str | dict[str, str]]]:
+        """Serialize to Chat Completions content items."""
         images: list[dict[str, str | dict[str, str]]] = []
         for url in self.image_urls:
             images.append({"type": "image_url", "image_url": {"url": url}})
@@ -258,11 +266,11 @@ class Message(BaseModel):
         if not self.force_string_serializer and (
             self.cache_enabled or self.vision_enabled or self.function_calling_enabled
         ):
-            message_dict = self._list_serializer()
+            message_dict = self._to_chat_list_payload()
         else:
             # some providers, like HF and Groq/llama, don't support a list here, but a
             # single string
-            message_dict = self._string_serializer()
+            message_dict = self._to_chat_string_payload()
 
         # Assistant function_call(s)
         if self.role == "assistant" and self.tool_calls:
@@ -278,8 +286,15 @@ class Message(BaseModel):
 
         return message_dict
 
+    # Backward-compat: keep old private names used in tests
     def _string_serializer(self) -> dict[str, Any]:
-        # convert content to a single string
+        return self._to_chat_string_payload()
+
+    def _list_serializer(self) -> dict[str, Any]:
+        return self._to_chat_list_payload()
+
+    def _to_chat_string_payload(self) -> dict[str, Any]:
+        # convert content to a single string for Chat Completions
         content = "\n".join(
             item.text for item in self.content if isinstance(item, TextContent)
         )
@@ -288,7 +303,7 @@ class Message(BaseModel):
         # tool call keys are added in to_chat_dict to centralize behavior
         return message_dict
 
-    def _list_serializer(self) -> dict[str, Any]:
+    def _to_chat_list_payload(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
         role_tool_with_prompt_caching = False
 
@@ -304,8 +319,8 @@ class Message(BaseModel):
                 content.append(thinking_dict)
 
         for item in self.content:
-            # All content types now return list[dict[str, Any]]
-            item_dicts = item.to_llm_dict()
+            # All content types now return list[dict[str, Any]] for Chat API
+            item_dicts = item.to_chat_content_items()
 
             # We have to remove cache_prompt for tool content and move it up to the
             # message level
