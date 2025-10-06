@@ -323,6 +323,21 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         return d
 
     @model_validator(mode="after")
+    def _validate_api_key_requirement(self):
+        """Validate that API key is provided for models that require it."""
+        if not self.api_key:
+            # Check if this model is whitelisted for empty API keys
+            model_prefix = self.model.split("/")[0]
+            if model_prefix not in EMPTY_API_KEY_WHITELIST:
+                raise ValueError(
+                    f"API key is required for model '{self.model}'. "
+                    f"Received None or empty API key. "
+                    f"Models that don't require an API key: {', '.join(sorted(EMPTY_API_KEY_WHITELIST))}. "
+                    f"Please ensure the 'api_key' parameter is set when initializing the LLM."
+                )
+        return self
+
+    @model_validator(mode="after")
     def _set_env_side_effects(self):
         if self.openrouter_site_url:
             os.environ["OR_SITE_URL"] = self.openrouter_site_url
@@ -637,18 +652,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _transport_call(
         self, *, messages: list[dict[str, Any]], **kwargs
     ) -> ModelResponse:
-        # Validate API key before making the call
-        if not self.api_key:
-            # Check if this model is whitelisted for empty API keys
-            model_prefix = self.model.split("/")[0]
-            if model_prefix not in EMPTY_API_KEY_WHITELIST:
-                raise ValueError(
-                    f"API key is required for model '{self.model}'. "
-                    f"Received None or empty API key. "
-                    f"Models that don't require an API key: {', '.join(sorted(EMPTY_API_KEY_WHITELIST))}. "
-                    f"Please ensure the 'api_key' parameter is set when initializing the LLM."
-                )
-        
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
