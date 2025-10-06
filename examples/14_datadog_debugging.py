@@ -16,10 +16,15 @@ Usage:
     python 14_datadog_debugging.py --query "status:error service:deploy" \\
         --repos "All-Hands-AI/OpenHands,All-Hands-AI/deploy"
 
+    # Local execution with specific region
+    python 14_datadog_debugging.py --query "status:error service:deploy" \\
+        --repos "All-Hands-AI/OpenHands,All-Hands-AI/deploy" \\
+        --region us5
+
     # Remote execution with Docker sandbox
     python 14_datadog_debugging.py --query "status:error service:deploy" \\
         --repos "All-Hands-AI/OpenHands,All-Hands-AI/deploy" \\
-        --remote --docker
+        --remote --docker --region us5
 
 Environment Variables Required:
     - DATADOG_API_KEY: Your Datadog API key
@@ -80,18 +85,32 @@ def validate_environment():
     return True
 
 
-def create_debugging_prompt(query: str, repos: list[str]) -> str:
+def create_debugging_prompt(query: str, repos: list[str], region: str = None) -> str:
     """Create the debugging prompt for the agent."""
     repos_list = "\n".join(f"- {repo}" for repo in repos)
+    
+    # Construct the API URL based on region
+    if region and region != "us1":
+        api_url = f"https://api.{region}.datadoghq.com/api/v2/logs/events/search"
+        region_note = f"Make sure to use the {region} region."
+    else:
+        api_url = "https://api.datadoghq.com/api/v2/logs/events/search"
+        region_note = "Make sure to use the us1 region." if region == "us1" else ""
 
-    return (
+    prompt = (
         "Your task is to debug an error on Datadog to find out why it is "
         "happening. To read DataDog logs, you should use the Datadog API "
         "via curl commands with your DATADOG_API_KEY and DATADOG_APP_KEY "
         "environment variables.\n\n"
+    )
+    
+    if region_note:
+        prompt += f"{region_note}\n\n"
+    
+    prompt += (
         "To query Datadog logs, use the Logs API:\n"
         "```bash\n"
-        "curl -X POST 'https://api.datadoghq.com/api/v2/logs/events/search' \\\n"
+        f"curl -X POST '{api_url}' \\\n"
         "  -H 'Content-Type: application/json' \\\n"
         "  -H 'DD-API-KEY: $DATADOG_API_KEY' \\\n"
         "  -H 'DD-APPLICATION-KEY: $DATADOG_APP_KEY' \\\n"
@@ -141,6 +160,8 @@ def create_debugging_prompt(query: str, repos: list[str]) -> str:
         "Use the task_tracker tool to organize your work and keep track "
         "of your progress through these steps."
     )
+    
+    return prompt
 
 
 def main():
@@ -161,6 +182,11 @@ def main():
         required=True,
         help="Comma-separated list of GitHub repositories to analyze "
         "(e.g., 'All-Hands-AI/OpenHands,All-Hands-AI/deploy')",
+    )
+    parser.add_argument(
+        "--region",
+        help="Datadog region to use (e.g., us5, eu1, ap1). "
+        "Defaults to us1 if not specified",
     )
     parser.add_argument(
         "--working-dir",
@@ -224,6 +250,7 @@ def main():
     print("🔍 Starting Datadog debugging session")
     print(f"📊 Query: {args.query}")
     print(f"📁 Repositories: {', '.join(repos)}")
+    print(f"🌍 Datadog region: {args.region or 'us1 (default)'}")
     print(f"💼 Working directory: {working_dir}")
     if args.remote:
         if args.docker:
@@ -267,7 +294,7 @@ def main():
     if workspace_context:
         with workspace_context as workspace:
             _run_debugging_session(
-                llm, workspace, working_dir, args.query, repos, args.remote
+                llm, workspace, working_dir, args.query, repos, args.remote, args.region
             )
     else:
         workspace = None
@@ -282,7 +309,7 @@ def main():
             sys.exit(1)
 
         _run_debugging_session(
-            llm, workspace, working_dir, args.query, repos, args.remote
+            llm, workspace, working_dir, args.query, repos, args.remote, args.region
         )
 
 
@@ -293,6 +320,7 @@ def _run_debugging_session(
     query: str,
     repos: list[str],
     is_remote: bool,
+    region: str = None,
 ):
     """Run the debugging session with the given configuration."""
     # Register and set up tools
@@ -327,7 +355,7 @@ def _run_debugging_session(
         conversation = Conversation(agent=agent, callbacks=[conversation_callback])
 
     # Send the debugging task
-    debugging_prompt = create_debugging_prompt(query, repos)
+    debugging_prompt = create_debugging_prompt(query, repos, region)
 
     conversation.send_message(
         message=Message(
