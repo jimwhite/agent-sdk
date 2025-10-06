@@ -89,6 +89,23 @@ LLM_RETRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     LLMNoResponseError,
 )
 
+# Model prefixes that are allowed to make LLM calls without an API key
+# These are typically local/self-hosted providers or those that use fake API keys
+# Based on LiteLLM source code analysis - these providers handle None/empty API keys
+EMPTY_API_KEY_WHITELIST: set[str] = {
+    "ollama",
+    "ollama_chat",
+    "lm_studio",
+    "vllm",
+    "hosted_vllm",
+    "llamafile",
+    "openai_like",
+    "oobabooga",
+    "petals",
+    "xinference",
+    "custom",  # Custom providers may have their own auth
+}
+
 
 class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     """Refactored LLM: simple `completion()`, centralized Telemetry, tiny helpers."""
@@ -620,6 +637,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     def _transport_call(
         self, *, messages: list[dict[str, Any]], **kwargs
     ) -> ModelResponse:
+        # Validate API key before making the call
+        if not self.api_key:
+            # Check if this model is whitelisted for empty API keys
+            model_prefix = self.model.split("/")[0]
+            if model_prefix not in EMPTY_API_KEY_WHITELIST:
+                raise ValueError(
+                    f"API key is required for model '{self.model}'. "
+                    f"Received None or empty API key. "
+                    f"Models that don't require an API key: {', '.join(sorted(EMPTY_API_KEY_WHITELIST))}. "
+                    f"Please ensure the 'api_key' parameter is set when initializing the LLM."
+                )
+        
         # litellm.modify_params is GLOBAL; guard it for thread-safety
         with self._litellm_modify_params_ctx(self.modify_params):
             with warnings.catch_warnings():
