@@ -10,7 +10,7 @@ def test_local_workspace_creation():
     """Test LocalWorkspace can be created."""
     workspace = LocalWorkspace(working_dir="/tmp")
     assert workspace.working_dir == "/tmp"
-    assert workspace.is_local() is True
+    assert workspace.is_remote() is False
 
 
 def test_local_workspace_execute_command():

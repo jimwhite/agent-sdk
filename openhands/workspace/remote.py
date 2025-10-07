@@ -264,10 +264,10 @@ class RemoteWorkspace(BaseWorkspace):
                 error=str(e),
             )
 
-    def is_local(self) -> bool:
-        """Check if this is a local workspace.
+    def is_remote(self) -> bool:
+        """Check if this is a remote workspace.
 
         Returns:
-            False for RemoteWorkspace
+            True for RemoteWorkspace
         """
-        return False
+        return True

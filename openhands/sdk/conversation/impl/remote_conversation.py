@@ -3,11 +3,15 @@ import json
 import threading
 import uuid
 from collections.abc import Mapping
-from typing import SupportsIndex, overload
+from typing import TYPE_CHECKING, SupportsIndex, cast, overload
 from urllib.parse import urlparse
 
 import httpx
 import websockets
+
+
+if TYPE_CHECKING:
+    from openhands.workspace.remote import RemoteWorkspace
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation, ConversationStateProtocol
@@ -376,8 +380,9 @@ class RemoteConversation(BaseConversation):
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
         self.workspace = workspace
-        # After validation, we know this has client attribute
-        self._client = getattr(workspace, "client")
+        # After validation, we know this is a remote workspace
+        remote_workspace = cast("RemoteWorkspace", workspace)
+        self._client = remote_workspace.client
 
         if conversation_id is None:
             payload = {
@@ -389,7 +394,7 @@ class RemoteConversation(BaseConversation):
                 "stuck_detection": stuck_detection,
                 # We need to convert remote workspace to LocalWorkspace for the server
                 "workspace": LocalWorkspace(
-                    working_dir=getattr(self.workspace, "working_dir")
+                    working_dir=remote_workspace.working_dir
                 ).model_dump(),
             }
             resp = self._client.post("/api/conversations", json=payload)
@@ -431,11 +436,12 @@ class RemoteConversation(BaseConversation):
         composed_callback = BaseConversation.compose_callbacks(self._callbacks)
 
         # Initialize WebSocket client for callbacks
+        remote_workspace = cast("RemoteWorkspace", self.workspace)
         self._ws_client = WebSocketCallbackClient(
-            host=getattr(self.workspace, "host"),
+            host=remote_workspace.host,
             conversation_id=str(self._id),
             callback=composed_callback,
-            api_key=getattr(self.workspace, "api_key"),
+            api_key=remote_workspace.api_key,
         )
         self._ws_client.start()
 

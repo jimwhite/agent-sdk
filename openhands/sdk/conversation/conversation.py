@@ -70,8 +70,12 @@ class Conversation:
             RemoteConversation,
         )
 
-        # Check if workspace is remote by looking for 'host' attribute
-        if hasattr(workspace, "host"):
+        # Check if workspace is remote using the is_remote method
+        if (
+            hasattr(workspace, "is_remote")
+            and callable(getattr(workspace, "is_remote", None))
+            and workspace.is_remote()  # type: ignore[attr-defined]
+        ):
             # For RemoteConversation, persistence_dir should not be used
             # Only check if it was explicitly set to something other than the default
             if persistence_dir is not None:

@@ -8,7 +8,7 @@ def test_workspace_factory_local():
     workspace = Workspace(working_dir="/tmp")
     assert isinstance(workspace, LocalWorkspace)
     assert workspace.working_dir == "/tmp"
-    assert workspace.is_local() is True
+    assert workspace.is_remote() is False
 
 
 def test_workspace_factory_remote():
@@ -17,7 +17,7 @@ def test_workspace_factory_remote():
     assert isinstance(workspace, RemoteWorkspace)
     assert workspace.working_dir == "/tmp"
     assert workspace.host == "http://localhost:8000"
-    assert workspace.is_local() is False
+    assert workspace.is_remote() is True
 
 
 def test_workspace_factory_remote_with_api_key():
@@ -29,4 +29,4 @@ def test_workspace_factory_remote_with_api_key():
     assert workspace.working_dir == "/tmp"
     assert workspace.host == "http://localhost:8000"
     assert workspace.api_key == "test-key"
-    assert workspace.is_local() is False
+    assert workspace.is_remote() is True

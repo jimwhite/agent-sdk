@@ -111,10 +111,10 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         ...
 
     @abstractmethod
-    def is_local(self) -> bool:
-        """Check if this is a local workspace.
+    def is_remote(self) -> bool:
+        """Check if this is a remote workspace.
 
         Returns:
-            True if this is a local workspace, False otherwise
+            True if this is a remote workspace, False otherwise
         """
         ...
