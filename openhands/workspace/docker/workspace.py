@@ -13,7 +13,7 @@ from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
-from openhands.sdk.workspace.remote.base import RemoteWorkspace
+from openhands.sdk.workspace import RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -78,7 +78,8 @@ def build_agent_server_image(
     from openhands.sdk.workspace.build_config import AgentServerBuildConfig
 
     logger.info(
-        "Building agent-server image with base '%s', target '%s', variant '%s' for platform '%s'",
+        "Building agent-server image with base '%s', target '%s', "
+        "variant '%s' for platform '%s'",
         base_image,
         target,
         variant_name,
