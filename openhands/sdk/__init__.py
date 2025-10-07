@@ -43,11 +43,6 @@ from openhands.sdk.tool import (
     register_tool,
     resolve_tool,
 )
-from openhands.sdk.workspace import (
-    LocalWorkspace,
-    RemoteWorkspace,
-    Workspace,
-)
 
 
 try:
@@ -92,8 +87,5 @@ __all__ = [
     "register_tool",
     "resolve_tool",
     "list_registered_tools",
-    "Workspace",
-    "LocalWorkspace",
-    "RemoteWorkspace",
     "__version__",
 ]

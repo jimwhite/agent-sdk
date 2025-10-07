@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from openhands.sdk.workspace.remote.api import APIRemoteWorkspace
+from openhands.workspace.remote.api import APIRemoteWorkspace
 
 
 @pytest.fixture

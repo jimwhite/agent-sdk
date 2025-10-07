@@ -1879,12 +1879,18 @@ name = "openhands-workspace"
 version = "1.0.0"
 source = { editable = "openhands/workspace" }
 dependencies = [
+    { name = "dirhash" },
+    { name = "docker" },
+    { name = "httpx" },
     { name = "openhands-sdk" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "dirhash", specifier = ">=0.5.0" },
+    { name = "docker", specifier = ">=7.1.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "openhands-sdk", editable = "openhands/sdk" },
     { name = "pydantic", specifier = ">=2.11.7" },
 ]

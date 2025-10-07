@@ -6,14 +6,17 @@ import sys
 import threading
 import time
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.request import urlopen
 
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
-from openhands.sdk.workspace import RemoteWorkspace
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -75,7 +78,7 @@ def build_agent_server_image(
     Returns:
         The full image name with tag.
     """
-    from openhands.sdk.workspace.builder import AgentServerBuildConfig
+    from openhands.workspace.builder import AgentServerBuildConfig
 
     logger.info(
         "Building agent-server image with base '%s', target '%s', "
@@ -102,6 +105,10 @@ def build_agent_server_image(
 
     logger.info("Using image: %s", image)
     return image
+
+
+# Import RemoteWorkspace here to avoid circular import at module load time
+from openhands.sdk.workspace.remote.base import RemoteWorkspace  # noqa: E402
 
 
 class DockerWorkspace(RemoteWorkspace):

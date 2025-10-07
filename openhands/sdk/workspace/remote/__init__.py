@@ -1,10 +1,7 @@
 """Remote workspace implementations."""
 
-from .api import APIRemoteWorkspace
-from .base import RemoteWorkspace
+from openhands.sdk.workspace.remote.api import APIRemoteWorkspace
+from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
-__all__ = [
-    "APIRemoteWorkspace",
-    "RemoteWorkspace",
-]
+__all__ = ["RemoteWorkspace", "APIRemoteWorkspace"]

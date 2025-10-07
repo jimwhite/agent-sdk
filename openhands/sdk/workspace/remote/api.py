@@ -10,10 +10,10 @@ import tenacity
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace.build_utils import (
+from openhands.sdk.workspace.remote.base import RemoteWorkspace
+from openhands.workspace.build_utils import (
     create_agent_server_build_context_tarball,
 )
-from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -142,7 +142,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
 
     def _setup_agent_server_build(self) -> None:
         """Auto-configure build settings for agent-server image."""
-        from openhands.sdk.workspace.builder import AgentServerBuildConfig
+        from openhands.workspace.builder import AgentServerBuildConfig
 
         build_config = AgentServerBuildConfig(
             base_image=self.base_image,

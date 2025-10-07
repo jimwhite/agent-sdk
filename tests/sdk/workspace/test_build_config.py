@@ -2,7 +2,7 @@
 
 import re
 
-from openhands.sdk.workspace.builder import (
+from openhands.workspace.builder import (
     AgentServerBuildConfig,
     generate_agent_server_tags,
     get_agent_server_build_context,

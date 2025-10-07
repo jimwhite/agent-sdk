@@ -90,7 +90,7 @@ def generate_agent_server_tags(
         2. lock_tag: vX.Y.Z_lockHash (medium specific)
         3. versioned_tag: vX.Y.Z_baseImageSlug (least specific)
     """
-    from openhands.sdk.workspace.hash_utils import generate_image_tags
+    from openhands.workspace.hash_utils import generate_image_tags
 
     sdk_root = get_sdk_root()
     # Add -dev suffix for source builds (development mode)
@@ -165,7 +165,7 @@ class AgentServerBuildConfig:
             The full image name with tag (e.g., 'registry/image:tag').
         """
         from openhands.sdk.logger import get_logger
-        from openhands.sdk.workspace.builder import DockerRuntimeBuilder
+        from openhands.workspace.builder import DockerRuntimeBuilder
 
         logger = get_logger(__name__)
 
