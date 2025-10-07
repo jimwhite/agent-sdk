@@ -27,8 +27,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.workspace import LocalWorkspace
-from openhands.workspace import RemoteWorkspace
+from openhands.sdk.workspace import BaseWorkspace, LocalWorkspace
 
 
 logger = get_logger(__name__)
@@ -342,7 +341,7 @@ class RemoteConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        workspace: RemoteWorkspace,
+        workspace: BaseWorkspace,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -357,6 +356,7 @@ class RemoteConversation(BaseConversation):
             agent: Agent configuration (will be sent to the server)
             host: Base URL of the agent server (e.g., http://localhost:3000)
             workspace: The working directory for agent operations and tool execution.
+                Must be a remote workspace (detected by presence of 'host' attribute).
             api_key: Optional API key for authentication (sent as X-Session-API-Key
                 header)
             conversation_id: Optional existing conversation id to attach to
@@ -365,11 +365,19 @@ class RemoteConversation(BaseConversation):
             stuck_detection: Whether to enable stuck detection on server
             visualize: Whether to enable the default visualizer callback
         """
+        # Validate that this is a remote workspace by checking for host attribute
+        if not hasattr(workspace, "host") or not hasattr(workspace, "client"):
+            raise ValueError(
+                "RemoteConversation requires a remote workspace with 'host' and "
+                "'client' attributes. Use LocalConversation for local workspaces."
+            )
+
         self.agent = agent
         self._callbacks = callbacks or []
         self.max_iteration_per_run = max_iteration_per_run
         self.workspace = workspace
-        self._client = workspace.client
+        # After validation, we know this has client attribute
+        self._client = getattr(workspace, "client")
 
         if conversation_id is None:
             payload = {
@@ -379,9 +387,9 @@ class RemoteConversation(BaseConversation):
                 "initial_message": None,
                 "max_iterations": max_iteration_per_run,
                 "stuck_detection": stuck_detection,
-                # We need to convert RemoteWorkspace to LocalWorkspace for the server
+                # We need to convert remote workspace to LocalWorkspace for the server
                 "workspace": LocalWorkspace(
-                    working_dir=self.workspace.working_dir
+                    working_dir=getattr(self.workspace, "working_dir")
                 ).model_dump(),
             }
             resp = self._client.post("/api/conversations", json=payload)
@@ -424,10 +432,10 @@ class RemoteConversation(BaseConversation):
 
         # Initialize WebSocket client for callbacks
         self._ws_client = WebSocketCallbackClient(
-            host=self.workspace.host,
+            host=getattr(self.workspace, "host"),
             conversation_id=str(self._id),
             callback=composed_callback,
-            api_key=self.workspace.api_key,
+            api_key=getattr(self.workspace, "api_key"),
         )
         self._ws_client.start()
 

@@ -1,12 +1,11 @@
-from typing import TYPE_CHECKING, Self, overload
+from typing import TYPE_CHECKING, Any, Self, cast, overload
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace import LocalWorkspace
-from openhands.workspace import RemoteWorkspace
+from openhands.sdk.workspace import BaseWorkspace, LocalWorkspace
 
 
 if TYPE_CHECKING:
@@ -44,7 +43,7 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        workspace: RemoteWorkspace,
+        workspace: BaseWorkspace,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
@@ -57,7 +56,7 @@ class Conversation:
         cls: type[Self],
         agent: AgentBase,
         *,
-        workspace: str | LocalWorkspace | RemoteWorkspace = "workspace/project",
+        workspace: str | LocalWorkspace | BaseWorkspace = "workspace/project",
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -71,7 +70,8 @@ class Conversation:
             RemoteConversation,
         )
 
-        if isinstance(workspace, RemoteWorkspace):
+        # Check if workspace is remote by looking for 'host' attribute
+        if hasattr(workspace, "host"):
             # For RemoteConversation, persistence_dir should not be used
             # Only check if it was explicitly set to something other than the default
             if persistence_dir is not None:
@@ -85,7 +85,7 @@ class Conversation:
                 max_iteration_per_run=max_iteration_per_run,
                 stuck_detection=stuck_detection,
                 visualize=visualize,
-                workspace=workspace,
+                workspace=cast(Any, workspace),  # We validated it has remote attributes
                 secrets=secrets,
             )
 
@@ -96,7 +96,7 @@ class Conversation:
             max_iteration_per_run=max_iteration_per_run,
             stuck_detection=stuck_detection,
             visualize=visualize,
-            workspace=workspace,
+            workspace=cast(Any, workspace),  # Can be str or LocalWorkspace
             persistence_dir=persistence_dir,
             secrets=secrets,
         )
