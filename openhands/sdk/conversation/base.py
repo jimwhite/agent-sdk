@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -15,12 +13,12 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
+from openhands.sdk.workspace.base import BaseWorkspace
 
 
 if TYPE_CHECKING:
     from openhands.sdk.agent.base import AgentBase
     from openhands.sdk.conversation.state import AgentExecutionStatus
-    from openhands.sdk.workspace.base import BaseWorkspace
 
 
 class ConversationStateProtocol(Protocol):
@@ -37,7 +35,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def agent_status(self) -> AgentExecutionStatus:
+    def agent_status(self) -> "AgentExecutionStatus":
         """The current agent execution status."""
         ...
 
@@ -65,7 +63,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def agent(self) -> AgentBase:
+    def agent(self) -> "AgentBase":
         """The agent running in the conversation."""
         ...
 

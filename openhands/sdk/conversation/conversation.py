@@ -1,18 +1,16 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Self, cast, overload
+from typing import TYPE_CHECKING, Self, overload
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.logger import get_logger
+from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
 
 if TYPE_CHECKING:
     from openhands.sdk.conversation.impl.local_conversation import LocalConversation
     from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
-    from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
 
 logger = get_logger(__name__)
 
@@ -38,7 +36,7 @@ class Conversation:
         stuck_detection: bool = True,
         visualize: bool = True,
         secrets: dict[str, SecretValue] | dict[str, str] | None = None,
-    ) -> LocalConversation: ...
+    ) -> "LocalConversation": ...
 
     @overload
     def __new__(
@@ -52,7 +50,7 @@ class Conversation:
         stuck_detection: bool = True,
         visualize: bool = True,
         secrets: dict[str, SecretValue] | dict[str, str] | None = None,
-    ) -> RemoteConversation: ...
+    ) -> "RemoteConversation": ...
 
     def __new__(
         cls: type[Self],
@@ -72,11 +70,7 @@ class Conversation:
             RemoteConversation,
         )
 
-        # Check if workspace is a RemoteWorkspace by checking for the 'host' attribute
-        # This avoids circular imports while allowing isinstance-like behavior
-        if hasattr(workspace, "host") and not isinstance(workspace, str):
-            from openhands.sdk.workspace import RemoteWorkspace
-
+        if isinstance(workspace, RemoteWorkspace):
             # For RemoteConversation, persistence_dir should not be used
             # Only check if it was explicitly set to something other than the default
             if persistence_dir is not None:
@@ -90,11 +84,9 @@ class Conversation:
                 max_iteration_per_run=max_iteration_per_run,
                 stuck_detection=stuck_detection,
                 visualize=visualize,
-                workspace=cast(RemoteWorkspace, workspace),
+                workspace=workspace,
                 secrets=secrets,
             )
-
-        from openhands.sdk.workspace import LocalWorkspace
 
         return LocalConversation(
             agent=agent,
@@ -103,7 +95,7 @@ class Conversation:
             max_iteration_per_run=max_iteration_per_run,
             stuck_detection=stuck_detection,
             visualize=visualize,
-            workspace=cast(str | LocalWorkspace, workspace),
+            workspace=workspace,
             persistence_dir=persistence_dir,
             secrets=secrets,
         )
