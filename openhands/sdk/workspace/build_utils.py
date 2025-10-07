@@ -2,7 +2,9 @@
 
 import io
 import os
+import shutil
 import tarfile
+import tempfile
 from pathlib import Path
 
 from openhands.sdk.logger import get_logger
@@ -25,19 +27,8 @@ def create_build_context_tarball(
         raise ValueError(f"Build context path must be a directory: {path}")
 
     exclude_patterns = []
-    if (
-        respect_dockerignore
-        and (dockerignore_path := build_path / ".dockerignore").exists()
-    ):
-        try:
-            with open(dockerignore_path) as f:
-                exclude_patterns = [
-                    line.strip()
-                    for line in f
-                    if line.strip() and not line.strip().startswith("#")
-                ]
-        except Exception as e:
-            logger.warning(f"Failed to read .dockerignore: {e}")
+    if respect_dockerignore:
+        exclude_patterns = load_dockerignore(build_path / ".dockerignore")
 
     if fileobj is None:
         fileobj = io.BytesIO()
@@ -143,3 +134,81 @@ def load_dockerignore(path: str | Path) -> list[str]:
     except Exception as e:
         logger.warning(f"Failed to read .dockerignore: {e}")
         return []
+
+
+def create_agent_server_build_context_tarball(
+    sdk_root: str | Path,
+    fileobj: io.BytesIO | None = None,
+    gzip: bool = True,
+) -> io.BytesIO:
+    """Create a minimal tarball for agent-server build.
+
+    This function creates a minimal build context following the OpenHands-v0 pattern:
+    only including the necessary source files and dependencies for
+    building the agent-server.
+
+    Args:
+        sdk_root: Path to the SDK root directory
+        fileobj: Optional BytesIO object to write to
+        gzip: Whether to gzip the tarball
+
+    Returns:
+        BytesIO object containing the tarball
+    """
+    sdk_root = Path(sdk_root).resolve()
+    if not sdk_root.exists():
+        raise FileNotFoundError(f"SDK root does not exist: {sdk_root}")
+
+    # Create a temporary directory for the minimal build context
+    with tempfile.TemporaryDirectory() as temp_dir:
+        build_folder = Path(temp_dir)
+
+        # Copy the 'openhands' directory with specific ignore patterns
+        # Following OpenHands-v0's prep_build_folder pattern
+        openhands_source_dir = sdk_root / "openhands"
+        if openhands_source_dir.exists():
+            shutil.copytree(
+                openhands_source_dir,
+                build_folder / "openhands",
+                ignore=shutil.ignore_patterns(
+                    ".*",  # hidden files
+                    ".*/",  # hidden directories
+                    "__pycache__/",
+                    "*.pyc",
+                    "*.md",
+                ),
+            )
+
+        # Copy required lock files and metadata
+        for file in ["pyproject.toml", "uv.lock", "README.md", "LICENSE"]:
+            src = sdk_root / file
+            if src.exists():
+                shutil.copy2(src, build_folder / file)
+            else:
+                logger.warning(f"Required file not found: {file}")
+
+        # Copy the agent-server Dockerfile to the root as "Dockerfile"
+        # The Runtime API expects the Dockerfile at the root of the build context
+        agent_server_dockerfile = (
+            build_folder / "openhands" / "agent_server" / "docker" / "Dockerfile"
+        )
+        if agent_server_dockerfile.exists():
+            shutil.copy2(agent_server_dockerfile, build_folder / "Dockerfile")
+        else:
+            logger.warning("Agent-server Dockerfile not found")
+
+        # Create the tarball from the minimal build folder
+        if fileobj is None:
+            fileobj = io.BytesIO()
+
+        mode = "w:gz" if gzip else "w"
+        with tarfile.open(fileobj=fileobj, mode=mode) as tar:
+            for item in sorted(build_folder.iterdir()):
+                arcname = item.name
+                tar.add(str(item), arcname=arcname, recursive=True)
+
+        fileobj.seek(0)
+        size_mb = len(fileobj.getvalue()) / 1024 / 1024
+        logger.info(f"Created minimal agent-server build context: {size_mb:.2f} MB")
+        fileobj.seek(0)
+        return fileobj

@@ -11,7 +11,10 @@ from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.workspace.build_config import AgentServerBuildConfig
-from openhands.sdk.workspace.build_utils import create_build_context_tarball
+from openhands.sdk.workspace.build_utils import (
+    create_agent_server_build_context_tarball,
+    create_build_context_tarball,
+)
 from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
@@ -101,13 +104,35 @@ class APIRemoteWorkspace(RemoteWorkspace):
             self._setup_agent_server_build()
 
         if self.build_context_path:
-            logger.info("Building image from: %s", self.build_context_path)
-            built_image = self.build_image_via_api(
-                path=self.build_context_path,
-                tags=self.build_tags or [self.base_image],
-            )
-            logger.info("Built image: %s", built_image)
-            object.__setattr__(self, "base_image", built_image)
+            # Check if image already exists before building
+            primary_tag = (self.build_tags or [self.base_image])[0]
+            if self.registry_prefix and not primary_tag.startswith(
+                self.registry_prefix
+            ):
+                check_tag = f"{self.registry_prefix}/{primary_tag}"
+            else:
+                check_tag = primary_tag
+
+            image_exists = False
+            try:
+                logger.info("Checking if image exists: %s", check_tag)
+                image_exists = self.image_exists(check_tag)
+                if image_exists:
+                    logger.info("Image already exists, skipping build: %s", check_tag)
+                    object.__setattr__(self, "base_image", check_tag)
+            except Exception as e:
+                logger.warning(
+                    f"Could not check if image exists: {e}, will attempt build"
+                )
+
+            if not image_exists:
+                logger.info("Building image from: %s", self.build_context_path)
+                built_image = self.build_image_via_api(
+                    path=self.build_context_path,
+                    tags=self.build_tags or [self.base_image],
+                )
+                logger.info("Built image: %s", built_image)
+                object.__setattr__(self, "base_image", built_image)
 
         try:
             self._start_or_attach_to_runtime()
@@ -140,12 +165,23 @@ class APIRemoteWorkspace(RemoteWorkspace):
         """Build a Docker image using the Runtime API."""
         logger.info(f"Building from {path} with tags: {tags}")
 
-        tar_buffer = create_build_context_tarball(
-            path=path, gzip=True, respect_dockerignore=respect_dockerignore
-        )
+        # Use minimal build context for agent-server builds
+        if hasattr(self, "_build_config") and self._build_config:
+            logger.info("Creating minimal agent-server build context...")
+            tar_buffer = create_agent_server_build_context_tarball(
+                sdk_root=path, gzip=True
+            )
+        else:
+            tar_buffer = create_build_context_tarball(
+                path=path, gzip=True, respect_dockerignore=respect_dockerignore
+            )
+
         tar_bytes = tar_buffer.getvalue()
         base64_encoded_tar = base64.b64encode(tar_bytes).decode("utf-8")
-        logger.info(f"Tarball: {len(tar_bytes) / 1024 / 1024:.1f} MB")
+        logger.info(
+            f"Tarball size: {len(tar_bytes) / 1024:.1f} KB "
+            f"({len(base64_encoded_tar) / 1024:.1f} KB base64)"
+        )
 
         processed_tags = tags
         if self.registry_prefix:
@@ -156,18 +192,14 @@ class APIRemoteWorkspace(RemoteWorkspace):
                 for tag in tags
             ]
 
+        # Prepare the build request as multipart/form-data
+        # Following OpenHands-v0 pattern exactly - only send context and target_image
         files = [
-            ("context", (None, base64_encoded_tar)),
+            ("context", ("context.tar.gz", base64_encoded_tar)),
             ("target_image", (None, processed_tags[0])),
-            ("dockerfile", (None, "openhands/agent_server/docker/Dockerfile")),
         ]
 
-        if hasattr(self, "_build_config") and self._build_config:
-            files.append(("target", (None, self._build_config.target)))
-            files.append(
-                ("build_arg", (None, f"BASE_IMAGE={self._build_config.base_image}"))
-            )
-
+        # Add additional tags
         for tag in processed_tags[1:]:
             files.append(("tags", (None, tag)))
 
@@ -214,6 +246,7 @@ class APIRemoteWorkspace(RemoteWorkspace):
                     "EXPIRED",
                 ]:
                     error = status_data.get("error", f"Build {status}")
+                    logger.error(f"Build failed: {error}")
                     try:
                         logs_resp = self._send_api_request(
                             "GET",
@@ -222,9 +255,11 @@ class APIRemoteWorkspace(RemoteWorkspace):
                             timeout=30.0,
                         )
                         if logs_resp.status_code == 200:
-                            error = f"{error}\n\nLogs:\n{logs_resp.text}"
-                    except Exception:
-                        pass
+                            logs = logs_resp.text
+                            logger.error(f"Build logs:\n{logs}")
+                            error = f"{error}\n\nLogs:\n{logs}"
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch build logs: {e}")
                     raise RuntimeError(error)
 
                 time.sleep(30)
@@ -288,27 +323,35 @@ class APIRemoteWorkspace(RemoteWorkspace):
 
     def _start_runtime(self) -> None:
         """Start a new runtime."""
+        # Determine the correct command based on the build target
+        command: list[str] = []
+        if hasattr(self, "_build_config") and self._build_config:
+            if self._build_config.target == "source":
+                # For source target, use the venv Python
+                command = [
+                    "/agent-server/.venv/bin/python",
+                    "-m",
+                    "openhands.agent_server",
+                ]
+            else:
+                # For binary target, use the standalone binary
+                command = ["/usr/local/bin/openhands-agent-server"]
+
         payload: dict[str, Any] = {
             "image": self.base_image,
-            "command": [
-                "/openhands/micromamba/bin/python",
-                "-m",
-                "openhands.agent_server.server",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8000",
-            ],
-            "working_dir": "/openhands/code/",
+            "command": command,
+            "working_dir": "/",  # Match Dockerfile WORKDIR
             "environment": {},
             "session_id": self.session_id,
         }
+
         if self.runtime_class:
             payload["runtime_class"] = self.runtime_class
         if self.resource_factor != 1:
             payload["resource_factor"] = self.resource_factor
 
         logger.info(f"Starting runtime with {self.base_image}")
+        logger.info(f"Payload: {payload}")
         resp = self._send_api_request(
             "POST", f"{self.api_url}/start", json=payload, timeout=self.init_timeout
         )
@@ -342,30 +385,59 @@ class APIRemoteWorkspace(RemoteWorkspace):
     )
     def _wait_until_runtime_alive(self) -> None:
         """Wait until the runtime becomes alive and responsive."""
+        logger.info("Waiting for runtime to become alive...")
         try:
             resp = self._send_api_request(
                 "GET", f"{self.api_url}/sessions/{self.session_id}"
             )
             data = resp.json()
-            if data.get("pod_status") != "Running":
-                raise RuntimeError(f"Pod not running: {data.get('pod_status')}")
-        except Exception:
-            pass
+            pod_status = data.get("pod_status")
+            logger.info(f"Pod status: {pod_status}")
+
+            # Log additional details for debugging
+            if pod_status not in ("Running", "ready"):
+                logger.warning(f"Pod not running/ready. Full response: {data}")
+                message = data.get("message", "")
+                reason = data.get("reason", "")
+                pod_logs = data.get("pod_logs", "")
+                restart_reasons = data.get("restart_reasons", [])
+                if message or reason:
+                    logger.warning(f"Reason: {reason}, Message: {message}")
+                if pod_logs:
+                    logger.warning(f"Pod logs: {pod_logs}")
+                if restart_reasons:
+                    logger.warning(f"Restart reasons: {restart_reasons}")
+                raise RuntimeError(f"Pod not running: {pod_status}")
+        except Exception as e:
+            logger.warning(f"Error checking pod status: {e}")
 
         health_url = f"{self._runtime_url}/health"
+        logger.info(f"Checking health at: {health_url}")
         try:
             with urlopen(health_url, timeout=5.0) as resp:
-                if 200 <= getattr(resp, "status", 200) < 300:
+                status = getattr(resp, "status", 200)
+                logger.info(f"Health check response: {status}")
+                if 200 <= status < 300:
+                    logger.info("Runtime is alive!")
                     return
-                raise RuntimeError("Health check failed")
+                raise RuntimeError(f"Health check failed with status: {status}")
         except Exception as e:
-            logger.debug(f"Not alive: {e}")
+            logger.warning(f"Health check failed: {e}")
             raise
 
     def _send_api_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Send an API request with error handling."""
         response = self._api_session.request(method, url, **kwargs)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            # Log the error response body for debugging
+            try:
+                error_detail = response.json()
+                logger.error(f"API request failed: {error_detail}")
+            except Exception:
+                logger.error(f"API request failed: {response.text}")
+            raise
         return response
 
     def cleanup(self) -> None:
