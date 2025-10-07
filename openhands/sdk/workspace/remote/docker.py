@@ -1,13 +1,11 @@
 """Docker-based remote workspace implementation."""
 
 import os
-import re
 import subprocess
 import sys
 import threading
 import time
 import uuid
-from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
@@ -52,128 +50,55 @@ def find_available_tcp_port(
     return -1
 
 
-def _parse_build_tags(build_stdout: str) -> list[str]:
-    """Parse Docker image tags from build.sh output.
-
-    build.sh prints at the end:
-    [build] Done. Tags:
-     - <tag1>
-     - <tag2>
-    """
-    tags: list[str] = []
-    collecting = False
-    for ln in build_stdout.splitlines():
-        if "[build] Done. Tags:" in ln:
-            collecting = True
-            continue
-        if collecting:
-            m = re.match(r"\s*-\s*(\S+)$", ln)
-            if m:
-                tags.append(m.group(1))
-            elif ln.strip():
-                break
-    return tags
-
-
-def _resolve_build_script() -> Path | None:
-    """Locate the agent server build.sh script."""
-    agent_sdk_path = os.environ.get("AGENT_SDK_PATH")
-    if agent_sdk_path:
-        p = Path(agent_sdk_path) / "openhands" / "agent_server" / "docker" / "build.sh"
-        if p.exists():
-            return p
-
-    # Prefer locating via importlib without importing the module
-    try:
-        import importlib.util
-
-        spec = importlib.util.find_spec("openhands.agent_server")
-        if spec and spec.origin:
-            p = Path(spec.origin).parent / "docker" / "build.sh"
-            if p.exists():
-                return p
-    except Exception:
-        pass
-
-    # Try common project layouts relative to CWD and this file
-    candidates: list[Path] = [
-        Path.cwd() / "openhands" / "agent_server" / "docker" / "build.sh",
-        Path(__file__).resolve().parents[3]
-        / "openhands"
-        / "agent_server"
-        / "docker"
-        / "build.sh",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return None
-
-
 def build_agent_server_image(
     base_image: str,
     target: str = "source",
     variant_name: str = "custom",
     platforms: str = "linux/amd64",
-    extra_env: dict[str, str] | None = None,
-    project_root: str | None = None,
+    registry_prefix: str | None = None,
+    use_local_cache: bool = False,
 ) -> str:
-    """Build the agent-server Docker image via the repo's build.sh.
+    """Build the agent-server Docker image using DockerRuntimeBuilder.
 
-    This is a dev convenience that shells out to the build script provided in
-    openhands/agent_server/docker/build.sh. Returns the first image tag printed
-    by the script.
+    This function uses the hash-based tagging system and DockerRuntimeBuilder
+    to build agent-server images. It will automatically skip building if an
+    image with the same content hash already exists.
 
-    If the script cannot be located, raise a helpful error. In that case,
-    users can manually provide an image to DockerSandboxedAgentServer(image="...").
+    Args:
+        base_image: Base Docker image to use.
+        target: Build target ('source' or 'binary').
+        variant_name: Build variant name (e.g., 'custom', 'python').
+        platforms: Target platform (e.g., 'linux/amd64').
+        registry_prefix: Optional registry prefix for image tags.
+        use_local_cache: Whether to use local build cache.
+
+    Returns:
+        The full image name with tag.
     """
-    script_path = _resolve_build_script()
-    if not script_path:
-        raise FileNotFoundError(
-            "Could not locate openhands/agent_server/docker/build.sh. "
-            "Ensure you're running in the OpenHands repo or pass an explicit "
-            "image to DockerWorkspace(image=...)."
-        )
+    from openhands.sdk.workspace.build_config import AgentServerBuildConfig
 
-    env = os.environ.copy()
-    env["BASE_IMAGE"] = base_image
-    env["VARIANT_NAME"] = variant_name
-    env["TARGET"] = target
-    env["PLATFORMS"] = platforms
     logger.info(
-        "Building agent-server image with base '%s', target '%s', "
-        "variant '%s' for platforms '%s'",
+        "Building agent-server image with base '%s', target '%s', variant '%s' for platform '%s'",
         base_image,
         target,
         variant_name,
         platforms,
     )
 
-    if extra_env:
-        env.update(extra_env)
+    # Create build config with hash-based tags
+    config = AgentServerBuildConfig(
+        base_image=base_image,
+        variant=variant_name,
+        target=target,
+        registry_prefix=registry_prefix,
+    )
 
-    if not project_root:
-        # Path is: openhands/sdk/workspace/remote/docker.py
-        # parents[4] gives us the SDK root
-        project_root = str(Path(__file__).resolve().parents[4])
+    # Build the image (will skip if already exists)
+    image = config.build(
+        platform=platforms,
+        use_local_cache=use_local_cache,
+    )
 
-    proc = execute_command(["bash", str(script_path)], env=env, cwd=project_root)
-
-    if proc.returncode != 0:
-        msg = (
-            f"build.sh failed with exit code {proc.returncode}.\n"
-            f"STDOUT:\n{proc.stdout}\n"
-            f"STDERR:\n{proc.stderr}"
-        )
-        raise RuntimeError(msg)
-
-    tags = _parse_build_tags(proc.stdout)
-    if not tags:
-        raise RuntimeError(
-            f"Failed to parse image tags from build output.\nSTDOUT:\n{proc.stdout}"
-        )
-
-    image = tags[0]
     logger.info("Using image: %s", image)
     return image
 

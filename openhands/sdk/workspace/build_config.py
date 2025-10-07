@@ -4,6 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import docker
+
 
 def get_sdk_root() -> Path:
     """Get the root directory of the SDK."""
@@ -137,3 +139,64 @@ class AgentServerBuildConfig:
             "version": self.version,
             "git_info": self.git_info,
         }
+
+    def build(
+        self,
+        platform: str | None = None,
+        extra_build_args: list[str] | None = None,
+        use_local_cache: bool = False,
+        docker_client: docker.DockerClient | None = None,
+    ) -> str:
+        """Build the agent-server image using DockerRuntimeBuilder.
+
+        This method uses the hash-based tags and DockerRuntimeBuilder to build
+        the agent-server image. It will skip building if the image already exists.
+
+        Args:
+            platform: Target platform for the build (e.g., 'linux/amd64').
+            extra_build_args: Additional build arguments to pass to Docker.
+            use_local_cache: Whether to use local build cache.
+            docker_client: Docker client to use. If None, creates a new one.
+
+        Returns:
+            The full image name with tag (e.g., 'registry/image:tag').
+        """
+        from openhands.sdk.builder import DockerRuntimeBuilder
+        from openhands.sdk.logger import get_logger
+
+        logger = get_logger(__name__)
+
+        # Create builder
+        builder = DockerRuntimeBuilder(docker_client)
+
+        # Check if any of the tags already exist (in order from most to least specific)
+        for tag in self.tags:
+            if builder.image_exists(tag, pull_from_repo=True):
+                logger.info(f"Image {tag} already exists, skipping build")
+                return tag
+
+        # No existing image found, build it
+        logger.info(f"Building image with tags: {self.tags}")
+
+        # Prepare build args
+        build_args = extra_build_args or []
+        build_args.extend(
+            [
+                f"--build-arg=BASE_IMAGE={self.base_image}",
+                f"--build-arg=VARIANT={self.variant}",
+                f"--build-arg=VERSION={self.version}",
+                f"--file={self.dockerfile}",
+            ]
+        )
+
+        # Build the image
+        result_image = builder.build(
+            path=str(self.build_context),
+            tags=self.tags,
+            platform=platform,
+            extra_build_args=build_args,
+            use_local_cache=use_local_cache,
+        )
+
+        logger.info(f"Successfully built image: {result_image}")
+        return result_image
