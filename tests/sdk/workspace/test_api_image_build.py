@@ -286,9 +286,7 @@ class TestAPIRemoteWorkspaceBuild:
                 workspace._api_session = mock_instance
 
                 # Test with non-existent path
-                with pytest.raises(
-                    FileNotFoundError, match="Build context path does not exist"
-                ):
+                with pytest.raises(FileNotFoundError, match="SDK root does not exist"):
                     workspace.build_image_via_api(
                         path="/nonexistent/path",
                         tags=["my-image:v1.0"],

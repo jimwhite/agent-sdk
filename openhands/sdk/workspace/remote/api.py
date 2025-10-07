@@ -13,7 +13,6 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.workspace.build_config import AgentServerBuildConfig
 from openhands.sdk.workspace.build_utils import (
     create_agent_server_build_context_tarball,
-    create_build_context_tarball,
 )
 from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
@@ -160,21 +159,12 @@ class APIRemoteWorkspace(RemoteWorkspace):
         path: str,
         tags: list[str],
         platform: str | None = None,
-        respect_dockerignore: bool = True,
     ) -> str:
         """Build a Docker image using the Runtime API."""
         logger.info(f"Building from {path} with tags: {tags}")
 
-        # Use minimal build context for agent-server builds
-        if hasattr(self, "_build_config") and self._build_config:
-            logger.info("Creating minimal agent-server build context...")
-            tar_buffer = create_agent_server_build_context_tarball(
-                sdk_root=path, gzip=True
-            )
-        else:
-            tar_buffer = create_build_context_tarball(
-                path=path, gzip=True, respect_dockerignore=respect_dockerignore
-            )
+        logger.info("Creating agent-server build context...")
+        tar_buffer = create_agent_server_build_context_tarball(sdk_root=path, gzip=True)
 
         tar_bytes = tar_buffer.getvalue()
         base64_encoded_tar = base64.b64encode(tar_bytes).decode("utf-8")
@@ -380,50 +370,61 @@ class APIRemoteWorkspace(RemoteWorkspace):
     @tenacity.retry(
         stop=tenacity.stop_after_delay(300),
         wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
-        retry=tenacity.retry_if_exception_type(Exception),
+        retry=tenacity.retry_if_exception_type(RuntimeError),
         reraise=True,
     )
     def _wait_until_runtime_alive(self) -> None:
         """Wait until the runtime becomes alive and responsive."""
         logger.info("Waiting for runtime to become alive...")
-        try:
-            resp = self._send_api_request(
-                "GET", f"{self.api_url}/sessions/{self.session_id}"
-            )
-            data = resp.json()
-            pod_status = data.get("pod_status")
-            logger.info(f"Pod status: {pod_status}")
 
-            # Log additional details for debugging
-            if pod_status not in ("Running", "ready"):
-                logger.warning(f"Pod not running/ready. Full response: {data}")
-                message = data.get("message", "")
-                reason = data.get("reason", "")
-                pod_logs = data.get("pod_logs", "")
-                restart_reasons = data.get("restart_reasons", [])
-                if message or reason:
-                    logger.warning(f"Reason: {reason}, Message: {message}")
-                if pod_logs:
-                    logger.warning(f"Pod logs: {pod_logs}")
-                if restart_reasons:
-                    logger.warning(f"Restart reasons: {restart_reasons}")
-                raise RuntimeError(f"Pod not running: {pod_status}")
-        except Exception as e:
-            logger.warning(f"Error checking pod status: {e}")
+        resp = self._send_api_request(
+            "GET", f"{self.api_url}/sessions/{self.session_id}"
+        )
+        data = resp.json()
+        pod_status = data.get("pod_status", "").lower()
+        logger.info(f"Pod status: {pod_status}")
 
-        health_url = f"{self._runtime_url}/health"
-        logger.info(f"Checking health at: {health_url}")
-        try:
-            with urlopen(health_url, timeout=5.0) as resp:
-                status = getattr(resp, "status", 200)
-                logger.info(f"Health check response: {status}")
-                if 200 <= status < 300:
-                    logger.info("Runtime is alive!")
-                    return
-                raise RuntimeError(f"Health check failed with status: {status}")
-        except Exception as e:
-            logger.warning(f"Health check failed: {e}")
-            raise
+        restart_count = data.get("restart_count", 0)
+        if restart_count > 0:
+            restart_reasons = data.get("restart_reasons", [])
+            logger.warning(f"Pod restarts: {restart_count}, reasons: {restart_reasons}")
+
+        # Handle different pod states
+        if pod_status == "ready":
+            # Pod is ready, check health endpoint
+            health_url = f"{self._runtime_url}/health"
+            logger.info(f"Checking health at: {health_url}")
+            try:
+                with urlopen(health_url, timeout=5.0) as resp:
+                    status = getattr(resp, "status", 200)
+                    logger.info(f"Health check response: {status}")
+                    if 200 <= status < 300:
+                        logger.info("Runtime is alive!")
+                        return
+                    raise RuntimeError(f"Health check failed with status: {status}")
+            except Exception as e:
+                logger.warning(f"Health check failed: {e}")
+                raise RuntimeError(f"Runtime /health failed: {e}")
+        elif pod_status in ("not found", "pending", "running"):
+            # Transient states - continue retrying
+            logger.debug(f"Runtime not yet ready. Status: {pod_status}")
+            raise RuntimeError(f"Runtime not yet ready (status: {pod_status})")
+        elif pod_status in ("failed", "unknown", "crashloopbackoff"):
+            # Terminal failure states
+            pod_logs = data.get("pod_logs", "")
+            error_msg = f"Runtime failed (status: {pod_status})"
+            if pod_logs:
+                logger.error(f"Pod logs: {pod_logs}")
+                error_msg += f"\nPod logs: {pod_logs}"
+            if pod_status == "crashloopbackoff":
+                error_msg = (
+                    "Runtime crashed and is restarting (possibly OOM). Try again."
+                )
+            raise ValueError(error_msg)
+        else:
+            # Unknown status - log and retry
+            logger.warning(f"Unknown pod status: {pod_status}, full response: {data}")
+            raise RuntimeError(f"Unknown pod status: {pod_status}")
 
     def _send_api_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Send an API request with error handling."""
