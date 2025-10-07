@@ -1,13 +1,8 @@
 """Kubernetes Ingress resource creation."""
 
 import os
-from typing import Any
 
-
-try:
-    from kubernetes import client as k8s_client  # type: ignore[import-untyped]
-except ImportError:
-    k8s_client = None  # type: ignore[assignment]
+from kubernetes import client as k8s_client  # type: ignore[import-untyped]
 
 from .constants import (
     BASE_INGRESS_DATA,
@@ -20,30 +15,17 @@ from .constants import (
     WORK_PORT_2,
     is_path_mode,
 )
+from .metadata import create_metadata
 from .utils import subdomain_to_url
 
 
-def _create_metadata(workspace_id: str) -> Any:
-    """Create metadata for Kubernetes resources."""
-    if k8s_client is None:
-        raise ImportError("kubernetes package is required")
-
-    return k8s_client.V1ObjectMeta(
-        name=f"workspace-{workspace_id}",
-        labels={"workspace_id": workspace_id},
-    )
-
-
-def create_ingress_manifest(workspace_id: str) -> Any:
+def create_ingress_manifest(workspace_id: str) -> k8s_client.V1Ingress:
     """Create a Kubernetes Ingress manifest for a workspace."""
-    if k8s_client is None:
-        raise ImportError("kubernetes package is required")
-
     base_host = subdomain_to_url(workspace_id, hostname_only=True)
     vscode_host = subdomain_to_url(f"vscode-{workspace_id}", hostname_only=True)
     work_port_1_host = subdomain_to_url(f"work-1-{workspace_id}", hostname_only=True)
     work_port_2_host = subdomain_to_url(f"work-2-{workspace_id}", hostname_only=True)
-    metadata = _create_metadata(workspace_id)
+    metadata = create_metadata(workspace_id)
 
     # Start with default annotations
     annotations = {

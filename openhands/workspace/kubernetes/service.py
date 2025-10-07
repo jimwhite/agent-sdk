@@ -1,34 +1,15 @@
 """Kubernetes Service resource creation."""
 
-from typing import Any
-
-
-try:
-    from kubernetes import client as k8s_client  # type: ignore[import-untyped]
-except ImportError:
-    k8s_client = None  # type: ignore[assignment]
+from kubernetes import client as k8s_client  # type: ignore[import-untyped]
 
 from .constants import SANDBOX_API_PORT, VSCODE_PORT, WORK_PORT_1, WORK_PORT_2
+from .metadata import create_metadata
 
 
-def _create_metadata(workspace_id: str) -> Any:
-    """Create metadata for Kubernetes resources."""
-    if k8s_client is None:
-        raise ImportError("kubernetes package is required")
-
-    return k8s_client.V1ObjectMeta(
-        name=f"workspace-{workspace_id}",
-        labels={"workspace_id": workspace_id},
-    )
-
-
-def create_service_manifest(workspace_id: str) -> Any:
+def create_service_manifest(workspace_id: str) -> k8s_client.V1Service:
     """Create a Kubernetes Service manifest for a workspace."""
-    if k8s_client is None:
-        raise ImportError("kubernetes package is required")
-
     return k8s_client.V1Service(
-        metadata=_create_metadata(workspace_id),
+        metadata=create_metadata(workspace_id),
         spec=k8s_client.V1ServiceSpec(
             selector={"workspace_id": workspace_id},
             ports=[

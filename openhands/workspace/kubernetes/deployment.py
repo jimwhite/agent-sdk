@@ -2,11 +2,7 @@
 
 from typing import Any
 
-
-try:
-    from kubernetes import client as k8s_client  # type: ignore[import-untyped]
-except ImportError:
-    k8s_client = None  # type: ignore[assignment]
+from kubernetes import client as k8s_client  # type: ignore[import-untyped]
 
 from .constants import (
     ADDITIONAL_PVC,
@@ -27,14 +23,13 @@ from .constants import (
     WORK_PORT_1,
     WORK_PORT_2,
 )
+from .metadata import create_metadata
 
 
 def _create_pod_security_context(
     security_context: dict[str, Any] | None = None,
-) -> Any:
+) -> k8s_client.V1PodSecurityContext | None:
     """Create pod security context based on passed parameters or environment variables."""  # noqa: E501
-    if k8s_client is None:
-        return None
 
     # Determine the security context values to use
     run_as_user = None
@@ -68,21 +63,6 @@ def _create_pod_security_context(
     return None
 
 
-def _create_metadata(workspace_id: str, labels: dict[str, str] | None = None) -> Any:
-    """Create metadata for Kubernetes resources."""
-    if k8s_client is None:
-        raise ImportError("kubernetes package is required")
-
-    final_labels = {"workspace_id": workspace_id}
-    if labels:
-        final_labels.update(labels)
-
-    return k8s_client.V1ObjectMeta(
-        name=f"workspace-{workspace_id}",
-        labels=final_labels,
-    )
-
-
 def create_deployment_manifest(
     workspace_id: str,
     image: str,
@@ -93,10 +73,8 @@ def create_deployment_manifest(
     resource_factor: int = 1,
     runtime_class: str | None = None,
     security_context: dict[str, Any] | None = None,
-) -> tuple[Any, Any]:
+) -> tuple[k8s_client.V1Deployment, k8s_client.V1Container]:
     """Create a Kubernetes Deployment manifest for a workspace."""
-    if k8s_client is None:
-        raise ImportError("kubernetes package is required")
 
     environment = environment or {}
     command = command or []
@@ -221,14 +199,14 @@ def create_deployment_manifest(
         )
 
     # Create pod metadata
-    pod_metadata = _create_metadata(workspace_id)
+    pod_metadata = create_metadata(workspace_id)
     if pod_annotations:
         pod_metadata.annotations = pod_metadata.annotations or {}
         pod_metadata.annotations.update(pod_annotations)
 
     # Create deployment
     deployment = k8s_client.V1Deployment(
-        metadata=_create_metadata(workspace_id),
+        metadata=create_metadata(workspace_id),
         spec=k8s_client.V1DeploymentSpec(
             replicas=1,
             selector=k8s_client.V1LabelSelector(
