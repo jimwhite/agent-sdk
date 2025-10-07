@@ -580,8 +580,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     typed_input: ResponseInputParam | str = (
                         cast(ResponseInputParam, input_items) if input_items else ""
                     )
+                    # For Responses API through litellm proxy, strip the litellm_proxy/ prefix
+                    # The proxy's /responses endpoint expects model names like "openai/gpt-5-mini"
+                    # not "litellm_proxy/openai/gpt-5-mini"
+                    responses_model = self.model
+                    if responses_model.startswith("litellm_proxy/"):
+                        responses_model = responses_model[len("litellm_proxy/") :]
                     ret = litellm_responses(
-                        model=self.model,
+                        model=responses_model,
                         input=typed_input,
                         instructions=instructions,
                         tools=resp_tools,
@@ -784,11 +790,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if include_list:
             out["include"] = include_list
 
-        # Store defaults to False (stateless) unless explicitly provided
+        # Store defaults to True (stateful) for multi-turn conversations
+        # This is required when assistant messages reference previous
+        # response items by ID
         if store is not None:
             out["store"] = bool(store)
         else:
-            out.setdefault("store", False)
+            out.setdefault("store", True)
 
         # Respect max_output_tokens if configured at LLM level
         if self.max_output_tokens is not None:
