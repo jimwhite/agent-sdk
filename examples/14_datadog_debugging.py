@@ -12,19 +12,12 @@ The agent will:
 5. Optionally create a draft PR with a fix
 
 Usage:
-    # Local execution
     python 14_datadog_debugging.py --query "status:error service:deploy" \\
         --repos "All-Hands-AI/OpenHands,All-Hands-AI/deploy"
 
-    # Local execution with specific region
     python 14_datadog_debugging.py --query "status:error service:deploy" \\
         --repos "All-Hands-AI/OpenHands,All-Hands-AI/deploy" \\
         --region us5
-
-    # Remote execution with Docker sandbox
-    python 14_datadog_debugging.py --query "status:error service:deploy" \\
-        --repos "All-Hands-AI/OpenHands,All-Hands-AI/deploy" \\
-        --remote --docker --region us5
 
 Environment Variables Required:
     - DATADOG_API_KEY: Your Datadog API key
@@ -47,12 +40,10 @@ from openhands.sdk import (
     Event,
     LLMConvertibleEvent,
     Message,
-    RemoteConversation,
     TextContent,
     get_logger,
 )
 from openhands.sdk.tool import Tool, register_tool
-from openhands.sdk.workspace import DockerWorkspace, Workspace
 from openhands.tools.execute_bash import BashTool
 from openhands.tools.file_editor import FileEditorTool
 from openhands.tools.task_tracker import TaskTrackerTool
@@ -194,33 +185,6 @@ def main():
         help="Working directory for cloning repos and analysis "
         "(default: ./datadog_debug_workspace)",
     )
-    parser.add_argument(
-        "--remote",
-        action="store_true",
-        help="Use remote execution via API server or Docker",
-    )
-    parser.add_argument(
-        "--docker",
-        action="store_true",
-        help="Use Docker sandbox for remote execution (requires --remote)",
-    )
-    parser.add_argument(
-        "--api-server",
-        type=str,
-        help="API server URL for remote execution (e.g., http://localhost:8000)",
-    )
-    parser.add_argument(
-        "--docker-image",
-        default="nikolaik/python-nodejs:python3.12-nodejs22",
-        help="Docker image to use for sandboxed execution "
-        "(default: nikolaik/python-nodejs:python3.12-nodejs22)",
-    )
-    parser.add_argument(
-        "--docker-port",
-        type=int,
-        default=8010,
-        help="Host port for Docker workspace API (default: 8010)",
-    )
 
     args = parser.parse_args()
 
@@ -228,35 +192,18 @@ def main():
     if not validate_environment():
         sys.exit(1)
 
-    # Validate remote execution options
-    if args.docker and not args.remote:
-        print("❌ --docker requires --remote flag")
-        sys.exit(1)
-
-    if args.api_server and args.docker:
-        print("❌ Cannot use both --api-server and --docker")
-        sys.exit(1)
-
     # Parse repositories
     repos = [repo.strip() for repo in args.repos.split(",")]
 
-    # Create working directory (only for local execution)
-    if not args.remote:
-        working_dir = Path(args.working_dir).resolve()
-        working_dir.mkdir(exist_ok=True)
-    else:
-        working_dir = Path(args.working_dir)
+    # Create working directory
+    working_dir = Path(args.working_dir).resolve()
+    working_dir.mkdir(exist_ok=True)
 
     print("🔍 Starting Datadog debugging session")
     print(f"📊 Query: {args.query}")
     print(f"📁 Repositories: {', '.join(repos)}")
     print(f"🌍 Datadog region: {args.region or 'us1 (default)'}")
     print(f"💼 Working directory: {working_dir}")
-    if args.remote:
-        if args.docker:
-            print(f"🐳 Using Docker sandbox: {args.docker_image}")
-        elif args.api_server:
-            print(f"🌐 Using remote API server: {args.api_server}")
     print()
 
     # Configure LLM
@@ -275,51 +222,15 @@ def main():
         api_key=SecretStr(api_key),
     )
 
-    # Determine if we need a workspace context manager
-    workspace_context = None
-    if args.remote and args.docker:
-        logger.info("Setting up Docker workspace...")
-        workspace_context = DockerWorkspace(
-            base_image=args.docker_image,
-            host_port=args.docker_port,
-            forward_env=[
-                "DATADOG_API_KEY",
-                "DATADOG_APP_KEY",
-                "GITHUB_TOKEN",
-                "LLM_API_KEY",
-            ],
-        )
-
-    # Run with or without workspace context manager
-    if workspace_context:
-        with workspace_context as workspace:
-            _run_debugging_session(
-                llm, workspace, working_dir, args.query, repos, args.remote, args.region
-            )
-    else:
-        workspace = None
-        if args.remote and args.api_server:
-            logger.info(f"Connecting to remote API server: {args.api_server}")
-            workspace = Workspace(host=args.api_server)
-            # Test workspace
-            result = workspace.execute_command("pwd")
-            logger.info(f"Remote workspace directory: {result.stdout}")
-        elif args.remote:
-            print("❌ --remote requires either --docker or --api-server")
-            sys.exit(1)
-
-        _run_debugging_session(
-            llm, workspace, working_dir, args.query, repos, args.remote, args.region
-        )
+    # Run debugging session
+    run_debugging_session(llm, working_dir, args.query, repos, args.region)
 
 
-def _run_debugging_session(
+def run_debugging_session(
     llm: LLM,
-    workspace,
     working_dir: Path,
     query: str,
     repos: list[str],
-    is_remote: bool,
     region: str = None,
 ):
     """Run the debugging session with the given configuration."""
@@ -344,15 +255,10 @@ def _run_debugging_session(
         if isinstance(event, LLMConvertibleEvent):
             llm_messages.append(event.to_llm_message())
 
-    # Start conversation
-    if workspace:
-        conversation = Conversation(
-            agent=agent, workspace=workspace, callbacks=[conversation_callback]
-        )
-        assert isinstance(conversation, RemoteConversation)
-        logger.info(f"Remote conversation ID: {conversation.state.id}")
-    else:
-        conversation = Conversation(agent=agent, callbacks=[conversation_callback])
+    # Start conversation with local workspace
+    conversation = Conversation(
+        agent=agent, workspace=str(working_dir), callbacks=[conversation_callback]
+    )
 
     # Send the debugging task
     debugging_prompt = create_debugging_prompt(query, repos, region)
@@ -380,7 +286,8 @@ def _run_debugging_session(
         print("- Investigated potential root causes")
         print("- Attempted error reproduction")
 
-        if not is_remote and working_dir.exists():
+        # Check for cloned repositories
+        if working_dir.exists():
             cloned_repos = [
                 d for d in working_dir.iterdir() if d.is_dir() and (d / ".git").exists()
             ]
