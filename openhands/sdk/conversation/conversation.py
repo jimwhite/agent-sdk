@@ -5,7 +5,8 @@ from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
+from openhands.sdk.workspace import LocalWorkspace
+from openhands.workspace import RemoteWorkspace
 
 
 if TYPE_CHECKING:

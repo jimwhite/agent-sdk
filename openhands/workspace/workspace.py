@@ -1,9 +1,9 @@
 from typing import Self, overload
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace.base import BaseWorkspace
-from openhands.sdk.workspace.local import LocalWorkspace
-from openhands.sdk.workspace.remote.base import RemoteWorkspace
+from openhands.workspace.base import BaseWorkspace
+from openhands.workspace.local import LocalWorkspace
+from openhands.workspace.remote import RemoteWorkspace
 
 
 logger = get_logger(__name__)

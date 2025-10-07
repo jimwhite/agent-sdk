@@ -27,7 +27,8 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.workspace import LocalWorkspace, RemoteWorkspace
+from openhands.sdk.workspace import LocalWorkspace
+from openhands.workspace import RemoteWorkspace
 
 
 logger = get_logger(__name__)

@@ -5,11 +5,11 @@ from unittest.mock import Mock, patch
 
 from pydantic import SecretStr
 
-from openhands.sdk import RemoteWorkspace
 from openhands.sdk.agent import Agent
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.llm import LLM
+from openhands.workspace import RemoteWorkspace
 
 
 def create_test_agent() -> Agent:

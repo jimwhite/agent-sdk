@@ -2,18 +2,17 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.utils.models import DiscriminatedUnionMixin
 from openhands.workspace.models import CommandResult, FileOperationResult
 
 
 logger = get_logger(__name__)
 
 
-class BaseWorkspace(DiscriminatedUnionMixin, ABC):
-    """Abstract base mixin for workspace.
+class BaseWorkspace(BaseModel, ABC):
+    """Abstract base class for workspace implementations.
 
     All workspace implementations support the context manager protocol,
     allowing safe resource management:

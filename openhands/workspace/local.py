@@ -3,7 +3,7 @@ from pathlib import Path
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
-from openhands.sdk.workspace.base import BaseWorkspace
+from openhands.workspace.base import BaseWorkspace
 from openhands.workspace.models import CommandResult, FileOperationResult
 
 
@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 
 class LocalWorkspace(BaseWorkspace):
-    """Mixin providing local workspace operations."""
+    """Local workspace implementation providing local file and command operations."""
 
     def execute_command(
         self,

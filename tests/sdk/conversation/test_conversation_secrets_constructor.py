@@ -12,7 +12,7 @@ from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands.sdk.conversation.secret_source import SecretSource
 from openhands.sdk.llm import LLM
-from openhands.sdk.workspace import RemoteWorkspace
+from openhands.workspace import RemoteWorkspace
 
 
 def create_test_agent() -> Agent:

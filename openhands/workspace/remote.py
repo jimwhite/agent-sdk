@@ -6,8 +6,8 @@ import httpx
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace.base import BaseWorkspace
-from openhands.sdk.workspace.models import CommandResult, FileOperationResult
+from openhands.workspace.base import BaseWorkspace
+from openhands.workspace.models import CommandResult, FileOperationResult
 
 
 logger = get_logger(__name__)
@@ -263,3 +263,11 @@ class RemoteWorkspace(BaseWorkspace):
                 destination_path=str(destination),
                 error=str(e),
             )
+
+    def is_local(self) -> bool:
+        """Check if this is a local workspace.
+
+        Returns:
+            False for RemoteWorkspace
+        """
+        return False

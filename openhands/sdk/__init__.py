@@ -44,9 +44,8 @@ from openhands.sdk.tool import (
     resolve_tool,
 )
 from openhands.sdk.workspace import (
+    BaseWorkspace,
     LocalWorkspace,
-    RemoteWorkspace,
-    Workspace,
 )
 
 
@@ -92,8 +91,7 @@ __all__ = [
     "register_tool",
     "resolve_tool",
     "list_registered_tools",
-    "Workspace",
+    "BaseWorkspace",
     "LocalWorkspace",
-    "RemoteWorkspace",
     "__version__",
 ]
