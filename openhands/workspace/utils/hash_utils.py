@@ -308,7 +308,7 @@ def find_existing_tag(tags: dict[str, str], client=None) -> str | None:
 
 # Example usage
 if __name__ == "__main__":
-    from openhands.workspace.builder import get_sdk_root, get_sdk_version
+    from openhands.workspace.utils.builder import get_sdk_root, get_sdk_version
 
     # Example: Generate tags for current SDK
     try:

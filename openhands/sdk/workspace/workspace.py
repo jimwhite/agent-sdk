@@ -1,8 +1,3 @@
-"""Factory entrypoint for creating workspace instances.
-
-DEPRECATED: Use openhands.sdk.workspace types directly instead.
-"""
-
 from typing import Self, overload
 
 from openhands.sdk.logger import get_logger

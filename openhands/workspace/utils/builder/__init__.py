@@ -1,7 +1,7 @@
 """Runtime image builders for OpenHands SDK."""
 
-from openhands.workspace.builder.base import RuntimeBuilder
-from openhands.workspace.builder.build_config import (
+from openhands.workspace.utils.builder.base import RuntimeBuilder
+from openhands.workspace.utils.builder.build_config import (
     AgentServerBuildConfig,
     generate_agent_server_tags,
     get_agent_server_build_context,
@@ -10,7 +10,7 @@ from openhands.workspace.builder.build_config import (
     get_sdk_root,
     get_sdk_version,
 )
-from openhands.workspace.builder.docker import DockerRuntimeBuilder
+from openhands.workspace.utils.builder.docker import DockerRuntimeBuilder
 
 
 __all__ = [
