@@ -16,7 +16,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
-from openhands.workspace import LocalWorkspace
+from openhands.sdk.workspace import LocalWorkspace
 
 
 class ConversationSortOrder(str, Enum):

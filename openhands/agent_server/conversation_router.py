@@ -23,7 +23,7 @@ from openhands.agent_server.models import (
 )
 from openhands.sdk import LLM, Agent, TextContent, Tool
 from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.workspace import LocalWorkspace
+from openhands.sdk.workspace import LocalWorkspace
 
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
