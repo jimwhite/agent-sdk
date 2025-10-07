@@ -674,6 +674,18 @@ wheels = [
 ]
 
 [[package]]
+name = "dirhash"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scantree" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1d/70/49f93897f3a4f7ab5f20a854ebc91aad47854e9fb2cd169e3a4452fa3f5e/dirhash-0.5.0.tar.gz", hash = "sha256:e60760f0ab2e935d8cb088923ea2c6492398dca42cec785df778985fd4cd5386", size = 21377, upload-time = "2024-08-03T22:14:13.322Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/1f/c8bf92552b7f0a13b9f12b85e3de8df6d9814240e0f8ce8f37433df028b3/dirhash-0.5.0-py3-none-any.whl", hash = "sha256:523dfd6b058c64f45b31604376926c6e2bd2ea301d0df23095d4055674e38b09", size = 13119, upload-time = "2024-08-03T22:14:11.688Z" },
+]
+
+[[package]]
 name = "distlib"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1815,10 +1827,16 @@ dependencies = [
 boto3 = [
     { name = "boto3" },
 ]
+builder = [
+    { name = "dirhash" },
+    { name = "docker" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "boto3", marker = "extra == 'boto3'", specifier = ">=1.35.0" },
+    { name = "dirhash", marker = "extra == 'builder'", specifier = ">=0.5.0" },
+    { name = "docker", marker = "extra == 'builder'", specifier = ">=7.1.0" },
     { name = "fastmcp", specifier = ">=2.11.3" },
     { name = "litellm", specifier = ">=1.75.9" },
     { name = "pydantic", specifier = ">=2.11.7" },
@@ -1827,7 +1845,7 @@ requires-dist = [
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "websockets", specifier = ">=12" },
 ]
-provides-extras = ["boto3"]
+provides-extras = ["boto3", "builder"]
 
 [[package]]
 name = "openhands-tools"
@@ -1930,6 +1948,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/67/93/8f2c2075b180c12c1e9f6a09d1a985bc2036906b13dff1d8917e395f2048/pathable-0.4.4.tar.gz", hash = "sha256:6905a3cd17804edfac7875b5f6c9142a218c7caef78693c2dbbbfbac186d88b2", size = 8124, upload-time = "2025-01-10T18:43:13.247Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/eb/b6260b31b1a96386c0a880edebe26f89669098acea8e0318bff6adb378fd/pathable-0.4.4-py3-none-any.whl", hash = "sha256:5ae9e94793b6ef5a4cbe0a7ce9dbbefc1eec38df253763fd0aeeacf2762dbbc2", size = 9592, upload-time = "2025-01-10T18:43:11.88Z" },
+]
+
+[[package]]
+name = "pathspec"
+version = "0.12.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/bc/f35b8446f4531a7cb215605d100cd88b7ac6f44ab3fc94870c120ab3adbf/pathspec-0.12.1.tar.gz", hash = "sha256:a482d51503a1ab33b1c67a6c3813a26953dbdc71c31dacaef9a838c4e29f5712", size = 51043, upload-time = "2023-12-10T22:30:45Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl", hash = "sha256:a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08", size = 31191, upload-time = "2023-12-10T22:30:43.14Z" },
 ]
 
 [[package]]
@@ -5567,6 +5594,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/62/74/8d69dcb7a9efe8baa2046891735e5dfe433ad558ae23d9e3c14c633d1d58/s3transfer-0.14.0.tar.gz", hash = "sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125", size = 151547, upload-time = "2025-09-09T19:23:31.089Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/48/f0/ae7ca09223a81a1d890b2557186ea015f6e0502e9b8cb8e1813f1d8cfa4e/s3transfer-0.14.0-py3-none-any.whl", hash = "sha256:ea3b790c7077558ed1f02a3072fb3cb992bbbd253392f4b6e9e8976941c7d456", size = 85712, upload-time = "2025-09-09T19:23:30.041Z" },
+]
+
+[[package]]
+name = "scantree"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "pathspec" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b3/e4/40998faefc72ba1ddeb640a44fba92935353525dba110488806da8339c0b/scantree-0.0.4.tar.gz", hash = "sha256:15bd5cb24483b04db2c70653604e8ea3522e98087db7e38ab8482f053984c0ac", size = 24643, upload-time = "2024-08-03T20:08:59.413Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/ce/828467ddfa0d2fe473673026442d2032d552a168e42cfbf25fd0e5264e0c/scantree-0.0.4-py3-none-any.whl", hash = "sha256:7616ab65aa6b7f16fcf8e6fa1d9afaa99a27ab72bba05c61b691853b96763174", size = 20690, upload-time = "2024-08-03T20:08:58.137Z" },
 ]
 
 [[package]]

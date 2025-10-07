@@ -19,15 +19,19 @@ class RuntimeBuilder(abc.ABC):
 
         Args:
             path: The path to the runtime image's build directory.
-            tags: The tags to apply to the runtime image (e.g., ["repo:my-repo", "sha:my-sha"]).
+            tags: The tags to apply to the runtime image
+                (e.g., ["repo:my-repo", "sha:my-sha"]).
             platform: The target platform for the build. Defaults to None.
-            extra_build_args: Additional build arguments to pass to the builder. Defaults to None.
-            use_local_cache: Whether to use and update the local build cache. Defaults to False.
+            extra_build_args: Additional build arguments to pass to the builder.
+                Defaults to None.
+            use_local_cache: Whether to use and update the local build cache.
+                Defaults to False.
 
         Returns:
             The name:tag of the runtime image after build (e.g., "repo:sha").
-            This can be different from the tags input if the builder chooses to mutate the tags.
-            This should be used for subsequent use (e.g., `docker run`).
+            This can be different from the tags input if the builder chooses
+            to mutate the tags. This should be used for subsequent use
+            (e.g., `docker run`).
 
         Raises:
             AgentRuntimeBuildError: If the build failed.
@@ -40,7 +44,8 @@ class RuntimeBuilder(abc.ABC):
 
         Args:
             image_name: The name of the runtime image (e.g., "repo:sha").
-            pull_from_repo: Whether to pull from the remote repo if the image not present locally.
+            pull_from_repo: Whether to pull from the remote repo if the image
+                not present locally.
 
         Returns:
             Whether the runtime image exists.

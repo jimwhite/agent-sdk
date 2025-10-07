@@ -58,7 +58,6 @@ with APIRemoteWorkspace(
     base_image=base_image,
     working_dir="/workspace",
     build_agent_server=True,
-    build_target="source",  # Use "source" target for more reliable startup
     registry_prefix=registry_prefix,
 ) as workspace:
     agent = get_default_agent(llm=llm, cli_mode=True)

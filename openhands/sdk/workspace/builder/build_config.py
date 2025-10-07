@@ -93,11 +93,14 @@ def generate_agent_server_tags(
     from openhands.sdk.workspace.hash_utils import generate_image_tags
 
     sdk_root = get_sdk_root()
+    # Add -dev suffix for source builds (development mode)
+    suffix = "-dev" if target == "source" else ""
     tags_dict = generate_image_tags(
         base_image=base_image,
         sdk_root=sdk_root,
         source_dir=sdk_root / "openhands",
         version=get_sdk_version(),
+        suffix=suffix,
     )
     # Return in order from most to least specific
     tags = [tags_dict["source"], tags_dict["lock"], tags_dict["versioned"]]
@@ -161,8 +164,8 @@ class AgentServerBuildConfig:
         Returns:
             The full image name with tag (e.g., 'registry/image:tag').
         """
-        from openhands.sdk.builder import DockerRuntimeBuilder
         from openhands.sdk.logger import get_logger
+        from openhands.sdk.workspace.builder import DockerRuntimeBuilder
 
         logger = get_logger(__name__)
 

@@ -175,6 +175,7 @@ def generate_image_tags(
     version: str,
     enable_browser: bool = True,
     extra_lock_files: list[str] | None = None,
+    suffix: str = "",
 ) -> dict[str, str]:
     """Generate all tag levels for hash-based image caching.
 
@@ -190,6 +191,8 @@ def generate_image_tags(
         version: SDK version string
         enable_browser: Whether browser support is enabled
         extra_lock_files: Additional files to include in lock hash
+        suffix: Optional suffix to append to all tags
+            (e.g., '-dev' for development builds)
 
     Returns:
         Dictionary with keys 'source', 'lock', 'versioned' mapping to tag strings
@@ -223,9 +226,9 @@ def generate_image_tags(
 
     # Build tag hierarchy
     tags = {
-        "source": f"v{version}_{lock_hash}_{source_hash}",  # Most specific
-        "lock": f"v{version}_{lock_hash}",  # Medium specific
-        "versioned": f"v{version}_{base_slug}",  # Least specific
+        "source": f"v{version}_{lock_hash}_{source_hash}{suffix}",  # Most specific
+        "lock": f"v{version}_{lock_hash}{suffix}",  # Medium specific
+        "versioned": f"v{version}_{base_slug}{suffix}",  # Least specific
     }
 
     logger.debug(f"Generated tags: {tags}")
@@ -305,7 +308,7 @@ def find_existing_tag(tags: dict[str, str], client=None) -> str | None:
 
 # Example usage
 if __name__ == "__main__":
-    from openhands.sdk.workspace.build_config import get_sdk_root, get_sdk_version
+    from openhands.sdk.workspace.builder import get_sdk_root, get_sdk_version
 
     # Example: Generate tags for current SDK
     try:

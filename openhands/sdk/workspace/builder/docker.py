@@ -8,10 +8,9 @@ import time
 import docker
 import docker.errors
 
-from openhands.sdk import __version__ as oh_version
-from openhands.sdk.builder.base import RuntimeBuilder
 from openhands.sdk.exceptions import AgentRuntimeBuildError
 from openhands.sdk.logger import get_logger
+from openhands.sdk.workspace.builder.base import RuntimeBuilder
 
 
 logger = get_logger(__name__)
@@ -24,7 +23,8 @@ class DockerRuntimeBuilder(RuntimeBuilder):
         """Initialize the Docker runtime builder.
 
         Args:
-            docker_client: Docker client instance. If None, creates a new one from environment.
+            docker_client: Docker client instance. If None, creates a new one
+                from environment.
         """
         self.docker_client = docker_client or docker.from_env()
 
@@ -89,6 +89,9 @@ class DockerRuntimeBuilder(RuntimeBuilder):
         Raises:
             AgentRuntimeBuildError: If the build process fails.
         """
+        # Import version locally to avoid circular import
+        from openhands.sdk import __version__ as oh_version
+
         self.docker_client = docker.from_env()
         version_info = self.docker_client.version()
         server_version = version_info.get("Version", "").split("+")[0].replace("-", ".")
@@ -179,7 +182,8 @@ class DockerRuntimeBuilder(RuntimeBuilder):
             if return_code != 0:
                 output_str = "\n".join(output_lines[-50:])
                 raise AgentRuntimeBuildError(
-                    f"Build failed with return code {return_code}\nLast 50 lines:\n{output_str}"
+                    f"Build failed with return code {return_code}\n"
+                    f"Last 50 lines:\n{output_str}"
                 )
 
         except Exception as e:
@@ -305,7 +309,8 @@ class DockerRuntimeBuilder(RuntimeBuilder):
                     percentage - int(last_logged) >= 10 or percentage == 100  # type: ignore
                 ):
                     logger.debug(
-                        f"Layer {layer_id}: {layers[layer_id]['progress']} {layers[layer_id]['status']}"
+                        f"Layer {layer_id}: {layers[layer_id]['progress']} "
+                        f"{layers[layer_id]['status']}"
                     )
                     layers[layer_id]["last_logged"] = percentage
         elif "status" in current_line:
@@ -318,11 +323,17 @@ class DockerRuntimeBuilder(RuntimeBuilder):
             "apt-get update",
             "apt-get install -y ca-certificates curl gnupg",
             "install -m 0755 -d /etc/apt/keyrings",
-            "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
+            "curl -fsSL https://download.docker.com/linux/debian/gpg "
+            "-o /etc/apt/keyrings/docker.asc",
             "chmod a+r /etc/apt/keyrings/docker.asc",
-            'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null',
+            'echo "deb [arch=$(dpkg --print-architecture) '
+            "signed-by=/etc/apt/keyrings/docker.asc] "
+            "https://download.docker.com/linux/debian "
+            '$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | '
+            "tee /etc/apt/sources.list.d/docker.list > /dev/null",
             "apt-get update",
-            "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+            "apt-get install -y docker-ce docker-ce-cli containerd.io "
+            "docker-buildx-plugin docker-compose-plugin",
         ]
         for cmd in commands:
             try:
@@ -351,7 +362,8 @@ class DockerRuntimeBuilder(RuntimeBuilder):
 
         if not os.access(cache_dir, os.W_OK):
             logger.warning(
-                f"Cache directory {cache_dir} is not writable. Caches will not be used for Docker builds."
+                f"Cache directory {cache_dir} is not writable. "
+                "Caches will not be used for Docker builds."
             )
             return False
 

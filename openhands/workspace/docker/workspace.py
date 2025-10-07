@@ -75,7 +75,7 @@ def build_agent_server_image(
     Returns:
         The full image name with tag.
     """
-    from openhands.sdk.workspace.build_config import AgentServerBuildConfig
+    from openhands.sdk.workspace.builder import AgentServerBuildConfig
 
     logger.info(
         "Building agent-server image with base '%s', target '%s', "
