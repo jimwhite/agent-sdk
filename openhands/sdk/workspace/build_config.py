@@ -72,26 +72,39 @@ def generate_agent_server_tags(
     target: str = "binary",
     registry_prefix: str | None = None,
 ) -> list[str]:
-    """Generate image tags for agent-server following build.sh convention."""
-    git_info = get_git_info()
-    base_slug = base_image.replace("/", "_s_").replace(":", "_tag_")
-    versioned_tag = f"v{get_sdk_version()}_{base_slug}_{variant}"
-    short_sha, ref = git_info["short_sha"], git_info["ref"]
+    """Generate hash-based image tags for agent-server.
 
-    if target == "source":
-        tags = [f"{short_sha}-{variant}-dev", f"{versioned_tag}-dev"]
-        if ref in ["main", "refs/heads/main"]:
-            tags.append(f"latest-{variant}-dev")
-    else:
-        tags = [f"{short_sha}-{variant}", versioned_tag]
-        if ref in ["main", "refs/heads/main"]:
-            tags.append(f"latest-{variant}")
+    Uses content hashing to prevent duplicate builds - same content = same tags.
+
+    Args:
+        base_image: Base Docker image to use
+        variant: Build variant (e.g., 'python', 'go')
+        target: Build target ('source' or 'binary')
+        registry_prefix: Registry prefix (e.g., 'ghcr.io/all-hands-ai/runtime')
+
+    Returns:
+        List of image tags in order from most to least specific:
+        1. source_tag: vX.Y.Z_lockHash_sourceHash (most specific)
+        2. lock_tag: vX.Y.Z_lockHash (medium specific)
+        3. versioned_tag: vX.Y.Z_baseImageSlug (least specific)
+    """
+    from openhands.sdk.workspace.hash_utils import generate_image_tags
+
+    sdk_root = get_sdk_root()
+    tags_dict = generate_image_tags(
+        base_image=base_image,
+        sdk_root=sdk_root,
+        source_dir=sdk_root / "openhands",
+        version=get_sdk_version(),
+    )
+    # Return in order from most to least specific
+    tags = [tags_dict["source"], tags_dict["lock"], tags_dict["versioned"]]
 
     return [f"{registry_prefix}/{tag}" for tag in tags] if registry_prefix else tags
 
 
 class AgentServerBuildConfig:
-    """Configuration for building agent-server images."""
+    """Configuration for building agent-server images with hash-based tags."""
 
     def __init__(
         self,
