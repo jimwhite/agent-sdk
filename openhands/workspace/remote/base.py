@@ -1,13 +1,12 @@
 import time
 from pathlib import Path
-from typing import Any
 
 import httpx
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr, SecretStr
 
 from openhands.sdk.logger import get_logger
-from openhands.sdk.workspace.base import BaseWorkspace
-from openhands.sdk.workspace.models import CommandResult, FileOperationResult
+from openhands.workspace.base import BaseWorkspace
+from openhands.workspace.models import CommandResult, FileOperationResult
 
 
 logger = get_logger(__name__)
@@ -16,29 +15,46 @@ logger = get_logger(__name__)
 class RemoteWorkspace(BaseWorkspace):
     """Mixin providing remote workspace operations."""
 
-    host: str = Field(description="The remote host URL for the workspace.")
-    api_key: str | None = Field(
-        default=None, description="API key for authenticating with the remote host."
-    )
-
+    _host: str = PrivateAttr()
+    _api_key: SecretStr | None = PrivateAttr(default=None)
     _client: httpx.Client = PrivateAttr()
 
-    def model_post_init(self, context: Any) -> None:
-        # Set up remote host and API key
-        self.host = self.host.rstrip("/")
-        self.api_key = self.api_key
+    def __init__(self, host: str, api_key: SecretStr | str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self._host = host.rstrip("/")
+        if isinstance(api_key, str):
+            self._api_key = SecretStr(api_key) if api_key else None
+        else:
+            self._api_key = api_key
+
         # Configure httpx client with API key header if provided
         headers = {}
-        if self.api_key:
-            headers["X-Session-API-Key"] = self.api_key
-        self._client = httpx.Client(base_url=self.host, timeout=30.0, headers=headers)
+        if self._api_key:
+            headers["X-Session-API-Key"] = self._api_key.get_secret_value()
+        self._client = httpx.Client(base_url=self._host, timeout=30.0, headers=headers)
 
-        return super().model_post_init(context)
+    @property
+    def host(self) -> str:
+        """Get the remote host URL."""
+        return self._host
+
+    @property
+    def api_key(self) -> SecretStr | None:
+        """Get the API key for authentication."""
+        return self._api_key
 
     @property
     def client(self) -> httpx.Client:
-        """The HTTP client for communicating with the remote host."""
+        """Get the HTTP client for making requests."""
         return self._client
+
+    def get_workspace_type(self) -> str:
+        """Get the type of workspace implementation.
+
+        Returns:
+            'remote' for remote workspace implementations
+        """
+        return "remote"
 
     def execute_command(
         self,

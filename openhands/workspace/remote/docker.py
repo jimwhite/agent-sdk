@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any
 from urllib.request import urlopen
 
+import httpx
 from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
-from openhands.sdk.workspace.remote.base import RemoteWorkspace
+from openhands.workspace.remote.base import RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -153,9 +154,9 @@ def build_agent_server_image(
         env.update(extra_env)
 
     if not project_root:
-        # Path is: openhands/sdk/workspace/remote/docker.py
-        # parents[4] gives us the SDK root
-        project_root = str(Path(__file__).resolve().parents[4])
+        # Path is: openhands/workspace/remote/docker.py
+        # parents[3] gives us the SDK root
+        project_root = str(Path(__file__).resolve().parents[3])
 
     proc = execute_command(["bash", str(script_path)], env=env, cwd=project_root)
 
@@ -195,10 +196,6 @@ class DockerWorkspace(RemoteWorkspace):
         default="/workspace",
         description="Working directory inside the container.",
     )
-    host: str = Field(
-        default="",
-        description=("Remote host URL (set automatically during container startup)."),
-    )
 
     # Docker-specific configuration
     base_image: str = Field(
@@ -235,8 +232,21 @@ class DockerWorkspace(RemoteWorkspace):
     _stop_logs: threading.Event = PrivateAttr(default_factory=threading.Event)
     _image: str = PrivateAttr()
 
+    def get_workspace_type(self) -> str:
+        """Get the type of workspace implementation.
+
+        Returns:
+            'docker' for Docker workspace implementations
+        """
+        return "docker"
+
     def model_post_init(self, context: Any) -> None:
         """Set up the Docker container and initialize the remote workspace."""
+        # Initialize parent with empty host first
+        self._host = ""
+        self._api_key = None
+        self._client = httpx.Client(timeout=30.0)
+
         # Determine port
         if self.host_port is None:
             self.host_port = find_available_tcp_port()
@@ -332,16 +342,16 @@ class DockerWorkspace(RemoteWorkspace):
 
         # Set host for RemoteWorkspace to use
         # The container exposes port 8000, mapped to self.host_port
-        # Override parent's host initialization
-        object.__setattr__(self, "host", f"http://localhost:{self.host_port}")
-        object.__setattr__(self, "api_key", None)
+        host_url = f"http://localhost:{self.host_port}"
+        self._host = host_url
+        self._api_key = None
+
+        # Reinitialize the client with the new host
+        self._client = httpx.Client(base_url=host_url, timeout=30.0)
 
         # Wait for container to be healthy
         self._wait_for_health()
         logger.info("Docker workspace is ready at %s", self.host)
-
-        # Now initialize the parent RemoteWorkspace with the container URL
-        super().model_post_init(context)
 
     def _stream_docker_logs(self) -> None:
         """Stream Docker logs to stdout in the background."""

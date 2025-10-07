@@ -16,7 +16,7 @@ from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
 from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.llm.llm_registry import RegistryEvent
 from openhands.sdk.security.confirmation_policy import AlwaysConfirm
-from openhands.sdk.workspace import LocalWorkspace
+from openhands.workspace import LocalWorkspace
 
 
 def test_conversation_state_basic_serialization():

@@ -21,7 +21,7 @@ from openhands.sdk.logger import get_logger
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
-from openhands.sdk.workspace import LocalWorkspace
+from openhands.sdk.workspace import Workspace
 
 
 logger = get_logger(__name__)
@@ -31,7 +31,7 @@ class LocalConversation(BaseConversation):
     def __init__(
         self,
         agent: AgentBase,
-        workspace: str | LocalWorkspace,
+        workspace: Workspace,
         persistence_dir: str | None = None,
         conversation_id: ConversationID | None = None,
         callbacks: list[ConversationCallbackType] | None = None,
@@ -45,7 +45,7 @@ class LocalConversation(BaseConversation):
 
         Args:
             agent: The agent to use for the conversation
-            workspace: Working directory for agent operations and tool execution
+            workspace: Workspace instance for agent operations and tool execution
             persistence_dir: Directory for persisting conversation state and events
             conversation_id: Optional ID for the conversation. If provided, will
                       be used to identify the conversation. The user might want to
@@ -58,11 +58,10 @@ class LocalConversation(BaseConversation):
             stuck_detection: Whether to enable stuck detection
         """
         self.agent = agent
-        if isinstance(workspace, str):
-            workspace = LocalWorkspace(working_dir=workspace)
-        assert isinstance(workspace, LocalWorkspace), (
-            "workspace must be a LocalWorkspace instance"
-        )
+        assert (
+            isinstance(workspace, Workspace)
+            and workspace.get_workspace_type() == "local"
+        ), "workspace must be a local workspace instance"
         self.workspace = workspace
         if not Path(self.workspace.working_dir).exists():
             Path(self.workspace.working_dir).mkdir(parents=True, exist_ok=True)

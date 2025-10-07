@@ -9,7 +9,7 @@ from openhands.sdk import LLM, Agent
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands.sdk.io import InMemoryFileStore
-from openhands.sdk.workspace import LocalWorkspace
+from openhands.workspace import LocalWorkspace
 
 
 @pytest.fixture

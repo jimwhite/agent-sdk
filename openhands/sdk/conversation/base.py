@@ -13,7 +13,7 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.workspace.base import BaseWorkspace
+from openhands.sdk.workspace import Workspace
 
 
 if TYPE_CHECKING:
@@ -50,7 +50,7 @@ class ConversationStateProtocol(Protocol):
         ...
 
     @property
-    def workspace(self) -> BaseWorkspace:
+    def workspace(self) -> Workspace:
         """The workspace for agent operations and tool execution."""
         ...
 

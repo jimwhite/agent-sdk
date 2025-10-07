@@ -22,7 +22,7 @@ from openhands.sdk.security.confirmation_policy import (
     NeverConfirm,
 )
 from openhands.sdk.utils.models import OpenHandsModel
-from openhands.sdk.workspace.base import BaseWorkspace
+from openhands.sdk.workspace import Workspace
 
 
 logger = get_logger(__name__)
@@ -59,7 +59,7 @@ class ConversationState(OpenHandsModel):
             "LLM changes, etc."
         ),
     )
-    workspace: BaseWorkspace = Field(
+    workspace: Workspace = Field(
         ...,
         description="Working directory for agent operations and tool execution",
     )
@@ -142,7 +142,7 @@ class ConversationState(OpenHandsModel):
         cls: type["ConversationState"],
         id: ConversationID,
         agent: AgentBase,
-        workspace: BaseWorkspace,
+        workspace: Workspace,
         persistence_dir: str | None = None,
         max_iterations: int = 500,
         stuck_detection: bool = True,

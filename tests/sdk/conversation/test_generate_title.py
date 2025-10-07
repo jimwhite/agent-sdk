@@ -67,10 +67,10 @@ def create_mock_llm_response(content: str) -> LLMResponse:
 
 
 @patch("openhands.sdk.llm.llm.LLM.completion")
-def test_generate_title_basic(mock_completion):
+def test_generate_title_basic(mock_completion, default_workspace):
     """Test basic generate_title functionality."""
     agent = create_test_agent()
-    conv = Conversation(agent=agent, visualize=False)
+    conv = Conversation(agent=agent, workspace=default_workspace, visualize=False)
 
     # Add a user message to the conversation
     user_message = create_user_message_event("Help me create a Python script")
@@ -88,10 +88,10 @@ def test_generate_title_basic(mock_completion):
     mock_completion.assert_called_once()
 
 
-def test_generate_title_no_user_messages():
+def test_generate_title_no_user_messages(default_workspace):
     """Test generate_title raises ValueError when no user messages exist."""
     agent = create_test_agent()
-    conv = Conversation(agent=agent, visualize=False)
+    conv = Conversation(agent=agent, workspace=default_workspace, visualize=False)
 
     # Don't add any user messages - the conversation might have system messages
 
@@ -103,10 +103,10 @@ def test_generate_title_no_user_messages():
 
 
 @patch("openhands.sdk.llm.llm.LLM.completion")
-def test_generate_title_llm_error_fallback(mock_completion):
+def test_generate_title_llm_error_fallback(mock_completion, default_workspace):
     """Test generate_title falls back to simple truncation when LLM fails."""
     agent = create_test_agent()
-    conv = Conversation(agent=agent, visualize=False)
+    conv = Conversation(agent=agent, workspace=default_workspace, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Fix the bug in my application")
@@ -123,10 +123,10 @@ def test_generate_title_llm_error_fallback(mock_completion):
 
 
 @patch("openhands.sdk.llm.llm.LLM.completion")
-def test_generate_title_with_max_length(mock_completion):
+def test_generate_title_with_max_length(mock_completion, default_workspace):
     """Test generate_title respects max_length parameter."""
     agent = create_test_agent()
-    conv = Conversation(agent=agent, visualize=False)
+    conv = Conversation(agent=agent, workspace=default_workspace, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Create a web application")
@@ -147,10 +147,10 @@ def test_generate_title_with_max_length(mock_completion):
 
 
 @patch("openhands.sdk.llm.llm.LLM.completion")
-def test_generate_title_with_custom_llm(mock_completion):
+def test_generate_title_with_custom_llm(mock_completion, default_workspace):
     """Test generate_title with a custom LLM provided."""
     agent = create_test_agent()
-    conv = Conversation(agent=agent, visualize=False)
+    conv = Conversation(agent=agent, workspace=default_workspace, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Debug my code")
@@ -173,10 +173,10 @@ def test_generate_title_with_custom_llm(mock_completion):
 
 
 @patch("openhands.sdk.llm.llm.LLM.completion")
-def test_generate_title_empty_llm_response_fallback(mock_completion):
+def test_generate_title_empty_llm_response_fallback(mock_completion, default_workspace):
     """Test generate_title falls back when LLM returns empty response."""
     agent = create_test_agent()
-    conv = Conversation(agent=agent, visualize=False)
+    conv = Conversation(agent=agent, workspace=default_workspace, visualize=False)
 
     # Add a user message
     user_message = create_user_message_event("Help with testing")

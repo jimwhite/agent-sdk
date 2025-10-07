@@ -1,0 +1,22 @@
+[project]
+name = "openhands-workspace"
+version = "1.0.0"
+description = "OpenHands Workspace - Workspace implementations for AI agents"
+
+requires-python = ">=3.12"
+dependencies = [
+    "openhands-sdk",
+    "pydantic>=2.11.7",
+    "httpx>=0.27.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["../.."]
+include = ["openhands*"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]

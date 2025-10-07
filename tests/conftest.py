@@ -7,6 +7,7 @@ from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM
 from openhands.sdk.tool import ToolExecutor
+from openhands.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -86,6 +87,12 @@ def create_mock_litellm_response(
     )
 
     return response
+
+
+@pytest.fixture
+def default_workspace(tmp_path):
+    """Create a default LocalWorkspace for testing."""
+    return LocalWorkspace(working_dir=str(tmp_path))
 
 
 @pytest.fixture(autouse=True)

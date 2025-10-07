@@ -7,11 +7,11 @@ from openhands.sdk.conversation.state import AgentExecutionStatus
 from openhands.sdk.llm import LLM
 
 
-def test_agent_execution_state_enum_basic():
+def test_agent_execution_state_enum_basic(default_workspace):
     """Test basic AgentExecutionStatus enum functionality."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
-    conversation = Conversation(agent=agent)
+    conversation = Conversation(agent=agent, workspace=default_workspace)
 
     # Test initial state
     assert conversation._state.agent_status == AgentExecutionStatus.IDLE
@@ -50,11 +50,11 @@ def test_enum_values():
     assert AgentExecutionStatus.ERROR == "error"
 
 
-def test_enum_serialization():
+def test_enum_serialization(default_workspace):
     """Test that the enum serializes and deserializes correctly."""
     llm = LLM(model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="test-llm")
     agent = Agent(llm=llm, tools=[])
-    conversation = Conversation(agent=agent)
+    conversation = Conversation(agent=agent, workspace=default_workspace)
 
     # Set to different states and test serialization
     conversation._state.agent_status = AgentExecutionStatus.FINISHED

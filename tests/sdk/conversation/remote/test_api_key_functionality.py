@@ -12,7 +12,7 @@ from openhands.sdk.conversation.impl.remote_conversation import (
     WebSocketCallbackClient,
 )
 from openhands.sdk.llm import LLM
-from openhands.sdk.workspace import RemoteWorkspace
+from openhands.workspace import RemoteWorkspace
 
 
 def create_test_agent() -> Agent:
@@ -215,4 +215,5 @@ def test_remote_conversation_passes_api_key_to_websocket_client(mock_httpx_clien
         # Verify WebSocketCallbackClient was called with api_key
         mock_ws_client.assert_called_once()
         call_args = mock_ws_client.call_args
-        assert call_args.kwargs["api_key"] == test_api_key
+        # The api_key is now a SecretStr, so we need to get its secret value
+        assert call_args.kwargs["api_key"].get_secret_value() == test_api_key

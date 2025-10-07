@@ -1,19 +1,16 @@
+"""Abstract workspace interface for OpenHands SDK."""
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 
-from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.models import DiscriminatedUnionMixin
-from openhands.sdk.workspace.models import CommandResult, FileOperationResult
 
 
-logger = get_logger(__name__)
-
-
-class BaseWorkspace(DiscriminatedUnionMixin, ABC):
-    """Abstract base mixin for workspace.
+class Workspace(DiscriminatedUnionMixin, ABC):
+    """Abstract base class for workspace implementations.
 
     All workspace implementations support the context manager protocol,
     allowing safe resource management:
@@ -26,7 +23,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         description="The working directory for agent operations and tool execution."
     )
 
-    def __enter__(self) -> "BaseWorkspace":
+    def __enter__(self) -> "Workspace":
         """Enter the workspace context.
 
         Returns:
@@ -48,12 +45,38 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         pass
 
     @abstractmethod
+    def get_workspace_type(self) -> str:
+        """Get the type of workspace implementation.
+
+        Returns:
+            String identifier for the workspace type (e.g., 'local', 'remote', 'docker')
+        """
+        ...
+
+    # Properties that may be needed by RemoteConversation
+    # These have default implementations that return None for local workspaces
+    @property
+    def client(self) -> Any | None:
+        """Get the client instance for remote workspaces."""
+        return None
+
+    @property
+    def host(self) -> str | None:
+        """Get the host for remote workspaces."""
+        return getattr(self, "_host", None)
+
+    @property
+    def api_key(self) -> SecretStr | None:
+        """Get the API key for remote workspaces."""
+        return getattr(self, "_api_key", None)
+
+    @abstractmethod
     def execute_command(
         self,
         command: str,
         cwd: str | Path | None = None,
         timeout: float = 30.0,
-    ) -> CommandResult:
+    ) -> Any:
         """Execute a bash command on the system.
 
         Args:
@@ -62,8 +85,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             timeout: Timeout in seconds (defaults to 30.0)
 
         Returns:
-            CommandResult: Result containing stdout, stderr, exit_code, and other
-                metadata
+            Result containing stdout, stderr, exit_code, and other metadata
 
         Raises:
             Exception: If command execution fails
@@ -75,7 +97,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         self,
         source_path: str | Path,
         destination_path: str | Path,
-    ) -> FileOperationResult:
+    ) -> Any:
         """Upload a file to the system.
 
         Args:
@@ -83,7 +105,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             destination_path: Path where the file should be uploaded
 
         Returns:
-            FileOperationResult: Result containing success status and metadata
+            Result containing success status and metadata
 
         Raises:
             Exception: If file upload fails
@@ -95,7 +117,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
         self,
         source_path: str | Path,
         destination_path: str | Path,
-    ) -> FileOperationResult:
+    ) -> Any:
         """Download a file from the system.
 
         Args:
@@ -103,7 +125,7 @@ class BaseWorkspace(DiscriminatedUnionMixin, ABC):
             destination_path: Path where the file should be downloaded
 
         Returns:
-            FileOperationResult: Result containing success status and metadata
+            Result containing success status and metadata
 
         Raises:
             Exception: If file download fails

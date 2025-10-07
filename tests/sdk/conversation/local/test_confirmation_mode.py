@@ -40,6 +40,7 @@ from openhands.sdk.tool import (
     register_tool,
 )
 from openhands.sdk.tool.schema import Action, Observation
+from openhands.workspace import LocalWorkspace
 
 
 class MockConfirmationModeAction(Action):
@@ -118,7 +119,8 @@ class TestConfirmationMode:
             llm=self.llm,
             tools=[Tool(name="test_tool")],
         )
-        self.conversation = Conversation(agent=self.agent)
+        self.workspace = LocalWorkspace(working_dir="/tmp/test")
+        self.conversation = Conversation(agent=self.agent, workspace=self.workspace)
 
     def _mock_message_only(self, text: str = "Hello, how can I help you?") -> MagicMock:
         """Configure LLM to return a plain assistant message (no tool calls)."""
