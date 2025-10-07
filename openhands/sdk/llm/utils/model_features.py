@@ -152,13 +152,9 @@ SUPPORTS_STOP_WORDS_FALSE_PATTERNS: list[str] = [
 ]
 
 # Models that should use the OpenAI Responses API path by default
-# NOTE: Only include models that NATIVELY support the Responses API
-# GPT-5 does NOT natively support Responses API - litellm attempts to convert
-# Responses API calls to standard completion API, which creates invalid
-# message sequences with tool calls (tool_call_id mismatch errors)
 RESPONSES_API_PATTERNS: list[str] = [
-    # No models currently use Responses API
-    # GPT-5 removed - doesn't support Responses API natively
+    # OpenAI GPT-5 family (includes mini variants)
+    "gpt-5*",
 ]
 
 

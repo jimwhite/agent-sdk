@@ -298,6 +298,18 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             d["model"] = f"litellm_proxy/{model_name}"
             d["base_url"] = "https://llm-proxy.app.all-hands.dev/"
 
+        # Extract custom_llm_provider from litellm_proxy/* models
+        # Format: litellm_proxy/provider/model-name
+        # This ensures LiteLLM uses the native provider implementation
+        # instead of generic conversion (critical for Responses API)
+        if model_val.startswith("litellm_proxy/") and not d.get("custom_llm_provider"):
+            parts = model_val.split("/")
+            if len(parts) >= 3:
+                # Extract provider (e.g., "openai" from
+                # "litellm_proxy/openai/gpt-5-mini")
+                provider = parts[1]
+                d["custom_llm_provider"] = provider
+
         # HF doesn't support the OpenAI default value for top_p (1)
         if model_val.startswith("huggingface"):
             if d.get("top_p", 1.0) == 1.0:
@@ -581,6 +593,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                         timeout=self.timeout,
                         drop_params=self.drop_params,
                         seed=self.seed,
+                        custom_llm_provider=self.custom_llm_provider,
                         **final_kwargs,
                     )
                     assert isinstance(ret, ResponsesAPIResponse), (
