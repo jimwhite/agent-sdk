@@ -265,7 +265,7 @@ class DockerWorkspace(RemoteWorkspace):
             )
 
         # Build image if needed
-        if "ghcr.io/all-hands-ai/agent-server" not in self.base_image:
+        if "ghcr.io/openhands/agent-server" not in self.base_image:
             self._image = build_agent_server_image(
                 base_image=self.base_image,
                 target=self.target,

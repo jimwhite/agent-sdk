@@ -68,7 +68,7 @@ conversation = Conversation(
 )
 
 IMAGE_URL = (
-    "https://github.com/All-Hands-AI/OpenHands/raw/main/docs/static/img/logo.png"
+    "https://github.com/OpenHands/OpenHands/raw/main/docs/static/img/logo.png"
 )
 
 conversation.send_message(

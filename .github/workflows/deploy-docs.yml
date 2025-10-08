@@ -13,7 +13,7 @@ jobs:
         runs-on: blacksmith-2vcpu-ubuntu-2404
         strategy:
             matrix:
-                repo: [All-Hands-AI/docs]
+                repo: [OpenHands/docs]
         steps:
             - name: Push to docs repo
               uses: peter-evans/repository-dispatch@v4

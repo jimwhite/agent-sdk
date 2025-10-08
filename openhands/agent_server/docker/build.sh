@@ -4,7 +4,7 @@ set -euo pipefail
 # ------------------------------------------------------------
 # Config (overridables)
 # ------------------------------------------------------------
-IMAGE="${IMAGE:-ghcr.io/all-hands-ai/agent-server}"
+IMAGE="${IMAGE:-ghcr.io/openhands/agent-server}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
 VARIANT_NAME="${VARIANT_NAME:-python}"  # "python", "java", or "golang"
 TARGET="${TARGET:-binary}"          # "binary" (prod) or "source" (dev)
