@@ -8,7 +8,7 @@ workspace builder module.
 Environment variables (with defaults):
     IMAGE: Image repository name (default: ghcr.io/all-hands-ai/agent-server)
     BASE_IMAGE: Base Docker image (default: nikolaik/python-nodejs:python3.12-nodejs22)
-    VARIANT_NAME: Build variant (default: python)
+    CUSTOM_TAGS: Comma-separated additional tags (default: empty, e.g., "python,latest")
     TARGET: Build target (default: binary, options: binary or source)
     PLATFORMS: Target platforms (default: linux/amd64,linux/arm64)
     CI: Set to 'true' in CI environments to enable push
@@ -23,7 +23,7 @@ import sys
 def build_image(
     image: str,
     base_image: str,
-    variant: str,
+    custom_tags: list[str] | None,
     target: str,
     platforms: str,
     push: bool = False,
@@ -33,7 +33,7 @@ def build_image(
     Args:
         image: Image repository name
         base_image: Base Docker image
-        variant: Build variant name
+        custom_tags: Optional list of additional custom tags
         target: Build target (source or binary)
         platforms: Comma-separated list of platforms
         push: Whether to push to registry (CI mode)
@@ -54,16 +54,18 @@ def build_image(
     short_sha = git_info["short_sha"]
     git_ref = git_info["ref"]
     
-    print(f"[build] Building target='{target}' image='{image}' variant='{variant}'")
+    custom_tags_str = ", ".join(custom_tags) if custom_tags else "none"
+    print(f"[build] Building target='{target}' image='{image}'")
     print(f"[build]   base='{base_image}' platforms='{platforms}'")
+    print(f"[build]   custom_tags=[{custom_tags_str}]")
     print(f"[build] Git ref='{git_ref}' sha='{git_info['sha']}' version='{sdk_version}'")
     
     # Create build config with hash-based tags
     config = AgentServerBuildConfig(
         base_image=base_image,
-        variant=variant,
         target=target,
         registry_prefix=image,
+        custom_tags=custom_tags,
     )
     
     # Get the tags that will be applied
@@ -116,7 +118,7 @@ def build_image(
         "versioned_tag": tags_without_prefix[2] if len(tags_without_prefix) > 2 else tags_without_prefix[0],
         "tags": tags,
         "tags_csv": ",".join(tags),
-        "variant": variant,
+        "custom_tags": custom_tags or [],
         "base_image": base_image,
     }
 
@@ -154,9 +156,9 @@ def main() -> int:
         help="Base Docker image",
     )
     parser.add_argument(
-        "--variant",
-        default=os.getenv("VARIANT_NAME", "python"),
-        help="Build variant name",
+        "--custom-tags",
+        default=os.getenv("CUSTOM_TAGS", ""),
+        help="Comma-separated custom tags (e.g., 'python,latest')",
     )
     parser.add_argument(
         "--target",
@@ -178,11 +180,14 @@ def main() -> int:
     
     args = parser.parse_args()
     
+    # Parse custom tags
+    custom_tags = [tag.strip() for tag in args.custom_tags.split(",") if tag.strip()]
+    
     try:
         build_info = build_image(
             image=args.image,
             base_image=args.base_image,
-            variant=args.variant,
+            custom_tags=custom_tags if custom_tags else None,
             target=args.target,
             platforms=args.platforms,
             push=args.push,

@@ -178,7 +178,7 @@ jobs:
         env:
             IMAGE: ${{ inputs.image != '' && inputs.image || 'ghcr.io/all-hands-ai/agent-server' }}
             BASE_IMAGE: ${{ inputs.base_image != '' && inputs.base_image || matrix.base_image }}
-            VARIANT_NAME: ${{ matrix.name }}
+            CUSTOM_TAGS: ${{ matrix.name }}
             TARGET: binary
             PLATFORMS: ${{ matrix.platforms }}
             GITHUB_SHA: ${{ github.sha }}
@@ -226,7 +226,7 @@ jobs:
                   mkdir -p build-info
                   cat > "build-info/${{ matrix.name }}.json" << EOF
                   {
-                    "variant": "${{ matrix.name }}",
+                    "name": "${{ matrix.name }}",
                     "base_image": "${{ matrix.base_image }}",
                     "image": "${{ steps.build.outputs.image }}",
                     "short_sha": "${{ steps.build.outputs.short_sha }}",
@@ -283,7 +283,7 @@ jobs:
                       echo "=== End of $info_file ==="
                       
                       # Extract information from JSON
-                      VARIANT=$(jq -r '.variant' "$info_file")
+                      NAME=$(jq -r '.name' "$info_file")
                       BASE_IMAGE=$(jq -r '.base_image' "$info_file")
                       VARIANT_IMAGE=$(jq -r '.image' "$info_file")
                       VARIANT_SHA=$(jq -r '.short_sha' "$info_file")
@@ -297,11 +297,11 @@ jobs:
                       
                       # Add variant to JSON array
                       VARIANTS_JSON=$(echo "$VARIANTS_JSON" | jq \
-                          --arg variant "$VARIANT" \
+                          --arg name "$NAME" \
                           --arg base_image "$BASE_IMAGE" \
-                          '. += [{variant: $variant, base_image: $base_image}]')
+                          '. += [{name: $name, base_image: $base_image}]')
                       
-                      echo "Added variant $VARIANT, current variants JSON:"
+                      echo "Added variant $NAME, current variants JSON:"
                       echo "$VARIANTS_JSON" | jq .
                       
                       # Collect tags (comma-separated to newline-separated)
@@ -385,7 +385,7 @@ jobs:
                       # Decode base64 and extract variant info
                       VARIANT_JSON=$(echo "$variant_data" | base64 --decode)
                       echo "DEBUG: Processing variant JSON: $VARIANT_JSON"
-                      VARIANT=$(echo "$VARIANT_JSON" | jq -r '.variant')
+                      VARIANT=$(echo "$VARIANT_JSON" | jq -r '.name')
                       BASE_IMAGE=$(echo "$VARIANT_JSON" | jq -r '.base_image')
                       
                       echo "DEBUG: Adding variant $VARIANT with base image $BASE_IMAGE"

@@ -87,21 +87,24 @@ def sanitize_branch(branch: str) -> str:
 
 def generate_cache_tags(
     registry_prefix: str,
-    variant: str,
+    base_image: str,
     git_ref: str,
 ) -> tuple[str, list[str]]:
     """Generate cache tags for buildx caching strategy.
     
     Args:
         registry_prefix: Image registry prefix (e.g., 'ghcr.io/all-hands-ai/agent-server')
-        variant: Build variant name
+        base_image: Base Docker image (used to generate cache key)
         git_ref: Git branch/ref name
         
     Returns:
         Tuple of (primary_cache_ref, fallback_cache_refs) where each ref is a full
         cache reference like 'type=registry,ref=image:tag'
     """
-    cache_tag_base = f"buildcache-{variant}"
+    from openhands.workspace.utils.hash_utils import get_base_image_slug
+    
+    base_slug = get_base_image_slug(base_image)
+    cache_tag_base = f"buildcache-{base_slug}"
     
     # Determine primary cache tag based on branch
     if git_ref in ("main", "refs/heads/main"):
@@ -127,9 +130,9 @@ def generate_cache_tags(
 
 def generate_agent_server_tags(
     base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22",
-    variant: str = "python",
     target: str = "binary",
     registry_prefix: str | None = None,
+    custom_tags: list[str] | None = None,
 ) -> list[str]:
     """Generate hash-based image tags for agent-server.
 
@@ -137,15 +140,16 @@ def generate_agent_server_tags(
 
     Args:
         base_image: Base Docker image to use
-        variant: Build variant (e.g., 'python', 'go')
         target: Build target ('source' or 'binary')
         registry_prefix: Registry prefix (e.g., 'ghcr.io/all-hands-ai/runtime')
+        custom_tags: Optional list of additional custom tags to apply (e.g., ['python', 'latest'])
 
     Returns:
         List of image tags in order from most to least specific:
         1. source_tag: vX.Y.Z_lockHash_sourceHash (most specific)
         2. lock_tag: vX.Y.Z_lockHash (medium specific)
         3. versioned_tag: vX.Y.Z_baseImageSlug (least specific)
+        4+. custom tags (if provided)
     """
     from openhands.workspace.utils.hash_utils import generate_image_tags
 
@@ -161,6 +165,10 @@ def generate_agent_server_tags(
     )
     # Return in order from most to least specific
     tags = [tags_dict["source"], tags_dict["lock"], tags_dict["versioned"]]
+    
+    # Add custom tags if provided
+    if custom_tags:
+        tags.extend(custom_tags)
 
     # Use default repo name if no registry_prefix provided
     if registry_prefix:
@@ -226,7 +234,7 @@ def build_agent_server_with_config(
     if enable_registry_cache and config.registry_prefix:
         primary_ref, fallback_refs, cache_to_ref = generate_cache_tags(
             registry_prefix=config.registry_prefix,
-            variant=config.variant,
+            base_image=config.base_image,
             git_ref=config.git_info["ref"],
         )
         registry_cache_from = [primary_ref] + fallback_refs
@@ -258,18 +266,18 @@ class AgentServerBuildConfig:
     def __init__(
         self,
         base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22",
-        variant: str = "python",
         target: str = "binary",
         registry_prefix: str | None = None,
+        custom_tags: list[str] | None = None,
     ):
         self.base_image = base_image
-        self.variant = variant
         self.target = target
         self.registry_prefix = registry_prefix
+        self.custom_tags = custom_tags or []
         self.build_context = get_agent_server_build_context()
         self.dockerfile = get_agent_server_dockerfile()
         self.tags = generate_agent_server_tags(
-            base_image, variant, target, registry_prefix
+            base_image, target, registry_prefix, custom_tags
         )
         self.version = get_sdk_version()
         self.git_info = get_git_info()
@@ -277,9 +285,9 @@ class AgentServerBuildConfig:
     def to_dict(self) -> dict:
         return {
             "base_image": self.base_image,
-            "variant": self.variant,
             "target": self.target,
             "registry_prefix": self.registry_prefix,
+            "custom_tags": self.custom_tags,
             "build_context": str(self.build_context),
             "dockerfile": str(self.dockerfile),
             "tags": self.tags,
@@ -295,7 +303,6 @@ class AgentServerBuildConfig:
         """
         return [
             f"--build-arg=BASE_IMAGE={self.base_image}",
-            f"--build-arg=VARIANT={self.variant}",
             f"--build-arg=VERSION={self.version}",
             f"--target={self.target}",
             f"--file={self.dockerfile}",

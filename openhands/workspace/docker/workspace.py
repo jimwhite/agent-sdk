@@ -53,10 +53,10 @@ def find_available_tcp_port(
 def build_agent_server_image(
     base_image: str,
     target: str = "source",
-    variant_name: str = "custom",
     platforms: str = "linux/amd64",
     registry_prefix: str | None = None,
     use_local_cache: bool = False,
+    custom_tags: list[str] | None = None,
 ) -> str:
     """Build the agent-server Docker image using DockerRuntimeBuilder.
 
@@ -67,10 +67,10 @@ def build_agent_server_image(
     Args:
         base_image: Base Docker image to use.
         target: Build target ('source' or 'binary').
-        variant_name: Build variant name (e.g., 'custom', 'python').
         platforms: Target platform (e.g., 'linux/amd64').
         registry_prefix: Optional registry prefix for image tags.
         use_local_cache: Whether to use local build cache.
+        custom_tags: Optional list of additional custom tags to apply.
 
     Returns:
         The full image name with tag.
@@ -81,21 +81,22 @@ def build_agent_server_image(
         build_agent_server_with_config,
     )
 
+    custom_tags_str = ", ".join(custom_tags) if custom_tags else "none"
     logger.info(
         "Building agent-server image with base '%s', target '%s', "
-        "variant '%s' for platform '%s'",
+        "custom_tags=[%s] for platform '%s'",
         base_image,
         target,
-        variant_name,
+        custom_tags_str,
         platforms,
     )
 
     # Create build config with hash-based tags
     config = AgentServerBuildConfig(
         base_image=base_image,
-        variant=variant_name,
         target=target,
         registry_prefix=registry_prefix,
+        custom_tags=custom_tags,
     )
 
     # Create builder

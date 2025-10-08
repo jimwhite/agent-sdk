@@ -75,16 +75,12 @@ def test_generate_agent_server_tags():
     """Test generating image tags."""
     tags = generate_agent_server_tags(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
-        variant="python",
         target="binary",
         registry_prefix=None,
     )
 
-    # Should have multiple tags
-    assert len(tags) >= 2
-
-    # Should contain variant in tags
-    assert any("python" in tag for tag in tags)
+    # Should have multiple tags (3 hash-based tags)
+    assert len(tags) >= 3
 
     # Should have versioned tag
     version = get_sdk_version()
@@ -96,7 +92,6 @@ def test_generate_agent_server_tags_with_registry_prefix():
     prefix = "us-central1-docker.pkg.dev/project/repo"
     tags = generate_agent_server_tags(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
-        variant="python",
         target="binary",
         registry_prefix=prefix,
     )
@@ -110,34 +105,33 @@ def test_generate_agent_server_tags_dev():
     """Test generating dev tags."""
     tags = generate_agent_server_tags(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
-        variant="python",
         target="source",  # Dev target
         registry_prefix=None,
     )
 
-    # Dev tags should have -dev suffix
-    assert all(tag.endswith("-dev") for tag in tags)
+    # Dev tags (hash-based ones) should have -dev suffix
+    hash_based_tags = tags[:3]  # First 3 are hash-based
+    assert all("-dev" in tag for tag in hash_based_tags)
 
 
 def test_agent_server_build_config():
     """Test AgentServerBuildConfig class."""
     config = AgentServerBuildConfig(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
-        variant="python",
         target="binary",
         registry_prefix="us-central1-docker.pkg.dev/project/repo",
     )
 
     # Check properties
     assert config.base_image == "nikolaik/python-nodejs:python3.12-nodejs22"
-    assert config.variant == "python"
     assert config.target == "binary"
     assert config.registry_prefix == "us-central1-docker.pkg.dev/project/repo"
+    assert config.custom_tags == []
 
     # Check computed properties
     assert config.build_context.exists()
     assert config.dockerfile.exists()
-    assert len(config.tags) >= 2
+    assert len(config.tags) >= 3
     assert all(tag.startswith(config.registry_prefix) for tag in config.tags)
     assert config.version == get_sdk_version()
     assert "sha" in config.git_info
@@ -149,7 +143,6 @@ def test_agent_server_build_config_to_dict():
     """Test converting config to dictionary."""
     config = AgentServerBuildConfig(
         base_image="python:3.12",
-        variant="python",
         target="binary",
         registry_prefix=None,
     )
@@ -158,7 +151,7 @@ def test_agent_server_build_config_to_dict():
 
     # Should have all expected keys
     assert "base_image" in config_dict
-    assert "variant" in config_dict
+    assert "custom_tags" in config_dict
     assert "target" in config_dict
     assert "registry_prefix" in config_dict
     assert "build_context" in config_dict
@@ -169,6 +162,45 @@ def test_agent_server_build_config_to_dict():
 
     # Values should match
     assert config_dict["base_image"] == "python:3.12"
-    assert config_dict["variant"] == "python"
+    assert config_dict["custom_tags"] == []
     assert config_dict["target"] == "binary"
     assert config_dict["registry_prefix"] is None
+
+
+def test_generate_agent_server_tags_with_custom_tags():
+    """Test generating tags with custom tags."""
+    custom_tags = ["python", "latest"]
+    tags = generate_agent_server_tags(
+        base_image="nikolaik/python-nodejs:python3.12-nodejs22",
+        target="binary",
+        registry_prefix=None,
+        custom_tags=custom_tags,
+    )
+
+    # Should have 3 hash-based tags + 2 custom tags
+    assert len(tags) == 5
+
+    # Last two tags should be the custom tags
+    assert "agent-server:python" in tags
+    assert "agent-server:latest" in tags
+
+
+def test_agent_server_build_config_with_custom_tags():
+    """Test AgentServerBuildConfig with custom tags."""
+    custom_tags = ["python", "v1.0"]
+    config = AgentServerBuildConfig(
+        base_image="python:3.12",
+        target="binary",
+        registry_prefix="ghcr.io/test/repo",
+        custom_tags=custom_tags,
+    )
+
+    # Check custom_tags property
+    assert config.custom_tags == custom_tags
+
+    # Check that custom tags are included in generated tags
+    assert "ghcr.io/test/repo:python" in config.tags
+    assert "ghcr.io/test/repo:v1.0" in config.tags
+
+    # Should have 3 hash-based + 2 custom tags
+    assert len(config.tags) == 5

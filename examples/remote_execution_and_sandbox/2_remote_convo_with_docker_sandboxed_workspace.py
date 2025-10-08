@@ -33,8 +33,8 @@ def main() -> None:
     with DockerWorkspace(
         base_image="nikolaik/python-nodejs:python3.12-nodejs22",
         host_port=8010,
-        # TODO: Change this to your platform if not linux/arm64
-        platform="linux/arm64",
+        # TODO: Change this to your platform if not linux/amd64
+        platform="linux/amd64",
         forward_env=["LLM_API_KEY"],  # Forward API key to container
     ) as workspace:
         # 3) Create agent
