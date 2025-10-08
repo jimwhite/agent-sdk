@@ -40,9 +40,11 @@ class JupyterWriteFileTest(BaseIntegrationTest):
         if self.cwd is None:
             raise ValueError("CWD must be set before setup")
 
-        os.makedirs(self.cwd, exist_ok=True)
+        # Create workspace directory
+        workspace_dir = os.path.join(self.cwd, "workspace")
+        os.makedirs(workspace_dir, exist_ok=True)
 
-        logger.info(f"Created workspace directory at: {self.cwd}")
+        logger.info(f"Created workspace directory at: {workspace_dir}")
 
     def verify_result(self) -> TestResult:
         """Verify that the agent successfully created the text file using IPython."""
@@ -53,7 +55,7 @@ class JupyterWriteFileTest(BaseIntegrationTest):
 
         if not os.path.exists(file_path):
             return TestResult(
-                success=False, reason=f"Text file '{self.cwd}/test.txt' not found"
+                success=False, reason="Text file '/workspace/test.txt' not found"
             )
 
         # Read the file content
