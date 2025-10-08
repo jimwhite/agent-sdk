@@ -2,36 +2,7 @@
 
 import re
 
-from openhands.workspace.utils.builder import (
-    AgentServerBuildConfig,
-    get_sdk_root,
-    get_sdk_version,
-)
-
-
-def test_get_sdk_root():
-    """Test getting SDK root directory."""
-    root = get_sdk_root()
-
-    # Should exist
-    assert root.exists()
-    assert root.is_dir()
-
-    # Should contain expected files
-    assert (root / "pyproject.toml").exists()
-    assert (root / "uv.lock").exists()
-    assert (root / "README.md").exists()
-    assert (root / "LICENSE").exists()
-    assert (root / "openhands").is_dir()
-
-
-def test_get_sdk_version():
-    """Test getting SDK version."""
-    version = get_sdk_version()
-
-    # Should be a valid version string
-    assert isinstance(version, str)
-    assert re.match(r"^\d+\.\d+\.\d+", version)
+from openhands.workspace.utils.builder import AgentServerBuildConfig
 
 
 def test_agent_server_build_config():
@@ -53,7 +24,12 @@ def test_agent_server_build_config():
     assert config.dockerfile.exists()
     assert len(config.tags) >= 3
     assert all(tag.startswith(config.registry_prefix) for tag in config.tags)
-    assert config.version == get_sdk_version()
+    
+    # Check version is valid semver
+    assert isinstance(config.version, str)
+    assert re.match(r"^\d+\.\d+\.\d+", config.version)
+    
+    # Check git info structure
     assert "sha" in config.git_info
     assert "short_sha" in config.git_info
     assert "ref" in config.git_info

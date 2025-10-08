@@ -43,22 +43,7 @@ def build_image(
         Dict with build information (tags, sha, etc.)
     """
     from openhands.workspace.docker.builder import DockerRuntimeBuilder
-    from openhands.workspace.utils.builder import (
-        AgentServerBuildConfig,
-        get_git_info,
-        get_sdk_version,
-    )
-    
-    git_info = get_git_info()
-    sdk_version = get_sdk_version()
-    short_sha = git_info["short_sha"]
-    git_ref = git_info["ref"]
-    
-    custom_tags_str = ", ".join(custom_tags) if custom_tags else "none"
-    print(f"[build] Building target='{target}' image='{image}'")
-    print(f"[build]   base='{base_image}' platforms='{platforms}'")
-    print(f"[build]   custom_tags=[{custom_tags_str}]")
-    print(f"[build] Git ref='{git_ref}' sha='{git_info['sha']}' version='{sdk_version}'")
+    from openhands.workspace.utils.builder import AgentServerBuildConfig
     
     # Create build config with hash-based tags
     config = AgentServerBuildConfig(
@@ -67,6 +52,18 @@ def build_image(
         registry_prefix=image,
         custom_tags=custom_tags,
     )
+    
+    # Access version and git info from config properties
+    git_info = config.git_info
+    sdk_version = config.version
+    short_sha = git_info["short_sha"]
+    git_ref = git_info["ref"]
+    
+    custom_tags_str = ", ".join(custom_tags) if custom_tags else "none"
+    print(f"[build] Building target='{target}' image='{image}'")
+    print(f"[build]   base='{base_image}' platforms='{platforms}'")
+    print(f"[build]   custom_tags=[{custom_tags_str}]")
+    print(f"[build] Git ref='{git_ref}' sha='{git_info['sha']}' version='{sdk_version}'")
     
     # Get the tags that will be applied
     tags = config.tags

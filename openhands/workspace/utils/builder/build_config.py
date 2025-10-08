@@ -10,11 +10,11 @@ from openhands.workspace.utils.builder.base import RuntimeBuilder
 
 
 # ============================================================================
-# Public Utility Functions (used by other modules)
+# Private Utility Functions (internal implementation details)
 # ============================================================================
 
-def get_sdk_root() -> Path:
-    """Get the root directory of the SDK."""
+def _get_sdk_root() -> Path:
+    """Get the root directory of the SDK (internal)."""
     current = Path(__file__).resolve()
     for parent in [current] + list(current.parents):
         if (
@@ -27,8 +27,8 @@ def get_sdk_root() -> Path:
     raise RuntimeError("Could not find SDK root")
 
 
-def get_sdk_version() -> str:
-    """Get the SDK version from package metadata."""
+def _get_sdk_version() -> str:
+    """Get the SDK version from package metadata (internal)."""
     try:
         from importlib.metadata import version
         return version("openhands-sdk")
@@ -36,12 +36,12 @@ def get_sdk_version() -> str:
         return "0.0.0"
 
 
-def get_git_info() -> dict[str, str]:
-    """Get git information (SHA, branch)."""
+def _get_git_info() -> dict[str, str]:
+    """Get git information (SHA, branch) (internal)."""
     try:
         sha = subprocess.check_output(
             ["git", "rev-parse", "--verify", "HEAD"],
-            cwd=get_sdk_root(),
+            cwd=_get_sdk_root(),
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
@@ -53,7 +53,7 @@ def get_git_info() -> dict[str, str]:
     try:
         ref = subprocess.check_output(
             ["git", "symbolic-ref", "-q", "--short", "HEAD"],
-            cwd=get_sdk_root(),
+            cwd=_get_sdk_root(),
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
@@ -81,13 +81,13 @@ class AgentServerBuildConfig(BaseModel):
     @property
     def build_context(self) -> Path:
         """Get the build context directory (SDK root)."""
-        return get_sdk_root()
+        return _get_sdk_root()
     
     @computed_field
     @property
     def dockerfile(self) -> Path:
         """Get the Dockerfile path."""
-        return get_sdk_root() / "openhands" / "agent_server" / "docker" / "Dockerfile"
+        return _get_sdk_root() / "openhands" / "agent_server" / "docker" / "Dockerfile"
     
     @computed_field
     @property
@@ -99,13 +99,13 @@ class AgentServerBuildConfig(BaseModel):
     @property
     def version(self) -> str:
         """Get SDK version."""
-        return get_sdk_version()
+        return _get_sdk_version()
     
     @computed_field
     @property
     def git_info(self) -> dict[str, str]:
         """Get git information."""
-        return get_git_info()
+        return _get_git_info()
     
     def _generate_tags(self) -> list[str]:
         """Generate hash-based image tags for agent-server.
@@ -121,7 +121,7 @@ class AgentServerBuildConfig(BaseModel):
         """
         from openhands.workspace.utils.hash_utils import generate_image_tags
         
-        sdk_root = get_sdk_root()
+        sdk_root = _get_sdk_root()
         suffix = "-dev" if self.target == "source" else ""
         tags_dict = generate_image_tags(
             base_image=self.base_image,
