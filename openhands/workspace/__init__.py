@@ -9,7 +9,7 @@ For base workspace interfaces (BaseWorkspace, LocalWorkspace, RemoteWorkspace),
 import from openhands.sdk.workspace.
 
 MIGRATION NOTE:
-- BaseWorkspace, LocalWorkspace, RemoteWorkspace, APIRemoteWorkspace
+- BaseWorkspace, LocalWorkspace, RemoteWorkspace
   -> openhands.sdk.workspace
 - CommandResult, FileOperationResult -> openhands.sdk.workspace.models
 - DockerWorkspace -> openhands.workspace (this package)
@@ -17,7 +17,6 @@ MIGRATION NOTE:
 
 # Docker-specific implementations
 from .docker import DockerWorkspace
-from .remote_api import APIRemoteWorkspace
 from .exception import AgentRuntimeBuildError
 
-__all__ = ["DockerWorkspace", "APIRemoteWorkspace", "AgentRuntimeBuildError"]
+__all__ = ["DockerWorkspace", "AgentRuntimeBuildError"]

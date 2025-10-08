@@ -10,12 +10,10 @@ from openhands.workspace.utils.builder.build_config import (
     get_sdk_root,
     get_sdk_version,
 )
-from openhands.workspace.utils.builder.docker import DockerRuntimeBuilder
 
 
 __all__ = [
     "RuntimeBuilder",
-    "DockerRuntimeBuilder",
     "AgentServerBuildConfig",
     "generate_agent_server_tags",
     "get_agent_server_build_context",
