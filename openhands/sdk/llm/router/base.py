@@ -39,8 +39,8 @@ class RouterLLM(LLM):
         default_factory=dict
     )  # Mapping of LLM name to LLM instance for routing
 
-    active_llm: LLM | None = Field(
-        default=None, description="Currently selected LLM instance"
+    active_llm_identifier: str | None = Field(
+        default=None, description="Currently selected LLM's identifier"
     )
 
     @field_validator("llms_for_routing")
@@ -65,13 +65,13 @@ class RouterLLM(LLM):
         underlying LLM based on the routing logic implemented in select_llm().
         """
         # Select appropriate LLM
-        selected_model = self.select_llm(messages)
-        self.active_llm = self.llms_for_routing[selected_model]
+        self.active_llm_identifier = self.select_llm(messages)
+        active_llm = self.llms_for_routing[self.active_llm_identifier]
 
-        logger.info(f"RouterLLM routing to {selected_model}...")
+        logger.info(f"RouterLLM routing to {self.active_llm_identifier}...")
 
         # Delegate to selected LLM
-        return self.active_llm.completion(
+        return active_llm.completion(
             messages=messages,
             tools=tools,
             return_metrics=return_metrics,
@@ -191,16 +191,11 @@ class RouterLLM(LLM):
 
         # Create reconciled router with updated nested LLMs
         # Note: active_llm is runtime state and should not be persisted/restored
-        reconciled = persisted.model_copy(
-            update={"llms_for_routing": reconciled_llms, "active_llm": None}
-        )
+        reconciled = persisted.model_copy(update={"llms_for_routing": reconciled_llms})
 
         # Validate that the reconciled router matches the runtime router
-        # (excluding active_llm which is runtime-only state)
-        runtime_dump = self.model_dump(exclude_none=True, exclude={"active_llm"})
-        reconciled_dump = reconciled.model_dump(
-            exclude_none=True, exclude={"active_llm"}
-        )
+        runtime_dump = self.model_dump(exclude_none=True)
+        reconciled_dump = reconciled.model_dump(exclude_none=True)
 
         if runtime_dump != reconciled_dump:
             raise ValueError(
