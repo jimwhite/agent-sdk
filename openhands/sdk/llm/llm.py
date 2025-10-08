@@ -488,9 +488,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             )
 
             # Create and return LLMResponse
-            return LLMResponse(
-                message=message, metrics=metrics_snapshot, raw_response=resp
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning)
+                return LLMResponse(
+                    message=message, metrics=metrics_snapshot, raw_response=resp
+                )
         except Exception as e:
             self._telemetry.on_error(e)
             raise
@@ -565,6 +567,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             with self._litellm_modify_params_ctx(self.modify_params):
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=DeprecationWarning)
+                    warnings.filterwarnings("ignore", category=UserWarning)
                     typed_input: ResponseInputParam | str = (
                         cast(ResponseInputParam, input_items) if input_items else ""
                     )
@@ -607,9 +610,11 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 accumulated_token_usage=self.metrics.accumulated_token_usage,
             )
 
-            return LLMResponse(
-                message=message, metrics=metrics_snapshot, raw_response=resp
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning)
+                return LLMResponse(
+                    message=message, metrics=metrics_snapshot, raw_response=resp
+                )
         except Exception as e:
             self._telemetry.on_error(e)
             raise

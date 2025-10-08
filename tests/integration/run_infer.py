@@ -10,6 +10,7 @@ import os
 import shutil
 import tempfile
 import time
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,10 @@ from openhands.sdk.logger import get_logger
 from tests.integration.base import BaseIntegrationTest, TestResult
 from tests.integration.schemas import ModelTestResults
 from tests.integration.utils.format_costs import format_cost
+
+
+# Suppress Pydantic serialization warnings for LiteLLM objects globally
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
 
 logger = get_logger(__name__)

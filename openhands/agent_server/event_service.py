@@ -1,4 +1,5 @@
 import asyncio
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID
@@ -62,7 +63,10 @@ class EventService:
     async def save_meta(self):
         self.stored.updated_at = utc_now()
         meta_file = self.persistence_dir / "meta.json"
-        meta_file.write_text(self.stored.model_dump_json())
+        # Suppress Pydantic serialization warnings for LiteLLM objects
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+            meta_file.write_text(self.stored.model_dump_json())
 
     async def get_event(self, event_id: str) -> Event | None:
         if not self._conversation:

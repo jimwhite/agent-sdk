@@ -10,6 +10,7 @@ import copy
 import json
 import re
 import sys
+import warnings
 from collections.abc import Iterable
 from typing import Literal, NotRequired, TypedDict, cast
 
@@ -600,10 +601,16 @@ def convert_fncall_messages_to_non_fncall_messages(
                 try:
                     tool_content = convert_tool_call_to_string(message["tool_calls"][0])
                 except FunctionCallConversionError as e:
+                    # Suppress Pydantic serialization warnings for LiteLLM objects
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore", category=UserWarning, module="pydantic"
+                        )
+                        raw_messages_str = json.dumps(messages, indent=2)
                     raise FunctionCallConversionError(
                         f"Failed to convert tool call to string.\n"
                         f"Current tool call: {message['tool_calls'][0]}.\n"
-                        f"Raw messages: {json.dumps(messages, indent=2)}"
+                        f"Raw messages: {raw_messages_str}"
                     ) from e
                 if isinstance(content, str):
                     content += "\n\n" + tool_content

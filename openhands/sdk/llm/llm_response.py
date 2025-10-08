@@ -7,7 +7,7 @@ with LiteLLM types.
 
 from litellm import ResponsesAPIResponse
 from litellm.types.utils import ModelResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.utils.metrics import MetricsSnapshot
@@ -35,6 +35,17 @@ class LLMResponse(BaseModel):
     raw_response: ModelResponse | ResponsesAPIResponse
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_serializer("raw_response", when_used="json")
+    def serialize_raw_response(self, value: ModelResponse | ResponsesAPIResponse):
+        """Serialize raw_response with proper handling of LiteLLM objects.
+
+        This prevents Pydantic serialization warnings by using mode='json'
+        and warnings=False when serializing LiteLLM objects.
+        """
+        if hasattr(value, "model_dump"):
+            return value.model_dump(mode="json", warnings=False)
+        return value
 
     @property
     def id(self) -> str:

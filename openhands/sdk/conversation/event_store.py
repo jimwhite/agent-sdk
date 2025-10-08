@@ -1,5 +1,6 @@
 # state.py
 import operator
+import warnings
 from collections.abc import Iterator
 from typing import SupportsIndex, overload
 
@@ -87,7 +88,10 @@ class EventLog(EventsListBase):
             )
 
         path = self._path(self._length, event_id=evt_id)
-        self._fs.write(path, event.model_dump_json(exclude_none=True))
+        # Suppress Pydantic serialization warnings for LiteLLM objects
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+            self._fs.write(path, event.model_dump_json(exclude_none=True))
         self._idx_to_id[self._length] = evt_id
         self._id_to_idx[evt_id] = self._length
         self._length += 1

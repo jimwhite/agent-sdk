@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Protocol, TypeGuard
 
 from litellm import ChatCompletionToolParam, Message as LiteLLMMessage
@@ -78,7 +79,9 @@ class NonNativeToolCallingMixin:
 
         # Preserve provider-specific reasoning fields before conversion
         orig_msg = resp.choices[0].message
-        non_fn_message: dict = orig_msg.model_dump()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            non_fn_message: dict = orig_msg.model_dump()
         fn_msgs: list[dict] = convert_non_fncall_messages_to_fncall_messages(
             nonfncall_msgs + [non_fn_message], tools
         )

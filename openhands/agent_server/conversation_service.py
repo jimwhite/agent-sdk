@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import shutil
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -29,12 +30,15 @@ logger = logging.getLogger(__name__)
 def _compose_conversation_info(
     stored: StoredConversation, state: ConversationState
 ) -> ConversationInfo:
-    return ConversationInfo(
-        **state.model_dump(),
-        metrics=stored.metrics,
-        created_at=stored.created_at,
-        updated_at=stored.updated_at,
-    )
+    # Suppress Pydantic serialization warnings for LiteLLM objects
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+        return ConversationInfo(
+            **state.model_dump(),
+            metrics=stored.metrics,
+            created_at=stored.created_at,
+            updated_at=stored.updated_at,
+        )
 
 
 @dataclass
@@ -172,7 +176,10 @@ class ConversationService:
         if self._event_services is None:
             raise ValueError("inactive_service")
         conversation_id = uuid4()
-        stored = StoredConversation(id=conversation_id, **request.model_dump())
+        # Suppress Pydantic serialization warnings for LiteLLM objects
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+            stored = StoredConversation(id=conversation_id, **request.model_dump())
         file_store_path = self.event_services_path / "event_service"
         file_store_path.mkdir(parents=True)
         event_service = EventService(
@@ -377,10 +384,13 @@ class WebhookSubscriber(Subscriber):
             headers["X-Session-API-Key"] = self.session_api_key
 
         # Convert events to serializable format
-        event_data = [
-            event.model_dump() if hasattr(event, "model_dump") else event.__dict__
-            for event in events_to_post
-        ]
+        # Suppress Pydantic serialization warnings for LiteLLM objects
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+            event_data = [
+                event.model_dump() if hasattr(event, "model_dump") else event.__dict__
+                for event in events_to_post
+            ]
 
         # Construct events URL
         events_url = (
@@ -462,7 +472,10 @@ class ConversationWebhookSubscriber:
         conversations_url = f"{self.spec.base_url.rstrip('/')}/conversations"
 
         # Convert conversation info to serializable format
-        conversation_data = conversation_info.model_dump(mode="json")
+        # Suppress Pydantic serialization warnings for LiteLLM objects
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+            conversation_data = conversation_info.model_dump(mode="json")
 
         # Retry logic
         for attempt in range(self.spec.num_retries + 1):

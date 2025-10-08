@@ -1,4 +1,5 @@
 import json
+import warnings
 
 from pydantic import ValidationError
 
@@ -168,10 +169,12 @@ class Agent(AgentBase):
 
         # Get LLM Response (Action)
         _messages = LLMConvertibleEvent.events_to_messages(llm_convertible_events)
-        logger.debug(
-            "Sending messages to LLM: "
-            f"{json.dumps([m.model_dump() for m in _messages[1:]], indent=2)}"
-        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            logger.debug(
+                "Sending messages to LLM: "
+                f"{json.dumps([m.model_dump() for m in _messages[1:]], indent=2)}"
+            )
 
         try:
             if self.llm.uses_responses_api():

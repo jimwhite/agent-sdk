@@ -1,5 +1,6 @@
 # state.py
 import json
+import warnings
 from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Self
@@ -133,7 +134,10 @@ class ConversationState(OpenHandsModel):
         """
         Persist base state snapshot (no events; events are file-backed).
         """
-        payload = self.model_dump_json(exclude_none=True)
+        # Suppress Pydantic serialization warnings for LiteLLM objects
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+            payload = self.model_dump_json(exclude_none=True)
         fs.write(BASE_STATE, payload)
 
     # ===== Factory: open-or-create (no load/save methods needed) =====

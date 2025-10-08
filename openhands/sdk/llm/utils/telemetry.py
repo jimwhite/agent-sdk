@@ -303,7 +303,9 @@ def _safe_json(obj: Any) -> Any:
     # Centralized serializer for telemetry logs.
     # Today, responses are Pydantic ModelResponse or ResponsesAPIResponse; rely on it.
     if isinstance(obj, ModelResponse) or isinstance(obj, ResponsesAPIResponse):
-        return obj.model_dump()
+        # Use mode='json' to handle serialization warnings by ensuring all fields
+        # are properly serialized, including optional fields that may be missing
+        return obj.model_dump(mode="json", warnings=False)
 
     # Fallbacks for non-Pydantic objects used elsewhere in the log payload
     try:

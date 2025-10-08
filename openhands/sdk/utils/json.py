@@ -17,7 +17,7 @@ class OpenHandsJSONEncoder(json.JSONEncoder):
         if isinstance(o, Metrics):
             return o.get()
         if isinstance(o, ModelResponse):
-            return o.model_dump()
+            return o.model_dump(mode="json", warnings=False)
         return super().default(o)
 
 
