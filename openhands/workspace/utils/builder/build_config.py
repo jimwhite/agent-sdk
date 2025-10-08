@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 import docker
-
+from openhands.workspace.utils.builder.base import RuntimeBuilder
 
 def get_sdk_root() -> Path:
     """Get the root directory of the SDK."""
@@ -169,6 +169,89 @@ def generate_agent_server_tags(
         return [f"agent-server:{tag}" for tag in tags]
 
 
+def build_agent_server_with_config(
+    config: "AgentServerBuildConfig",
+    builder: RuntimeBuilder,
+    platform: str | None = None,
+    extra_build_args: list[str] | None = None,
+    use_local_cache: bool = False,
+    push: bool = False,
+    enable_registry_cache: bool = False,
+    builder_name: str | None = None,
+) -> str:
+    """Build agent-server image using a configuration and builder.
+
+    This is the orchestration function that:
+    1. Checks if image already exists
+    2. Prepares build arguments from config
+    3. Sets up registry caching if enabled
+    4. Calls the builder to execute the build
+
+    Args:
+        config: Build configuration specifying what to build.
+        builder: RuntimeBuilder instance to use for building.
+        platform: Target platform for the build (e.g., 'linux/amd64').
+        extra_build_args: Additional build arguments to pass to Docker (appended after config args).
+        use_local_cache: Whether to use local build cache.
+        push: Whether to push the image to registry (CI mode).
+        enable_registry_cache: Whether to use registry-based caching.
+        builder_name: Name of buildx builder to create/use for multi-arch builds.
+
+    Returns:
+        The full image name with tag (e.g., 'registry/image:tag').
+    """
+    from openhands.sdk.logger import get_logger
+
+    logger = get_logger(__name__)
+
+    # Check if any of the tags already exist (in order from most to least specific)
+    # Skip check if pushing (we might want to update the registry)
+    if not push:
+        for tag in config.tags:
+            if builder.image_exists(tag, pull_from_repo=True):
+                logger.info(f"Image {tag} already exists, skipping build")
+                return tag
+
+    # No existing image found, build it
+    logger.info(f"Building image with tags: {config.tags}")
+
+    # Prepare build args (config args + any extra args from caller)
+    build_args = config.get_build_args()
+    if extra_build_args:
+        build_args.extend(extra_build_args)
+
+    # Generate registry cache refs if enabled
+    registry_cache_from = None
+    registry_cache_to = None
+    if enable_registry_cache and config.registry_prefix:
+        primary_ref, fallback_refs, cache_to_ref = generate_cache_tags(
+            registry_prefix=config.registry_prefix,
+            variant=config.variant,
+            git_ref=config.git_info["ref"],
+        )
+        registry_cache_from = [primary_ref] + fallback_refs
+        registry_cache_to = cache_to_ref
+        logger.info(f"Using registry cache: {primary_ref}")
+        if fallback_refs:
+            logger.info(f"Fallback caches: {', '.join(fallback_refs)}")
+
+    # Build the image
+    result_image = builder.build(
+        path=str(config.build_context),
+        tags=config.tags,
+        platform=platform,
+        extra_build_args=build_args,
+        use_local_cache=use_local_cache,
+        push=push,
+        registry_cache_from=registry_cache_from,
+        registry_cache_to=registry_cache_to,
+        builder_name=builder_name,
+    )
+
+    logger.info(f"Successfully built image: {result_image}")
+    return result_image
+
+
 class AgentServerBuildConfig:
     """Configuration for building agent-server images with hash-based tags."""
 
@@ -204,91 +287,16 @@ class AgentServerBuildConfig:
             "git_info": self.git_info,
         }
 
-    def build(
-        self,
-        platform: str | None = None,
-        extra_build_args: list[str] | None = None,
-        use_local_cache: bool = False,
-        docker_client: docker.DockerClient | None = None,
-        push: bool = False,
-        enable_registry_cache: bool = False,
-        builder_name: str | None = None,
-    ) -> str:
-        """Build the agent-server image using DockerRuntimeBuilder.
-
-        This method uses the hash-based tags and DockerRuntimeBuilder to build
-        the agent-server image. It will skip building if the image already exists.
-
-        Args:
-            platform: Target platform for the build (e.g., 'linux/amd64').
-            extra_build_args: Additional build arguments to pass to Docker.
-            use_local_cache: Whether to use local build cache.
-            docker_client: Docker client to use. If None, creates a new one.
-            push: Whether to push the image to registry (CI mode).
-            enable_registry_cache: Whether to use registry-based caching.
-            builder_name: Name of buildx builder to create/use for multi-arch builds.
-
+    def get_build_args(self) -> list[str]:
+        """Get the Docker build arguments for this configuration.
+        
         Returns:
-            The full image name with tag (e.g., 'registry/image:tag').
+            List of build arguments to pass to docker build.
         """
-        from openhands.sdk.logger import get_logger
-        from openhands.workspace.utils.builder import DockerRuntimeBuilder
-
-        logger = get_logger(__name__)
-
-        # Create builder
-        builder = DockerRuntimeBuilder(docker_client)
-
-        # Check if any of the tags already exist (in order from most to least specific)
-        # Skip check if pushing (we might want to update the registry)
-        if not push:
-            for tag in self.tags:
-                if builder.image_exists(tag, pull_from_repo=True):
-                    logger.info(f"Image {tag} already exists, skipping build")
-                    return tag
-
-        # No existing image found, build it
-        logger.info(f"Building image with tags: {self.tags}")
-
-        # Prepare build args
-        build_args = extra_build_args or []
-        build_args.extend(
-            [
-                f"--build-arg=BASE_IMAGE={self.base_image}",
-                f"--build-arg=VARIANT={self.variant}",
-                f"--build-arg=VERSION={self.version}",
-                f"--target={self.target}",
-                f"--file={self.dockerfile}",
-            ]
-        )
-
-        # Generate registry cache refs if enabled
-        registry_cache_from = None
-        registry_cache_to = None
-        if enable_registry_cache and self.registry_prefix:
-            primary_ref, fallback_refs, cache_to_ref = generate_cache_tags(
-                registry_prefix=self.registry_prefix,
-                variant=self.variant,
-                git_ref=self.git_info["ref"],
-            )
-            registry_cache_from = [primary_ref] + fallback_refs
-            registry_cache_to = cache_to_ref
-            logger.info(f"Using registry cache: {primary_ref}")
-            if fallback_refs:
-                logger.info(f"Fallback caches: {', '.join(fallback_refs)}")
-
-        # Build the image
-        result_image = builder.build(
-            path=str(self.build_context),
-            tags=self.tags,
-            platform=platform,
-            extra_build_args=build_args,
-            use_local_cache=use_local_cache,
-            push=push,
-            registry_cache_from=registry_cache_from,
-            registry_cache_to=registry_cache_to,
-            builder_name=builder_name,
-        )
-
-        logger.info(f"Successfully built image: {result_image}")
-        return result_image
+        return [
+            f"--build-arg=BASE_IMAGE={self.base_image}",
+            f"--build-arg=VARIANT={self.variant}",
+            f"--build-arg=VERSION={self.version}",
+            f"--target={self.target}",
+            f"--file={self.dockerfile}",
+        ]

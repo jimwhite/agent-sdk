@@ -75,7 +75,11 @@ def build_agent_server_image(
     Returns:
         The full image name with tag.
     """
-    from openhands.workspace.utils.builder import AgentServerBuildConfig
+    from openhands.workspace.docker.builder import DockerRuntimeBuilder
+    from openhands.workspace.utils.builder import (
+        AgentServerBuildConfig,
+        build_agent_server_with_config,
+    )
 
     logger.info(
         "Building agent-server image with base '%s', target '%s', "
@@ -94,8 +98,13 @@ def build_agent_server_image(
         registry_prefix=registry_prefix,
     )
 
+    # Create builder
+    builder = DockerRuntimeBuilder()
+
     # Build the image (will skip if already exists)
-    image = config.build(
+    image = build_agent_server_with_config(
+        config=config,
+        builder=builder,
         platform=platforms,
         use_local_cache=use_local_cache,
     )

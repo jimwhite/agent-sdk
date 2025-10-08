@@ -16,6 +16,11 @@ class RuntimeBuilder(abc.ABC):
         tags: list[str],
         platform: str | None = None,
         extra_build_args: list[str] | None = None,
+        use_local_cache: bool = False,
+        push: bool = False,
+        registry_cache_from: list[str] | None = None,
+        registry_cache_to: str | None = None,
+        builder_name: str | None = None,
     ) -> str:
         """Build the runtime image.
 
@@ -24,6 +29,11 @@ class RuntimeBuilder(abc.ABC):
             tags (list[str]): The tags to apply to the runtime image (e.g., ["repo:my-repo", "sha:my-sha"]).
             platform (str, optional): The target platform for the build. Defaults to None.
             extra_build_args (list[str], optional): Additional build arguments to pass to the builder. Defaults to None.
+            use_local_cache (bool, optional): Whether to use and update the local build cache. Defaults to False.
+            push (bool, optional): Whether to push the image to registry (CI mode). Defaults to False.
+            registry_cache_from (list[str], optional): List of registry cache refs to pull from. Defaults to None.
+            registry_cache_to (str, optional): Registry cache ref to push to. Defaults to None.
+            builder_name (str, optional): Name of builder to create/use for multi-arch builds. Defaults to None.
 
         Returns:
             str: The name:tag of the runtime image after build (e.g., "repo:sha").

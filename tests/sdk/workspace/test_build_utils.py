@@ -5,7 +5,7 @@ import tarfile
 
 import pytest
 
-from openhands.workspace.build_utils import (
+from openhands.workspace.utils.build_utils import (
     create_build_context_tarball,
     load_dockerignore,
 )

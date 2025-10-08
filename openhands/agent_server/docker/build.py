@@ -41,8 +41,10 @@ def build_image(
     Returns:
         Dict with build information (tags, sha, etc.)
     """
+    from openhands.workspace.docker.builder import DockerRuntimeBuilder
     from openhands.workspace.utils.builder import (
         AgentServerBuildConfig,
+        build_agent_server_with_config,
         get_git_info,
         get_sdk_version,
     )
@@ -87,8 +89,13 @@ def build_image(
         # Try to use registry cache even for local builds
         enable_cache = True
     
-    # Build the image using AgentServerBuildConfig
-    primary_tag = config.build(
+    # Create builder
+    builder = DockerRuntimeBuilder()
+    
+    # Build the image using orchestration function
+    primary_tag = build_agent_server_with_config(
+        config=config,
+        builder=builder,
         platform=platform,
         push=push,
         enable_registry_cache=enable_cache,
