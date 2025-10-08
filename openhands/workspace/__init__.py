@@ -17,6 +17,6 @@ MIGRATION NOTE:
 
 # Docker-specific implementations
 from .docker import DockerWorkspace
-from .exception import AgentRuntimeBuildError
+from .utils.exception import AgentRuntimeBuildError
 
 __all__ = ["DockerWorkspace", "AgentRuntimeBuildError"]

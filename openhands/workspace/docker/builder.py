@@ -10,7 +10,7 @@ import docker.errors
 
 from openhands.sdk.logger import get_logger
 from openhands.workspace.utils.builder.base import RuntimeBuilder
-from openhands.workspace.exception import AgentRuntimeBuildError
+from openhands.workspace.utils.exception import AgentRuntimeBuildError
 
 
 logger = get_logger(__name__)
