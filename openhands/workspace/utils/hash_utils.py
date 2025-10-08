@@ -308,12 +308,14 @@ def find_existing_tag(tags: dict[str, str], client=None) -> str | None:
 
 # Example usage
 if __name__ == "__main__":
-    from openhands.workspace.utils.builder import get_sdk_root, get_sdk_version
+    from openhands.workspace.utils.builder import AgentServerBuildConfig
 
     # Example: Generate tags for current SDK
     try:
-        sdk_root = get_sdk_root()
-        version = get_sdk_version()
+        # Create config to access SDK root and version
+        config = AgentServerBuildConfig()
+        sdk_root = config.build_context
+        version = config.version
         source_dir = sdk_root / "openhands"
 
         tags = generate_image_tags(
