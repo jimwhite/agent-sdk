@@ -11,7 +11,12 @@ from openhands.sdk.llm.message import (
     ThinkingBlock,
     content_to_str,
 )
-from openhands.sdk.llm.router import RouterLLM
+from openhands.sdk.llm.router import (
+    DynamicRouter,
+    MultimodalRouter,
+    RandomRouter,
+    RouterLLM,
+)
 from openhands.sdk.llm.utils.metrics import Metrics, MetricsSnapshot
 from openhands.sdk.llm.utils.unverified_models import (
     UNVERIFIED_MODELS_EXCLUDING_BEDROCK,
@@ -25,6 +30,9 @@ __all__ = [
     "LLM",
     "LLMRegistry",
     "RouterLLM",
+    "RandomRouter",
+    "DynamicRouter",
+    "MultimodalRouter",
     "RegistryEvent",
     "Message",
     "MessageToolCall",

@@ -21,8 +21,8 @@ from openhands.tools.preset.default import get_default_tools
 logger = get_logger(__name__)
 
 # Configure initial LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 # Create initial LLM
 initial_llm = LLM(
@@ -64,8 +64,8 @@ conversation = Conversation(
     persistence_dir="./.conversations",
 )
 
-print(f"Starting with LLM: {dynamic_router.get_current_llm_name()}")
-print(f"Available LLMs: {list(dynamic_router.get_available_llms().keys())}")
+print(f"Starting with LLM: {dynamic_router.active_llm_identifier}")
+print(f"Available LLMs: {list(dynamic_router.llms_for_routing.keys())}")
 
 # First interaction with Claude
 conversation.send_message(
@@ -80,16 +80,17 @@ print("=" * 50)
 print("Adding GPT-4 dynamically and switching to it...")
 
 # Dynamically add GPT-4 and switch to it
-success = dynamic_router.switch_to_llm(
-    "gpt4",
+gpt_4 = LLM(
+    service_id="gpt-4",
     model="litellm_proxy/openai/gpt-4o",
     base_url="https://llm-proxy.eval.all-hands.dev",
-    api_key=api_key,
+    api_key=SecretStr(api_key),
     temperature=0.3,
 )
+success = dynamic_router.switch_to_llm("gpt4", gpt_4)
 print(f"GPT-4 added successfully: {success}")
-print(f"Current LLM: {dynamic_router.get_current_llm_name()}")
-print(f"Available LLMs: {list(dynamic_router.get_available_llms().keys())}")
+print(f"Current LLM: {dynamic_router.active_llm_identifier}")
+print(f"Available LLMs: {list(dynamic_router.llms_for_routing.keys())}")
 print()
 
 # Second interaction with GPT-4
@@ -104,16 +105,17 @@ conversation.run()
 print("Adding a smaller model for simple tasks...")
 
 # Add a smaller model for simple tasks
-success = dynamic_router.switch_to_llm(
-    "small_model",
+mistral_small = LLM(
+    service_id="small_model",
     model="litellm_proxy/mistral/devstral-small-2507",
     base_url="https://llm-proxy.eval.all-hands.dev",
-    api_key=api_key,
+    api_key=SecretStr(api_key),
     temperature=0.1,
 )
+success = dynamic_router.switch_to_llm("mistral_model", mistral_small)
 print(f"Small model added successfully: {success}")
-print(f"Current LLM: {dynamic_router.get_current_llm_name()}")
-print(f"Available LLMs: {list(dynamic_router.get_available_llms().keys())}")
+print(f"Current LLM: {dynamic_router.active_llm_identifier}")
+print(f"Available LLMs: {list(dynamic_router.llms_for_routing.keys())}")
 
 # Third interaction with small model
 conversation.send_message(
@@ -128,7 +130,7 @@ print("Switching back to Claude for complex reasoning...")
 
 # Switch back to Claude for complex task
 dynamic_router.switch_to_llm("claude")
-print(f"Current LLM: {dynamic_router.get_current_llm_name()}")
+print(f"Current LLM: {dynamic_router.active_llm_identifier}")
 
 conversation.send_message(
     message=Message(
@@ -145,8 +147,8 @@ conversation.run()
 print("Demonstrating persistence with LLM switching...")
 
 # Show current state before serialization
-print(f"Before serialization - Current LLM: {dynamic_router.get_current_llm_name()}")
-print(f"Available LLMs: {list(dynamic_router.get_available_llms().keys())}")
+print(f"Before serialization - Current LLM: {dynamic_router.active_llm_identifier}")
+print(f"Available LLMs: {list(dynamic_router.llms_for_routing.keys())}")
 
 # Delete conversation to simulate restart
 del conversation
@@ -157,18 +159,17 @@ conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
     conversation_id=conversation_id,
-    workspace=os.getcwd(),
     persistence_dir="./.conversations",
 )
 
-print(f"After deserialization - Current LLM: {dynamic_router.get_current_llm_name()}")
-print(f"Available LLMs: {list(dynamic_router.get_available_llms().keys())}")
+print(f"After deserialization - Current LLM: {dynamic_router.active_llm_identifier}")
+print(f"Available LLMs: {list(dynamic_router.llms_for_routing.keys())}")
 
 # Continue conversation after persistence
 conversation.send_message(
     message=Message(
         role="user",
-        content=[TextContent(text="Do you remember our previous conversation?")],
+        content=[TextContent(text="What did we talk about earlier?")],
     )
 )
 conversation.run()
@@ -177,21 +178,25 @@ print("=" * 50)
 print("Removing a model...")
 
 # Remove the small model
-success = dynamic_router.remove_llm("small_model")
+success = dynamic_router.remove_llm("mistral_model")
 print(f"Small model removed successfully: {success}")
-print(f"Current LLM: {dynamic_router.get_current_llm_name()}")
-print(f"Remaining LLMs: {list(dynamic_router.get_available_llms().keys())}")
+print(f"Current LLM: {dynamic_router.active_llm_identifier}")
+print(f"Remaining LLMs: {list(dynamic_router.llms_for_routing.keys())}")
+
+# Switch to GPT-4
+dynamic_router.switch_to_llm("gpt4")
+print(f"Switched to LLM: {dynamic_router.active_llm_identifier}")
+
+# Final interaction with GPT-4
+conversation.send_message(
+    message=Message(
+        role="user",
+        content=[TextContent(text="What's the meaning of life?")],
+    )
+)
+conversation.run()
 
 print("=" * 100)
 print("Conversation finished. Got the following LLM messages:")
 for i, message in enumerate(llm_messages):
     print(f"Message {i}: {str(message)[:200]}")
-
-print("\n=== Summary ===")
-print("This example demonstrated:")
-print("1. Creating a DynamicRouter with an initial LLM")
-print("2. Dynamically adding new LLMs during conversation")
-print("3. Switching between different LLMs for different tasks")
-print("4. Persistence and deserialization of dynamic LLM configurations")
-print("5. Removing LLMs from the router")
-print("6. All LLM switches are preserved across conversation restarts")
