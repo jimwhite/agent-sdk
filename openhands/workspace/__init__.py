@@ -17,8 +17,7 @@ MIGRATION NOTE:
 
 # Docker-specific implementations
 from .docker import DockerWorkspace
+from .remote_api import APIRemoteWorkspace
 
 
-__all__ = [
-    "DockerWorkspace",
-]
+__all__ = ["DockerWorkspace", "APIRemoteWorkspace"]

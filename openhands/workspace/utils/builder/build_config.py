@@ -105,7 +105,11 @@ def generate_agent_server_tags(
     # Return in order from most to least specific
     tags = [tags_dict["source"], tags_dict["lock"], tags_dict["versioned"]]
 
-    return [f"{registry_prefix}/{tag}" for tag in tags] if registry_prefix else tags
+    # Use default repo name if no registry_prefix provided
+    if registry_prefix:
+        return [f"{registry_prefix}:{tag}" for tag in tags]
+    else:
+        return [f"agent-server:{tag}" for tag in tags]
 
 
 class AgentServerBuildConfig:
