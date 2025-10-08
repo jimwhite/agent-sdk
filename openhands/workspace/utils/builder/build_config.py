@@ -64,20 +64,6 @@ def get_git_info() -> dict[str, str]:
 
 
 # ============================================================================
-# Backward-compatible convenience functions (used by tests)
-# ============================================================================
-
-def get_agent_server_build_context() -> Path:
-    """Get the build context for agent-server (SDK root)."""
-    return get_sdk_root()
-
-
-def get_agent_server_dockerfile() -> Path:
-    """Get the path to the agent-server Dockerfile."""
-    return get_sdk_root() / "openhands" / "agent_server" / "docker" / "Dockerfile"
-
-
-# ============================================================================
 # Main Build Configuration
 # ============================================================================
 
@@ -94,14 +80,14 @@ class AgentServerBuildConfig(BaseModel):
     @computed_field
     @property
     def build_context(self) -> Path:
-        """Get the build context directory."""
-        return get_agent_server_build_context()
+        """Get the build context directory (SDK root)."""
+        return get_sdk_root()
     
     @computed_field
     @property
     def dockerfile(self) -> Path:
         """Get the Dockerfile path."""
-        return get_agent_server_dockerfile()
+        return get_sdk_root() / "openhands" / "agent_server" / "docker" / "Dockerfile"
     
     @computed_field
     @property
@@ -210,6 +196,75 @@ class AgentServerBuildConfig(BaseModel):
         sanitized = "".join(c if c.isalnum() or c in ".-" else "-" for c in sanitized)
         return sanitized.lower()
     
+    def build(
+        self,
+        builder: RuntimeBuilder,
+        platform: str | None = None,
+        extra_build_args: list[str] | None = None,
+        use_local_cache: bool = False,
+        push: bool = False,
+        enable_registry_cache: bool = False,
+        builder_name: str | None = None,
+    ) -> str:
+        """Build agent-server image using this configuration.
+        
+        Args:
+            builder: RuntimeBuilder instance to use for building
+            platform: Target platform for the build (e.g., 'linux/amd64')
+            extra_build_args: Additional build arguments to pass to Docker
+            use_local_cache: Whether to use local build cache
+            push: Whether to push the image to registry (CI mode)
+            enable_registry_cache: Whether to use registry-based caching
+            builder_name: Name of buildx builder to create/use for multi-arch builds
+            
+        Returns:
+            The full image name with tag (e.g., 'registry/image:tag')
+        """
+        from openhands.sdk.logger import get_logger
+        
+        logger = get_logger(__name__)
+        
+        # Check if any of the tags already exist (skip if pushing)
+        if not push:
+            for tag in self.tags:
+                if builder.image_exists(tag, pull_from_repo=True):
+                    logger.info(f"Image {tag} already exists, skipping build")
+                    return tag
+        
+        logger.info(f"Building image with tags: {self.tags}")
+        
+        # Prepare build args
+        build_args = self.get_build_args()
+        if extra_build_args:
+            build_args.extend(extra_build_args)
+        
+        # Generate registry cache refs if enabled
+        registry_cache_from = None
+        registry_cache_to = None
+        if enable_registry_cache and self.registry_prefix:
+            primary_ref, fallback_refs, cache_to_ref = self.generate_cache_tags()
+            registry_cache_from = [primary_ref] + fallback_refs
+            registry_cache_to = cache_to_ref
+            logger.info(f"Using registry cache: {primary_ref}")
+            if fallback_refs:
+                logger.info(f"Fallback caches: {', '.join(fallback_refs)}")
+        
+        # Build the image
+        result_image = builder.build(
+            path=str(self.build_context),
+            tags=self.tags,
+            platform=platform,
+            extra_build_args=build_args,
+            use_local_cache=use_local_cache,
+            push=push,
+            registry_cache_from=registry_cache_from,
+            registry_cache_to=registry_cache_to,
+            builder_name=builder_name,
+        )
+        
+        logger.info(f"Successfully built image: {result_image}")
+        return result_image
+    
     def to_dict(self) -> dict:
         """Convert configuration to dictionary."""
         return {
@@ -225,114 +280,4 @@ class AgentServerBuildConfig(BaseModel):
         }
 
 
-# ============================================================================
-# Backward-compatible wrapper function (used by tests)
-# ============================================================================
 
-def generate_agent_server_tags(
-    base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22",
-    target: str = "binary",
-    registry_prefix: str | None = None,
-    custom_tags: list[str] | None = None,
-) -> list[str]:
-    """Generate hash-based image tags for agent-server.
-    
-    This is a backward-compatible wrapper around AgentServerBuildConfig.
-    
-    Args:
-        base_image: Base Docker image to use
-        target: Build target ('source' or 'binary')
-        registry_prefix: Registry prefix (e.g., 'ghcr.io/all-hands-ai/runtime')
-        custom_tags: Optional list of additional custom tags to apply
-        
-    Returns:
-        List of image tags
-    """
-    config = AgentServerBuildConfig(
-        base_image=base_image,
-        target=target,
-        registry_prefix=registry_prefix,
-        custom_tags=custom_tags or [],
-    )
-    return config.tags
-
-
-# ============================================================================
-# Build Orchestration
-# ============================================================================
-
-def build_agent_server_with_config(
-    config: AgentServerBuildConfig,
-    builder: RuntimeBuilder,
-    platform: str | None = None,
-    extra_build_args: list[str] | None = None,
-    use_local_cache: bool = False,
-    push: bool = False,
-    enable_registry_cache: bool = False,
-    builder_name: str | None = None,
-) -> str:
-    """Build agent-server image using a configuration and builder.
-
-    This orchestrates the build process:
-    1. Checks if image already exists
-    2. Prepares build arguments from config
-    3. Sets up registry caching if enabled
-    4. Calls the builder to execute the build
-
-    Args:
-        config: Build configuration specifying what to build
-        builder: RuntimeBuilder instance to use for building
-        platform: Target platform for the build (e.g., 'linux/amd64')
-        extra_build_args: Additional build arguments to pass to Docker
-        use_local_cache: Whether to use local build cache
-        push: Whether to push the image to registry (CI mode)
-        enable_registry_cache: Whether to use registry-based caching
-        builder_name: Name of buildx builder to create/use for multi-arch builds
-
-    Returns:
-        The full image name with tag (e.g., 'registry/image:tag')
-    """
-    from openhands.sdk.logger import get_logger
-
-    logger = get_logger(__name__)
-
-    # Check if any of the tags already exist (skip if pushing)
-    if not push:
-        for tag in config.tags:
-            if builder.image_exists(tag, pull_from_repo=True):
-                logger.info(f"Image {tag} already exists, skipping build")
-                return tag
-
-    logger.info(f"Building image with tags: {config.tags}")
-
-    # Prepare build args
-    build_args = config.get_build_args()
-    if extra_build_args:
-        build_args.extend(extra_build_args)
-
-    # Generate registry cache refs if enabled
-    registry_cache_from = None
-    registry_cache_to = None
-    if enable_registry_cache and config.registry_prefix:
-        primary_ref, fallback_refs, cache_to_ref = config.generate_cache_tags()
-        registry_cache_from = [primary_ref] + fallback_refs
-        registry_cache_to = cache_to_ref
-        logger.info(f"Using registry cache: {primary_ref}")
-        if fallback_refs:
-            logger.info(f"Fallback caches: {', '.join(fallback_refs)}")
-
-    # Build the image
-    result_image = builder.build(
-        path=str(config.build_context),
-        tags=config.tags,
-        platform=platform,
-        extra_build_args=build_args,
-        use_local_cache=use_local_cache,
-        push=push,
-        registry_cache_from=registry_cache_from,
-        registry_cache_to=registry_cache_to,
-        builder_name=builder_name,
-    )
-
-    logger.info(f"Successfully built image: {result_image}")
-    return result_image

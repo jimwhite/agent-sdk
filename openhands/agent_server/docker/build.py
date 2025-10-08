@@ -15,6 +15,7 @@ Environment variables (with defaults):
     GITHUB_OUTPUT: Path to GitHub Actions output file (CI only)
 """
 
+from typing import Literal
 import argparse
 import os
 import sys
@@ -24,7 +25,7 @@ def build_image(
     image: str,
     base_image: str,
     custom_tags: list[str] | None,
-    target: str,
+    target: Literal["source", "binary"],
     platforms: str,
     push: bool = False,
 ) -> dict[str, str]:
@@ -44,7 +45,6 @@ def build_image(
     from openhands.workspace.docker.builder import DockerRuntimeBuilder
     from openhands.workspace.utils.builder import (
         AgentServerBuildConfig,
-        build_agent_server_with_config,
         get_git_info,
         get_sdk_version,
     )
@@ -91,12 +91,9 @@ def build_image(
         # Try to use registry cache even for local builds
         enable_cache = True
     
-    # Create builder
+    # Build the image
     builder = DockerRuntimeBuilder()
-    
-    # Build the image using orchestration function
-    primary_tag = build_agent_server_with_config(
-        config=config,
+    primary_tag = config.build(
         builder=builder,
         platform=platform,
         push=push,
