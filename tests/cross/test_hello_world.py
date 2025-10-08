@@ -117,11 +117,32 @@ class TestHelloWorld:
                                 },
                             }
                         ],
+                        function_call=None,
+                        audio=None,
+                        images=None,
+                        reasoning_content=None,
+                        thinking_blocks=None,
+                        provider_specific_fields={},
+                        annotations=None,
                     ),
                     finish_reason="tool_calls",
+                    logprobs=None,
+                    provider_specific_fields={},
                 )
             ],
-            usage=Usage(prompt_tokens=50, completion_tokens=30, total_tokens=80),
+            usage=Usage(
+                prompt_tokens=50,
+                completion_tokens=30,
+                total_tokens=80,
+                completion_tokens_details=None,
+                prompt_tokens_details=None,
+                server_tool_use=None,
+                cost=None,
+            ),
+            created=1234567890,
+            model="claude-sonnet-4",
+            object="chat.completion",
+            system_fingerprint=None,
         )
 
         # Second response: Agent acknowledges the file creation
@@ -135,11 +156,33 @@ class TestHelloWorld:
                         content="Perfect! I've successfully created the hello.py file "
                         "that prints 'Hello, World!'. The file has been created and is "
                         "ready to use.",
+                        tool_calls=None,
+                        function_call=None,
+                        audio=None,
+                        images=None,
+                        reasoning_content=None,
+                        thinking_blocks=None,
+                        provider_specific_fields={},
+                        annotations=None,
                     ),
                     finish_reason="stop",
+                    logprobs=None,
+                    provider_specific_fields={},
                 )
             ],
-            usage=Usage(prompt_tokens=80, completion_tokens=25, total_tokens=105),
+            usage=Usage(
+                prompt_tokens=80,
+                completion_tokens=25,
+                total_tokens=105,
+                completion_tokens_details=None,
+                prompt_tokens_details=None,
+                server_tool_use=None,
+                cost=None,
+            ),
+            created=1234567890,
+            model="claude-sonnet-4",
+            object="chat.completion",
+            system_fingerprint=None,
         )
 
         return [first_response, second_response]
@@ -405,7 +448,17 @@ class TestHelloWorld:
                     message=LiteLLMMessage(
                         content="I understand you want to create a hello.py file.",
                         role="assistant",
+                        tool_calls=None,
+                        function_call=None,
+                        audio=None,
+                        images=None,
+                        reasoning_content=None,
+                        thinking_blocks=None,
+                        provider_specific_fields={},
+                        annotations=None,
                     ),
+                    logprobs=None,
+                    provider_specific_fields={},
                 )
             ],
             created=1234567890,
@@ -499,7 +552,17 @@ class TestHelloWorld:
                     message=LiteLLMMessage(
                         content="I understand you want to create a hello.py file.",
                         role="assistant",
+                        tool_calls=None,
+                        function_call=None,
+                        audio=None,
+                        images=None,
+                        reasoning_content=None,
+                        thinking_blocks=None,
+                        provider_specific_fields={},
+                        annotations=None,
                     ),
+                    logprobs=None,
+                    provider_specific_fields={},
                 )
             ],
             created=1234567890,

@@ -76,19 +76,24 @@ def test_integration_pattern_no_warnings():
         openhands_message = Message.from_llm_chat_message(
             mock_response.choices[0].message  # type: ignore[attr-defined]
         )
-        MessageEvent(
+        event = MessageEvent(
             source="agent",
             llm_message=openhands_message,
         )
 
         # This is the exact pattern from integration tests that was causing warnings
-        # The integration tests call model_dump() on the raw LiteLLM message
-        serialized = mock_response.choices[0].message.model_dump()  # type: ignore[attr-defined]
+        # The integration tests call model_dump() on the OpenHands Message object
+        serialized = event.llm_message.model_dump()
 
         # Verify serialization worked
         assert "content" in serialized
         assert "role" in serialized
         assert serialized["role"] == "assistant"
+
+        # Also test the raw LiteLLM message serialization
+        raw_serialized = mock_response.choices[0].message.model_dump()  # type: ignore[attr-defined]
+        assert "content" in raw_serialized
+        assert "role" in raw_serialized
 
         # Verify no Pydantic warnings were generated
         assert len(collected_warnings) == 0, (
