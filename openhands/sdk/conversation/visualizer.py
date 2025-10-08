@@ -1,4 +1,3 @@
-import os
 import re
 from typing import TYPE_CHECKING
 
@@ -72,11 +71,6 @@ class ConversationVisualizer:
                                 scenarios where user input is not relevant to show.
             conversation_stats: ConversationStats object to display metrics information.
         """
-        # Check if JSON logging is enabled - if so, disable Rich formatting
-        json_logging = os.getenv("LOG_JSON", "false").lower() in {"1", "true", "yes"}
-        in_ci = os.getenv("CI", "false").lower() in {"1", "true", "yes"}
-        self._use_rich_formatting = not (json_logging or in_ci)
-
         self._console = Console()
         self._skip_user_messages = skip_user_messages
         self._highlight_patterns: dict[str, str] = highlight_regex or {}
@@ -84,16 +78,6 @@ class ConversationVisualizer:
 
     def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
-        if not self._use_rich_formatting:
-            # Use plain text output when Rich formatting is disabled
-            content = event.visualize.plain.strip()
-            if content:
-                event_type = event.__class__.__name__
-                print(f"=== {event_type} ===")
-                print(content)
-                print()  # Add spacing between events
-            return
-
         panel = self._create_event_panel(event)
         if panel:
             self._console.print(panel)
