@@ -73,6 +73,10 @@ class DockerRuntimeBuilder(RuntimeBuilder):
         platform: str | None = None,
         extra_build_args: list[str] | None = None,
         use_local_cache: bool = False,
+        push: bool = False,
+        registry_cache_from: list[str] | None = None,
+        registry_cache_to: str | None = None,
+        builder_name: str | None = None,
     ) -> str:
         """Build a Docker image using BuildKit.
 
@@ -82,6 +86,14 @@ class DockerRuntimeBuilder(RuntimeBuilder):
             platform: The target platform for the build. Defaults to None.
             extra_build_args: Additional arguments to pass to the Docker build command.
             use_local_cache: Whether to use and update the local build cache.
+            push: Whether to push the image to registry (CI mode). If True, uses --push
+                instead of --load, enabling multi-arch builds.
+            registry_cache_from: List of registry cache refs to pull from
+                (e.g., ['type=registry,ref=ghcr.io/org/image:cache-main']).
+            registry_cache_to: Registry cache ref to push to
+                (e.g., 'type=registry,ref=ghcr.io/org/image:cache-main,mode=max').
+            builder_name: Name of buildx builder to create/use for multi-arch builds.
+                Only used when push=True.
 
         Returns:
             The name of the built Docker image.
@@ -118,6 +130,23 @@ class DockerRuntimeBuilder(RuntimeBuilder):
         target_image_repo, target_image_source_tag = target_image_hash_name.split(":")
         target_image_tag = tags[1].split(":")[1] if len(tags) > 1 else None
 
+        # Create buildx builder for multi-arch if needed (CI/push mode)
+        if push and builder_name:
+            logger.debug(f"Creating/using buildx builder: {builder_name}")
+            subprocess.run(
+                ["docker", "buildx", "create", "--use", "--name", builder_name],
+                capture_output=True,
+                check=False,
+            )
+        else:
+            # Set default builder for local builds
+            subprocess.run(
+                ["docker", "buildx", "use", "default"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+
+        # Build the buildx command
         buildx_cmd = [
             "docker" if not self.is_podman else "podman",
             "buildx",
@@ -125,15 +154,28 @@ class DockerRuntimeBuilder(RuntimeBuilder):
             "--progress=plain",
             f"--build-arg=OPENHANDS_RUNTIME_VERSION={oh_version}",
             f"--build-arg=OPENHANDS_RUNTIME_BUILD_TIME={datetime.datetime.now().isoformat()}",
-            f"--tag={target_image_hash_name}",
-            "--load",
         ]
+
+        # Add all tags
+        for tag in tags:
+            buildx_cmd.extend(["--tag", tag])
 
         # Include the platform argument only if platform is specified
         if platform:
             buildx_cmd.append(f"--platform={platform}")
 
+        # Handle caching
         cache_dir = "/tmp/.buildx-cache"
+        
+        # Registry cache (for CI or when explicitly provided)
+        if registry_cache_from:
+            for cache_ref in registry_cache_from:
+                buildx_cmd.append(f"--cache-from={cache_ref}")
+        
+        if registry_cache_to:
+            buildx_cmd.append(f"--cache-to={registry_cache_to}")
+        
+        # Local cache (for local builds)
         if use_local_cache and self._is_cache_usable(cache_dir):
             buildx_cmd.extend(
                 [
@@ -142,23 +184,22 @@ class DockerRuntimeBuilder(RuntimeBuilder):
                 ]
             )
 
+        # Add extra build args
         if extra_build_args:
             buildx_cmd.extend(extra_build_args)
+
+        # Push vs Load
+        if push:
+            buildx_cmd.append("--push")
+        else:
+            buildx_cmd.append("--load")
 
         buildx_cmd.append(path)  # must be last!
 
         logger.info(
             f"================ {buildx_cmd[0].upper()} BUILD STARTED ================"
         )
-
-        # Set default builder
-        builder_cmd = ["docker", "buildx", "use", "default"]
-        subprocess.Popen(
-            builder_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-        )
+        logger.debug(f"Build command: {' '.join(buildx_cmd)}")
 
         try:
             process = subprocess.Popen(
@@ -190,17 +231,19 @@ class DockerRuntimeBuilder(RuntimeBuilder):
             logger.error(f"Build failed: {e}")
             raise AgentRuntimeBuildError(f"Build failed: {e}")
 
-        # Check if the image is built successfully
-        try:
-            image = self.docker_client.images.get(target_image_hash_name)
-            if image is None:
+        # For push mode, we can't check locally (image is in registry)
+        if not push:
+            # Check if the image is built successfully locally
+            try:
+                image = self.docker_client.images.get(target_image_hash_name)
+                if image is None:
+                    raise AgentRuntimeBuildError(
+                        f"Build failed: Image {target_image_hash_name} not found"
+                    )
+            except docker.errors.ImageNotFound:
                 raise AgentRuntimeBuildError(
                     f"Build failed: Image {target_image_hash_name} not found"
                 )
-        except docker.errors.ImageNotFound:
-            raise AgentRuntimeBuildError(
-                f"Build failed: Image {target_image_hash_name} not found"
-            )
 
         tags_str = (
             f"{target_image_source_tag}, {target_image_tag}"

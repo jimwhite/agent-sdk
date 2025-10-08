@@ -1827,16 +1827,10 @@ dependencies = [
 boto3 = [
     { name = "boto3" },
 ]
-builder = [
-    { name = "dirhash" },
-    { name = "docker" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "boto3", marker = "extra == 'boto3'", specifier = ">=1.35.0" },
-    { name = "dirhash", marker = "extra == 'builder'", specifier = ">=0.5.0" },
-    { name = "docker", marker = "extra == 'builder'", specifier = ">=7.1.0" },
     { name = "fastmcp", specifier = ">=2.11.3" },
     { name = "litellm", specifier = ">=1.75.9" },
     { name = "pydantic", specifier = ">=2.11.7" },
@@ -1845,7 +1839,7 @@ requires-dist = [
     { name = "tenacity", specifier = ">=9.1.2" },
     { name = "websockets", specifier = ">=12" },
 ]
-provides-extras = ["boto3", "builder"]
+provides-extras = ["boto3"]
 
 [[package]]
 name = "openhands-tools"

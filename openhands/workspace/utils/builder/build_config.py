@@ -68,6 +68,63 @@ def get_git_info() -> dict[str, str]:
     return {"sha": sha, "short_sha": short_sha, "ref": ref}
 
 
+def sanitize_branch(branch: str) -> str:
+    """Sanitize branch name for use in cache tags.
+    
+    Args:
+        branch: Git branch name (may include refs/heads/ prefix)
+        
+    Returns:
+        Sanitized branch name safe for use in Docker tags
+    """
+    # Remove refs/heads/ prefix
+    sanitized = branch.replace("refs/heads/", "")
+    # Replace non-alphanumeric characters with hyphens
+    sanitized = "".join(c if c.isalnum() or c in ".-" else "-" for c in sanitized)
+    # Convert to lowercase
+    return sanitized.lower()
+
+
+def generate_cache_tags(
+    registry_prefix: str,
+    variant: str,
+    git_ref: str,
+) -> tuple[str, list[str]]:
+    """Generate cache tags for buildx caching strategy.
+    
+    Args:
+        registry_prefix: Image registry prefix (e.g., 'ghcr.io/all-hands-ai/agent-server')
+        variant: Build variant name
+        git_ref: Git branch/ref name
+        
+    Returns:
+        Tuple of (primary_cache_ref, fallback_cache_refs) where each ref is a full
+        cache reference like 'type=registry,ref=image:tag'
+    """
+    cache_tag_base = f"buildcache-{variant}"
+    
+    # Determine primary cache tag based on branch
+    if git_ref in ("main", "refs/heads/main"):
+        cache_tag = f"{cache_tag_base}-main"
+    elif git_ref != "unknown":
+        sanitized_ref = sanitize_branch(git_ref)
+        cache_tag = f"{cache_tag_base}-{sanitized_ref}"
+    else:
+        cache_tag = cache_tag_base
+    
+    # Fallback cache tags (try branch-specific first, then main)
+    fallback_tags = (
+        [f"{cache_tag_base}-main"] if cache_tag != f"{cache_tag_base}-main" else []
+    )
+    
+    # Format as buildx cache references
+    primary_ref = f"type=registry,ref={registry_prefix}:{cache_tag}"
+    fallback_refs = [f"type=registry,ref={registry_prefix}:{tag}" for tag in fallback_tags]
+    cache_to_ref = f"type=registry,ref={registry_prefix}:{cache_tag},mode=max"
+    
+    return primary_ref, fallback_refs, cache_to_ref
+
+
 def generate_agent_server_tags(
     base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22",
     variant: str = "python",
@@ -153,6 +210,9 @@ class AgentServerBuildConfig:
         extra_build_args: list[str] | None = None,
         use_local_cache: bool = False,
         docker_client: docker.DockerClient | None = None,
+        push: bool = False,
+        enable_registry_cache: bool = False,
+        builder_name: str | None = None,
     ) -> str:
         """Build the agent-server image using DockerRuntimeBuilder.
 
@@ -164,6 +224,9 @@ class AgentServerBuildConfig:
             extra_build_args: Additional build arguments to pass to Docker.
             use_local_cache: Whether to use local build cache.
             docker_client: Docker client to use. If None, creates a new one.
+            push: Whether to push the image to registry (CI mode).
+            enable_registry_cache: Whether to use registry-based caching.
+            builder_name: Name of buildx builder to create/use for multi-arch builds.
 
         Returns:
             The full image name with tag (e.g., 'registry/image:tag').
@@ -177,10 +240,12 @@ class AgentServerBuildConfig:
         builder = DockerRuntimeBuilder(docker_client)
 
         # Check if any of the tags already exist (in order from most to least specific)
-        for tag in self.tags:
-            if builder.image_exists(tag, pull_from_repo=True):
-                logger.info(f"Image {tag} already exists, skipping build")
-                return tag
+        # Skip check if pushing (we might want to update the registry)
+        if not push:
+            for tag in self.tags:
+                if builder.image_exists(tag, pull_from_repo=True):
+                    logger.info(f"Image {tag} already exists, skipping build")
+                    return tag
 
         # No existing image found, build it
         logger.info(f"Building image with tags: {self.tags}")
@@ -192,9 +257,25 @@ class AgentServerBuildConfig:
                 f"--build-arg=BASE_IMAGE={self.base_image}",
                 f"--build-arg=VARIANT={self.variant}",
                 f"--build-arg=VERSION={self.version}",
+                f"--target={self.target}",
                 f"--file={self.dockerfile}",
             ]
         )
+
+        # Generate registry cache refs if enabled
+        registry_cache_from = None
+        registry_cache_to = None
+        if enable_registry_cache and self.registry_prefix:
+            primary_ref, fallback_refs, cache_to_ref = generate_cache_tags(
+                registry_prefix=self.registry_prefix,
+                variant=self.variant,
+                git_ref=self.git_info["ref"],
+            )
+            registry_cache_from = [primary_ref] + fallback_refs
+            registry_cache_to = cache_to_ref
+            logger.info(f"Using registry cache: {primary_ref}")
+            if fallback_refs:
+                logger.info(f"Fallback caches: {', '.join(fallback_refs)}")
 
         # Build the image
         result_image = builder.build(
@@ -203,6 +284,10 @@ class AgentServerBuildConfig:
             platform=platform,
             extra_build_args=build_args,
             use_local_cache=use_local_cache,
+            push=push,
+            registry_cache_from=registry_cache_from,
+            registry_cache_to=registry_cache_to,
+            builder_name=builder_name,
         )
 
         logger.info(f"Successfully built image: {result_image}")
