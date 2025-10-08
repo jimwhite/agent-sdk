@@ -29,8 +29,8 @@ class DynamicRouter(RouterLLM):
 
     PRIMARY_MODEL_KEY: str = "primary"
 
-    llm_type: Literal["dynamic_router"] = Field(  # type: ignore
-        default="dynamic_router", description="Discriminator for DynamicRouter"
+    kind: Literal["DynamicRouter"] = Field(  # type: ignore
+        default="DynamicRouter", description="Discriminator for DynamicRouter"
     )
     router_name: str = "dynamic_router"
     manual_selection: str | None = None

@@ -31,8 +31,8 @@ class RouterLLM(LLM):
     - Provides routing interface through select_llm() method
     """
 
-    llm_type: Literal["router"] = Field(  # type: ignore
-        default="router", description="Discriminator for RouterLLM"
+    kind: Literal["RouterLLM"] = Field(  # type: ignore
+        default="RouterLLM", description="Discriminator for RouterLLM"
     )
     router_name: str = Field(default="base_router", description="Name of the router")
     llms_for_routing: dict[str, LLM] = Field(

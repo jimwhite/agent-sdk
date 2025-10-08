@@ -21,8 +21,8 @@ class MultimodalRouter(RouterLLM):
     the secondary model is typically a text-only model with a lower context window.
     """
 
-    llm_type: Literal["multimodal_router"] = Field(  # type: ignore
-        default="multimodal_router", description="Discriminator for MultimodalRouter"
+    kind: Literal["MultimodalRouter"] = Field(  # type: ignore
+        default="MultimodalRouter", description="Discriminator for MultimodalRouter"
     )
     router_name: str = "multimodal_router"
 

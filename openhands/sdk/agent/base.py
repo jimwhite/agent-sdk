@@ -39,7 +39,7 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
 
     llm: Annotated[
         LLM | MultimodalRouter | DynamicRouter,
-        Discriminator("llm_type"),
+        Discriminator("kind"),
         Field(
             ...,
             description="LLM configuration for the agent.",

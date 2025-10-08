@@ -96,8 +96,8 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
     # =========================================================================
     # Config fields
     # =========================================================================
-    llm_type: Literal["llm"] = Field(
-        default="llm", description="Discriminator for LLM subclasses"
+    kind: Literal["LLM"] = Field(
+        default="LLM", description="Discriminator for LLM subclasses"
     )
     model: str = Field(default="claude-sonnet-4-20250514", description="Model name.")
     api_key: SecretStr | None = Field(default=None, description="API key.")
