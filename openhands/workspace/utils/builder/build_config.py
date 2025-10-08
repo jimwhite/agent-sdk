@@ -4,8 +4,14 @@ import os
 import subprocess
 from pathlib import Path
 
-import docker
+from pydantic import BaseModel, Field, computed_field
+
 from openhands.workspace.utils.builder.base import RuntimeBuilder
+
+
+# ============================================================================
+# Public Utility Functions (used by other modules)
+# ============================================================================
 
 def get_sdk_root() -> Path:
     """Get the root directory of the SDK."""
@@ -21,21 +27,10 @@ def get_sdk_root() -> Path:
     raise RuntimeError("Could not find SDK root")
 
 
-def get_agent_server_build_context() -> Path:
-    """Get the build context for agent-server (SDK root)."""
-    return get_sdk_root()
-
-
-def get_agent_server_dockerfile() -> Path:
-    """Get the path to the agent-server Dockerfile."""
-    return get_sdk_root() / "openhands" / "agent_server" / "docker" / "Dockerfile"
-
-
 def get_sdk_version() -> str:
     """Get the SDK version from package metadata."""
     try:
         from importlib.metadata import version
-
         return version("openhands-sdk")
     except Exception:
         return "0.0.0"
@@ -68,65 +63,171 @@ def get_git_info() -> dict[str, str]:
     return {"sha": sha, "short_sha": short_sha, "ref": ref}
 
 
-def sanitize_branch(branch: str) -> str:
-    """Sanitize branch name for use in cache tags.
+# ============================================================================
+# Backward-compatible convenience functions (used by tests)
+# ============================================================================
+
+def get_agent_server_build_context() -> Path:
+    """Get the build context for agent-server (SDK root)."""
+    return get_sdk_root()
+
+
+def get_agent_server_dockerfile() -> Path:
+    """Get the path to the agent-server Dockerfile."""
+    return get_sdk_root() / "openhands" / "agent_server" / "docker" / "Dockerfile"
+
+
+# ============================================================================
+# Main Build Configuration
+# ============================================================================
+
+class AgentServerBuildConfig(BaseModel):
+    """Configuration for building agent-server images with hash-based tags."""
     
-    Args:
-        branch: Git branch name (may include refs/heads/ prefix)
+    base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22"
+    target: str = "binary"
+    registry_prefix: str | None = None
+    custom_tags: list[str] = Field(default_factory=list)
+    
+    model_config = {"arbitrary_types_allowed": True}
+    
+    @computed_field
+    @property
+    def build_context(self) -> Path:
+        """Get the build context directory."""
+        return get_agent_server_build_context()
+    
+    @computed_field
+    @property
+    def dockerfile(self) -> Path:
+        """Get the Dockerfile path."""
+        return get_agent_server_dockerfile()
+    
+    @computed_field
+    @property
+    def tags(self) -> list[str]:
+        """Generate hash-based image tags."""
+        return self._generate_tags()
+    
+    @computed_field
+    @property
+    def version(self) -> str:
+        """Get SDK version."""
+        return get_sdk_version()
+    
+    @computed_field
+    @property
+    def git_info(self) -> dict[str, str]:
+        """Get git information."""
+        return get_git_info()
+    
+    def _generate_tags(self) -> list[str]:
+        """Generate hash-based image tags for agent-server.
         
-    Returns:
-        Sanitized branch name safe for use in Docker tags
-    """
-    # Remove refs/heads/ prefix
-    sanitized = branch.replace("refs/heads/", "")
-    # Replace non-alphanumeric characters with hyphens
-    sanitized = "".join(c if c.isalnum() or c in ".-" else "-" for c in sanitized)
-    # Convert to lowercase
-    return sanitized.lower()
-
-
-def generate_cache_tags(
-    registry_prefix: str,
-    base_image: str,
-    git_ref: str,
-) -> tuple[str, list[str]]:
-    """Generate cache tags for buildx caching strategy.
-    
-    Args:
-        registry_prefix: Image registry prefix (e.g., 'ghcr.io/all-hands-ai/agent-server')
-        base_image: Base Docker image (used to generate cache key)
-        git_ref: Git branch/ref name
+        Uses content hashing to prevent duplicate builds - same content = same tags.
         
-    Returns:
-        Tuple of (primary_cache_ref, fallback_cache_refs) where each ref is a full
-        cache reference like 'type=registry,ref=image:tag'
-    """
-    from openhands.workspace.utils.hash_utils import get_base_image_slug
+        Returns:
+            List of image tags in order from most to least specific:
+            1. source_tag: vX.Y.Z_lockHash_sourceHash (most specific)
+            2. lock_tag: vX.Y.Z_lockHash (medium specific)
+            3. versioned_tag: vX.Y.Z_baseImageSlug (least specific)
+            4+. custom tags (if provided)
+        """
+        from openhands.workspace.utils.hash_utils import generate_image_tags
+        
+        sdk_root = get_sdk_root()
+        suffix = "-dev" if self.target == "source" else ""
+        tags_dict = generate_image_tags(
+            base_image=self.base_image,
+            sdk_root=sdk_root,
+            source_dir=sdk_root / "openhands",
+            version=self.version,
+            suffix=suffix,
+        )
+        
+        tags = [tags_dict["source"], tags_dict["lock"], tags_dict["versioned"]]
+        
+        if self.custom_tags:
+            tags.extend(self.custom_tags)
+        
+        if self.registry_prefix:
+            return [f"{self.registry_prefix}:{tag}" for tag in tags]
+        else:
+            return [f"agent-server:{tag}" for tag in tags]
     
-    base_slug = get_base_image_slug(base_image)
-    cache_tag_base = f"buildcache-{base_slug}"
+    def get_build_args(self) -> list[str]:
+        """Get the Docker build arguments for this configuration."""
+        return [
+            f"--build-arg=BASE_IMAGE={self.base_image}",
+            f"--build-arg=VERSION={self.version}",
+            f"--target={self.target}",
+            f"--file={self.dockerfile}",
+        ]
     
-    # Determine primary cache tag based on branch
-    if git_ref in ("main", "refs/heads/main"):
-        cache_tag = f"{cache_tag_base}-main"
-    elif git_ref != "unknown":
-        sanitized_ref = sanitize_branch(git_ref)
-        cache_tag = f"{cache_tag_base}-{sanitized_ref}"
-    else:
-        cache_tag = cache_tag_base
+    def generate_cache_tags(self) -> tuple[str, list[str], str]:
+        """Generate cache tags for buildx caching strategy.
+        
+        Returns:
+            Tuple of (primary_cache_ref, fallback_cache_refs, cache_to_ref) where each ref
+            is a full cache reference like 'type=registry,ref=image:tag'
+        """
+        if not self.registry_prefix:
+            raise ValueError("registry_prefix required for cache tags")
+        
+        from openhands.workspace.utils.hash_utils import get_base_image_slug
+        
+        base_slug = get_base_image_slug(self.base_image)
+        cache_tag_base = f"buildcache-{base_slug}"
+        git_ref = self.git_info["ref"]
+        
+        # Determine primary cache tag based on branch
+        if git_ref in ("main", "refs/heads/main"):
+            cache_tag = f"{cache_tag_base}-main"
+        elif git_ref != "unknown":
+            sanitized_ref = self._sanitize_branch(git_ref)
+            cache_tag = f"{cache_tag_base}-{sanitized_ref}"
+        else:
+            cache_tag = cache_tag_base
+        
+        # Fallback cache tags
+        fallback_tags = (
+            [f"{cache_tag_base}-main"] if cache_tag != f"{cache_tag_base}-main" else []
+        )
+        
+        # Format as buildx cache references
+        primary_ref = f"type=registry,ref={self.registry_prefix}:{cache_tag}"
+        fallback_refs = [
+            f"type=registry,ref={self.registry_prefix}:{tag}" for tag in fallback_tags
+        ]
+        cache_to_ref = f"type=registry,ref={self.registry_prefix}:{cache_tag},mode=max"
+        
+        return primary_ref, fallback_refs, cache_to_ref
     
-    # Fallback cache tags (try branch-specific first, then main)
-    fallback_tags = (
-        [f"{cache_tag_base}-main"] if cache_tag != f"{cache_tag_base}-main" else []
-    )
+    @staticmethod
+    def _sanitize_branch(branch: str) -> str:
+        """Sanitize branch name for use in cache tags."""
+        sanitized = branch.replace("refs/heads/", "")
+        sanitized = "".join(c if c.isalnum() or c in ".-" else "-" for c in sanitized)
+        return sanitized.lower()
     
-    # Format as buildx cache references
-    primary_ref = f"type=registry,ref={registry_prefix}:{cache_tag}"
-    fallback_refs = [f"type=registry,ref={registry_prefix}:{tag}" for tag in fallback_tags]
-    cache_to_ref = f"type=registry,ref={registry_prefix}:{cache_tag},mode=max"
-    
-    return primary_ref, fallback_refs, cache_to_ref
+    def to_dict(self) -> dict:
+        """Convert configuration to dictionary."""
+        return {
+            "base_image": self.base_image,
+            "target": self.target,
+            "registry_prefix": self.registry_prefix,
+            "custom_tags": self.custom_tags,
+            "build_context": str(self.build_context),
+            "dockerfile": str(self.dockerfile),
+            "tags": self.tags,
+            "version": self.version,
+            "git_info": self.git_info,
+        }
 
+
+# ============================================================================
+# Backward-compatible wrapper function (used by tests)
+# ============================================================================
 
 def generate_agent_server_tags(
     base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22",
@@ -135,50 +236,33 @@ def generate_agent_server_tags(
     custom_tags: list[str] | None = None,
 ) -> list[str]:
     """Generate hash-based image tags for agent-server.
-
-    Uses content hashing to prevent duplicate builds - same content = same tags.
-
+    
+    This is a backward-compatible wrapper around AgentServerBuildConfig.
+    
     Args:
         base_image: Base Docker image to use
         target: Build target ('source' or 'binary')
         registry_prefix: Registry prefix (e.g., 'ghcr.io/all-hands-ai/runtime')
-        custom_tags: Optional list of additional custom tags to apply (e.g., ['python', 'latest'])
-
+        custom_tags: Optional list of additional custom tags to apply
+        
     Returns:
-        List of image tags in order from most to least specific:
-        1. source_tag: vX.Y.Z_lockHash_sourceHash (most specific)
-        2. lock_tag: vX.Y.Z_lockHash (medium specific)
-        3. versioned_tag: vX.Y.Z_baseImageSlug (least specific)
-        4+. custom tags (if provided)
+        List of image tags
     """
-    from openhands.workspace.utils.hash_utils import generate_image_tags
-
-    sdk_root = get_sdk_root()
-    # Add -dev suffix for source builds (development mode)
-    suffix = "-dev" if target == "source" else ""
-    tags_dict = generate_image_tags(
+    config = AgentServerBuildConfig(
         base_image=base_image,
-        sdk_root=sdk_root,
-        source_dir=sdk_root / "openhands",
-        version=get_sdk_version(),
-        suffix=suffix,
+        target=target,
+        registry_prefix=registry_prefix,
+        custom_tags=custom_tags or [],
     )
-    # Return in order from most to least specific
-    tags = [tags_dict["source"], tags_dict["lock"], tags_dict["versioned"]]
-    
-    # Add custom tags if provided
-    if custom_tags:
-        tags.extend(custom_tags)
+    return config.tags
 
-    # Use default repo name if no registry_prefix provided
-    if registry_prefix:
-        return [f"{registry_prefix}:{tag}" for tag in tags]
-    else:
-        return [f"agent-server:{tag}" for tag in tags]
 
+# ============================================================================
+# Build Orchestration
+# ============================================================================
 
 def build_agent_server_with_config(
-    config: "AgentServerBuildConfig",
+    config: AgentServerBuildConfig,
     builder: RuntimeBuilder,
     platform: str | None = None,
     extra_build_args: list[str] | None = None,
@@ -189,41 +273,39 @@ def build_agent_server_with_config(
 ) -> str:
     """Build agent-server image using a configuration and builder.
 
-    This is the orchestration function that:
+    This orchestrates the build process:
     1. Checks if image already exists
     2. Prepares build arguments from config
     3. Sets up registry caching if enabled
     4. Calls the builder to execute the build
 
     Args:
-        config: Build configuration specifying what to build.
-        builder: RuntimeBuilder instance to use for building.
-        platform: Target platform for the build (e.g., 'linux/amd64').
-        extra_build_args: Additional build arguments to pass to Docker (appended after config args).
-        use_local_cache: Whether to use local build cache.
-        push: Whether to push the image to registry (CI mode).
-        enable_registry_cache: Whether to use registry-based caching.
-        builder_name: Name of buildx builder to create/use for multi-arch builds.
+        config: Build configuration specifying what to build
+        builder: RuntimeBuilder instance to use for building
+        platform: Target platform for the build (e.g., 'linux/amd64')
+        extra_build_args: Additional build arguments to pass to Docker
+        use_local_cache: Whether to use local build cache
+        push: Whether to push the image to registry (CI mode)
+        enable_registry_cache: Whether to use registry-based caching
+        builder_name: Name of buildx builder to create/use for multi-arch builds
 
     Returns:
-        The full image name with tag (e.g., 'registry/image:tag').
+        The full image name with tag (e.g., 'registry/image:tag')
     """
     from openhands.sdk.logger import get_logger
 
     logger = get_logger(__name__)
 
-    # Check if any of the tags already exist (in order from most to least specific)
-    # Skip check if pushing (we might want to update the registry)
+    # Check if any of the tags already exist (skip if pushing)
     if not push:
         for tag in config.tags:
             if builder.image_exists(tag, pull_from_repo=True):
                 logger.info(f"Image {tag} already exists, skipping build")
                 return tag
 
-    # No existing image found, build it
     logger.info(f"Building image with tags: {config.tags}")
 
-    # Prepare build args (config args + any extra args from caller)
+    # Prepare build args
     build_args = config.get_build_args()
     if extra_build_args:
         build_args.extend(extra_build_args)
@@ -232,11 +314,7 @@ def build_agent_server_with_config(
     registry_cache_from = None
     registry_cache_to = None
     if enable_registry_cache and config.registry_prefix:
-        primary_ref, fallback_refs, cache_to_ref = generate_cache_tags(
-            registry_prefix=config.registry_prefix,
-            base_image=config.base_image,
-            git_ref=config.git_info["ref"],
-        )
+        primary_ref, fallback_refs, cache_to_ref = config.generate_cache_tags()
         registry_cache_from = [primary_ref] + fallback_refs
         registry_cache_to = cache_to_ref
         logger.info(f"Using registry cache: {primary_ref}")
@@ -258,52 +336,3 @@ def build_agent_server_with_config(
 
     logger.info(f"Successfully built image: {result_image}")
     return result_image
-
-
-class AgentServerBuildConfig:
-    """Configuration for building agent-server images with hash-based tags."""
-
-    def __init__(
-        self,
-        base_image: str = "nikolaik/python-nodejs:python3.12-nodejs22",
-        target: str = "binary",
-        registry_prefix: str | None = None,
-        custom_tags: list[str] | None = None,
-    ):
-        self.base_image = base_image
-        self.target = target
-        self.registry_prefix = registry_prefix
-        self.custom_tags = custom_tags or []
-        self.build_context = get_agent_server_build_context()
-        self.dockerfile = get_agent_server_dockerfile()
-        self.tags = generate_agent_server_tags(
-            base_image, target, registry_prefix, custom_tags
-        )
-        self.version = get_sdk_version()
-        self.git_info = get_git_info()
-
-    def to_dict(self) -> dict:
-        return {
-            "base_image": self.base_image,
-            "target": self.target,
-            "registry_prefix": self.registry_prefix,
-            "custom_tags": self.custom_tags,
-            "build_context": str(self.build_context),
-            "dockerfile": str(self.dockerfile),
-            "tags": self.tags,
-            "version": self.version,
-            "git_info": self.git_info,
-        }
-
-    def get_build_args(self) -> list[str]:
-        """Get the Docker build arguments for this configuration.
-        
-        Returns:
-            List of build arguments to pass to docker build.
-        """
-        return [
-            f"--build-arg=BASE_IMAGE={self.base_image}",
-            f"--build-arg=VERSION={self.version}",
-            f"--target={self.target}",
-            f"--file={self.dockerfile}",
-        ]
