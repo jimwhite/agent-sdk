@@ -45,7 +45,7 @@ The `variant` parameter has been **successfully removed** and replaced with a cl
   - All tests passing (5/5)
 
 ### Phase 4: Private Utility Functions ✅
-- **Commit**: 9c82d6d5 (local, not pushed)
+- **Commits**: 9c82d6d5, 2ca495ca (pushed to origin/xw/docker-workspace-refactor)
 - **Changes**:
   - Made utility functions private (internal implementation):
     - `get_sdk_root()` → `_get_sdk_root()`
@@ -55,12 +55,13 @@ The `variant` parameter has been **successfully removed** and replaced with a cl
   - Refactored `build.py` to use config properties:
     - `config.version` instead of `get_sdk_version()`
     - `config.git_info` instead of `get_git_info()`
+  - Updated `hash_utils.py` example code to use `AgentServerBuildConfig`
   - Removed tests for internal functions (2 tests removed)
   - Updated remaining tests to validate config properties
-  - Files modified: 4 changed, 33 insertions(+), 68 deletions(-)
-  - All tests passing (3/3)
+  - Files modified: 5 changed, 38 insertions(+), 71 deletions(-)
+  - All tests passing (14/14)
   
-**Benefits**: Cleaner public API with only `AgentServerBuildConfig` and `RuntimeBuilder` exposed. Users must access all data through config properties, ensuring consistent patterns.
+**Benefits**: Cleaner public API with only `AgentServerBuildConfig` and `RuntimeBuilder` exposed. Users must access all data through config properties, ensuring consistent patterns. No external code references the now-private functions.
 
 ## Current State Analysis
 
