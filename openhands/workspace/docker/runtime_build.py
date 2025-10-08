@@ -20,8 +20,8 @@ from dirhash import dirhash
 
 import openhands
 from openhands.sdk import __version__ as oh_version
-from openhands.sdk.exceptions import AgentRuntimeBuildError
 from openhands.sdk.logger import get_logger
+from openhands.workspace.exception import AgentRuntimeBuildError
 
 
 logger = get_logger(__name__)

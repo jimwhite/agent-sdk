@@ -18,6 +18,6 @@ MIGRATION NOTE:
 # Docker-specific implementations
 from .docker import DockerWorkspace
 from .remote_api import APIRemoteWorkspace
+from .exception import AgentRuntimeBuildError
 
-
-__all__ = ["DockerWorkspace", "APIRemoteWorkspace"]
+__all__ = ["DockerWorkspace", "APIRemoteWorkspace", "AgentRuntimeBuildError"]

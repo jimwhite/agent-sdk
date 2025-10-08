@@ -10,7 +10,6 @@ import time
 
 import httpx
 
-from openhands.sdk.exceptions import AgentRuntimeBuildError
 from openhands.sdk.logger import get_logger
 from openhands.workspace.remote_api.utils.http_session import HttpSession
 from openhands.workspace.remote_api.utils.request import send_request
@@ -18,6 +17,7 @@ from openhands.workspace.remote_api.utils.shutdown_listener import (
     should_continue,
     sleep_if_should_continue,
 )
+from openhands.workspace.exception import AgentRuntimeBuildError
 from openhands.workspace.utils.builder.base import RuntimeBuilder
 
 

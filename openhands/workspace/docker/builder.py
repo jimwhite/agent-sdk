@@ -11,9 +11,9 @@ import time
 import docker
 
 from openhands.sdk import __version__ as oh_version
-from openhands.sdk.exceptions import AgentRuntimeBuildError
 from openhands.sdk.logger import get_logger
 from openhands.workspace.utils.builder.base import RuntimeBuilder
+from openhands.workspace.exception import AgentRuntimeBuildError
 
 
 logger = get_logger(__name__)
