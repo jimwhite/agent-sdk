@@ -10,7 +10,6 @@ import os
 import shutil
 import tempfile
 import time
-import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -23,29 +22,7 @@ from tests.integration.schemas import ModelTestResults
 from tests.integration.utils.format_costs import format_cost
 
 
-# Custom warning filter to suppress only LiteLLM-related Pydantic serialization warnings
-def _litellm_pydantic_warning_filter(
-    message, category, filename, lineno, file=None, line=None
-):
-    """Filter to suppress only specific LiteLLM Pydantic serialization warnings."""
-    if (
-        category is UserWarning
-        and filename.endswith("pydantic/main.py")
-        and isinstance(message, Warning)
-    ):
-        msg_str = str(message)
-        # Check if this is a LiteLLM-related serialization warning
-        if "PydanticSerializationUnexpectedValue" in msg_str and (
-            "Expected `Message`" in msg_str or "Expected `StreamingChoices`" in msg_str
-        ):
-            return  # Suppress this warning
-    # Show all other warnings
-    _original_showwarning(message, category, filename, lineno, file, line)
-
-
-# Install the custom filter
-_original_showwarning = warnings.showwarning
-warnings.showwarning = _litellm_pydantic_warning_filter
+# LiteLLM Pydantic warnings are now suppressed globally in openhands.sdk.__init__.py
 
 logger = get_logger(__name__)
 
