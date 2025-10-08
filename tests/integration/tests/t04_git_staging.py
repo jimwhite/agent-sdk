@@ -4,9 +4,9 @@ import os
 import subprocess
 
 from openhands.sdk import get_logger
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 
@@ -24,15 +24,15 @@ class GitStagingTest(BaseIntegrationTest):
     INSTRUCTION = INSTRUCTION
 
     @property
-    def tools(self) -> list[ToolSpec]:
+    def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
         if self.cwd is None:
             raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
-            ToolSpec(name="BashTool", params={"working_dir": self.cwd}),
-            ToolSpec(name="FileEditorTool", params={"workspace_root": self.cwd}),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
     def setup(self) -> None:
@@ -94,10 +94,10 @@ class GitStagingTest(BaseIntegrationTest):
             )
 
             # If there are still staged changes, the commit didn't happen
-            if status_result.stdout.strip():
+            if "hello.py" in status_result.stdout.strip():
                 return TestResult(
                     success=False,
-                    reason=f"Staged changes still exist: {status_result.stdout}",
+                    reason=f"File to commit still staged: {status_result.stdout}",
                 )
 
             # Check if there are any commits
@@ -111,7 +111,8 @@ class GitStagingTest(BaseIntegrationTest):
 
             if not log_result.stdout.strip():
                 return TestResult(
-                    success=False, reason="No commits found in repository"
+                    success=False,
+                    reason=f"No commits found in repository: {log_result.stdout}",
                 )
 
             # Get the latest commit message

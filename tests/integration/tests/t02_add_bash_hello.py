@@ -3,13 +3,13 @@
 import os
 
 from openhands.sdk import get_logger
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 
-INSTRUCTION = "Write a shell script '/workspace/hello.sh' that prints 'hello'."
+INSTRUCTION = "Write a shell script 'shell/hello.sh' that prints 'hello'."
 
 
 logger = get_logger(__name__)
@@ -21,15 +21,15 @@ class BashHelloTest(BaseIntegrationTest):
     INSTRUCTION = INSTRUCTION
 
     @property
-    def tools(self) -> list[ToolSpec]:
+    def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
         if self.cwd is None:
             raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
-            ToolSpec(name="BashTool", params={"working_dir": self.cwd}),
-            ToolSpec(name="FileEditorTool", params={"workspace_root": self.cwd}),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
     def setup(self) -> None:
@@ -48,11 +48,11 @@ class BashHelloTest(BaseIntegrationTest):
         if self.cwd is None:
             return TestResult(success=False, reason="CWD not set")
 
-        script_path = os.path.join(self.cwd, "workspace", "hello.sh")
+        script_path = os.path.join(self.cwd, "shell", "hello.sh")
 
         if not os.path.exists(script_path):
             return TestResult(
-                success=False, reason="Shell script '/workspace/hello.sh' not found"
+                success=False, reason="Shell script 'shell/hello.sh' not found"
             )
 
         # Check if the script is executable

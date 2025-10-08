@@ -3,12 +3,11 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
 
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Conversation, get_logger
-from openhands.sdk.conversation.impl.remote_conversation import RemoteConversation
+from openhands.sdk import LLM, Conversation, RemoteConversation, Workspace, get_logger
+from openhands.sdk.event import ConversationStateUpdateEvent
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -118,12 +117,18 @@ class ManagedAPIServer:
             print("API server stopped.")
 
 
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 llm = LLM(
     service_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+    base_url="https://llm-proxy.eval.all-hands.dev",
+    api_key=SecretStr(api_key),
+)
+title_gen_llm = LLM(
+    service_id="title-gen-llm",
+    model="litellm_proxy/openai/gpt-5-mini",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -133,7 +138,6 @@ with ManagedAPIServer(port=8001) as server:
     # Create agent
     agent = get_default_agent(
         llm=llm,
-        working_dir=str(Path.cwd()),
         cli_mode=True,  # Disable browser tools for simplicity
     )
 
@@ -149,9 +153,17 @@ with ManagedAPIServer(port=8001) as server:
         event_tracker["last_event_time"] = time.time()
 
     # Create RemoteConversation with callbacks
+    # NOTE: Workspace is required for RemoteConversation
+    workspace = Workspace(host=server.base_url)
+    result = workspace.execute_command("pwd")
+    logger.info(
+        f"Command '{result.command}' completed with exit code {result.exit_code}"
+    )
+    logger.info(f"Output: {result.stdout}")
+
     conversation = Conversation(
         agent=agent,
-        host=server.base_url,
+        workspace=workspace,
         callbacks=[event_callback],
         visualize=True,
     )
@@ -165,6 +177,10 @@ with ManagedAPIServer(port=8001) as server:
         conversation.send_message(
             "Read the current repo and write 3 facts about the project into FACTS.txt."
         )
+
+        # Generate title using a specific LLM
+        title = conversation.generate_title(max_length=60, llm=title_gen_llm)
+        logger.info(f"Generated conversation title: {title}")
 
         logger.info("🚀 Running conversation...")
         conversation.run()
@@ -210,6 +226,12 @@ with ManagedAPIServer(port=8001) as server:
             event_types.add(event_type)
         for event_type in sorted(event_types):
             logger.info(f"  - {event_type}")
+
+        # Print all ConversationStateUpdateEvent
+        logger.info("\n🗂️  ConversationStateUpdateEvent events:")
+        for event in conversation.state.events:
+            if isinstance(event, ConversationStateUpdateEvent):
+                logger.info(f"  - {event}")
 
     finally:
         # Clean up

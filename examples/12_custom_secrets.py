@@ -7,14 +7,15 @@ from openhands.sdk import (
     Agent,
     Conversation,
 )
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.conversation.secret_source import SecretSource
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
     service_id="agent",
     model="claude-sonnet-4-20250514",
@@ -25,8 +26,8 @@ llm = LLM(
 register_tool("BashTool", BashTool)
 register_tool("FileEditorTool", FileEditorTool)
 tools = [
-    ToolSpec(name="BashTool", params={"working_dir": os.getcwd()}),
-    ToolSpec(name="FileEditorTool"),
+    Tool(name="BashTool"),
+    Tool(name="FileEditorTool"),
 ]
 
 # Agent
@@ -34,12 +35,13 @@ agent = Agent(llm=llm, tools=tools)
 conversation = Conversation(agent)
 
 
-def output_token() -> str:
-    return "callable-based-secret"
+class MySecretSource(SecretSource):
+    def get_value(self) -> str:
+        return "callable-based-secret"
 
 
 conversation.update_secrets(
-    {"SECRET_TOKEN": "my-secret-token-value", "SECRET_FUNCTION_TOKEN": output_token}
+    {"SECRET_TOKEN": "my-secret-token-value", "SECRET_FUNCTION_TOKEN": MySecretSource()}
 )
 
 conversation.send_message("just echo $SECRET_TOKEN")

@@ -3,15 +3,15 @@
 import os
 
 from openhands.sdk import get_logger
-from openhands.sdk.tool import ToolSpec, register_tool
+from openhands.sdk.tool import Tool, register_tool
 from openhands.tools.execute_bash import BashTool
-from openhands.tools.str_replace_editor import FileEditorTool
+from openhands.tools.file_editor import FileEditorTool
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 
 INSTRUCTION = (
-    "Use Jupyter IPython to write a text file containing 'hello world' "
-    "to '/workspace/test.txt'."
+    "Use Jupyter IPython to write a text file in your workspace 'test.txt'"
+    " containing 'hello world'."
 )
 
 
@@ -24,15 +24,15 @@ class JupyterWriteFileTest(BaseIntegrationTest):
     INSTRUCTION = INSTRUCTION
 
     @property
-    def tools(self) -> list[ToolSpec]:
+    def tools(self) -> list[Tool]:
         """List of tools available to the agent."""
         if self.cwd is None:
             raise ValueError("CWD must be set before accessing tools")
         register_tool("BashTool", BashTool)
         register_tool("FileEditorTool", FileEditorTool)
         return [
-            ToolSpec(name="BashTool", params={"working_dir": self.cwd}),
-            ToolSpec(name="FileEditorTool", params={"workspace_root": self.cwd}),
+            Tool(name="BashTool"),
+            Tool(name="FileEditorTool"),
         ]
 
     def setup(self) -> None:
@@ -51,7 +51,7 @@ class JupyterWriteFileTest(BaseIntegrationTest):
         if self.cwd is None:
             return TestResult(success=False, reason="CWD not set")
 
-        file_path = os.path.join(self.cwd, "workspace", "test.txt")
+        file_path = os.path.join(self.cwd, "test.txt")
 
         if not os.path.exists(file_path):
             return TestResult(

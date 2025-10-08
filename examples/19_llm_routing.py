@@ -7,7 +7,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     ImageContent,
     LLMConvertibleEvent,
     LocalFileStore,
@@ -22,12 +22,12 @@ from openhands.tools.preset.default import get_default_tools
 logger = get_logger(__name__)
 
 # Configure LLM
-api_key = os.getenv("LITELLM_API_KEY")
-assert api_key is not None, "LITELLM_API_KEY environment variable is not set."
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 primary_llm = LLM(
     service_id="agent-primary",
-    model="litellm_proxy/anthropic/claude-sonnet-4-20250514",
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -43,8 +43,7 @@ multimodal_router = MultimodalRouter(
 )
 
 # Tools
-cwd = os.getcwd()
-tools = get_default_tools(working_dir=cwd)  # Use our default openhands experience
+tools = get_default_tools()  # Use our default openhands experience
 
 # Agent
 agent = Agent(llm=multimodal_router, tools=tools)
@@ -52,7 +51,7 @@ agent = Agent(llm=multimodal_router, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -63,8 +62,9 @@ file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
     conversation_id=conversation_id,
+    workspace=os.getcwd(),
+    persistence_dir="./.conversations",
 )
 
 conversation.send_message(
@@ -102,7 +102,7 @@ print("Deserializing conversation...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
+    persistence_dir="./.conversations",
     conversation_id=conversation_id,
 )
 

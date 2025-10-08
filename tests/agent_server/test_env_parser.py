@@ -422,7 +422,6 @@ def test_config_class_parsing(clean_env):
     os.environ["OH_SESSION_API_KEYS_1"] = "key2"
     os.environ["OH_ALLOW_CORS_ORIGINS_0"] = "http://localhost:3000"
     os.environ["OH_CONVERSATIONS_PATH"] = "/custom/conversations"
-    os.environ["OH_WORKSPACE_PATH"] = "/custom/workspace"
     os.environ["OH_ENABLE_VSCODE"] = "false"
 
     config = from_env(Config, "OH")
@@ -430,7 +429,6 @@ def test_config_class_parsing(clean_env):
     assert config.session_api_keys == ["key1", "key2"]
     assert config.allow_cors_origins == ["http://localhost:3000"]
     assert config.conversations_path == Path("/custom/conversations")
-    assert config.workspace_path == Path("/custom/workspace")
     assert config.enable_vscode is False
 
 
@@ -702,3 +700,44 @@ def test_complex_nested_structure(clean_env):
     assert result.addresses[1].street == "456 Oak Ave"
     assert result.addresses[1].city == "Other City"
     assert result.addresses[1].zip_code == "99999"  # Overridden
+
+
+def test_config_vnc_environment_variable_parsing(clean_env):
+    """Test parsing OH_ENABLE_VNC environment variable in Config class."""
+    # Test OH_ENABLE_VNC set to true
+    os.environ["OH_ENABLE_VNC"] = "true"
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is True
+
+    # Test OH_ENABLE_VNC set to false
+    os.environ["OH_ENABLE_VNC"] = "false"
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is False
+
+    # Test default value when OH_ENABLE_VNC is not set
+    del os.environ["OH_ENABLE_VNC"]
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is False  # Default value from Config class
+
+
+@pytest.mark.parametrize(
+    "env_value,expected",
+    [
+        ("true", True),
+        ("True", True),
+        ("TRUE", True),
+        ("1", True),
+        ("false", False),
+        ("False", False),
+        ("FALSE", False),
+        ("0", False),
+        ("", False),
+    ],
+)
+def test_config_vnc_various_boolean_values(clean_env, env_value, expected):
+    """Test that OH_ENABLE_VNC accepts various boolean representations."""
+    os.environ["OH_ENABLE_VNC"] = env_value
+    config = from_env(Config, "OH")
+    assert config.enable_vnc is expected, (
+        f"Failed for OH_ENABLE_VNC='{env_value}', expected {expected}"
+    )
