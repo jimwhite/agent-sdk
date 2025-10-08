@@ -17,31 +17,30 @@ class TestDynamicRouter:
     def test_initialization(self):
         """Test basic router initialization."""
         initial_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="initial"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="agent"
         )
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"initial": initial_llm}
+            service_id="test_router", llms_for_routing={"primary": initial_llm}
         )
 
         assert router.router_name == "dynamic_router"
         assert router.manual_selection is None
         assert len(router.llms_for_routing) == 1
-        assert "initial" in router.llms_for_routing
-        assert len(router.dynamic_llm_configs) == 0
+        assert "primary" in router.llms_for_routing
 
     def test_default_selection(self):
         """Test default LLM selection when no manual selection is set."""
         initial_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="initial"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="agent"
         )
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"initial": initial_llm}
+            service_id="test_router", llms_for_routing={"primary": initial_llm}
         )
 
         selected = router.select_llm([])
-        assert selected == "initial"
+        assert selected == "primary"
 
     def test_manual_selection(self):
         """Test manual LLM selection."""
@@ -51,7 +50,7 @@ class TestDynamicRouter:
         llm2 = LLM(model="gpt-4o", api_key=SecretStr("test-key2"), service_id="llm2")
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"llm1": llm1, "llm2": llm2}
+            service_id="test_router", llms_for_routing={"primary": llm1, "llm2": llm2}
         )
 
         # Test switching to existing LLM
@@ -63,30 +62,30 @@ class TestDynamicRouter:
     def test_dynamic_llm_creation(self):
         """Test creating new LLMs dynamically."""
         initial_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="initial"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="agent"
         )
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"initial": initial_llm}
+            service_id="test_router", llms_for_routing={"primary": initial_llm}
         )
 
         # Create new LLM dynamically
+        claude_llm = LLM(
+            service_id="claude",
+            model="claude-3-5-sonnet-20241022",
+            api_key=SecretStr("claude-key"),
+            temperature=0.7,
+        )
         success = router.switch_to_llm(
             "claude",
-            model="claude-3-5-sonnet-20241022",
-            api_key="claude-key",
-            temperature=0.7,
+            llm=claude_llm,
         )
 
         assert success is True
         assert router.manual_selection == "claude"
         assert "claude" in router.llms_for_routing
-        assert "claude" in router.dynamic_llm_configs
-        assert (
-            router.dynamic_llm_configs["claude"]["model"]
-            == "claude-3-5-sonnet-20241022"
-        )
-        assert router.dynamic_llm_configs["claude"]["temperature"] == 0.7
+        assert router.llms_for_routing["claude"].model == "claude-3-5-sonnet-20241022"
+        assert router.llms_for_routing["claude"].temperature == 0.7
         assert router.select_llm([]) == "claude"
 
     def test_dynamic_llm_creation_without_model(self):
@@ -96,7 +95,7 @@ class TestDynamicRouter:
             model="gpt-4o-mini", api_key=SecretStr("dummy"), service_id="dummy"
         )
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"dummy": dummy_llm}
+            service_id="test_router", llms_for_routing={"primary": dummy_llm}
         )
 
         success = router.switch_to_llm("invalid")
@@ -107,28 +106,32 @@ class TestDynamicRouter:
     def test_get_available_llms(self):
         """Test getting list of available LLMs."""
         initial_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="initial"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="agent"
         )
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"initial": initial_llm}
+            service_id="test_router", llms_for_routing={"primary": initial_llm}
         )
 
         # Initially only pre-configured LLM
-        available = router.get_available_llms()
-        assert available == {"initial": "gpt-4o-mini"}
+        available = router.llms_for_routing
+        assert available["primary"].model == "gpt-4o-mini"
 
         # Add dynamic LLM
+        claude_llm = LLM(
+            service_id="claude",
+            model="claude-3-5-sonnet-20241022",
+            api_key=SecretStr("claude-key"),
+        )
         router.switch_to_llm(
             "claude",
-            model="claude-3-5-sonnet-20241022",
-            api_key="claude-key",
+            llm=claude_llm,
         )
 
-        available = router.get_available_llms()
+        available = router.llms_for_routing
         assert len(available) == 2
-        assert available["initial"] == "gpt-4o-mini"
-        assert available["claude"] == "claude-3-5-sonnet-20241022"
+        assert available["primary"].model == "gpt-4o-mini"
+        assert available["claude"].model == "claude-3-5-sonnet-20241022"
 
     def test_remove_dynamic_llm(self):
         """Test removing dynamically created LLMs."""
@@ -136,38 +139,40 @@ class TestDynamicRouter:
             model="gpt-4o-mini", api_key=SecretStr("dummy"), service_id="dummy"
         )
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"dummy": dummy_llm}
+            service_id="test_router", llms_for_routing={"primary": dummy_llm}
         )
 
         # Add dynamic LLM
+        claude_llm = LLM(
+            service_id="claude",
+            model="claude-3-5-sonnet-20241022",
+            api_key=SecretStr("claude-key"),
+        )
         router.switch_to_llm(
             "claude",
-            model="claude-3-5-sonnet-20241022",
-            api_key="claude-key",
+            llm=claude_llm,
         )
         assert "claude" in router.llms_for_routing
-        assert "claude" in router.dynamic_llm_configs
 
         # Remove it
         success = router.remove_llm("claude")
         assert success is True
         assert "claude" not in router.llms_for_routing
-        assert "claude" not in router.dynamic_llm_configs
         assert router.manual_selection is None
 
     def test_remove_non_dynamic_llm(self):
         """Test that removing pre-configured LLMs fails."""
         initial_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="initial"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="agent"
         )
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"initial": initial_llm}
+            service_id="test_router", llms_for_routing={"primary": initial_llm}
         )
 
-        success = router.remove_llm("initial")
+        success = router.remove_llm("primary")
         assert success is False
-        assert "initial" in router.llms_for_routing
+        assert "primary" in router.llms_for_routing
 
     def test_get_current_llm_name(self):
         """Test getting current LLM name."""
@@ -175,49 +180,56 @@ class TestDynamicRouter:
             model="gpt-4o-mini", api_key=SecretStr("dummy"), service_id="dummy"
         )
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"dummy": dummy_llm}
+            service_id="test_router", llms_for_routing={"primary": dummy_llm}
         )
 
-        assert router.get_current_llm_name() is None
+        assert router.active_llm_identifier is None
 
+        claude = LLM(
+            service_id="claude",
+            model="claude-3-5-sonnet-20241022",
+            api_key=SecretStr("claude-key"),
+        )
         router.switch_to_llm(
             "claude",
-            model="claude-3-5-sonnet-20241022",
-            api_key="claude-key",
+            llm=claude,
         )
-        assert router.get_current_llm_name() == "claude"
+        assert router.active_llm_identifier == "claude"
 
     def test_serialization_with_dynamic_llms(self):
-        """Test serialization includes dynamic LLM configs."""
+        """Test serialization of router with dynamic LLMs."""
         initial_llm = LLM(
-            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="initial"
+            model="gpt-4o-mini", api_key=SecretStr("test-key"), service_id="agent"
         )
 
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"initial": initial_llm}
+            service_id="test_router", llms_for_routing={"primary": initial_llm}
         )
 
         # Add dynamic LLMs
+        claude_llm = LLM(
+            service_id="claude",
+            model="claude-3-5-sonnet-20241022",
+            api_key=SecretStr("claude-key"),
+        )
         router.switch_to_llm(
             "claude",
-            model="claude-3-5-sonnet-20241022",
-            api_key="claude-key",
+            llm=claude_llm,
         )
-        router.switch_to_llm("gemini", model="gemini-1.5-pro", api_key="gemini-key")
+        gemini_llm = LLM(
+            service_id="gemini",
+            model="gemini-1.5-pro",
+            api_key=SecretStr("gemini-key"),
+        )
+        router.switch_to_llm(
+            "gemini",
+            llm=gemini_llm,
+        )
 
         # Serialize
         serialized = router.model_dump_json(exclude_none=True)
         data = json.loads(serialized)
 
-        # Check dynamic configs are included
-        assert "dynamic_llm_configs" in data
-        assert "claude" in data["dynamic_llm_configs"]
-        assert "gemini" in data["dynamic_llm_configs"]
-        assert (
-            data["dynamic_llm_configs"]["claude"]["model"]
-            == "claude-3-5-sonnet-20241022"
-        )
-        assert data["dynamic_llm_configs"]["gemini"]["model"] == "gemini-1.5-pro"
         assert data["manual_selection"] == "gemini"  # Last selected
 
     def test_ensure_llm_exists(self):
@@ -226,25 +238,23 @@ class TestDynamicRouter:
             model="gpt-4o-mini", api_key=SecretStr("dummy"), service_id="dummy"
         )
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"dummy": dummy_llm}
+            service_id="test_router", llms_for_routing={"primary": dummy_llm}
         )
 
         # Add dynamic LLM
+        claude_llm = LLM(
+            service_id="claude",
+            model="claude-3-5-sonnet-20241022",
+            api_key=SecretStr("claude-key"),
+        )
         router.switch_to_llm(
             "claude",
-            model="claude-3-5-sonnet-20241022",
-            api_key="claude-key",
+            llm=claude_llm,
         )
 
-        # Remove from routing table but keep config
+        # Remove from routing table
         del router.llms_for_routing["claude"]
         assert "claude" not in router.llms_for_routing
-        assert "claude" in router.dynamic_llm_configs
-
-        # Ensure it exists should recreate it
-        router._ensure_llm_exists("claude")
-        assert "claude" in router.llms_for_routing
-        assert router.llms_for_routing["claude"].model == "claude-3-5-sonnet-20241022"
 
     def test_no_llms_available_error(self):
         """Test error when no LLMs are available."""
@@ -252,7 +262,7 @@ class TestDynamicRouter:
             model="gpt-4o-mini", api_key=SecretStr("dummy"), service_id="dummy"
         )
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"dummy": dummy_llm}
+            service_id="test_router", llms_for_routing={"primary": dummy_llm}
         )
 
         # Remove all LLMs to test error condition
@@ -267,15 +277,15 @@ class TestDynamicRouter:
             model="gpt-4o-mini", api_key=SecretStr("dummy"), service_id="dummy"
         )
         router = DynamicRouter(
-            service_id="test_router", llms_for_routing={"dummy": dummy_llm}
+            service_id="test_router", llms_for_routing={"primary": dummy_llm}
         )
 
         # Manually add config without creating LLM instance
-        router.dynamic_llm_configs["claude"] = {
-            "model": "claude-3-5-sonnet-20241022",
-            "service_id": "dynamic_claude",
-            "api_key": SecretStr("claude-key"),
-        }
+        router.llms_for_routing["claude"] = LLM(
+            model="claude-3-5-sonnet-20241022",
+            service_id="dynamic_claude",
+            api_key=SecretStr("claude-key"),
+        )
 
         # Switch to it should recreate from config
         success = router.switch_to_llm("claude")

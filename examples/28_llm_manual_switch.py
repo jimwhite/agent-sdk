@@ -34,7 +34,7 @@ initial_llm = LLM(
 
 # Create DynamicRouter with initial LLM
 dynamic_router = DynamicRouter(
-    service_id="dynamic-router", llms_for_routing={"claude": initial_llm}
+    service_id="dynamic-router", llms_for_routing={"primary": initial_llm}
 )
 
 # Tools
@@ -106,7 +106,7 @@ print("Adding a smaller model for simple tasks...")
 
 # Add a smaller model for simple tasks
 mistral_small = LLM(
-    service_id="small_model",
+    service_id="mistral_model",
     model="litellm_proxy/mistral/devstral-small-2507",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
@@ -129,7 +129,7 @@ conversation.run()
 print("Switching back to Claude for complex reasoning...")
 
 # Switch back to Claude for complex task
-dynamic_router.switch_to_llm("claude")
+dynamic_router.switch_to_llm("primary")
 print(f"Current LLM: {dynamic_router.active_llm_identifier}")
 
 conversation.send_message(

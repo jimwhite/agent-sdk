@@ -97,20 +97,7 @@ class RouterLLM(LLM):
 
     def __getattr__(self, name):
         """Delegate other attributes/methods to the active LLM."""
-        try:
-            llms = object.__getattribute__(self, "llms_for_routing")
-        except AttributeError:
-            # Still initializing, don't have llms_for_routing yet
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
-        if not llms:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
-        fallback_llm = next(iter(llms.values()))
+        fallback_llm = next(iter(self.llms_for_routing.values()))
         logger.info(f"RouterLLM: No active LLM, using first LLM for attribute '{name}'")
         return getattr(fallback_llm, name)
 

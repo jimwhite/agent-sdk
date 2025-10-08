@@ -7,7 +7,7 @@ with full serialization/deserialization support.
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from openhands.sdk.llm import LLM
 from openhands.sdk.llm.message import Message
@@ -23,9 +23,11 @@ class DynamicRouter(RouterLLM):
     A RouterLLM that supports dynamic LLM creation and switching.
 
     Users can switch to entirely new LLMs without pre-configuring them.
-    The router maintains both pre-configured LLMs and dynamically created ones,
-    with full serialization/deserialization support.
+    The router maintains both ONE pre-configured LLM (primary) and
+    dynamically created ones.
     """
+
+    PRIMARY_MODEL_KEY: str = "primary"
 
     llm_type: Literal["dynamic_router"] = Field(  # type: ignore
         default="dynamic_router", description="Discriminator for DynamicRouter"
@@ -125,6 +127,10 @@ class DynamicRouter(RouterLLM):
         Returns:
             True if LLM was removed, False if it wasn't a dynamic LLM
         """
+        if identifier == self.PRIMARY_MODEL_KEY:
+            logger.warning(f"Cannot remove primary LLM: {identifier}")
+            return False
+
         if identifier in self.llms_for_routing:
             self.llms_for_routing.pop(identifier, None)
 
@@ -136,5 +142,15 @@ class DynamicRouter(RouterLLM):
             logger.info(f"Removed dynamic LLM: {identifier}")
             return True
 
-        logger.warning(f"Cannot remove LLM {identifier}: not a dynamic LLM")
+        logger.warning(f"Cannot remove LLM {identifier}: not existing")
         return False
+
+    @model_validator(mode="after")
+    def _validate_llms_for_routing(self) -> "DynamicRouter":
+        """Ensure required models are present in llms_for_routing."""
+        if self.PRIMARY_MODEL_KEY not in self.llms_for_routing:
+            raise ValueError(
+                f"Primary LLM key '{self.PRIMARY_MODEL_KEY}' not found"
+                " in llms_for_routing."
+            )
+        return self
