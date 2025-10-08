@@ -13,10 +13,7 @@ from pydantic import Field, PrivateAttr
 
 from openhands.sdk.logger import get_logger
 from openhands.sdk.utils.command import execute_command
-
-
-if TYPE_CHECKING:
-    from openhands.sdk.workspace.remote.base import RemoteWorkspace
+from openhands.sdk.workspace.remote.base import RemoteWorkspace
 
 
 logger = get_logger(__name__)
@@ -106,9 +103,6 @@ def build_agent_server_image(
     logger.info("Using image: %s", image)
     return image
 
-
-# Import RemoteWorkspace here to avoid circular import at module load time
-from openhands.sdk.workspace.remote.base import RemoteWorkspace  # noqa: E402
 
 
 class DockerWorkspace(RemoteWorkspace):
