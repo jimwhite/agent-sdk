@@ -22,8 +22,6 @@ from tests.integration.schemas import ModelTestResults
 from tests.integration.utils.format_costs import format_cost
 
 
-# LiteLLM Pydantic warnings are now suppressed globally in openhands.sdk.__init__.py
-
 logger = get_logger(__name__)
 
 
