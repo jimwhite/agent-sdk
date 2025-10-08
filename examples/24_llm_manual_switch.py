@@ -7,7 +7,7 @@ from openhands.sdk import (
     LLM,
     Agent,
     Conversation,
-    EventBase,
+    Event,
     LLMConvertibleEvent,
     LocalFileStore,
     Message,
@@ -15,7 +15,7 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.llm.router.impl.dynamic import DynamicRouter
-from openhands.sdk.preset.default import get_default_tools
+from openhands.tools.preset.default import get_default_tools
 
 
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ dynamic_router = DynamicRouter(
 
 # Tools
 cwd = os.getcwd()
-tools = get_default_tools(working_dir=cwd)
+tools = get_default_tools()
 
 # Agent with dynamic router
 agent = Agent(llm=dynamic_router, tools=tools)
@@ -47,7 +47,7 @@ agent = Agent(llm=dynamic_router, tools=tools)
 llm_messages = []  # collect raw LLM messages
 
 
-def conversation_callback(event: EventBase):
+def conversation_callback(event: Event):
     if isinstance(event, LLMConvertibleEvent):
         llm_messages.append(event.to_llm_message())
 
@@ -59,8 +59,9 @@ file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
     conversation_id=conversation_id,
+    workspace=os.getcwd(),
+    persistence_dir="./.conversations",
 )
 
 print(f"Starting with LLM: {dynamic_router.get_current_llm_name()}")
@@ -155,8 +156,9 @@ print("Recreating conversation from persistence...")
 conversation = Conversation(
     agent=agent,
     callbacks=[conversation_callback],
-    persist_filestore=file_store,
     conversation_id=conversation_id,
+    workspace=os.getcwd(),
+    persistence_dir="./.conversations",
 )
 
 print(f"After deserialization - Current LLM: {dynamic_router.get_current_llm_name()}")
