@@ -62,26 +62,49 @@ def create_mock_litellm_response(
         Usage,
     )
 
-    # Create proper LiteLLM message
-    message = LiteLLMMessage(content=content, role="assistant")
+    # Create proper LiteLLM message with all fields explicitly set to avoid
+    # Pydantic warnings
+    message = LiteLLMMessage(
+        content=content,
+        role="assistant",
+        tool_calls=None,
+        function_call=None,
+        audio=None,
+        images=None,
+        reasoning_content=None,
+        thinking_blocks=None,
+        provider_specific_fields={},
+        annotations=None,
+    )
 
-    # Create proper choice
-    choice = Choices(finish_reason=finish_reason, index=0, message=message)
+    # Create proper choice with all required fields to avoid Pydantic warnings
+    choice = Choices(
+        finish_reason=finish_reason,
+        index=0,
+        message=message,
+        logprobs=None,
+        provider_specific_fields={},
+    )
 
-    # Create proper usage
+    # Create proper usage with all fields to avoid Pydantic warnings
     usage = Usage(
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         total_tokens=prompt_tokens + completion_tokens,
+        completion_tokens_details=None,
+        prompt_tokens_details=None,
+        server_tool_use=None,
+        cost=None,
     )
 
-    # Create proper ModelResponse
+    # Create proper ModelResponse with all fields to avoid Pydantic warnings
     response = ModelResponse(
         id=response_id,
         choices=[choice],
         created=1234567890,
         model=model,
         object="chat.completion",
+        system_fingerprint=None,
         usage=usage,
     )
 
