@@ -27,7 +27,7 @@ The `variant` parameter has been **successfully removed** and replaced with a cl
   - All tests passing (11/11)
 
 ### Phase 3: Builder Pattern & Cleanup ✅
-- **Commit**: (current changes, uncommitted)
+- **Commit**: a384ec8f (local, not pushed)
 - **Changes**:
   - Moved build logic into `config.build()` method
   - Removed standalone `build_agent_server_with_config()` function
@@ -41,13 +41,26 @@ The `variant` parameter has been **successfully removed** and replaced with a cl
     config = AgentServerBuildConfig(...)
     image = config.build(builder, ...)
     ```
-  - Files modified:
-    - `openhands/workspace/utils/builder/__init__.py`
-    - `openhands/workspace/utils/builder/build_config.py`
-    - `openhands/workspace/docker/workspace.py`
-    - `openhands/agent_server/docker/build.py`
-    - `tests/sdk/workspace/test_build_config.py`
+  - Files modified: 6 changed, 321 insertions(+), 249 deletions(-)
   - All tests passing (5/5)
+
+### Phase 4: Private Utility Functions ✅
+- **Commit**: 9c82d6d5 (local, not pushed)
+- **Changes**:
+  - Made utility functions private (internal implementation):
+    - `get_sdk_root()` → `_get_sdk_root()`
+    - `get_sdk_version()` → `_get_sdk_version()`
+    - `get_git_info()` → `_get_git_info()`
+  - Removed from public API exports (`__init__.py`)
+  - Refactored `build.py` to use config properties:
+    - `config.version` instead of `get_sdk_version()`
+    - `config.git_info` instead of `get_git_info()`
+  - Removed tests for internal functions (2 tests removed)
+  - Updated remaining tests to validate config properties
+  - Files modified: 4 changed, 33 insertions(+), 68 deletions(-)
+  - All tests passing (3/3)
+  
+**Benefits**: Cleaner public API with only `AgentServerBuildConfig` and `RuntimeBuilder` exposed. Users must access all data through config properties, ensuring consistent patterns.
 
 ## Current State Analysis
 
