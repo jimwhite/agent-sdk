@@ -72,8 +72,8 @@ def test_normalize_responses_kwargs_policy():
     assert out["tool_choice"] == "auto"
     # include should contain original and encrypted_content
     assert set(out["include"]) >= {"text.output_text", "reasoning.encrypted_content"}
-    # store default to False when None passed
-    assert out["store"] is False
+    # store defaults to True for multi-turn conversations
+    assert out["store"] is True
     # reasoning config defaulted
     r = out["reasoning"]
     assert r["effort"] in {"low", "medium", "high", "none"}

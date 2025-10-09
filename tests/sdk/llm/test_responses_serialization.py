@@ -78,6 +78,9 @@ def test_tool_to_responses_emits_function_call_output_with_fc_prefix():
 
 
 def test_assistant_includes_reasoning_passthrough():
+    # Reasoning items are NOT included when serializing assistant messages for input.
+    # They are only captured from output. Including them causes API errors:
+    # "Item of type 'reasoning' was provided without its required following item"
     ri = ReasoningItemModel(
         id="rid1",
         summary=["s1", "s2"],
@@ -88,12 +91,5 @@ def test_assistant_includes_reasoning_passthrough():
     m = Message(role="assistant", content=[], responses_reasoning_item=ri)
     out = m.to_responses_dict(vision_enabled=False)
 
-    # Contains a reasoning item with exact passthrough fields
     r_items = [it for it in out if it["type"] == "reasoning"]
-    assert len(r_items) == 1
-    r = r_items[0]
-    assert r["id"] == "rid1"
-    assert [s["text"] for s in r["summary"]] == ["s1", "s2"]
-    assert [c["text"] for c in r.get("content", [])] == ["c1"]
-    assert r.get("encrypted_content") == "enc"
-    assert r.get("status") == "completed"
+    assert len(r_items) == 0
