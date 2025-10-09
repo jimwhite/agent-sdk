@@ -1,6 +1,5 @@
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import Literal
 
 from pydantic import (
     Field,
@@ -8,7 +7,7 @@ from pydantic import (
     model_validator,
 )
 
-from openhands.sdk.llm.llm import LLM
+from openhands.sdk.llm.llm import LLM, LLMBase
 from openhands.sdk.llm.llm_response import LLMResponse
 from openhands.sdk.llm.message import Message
 from openhands.sdk.logger import get_logger
@@ -31,11 +30,8 @@ class RouterLLM(LLM):
     - Provides routing interface through select_llm() method
     """
 
-    kind: Literal["RouterLLM"] = Field(  # type: ignore
-        default="RouterLLM", description="Discriminator for RouterLLM"
-    )
     router_name: str = Field(default="base_router", description="Name of the router")
-    llms_for_routing: dict[str, LLM] = Field(
+    llms_for_routing: dict[str, LLMBase] = Field(
         default_factory=dict
     )  # Mapping of LLM name to LLM instance for routing
 
@@ -119,7 +115,7 @@ class RouterLLM(LLM):
 
         return d
 
-    def resolve_diff_from_deserialized(self, persisted: "LLM") -> "LLM":
+    def resolve_diff_from_deserialized(self, persisted: "LLMBase") -> "LLMBase":
         """Resolve differences between a deserialized RouterLLM and the current
         instance.
 

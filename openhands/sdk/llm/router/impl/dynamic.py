@@ -5,11 +5,9 @@ This router allows users to switch to entirely new LLMs without pre-configuring 
 with full serialization/deserialization support.
 """
 
-from typing import Literal
+from pydantic import model_validator
 
-from pydantic import Field, model_validator
-
-from openhands.sdk.llm import LLM
+from openhands.sdk.llm import LLMBase
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.router.base import RouterLLM
 from openhands.sdk.logger import get_logger
@@ -29,9 +27,6 @@ class DynamicRouter(RouterLLM):
 
     PRIMARY_MODEL_KEY: str = "primary"
 
-    kind: Literal["DynamicRouter"] = Field(  # type: ignore
-        default="DynamicRouter", description="Discriminator for DynamicRouter"
-    )
     router_name: str = "dynamic_router"
     manual_selection: str | None = None
 
@@ -60,7 +55,7 @@ class DynamicRouter(RouterLLM):
     def switch_to_llm(
         self,
         identifier: str,
-        llm: LLM | None = None,
+        llm: LLMBase | None = None,
     ) -> bool:
         """
         Switch to an LLM, creating it dynamically if it doesn't exist.

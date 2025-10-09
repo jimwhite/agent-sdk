@@ -1,6 +1,6 @@
-from typing import ClassVar, Literal
+from typing import ClassVar
 
-from pydantic import Field, model_validator
+from pydantic import model_validator
 
 from openhands.sdk.llm.message import Message
 from openhands.sdk.llm.router.base import RouterLLM
@@ -21,9 +21,6 @@ class MultimodalRouter(RouterLLM):
     the secondary model is typically a text-only model with a lower context window.
     """
 
-    kind: Literal["MultimodalRouter"] = Field(  # type: ignore
-        default="MultimodalRouter", description="Discriminator for MultimodalRouter"
-    )
     router_name: str = "multimodal_router"
 
     PRIMARY_MODEL_KEY: ClassVar[str] = "primary"

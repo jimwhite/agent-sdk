@@ -3,15 +3,15 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 import openhands.sdk.security.analyzer as analyzer
 from openhands.sdk.context.agent_context import AgentContext
 from openhands.sdk.context.condenser import CondenserBase, LLMSummarizingCondenser
 from openhands.sdk.context.prompts.prompt import render_template
-from openhands.sdk.llm import LLM, DynamicRouter, MultimodalRouter
+from openhands.sdk.llm import LLM, LLMBase
 from openhands.sdk.logger import get_logger
 from openhands.sdk.mcp import create_mcp_tools
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
@@ -37,21 +37,17 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
         arbitrary_types_allowed=True,
     )
 
-    llm: Annotated[
-        LLM | MultimodalRouter | DynamicRouter,
-        Discriminator("kind"),
-        Field(
-            ...,
-            description="LLM configuration for the agent.",
-            examples=[
-                {
-                    "model": "litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-                    "base_url": "https://llm-proxy.eval.all-hands.dev",
-                    "api_key": "your_api_key_here",
-                }
-            ],
-        ),
-    ]
+    llm: LLMBase = Field(
+        ...,
+        description="LLM configuration for the agent.",
+        examples=[
+            {
+                "model": "litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+                "base_url": "https://llm-proxy.eval.all-hands.dev",
+                "api_key": "your_api_key_here",
+            }
+        ],
+    )
     tools: list[Tool] = Field(
         default_factory=list,
         description="List of tools to initialize for the agent.",
