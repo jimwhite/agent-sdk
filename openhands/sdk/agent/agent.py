@@ -179,7 +179,7 @@ class Agent(AgentBase):
                     messages=_messages,
                     tools=list(self.tools_map.values()),
                     include=None,
-                    store=False,
+                    store=True,
                     add_security_risk_prediction=self._add_security_risk_prediction,
                     metadata=self.llm.metadata,
                 )

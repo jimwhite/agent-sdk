@@ -397,31 +397,14 @@ class Message(BaseModel):
                         "content": content_items,
                     }
                 )
-            # Include prior turn's reasoning item exactly as received (if any)
-            if self.responses_reasoning_item is not None:
-                ri = self.responses_reasoning_item
-                # Only send back if we have an id; required by the param schema
-                if ri.id is not None:
-                    reasoning_item: dict[str, Any] = {
-                        "type": "reasoning",
-                        "id": ri.id,
-                        # Always include summary exactly as received (can be empty)
-                        "summary": [
-                            {"type": "summary_text", "text": s}
-                            for s in (ri.summary or [])
-                        ],
-                    }
-                    # Optional content passthrough
-                    if ri.content:
-                        reasoning_item["content"] = [
-                            {"type": "reasoning_text", "text": t} for t in ri.content
-                        ]
-                    # Optional fields as received
-                    if ri.encrypted_content:
-                        reasoning_item["encrypted_content"] = ri.encrypted_content
-                    if ri.status:
-                        reasoning_item["status"] = ri.status
-                    items.append(reasoning_item)
+            # NOTE: We do NOT include reasoning items in the input when sending back
+            # assistant messages. Reasoning items are only captured from output.
+            # Including them in input causes API errors:
+            # "Item of type 'reasoning' was provided
+            # without its required following item"
+            # This is because reasoning items must
+            # be followed by a message/function_call in the Responses API input schema.
+
             # Emit assistant tool calls so subsequent function_call_output
             # can match call_id
             if self.tool_calls:
