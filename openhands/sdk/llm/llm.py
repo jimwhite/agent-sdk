@@ -751,7 +751,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
           • temperature=1.0
           • tool_choice="auto"
           • include: append reasoning.encrypted_content if enabled
-          • store: defaults to False (unless explicitly provided)
+          • store: defaults to True
           • metadata: default to LLM.metadata if not provided
           • max_output_tokens: default to LLM.max_output_tokens if not provided
         """
@@ -775,7 +775,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if store is not None:
             out["store"] = bool(store)
         else:
-            out.setdefault("store", False)
+            out.setdefault("store", True)
 
         # Respect max_output_tokens if configured at LLM level
         if self.max_output_tokens is not None:
