@@ -568,8 +568,17 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     typed_input: ResponseInputParam | str = (
                         cast(ResponseInputParam, input_items) if input_items else ""
                     )
+                    # LiteLLM BUG WORKAROUND
+                    # The proxy's does not route correctly to Responses API if
+                    # the model name is prefixed with "litellm_proxy/"
+                    # This bug is fixed by
+                    # https://github.com/BerriAI/litellm/issues/15342#event-20174587826
+                    # https://github.com/BerriAI/litellm/pull/15347
+                    responses_model = self.model
+                    if responses_model.startswith("litellm_proxy/openai/gpt-5"):
+                        responses_model = responses_model[len("litellm_proxy/") :]
                     ret = litellm_responses(
-                        model=self.model,
+                        model=responses_model,
                         input=typed_input,
                         instructions=instructions,
                         tools=resp_tools,
