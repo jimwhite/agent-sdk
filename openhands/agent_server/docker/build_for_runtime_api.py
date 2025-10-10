@@ -23,7 +23,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import requests
+import httpx
 
 
 class BuildConfig:
@@ -301,7 +301,7 @@ class RuntimeAPIClient:
         self.config = config
         self.base_url = config.runtime_api_url.rstrip("/")
         self.headers = {
-            "Authorization": f"Bearer {config.runtime_api_key}",
+            "X-API-Key": config.runtime_api_key,
             "Content-Type": "application/json",
         }
 
@@ -327,29 +327,33 @@ class RuntimeAPIClient:
 
         # Upload build context
         try:
-            response = requests.post(
-                f"{self.base_url}/build",
-                headers=self.headers,
-                json=payload,
-                timeout=300,  # 5 minutes timeout for upload
-            )
-            response.raise_for_status()
+            with httpx.Client() as client:
+                response = client.post(
+                    f"{self.base_url}/build",
+                    headers=self.headers,
+                    json=payload,
+                    timeout=300,  # 5 minutes timeout for upload
+                )
+                response.raise_for_status()
 
-            build_data = response.json()
-            build_id = build_data.get("build_id")
+                build_data = response.json()
+                build_id = build_data.get("build_id")
 
-            if not build_id:
-                Logger.error("No build_id returned from Runtime API")
-                return False
+                if not build_id:
+                    Logger.error("No build_id returned from Runtime API")
+                    return False
 
-            Logger.info(f"Build started with ID: {build_id}")
-            Logger.info(f"Target image: {target_image}")
+                Logger.info(f"Build started with ID: {build_id}")
+                Logger.info(f"Target image: {target_image}")
 
-            # Poll for build completion
-            return self._poll_build_status(build_id)
+                # Poll for build completion
+                return self._poll_build_status(build_id)
 
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             Logger.error(f"Failed to upload to Runtime API: {e}")
+            return False
+        except httpx.HTTPStatusError as e:
+            Logger.error(f"HTTP error from Runtime API: {e}")
             return False
         except json.JSONDecodeError as e:
             Logger.error(f"Invalid JSON response from Runtime API: {e}")
@@ -364,34 +368,35 @@ class RuntimeAPIClient:
 
         while attempt < max_attempts:
             try:
-                response = requests.get(
-                    f"{self.base_url}/build_status/{build_id}",
-                    headers=self.headers,
-                    timeout=30,
-                )
-                response.raise_for_status()
+                with httpx.Client() as client:
+                    response = client.get(
+                        f"{self.base_url}/build_status/{build_id}",
+                        headers=self.headers,
+                        timeout=30,
+                    )
+                    response.raise_for_status()
 
-                status_data = response.json()
-                status = status_data.get("status", "unknown")
+                    status_data = response.json()
+                    status = status_data.get("status", "unknown")
 
-                Logger.info(f"Build status: {status}")
+                    Logger.info(f"Build status: {status}")
 
-                if status == "completed":
-                    Logger.info("✅ Build completed successfully!")
-                    return True
-                elif status == "failed":
-                    error_msg = status_data.get("error", "Unknown error")
-                    Logger.error(f"❌ Build failed: {error_msg}")
-                    return False
-                elif status in ["pending", "running"]:
-                    # Continue polling
-                    time.sleep(10)
-                    attempt += 1
-                else:
-                    Logger.error(f"Unknown build status: {status}")
-                    return False
+                    if status == "completed":
+                        Logger.info("✅ Build completed successfully!")
+                        return True
+                    elif status == "failed":
+                        error_msg = status_data.get("error", "Unknown error")
+                        Logger.error(f"❌ Build failed: {error_msg}")
+                        return False
+                    elif status in ["pending", "running"]:
+                        # Continue polling
+                        time.sleep(10)
+                        attempt += 1
+                    else:
+                        Logger.error(f"Unknown build status: {status}")
+                        return False
 
-            except requests.exceptions.RequestException as e:
+            except (httpx.RequestError, httpx.HTTPStatusError) as e:
                 Logger.error(f"Failed to check build status: {e}")
                 time.sleep(10)
                 attempt += 1

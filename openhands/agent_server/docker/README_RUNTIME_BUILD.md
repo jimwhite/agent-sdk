@@ -144,10 +144,10 @@ The script interacts with two Runtime API endpoints:
 
 ### Authentication
 
-The script uses Bearer token authentication:
+The script uses X-API-Key header authentication:
 
 ```bash
-curl -H "Authorization: Bearer your-api-key" -H "Content-Type: application/json" -d '{"context":"base64-encoded-tar.gz","target_image":"my-image"}' https://api.example.com/build
+curl -H "X-API-Key: your-api-key" -H "Content-Type: application/json" -d '{"context":"base64-encoded-tar.gz","target_image":"my-image"}' https://api.example.com/build
 ```
 
 ### Build Monitoring
@@ -274,7 +274,7 @@ The script includes comprehensive error handling:
 
 4. **Runtime API authentication**: Verify your API key and URL
    ```bash
-   curl -H "Authorization: Bearer your-key" https://your-api.com/build_status/test
+   curl -H "X-API-Key: your-key" https://your-api.com/build_status/test
    ```
 
 4. **Large archive size**: The archive includes all source code and dependencies
@@ -299,10 +299,10 @@ Enable verbose output for API debugging:
 
 ```bash
 # Test API connectivity
-curl -v -H "Authorization: Bearer your-key" https://your-api.com/build_status/test
+curl -v -H "X-API-Key: your-key" https://your-api.com/build_status/test
 
 # Check build logs (if supported by your Runtime API)
-curl -H "Authorization: Bearer your-key" https://your-api.com/build_logs/your-build-id
+curl -H "X-API-Key: your-key" https://your-api.com/build_logs/your-build-id
 ```
 
 ## Related Files
