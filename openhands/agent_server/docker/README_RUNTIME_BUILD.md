@@ -1,10 +1,10 @@
 # Runtime Build Context Generator
 
-This directory contains a script to generate a complete build context for the OpenHands Agent Server that can be used in runtime environments, including Kubernetes and Runtime API deployments.
+This directory contains a Python script to generate a complete build context for the OpenHands Agent Server that can be used in runtime environments, including Kubernetes and Runtime API deployments.
 
 ## Overview
 
-The `build_for_runtime_api.sh` script creates a tar.gz file containing:
+The `build_for_runtime_api.py` script creates a tar.gz file containing:
 - A standalone Dockerfile (no external dependencies)
 - Complete source code
 - All necessary dependencies
@@ -14,20 +14,25 @@ This allows you to upload the tar.gz to a runtime environment where the actual D
 
 ## Prerequisites
 
-- `tar` and `gzip` utilities
-- `curl` (for Runtime API uploads)
-- `base64` (for Runtime API uploads)
-- `jq` (optional, for better JSON parsing)
+- Python 3.8+ with `requests` library
+- Git (for SHA extraction)
+- Standard Python libraries: `tarfile`, `base64`, `json`, `subprocess`
 
 ## Usage
 
 ### Basic Usage
 
 ```bash
-./openhands/agent_server/docker/build_for_runtime_api.sh
+python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 This creates `./runtime-build/agent-server-{SHORT_SHA}-{PRIMARY_TAG}.tar.gz` with everything needed to build the agent server.
+
+You can also run it directly if it's executable:
+
+```bash
+./openhands/agent_server/docker/build_for_runtime_api.py
+```
 
 ### Runtime API Integration
 
@@ -36,7 +41,7 @@ To automatically upload to a Runtime API:
 ```bash
 RUNTIME_API_URL="https://your-runtime-api.com" \
 RUNTIME_API_KEY="your-api-key" \
-./openhands/agent_server/docker/build_for_runtime_api.sh
+python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 The script will:
@@ -47,7 +52,9 @@ The script will:
 
 ### Configuration Options
 
-The script supports several environment variables for customization:
+Configuration can be done via environment variables or command-line arguments:
+
+#### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -60,33 +67,48 @@ The script supports several environment variables for customization:
 | `RUNTIME_API_URL` | (empty) | Runtime API base URL for automatic upload |
 | `RUNTIME_API_KEY` | (empty) | Runtime API authentication key |
 
+#### Command-Line Arguments
+
+```bash
+python build_for_runtime_api.py --help
+```
+
+- `--target {binary,binary-minimal,source,source-minimal}`: Override TARGET env var
+- `--output-dir OUTPUT_DIR`: Override OUTPUT_DIR env var  
+- `--no-upload`: Skip Runtime API upload even if credentials are provided
+
 ### Examples
 
 #### Local build only
 ```bash
-./openhands/agent_server/docker/build_for_runtime_api.sh
+python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 #### Upload to Runtime API
 ```bash
 RUNTIME_API_URL="https://runtime-api.example.com" \
 RUNTIME_API_KEY="your-secret-key" \
-./openhands/agent_server/docker/build_for_runtime_api.sh
+python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 #### Custom base image and target
 ```bash
-BASE_IMAGE="python:3.12-slim" TARGET="binary-minimal" ./openhands/agent_server/docker/build_for_runtime_api.sh
+BASE_IMAGE="python:3.12-slim" TARGET="binary-minimal" python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 #### Custom output directory and filename
 ```bash
-OUTPUT_DIR="./my-builds" OUTPUT_NAME="my-agent-server.tar.gz" ./openhands/agent_server/docker/build_for_runtime_api.sh
+OUTPUT_DIR="./my-builds" OUTPUT_NAME="my-agent-server.tar.gz" python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 #### Multiple tags
 ```bash
-CUSTOM_TAGS="nodejs,python,dev" ./openhands/agent_server/docker/build_for_runtime_api.sh
+CUSTOM_TAGS="nodejs,python,dev" python openhands/agent_server/docker/build_for_runtime_api.py
+```
+
+#### Using command-line arguments
+```bash
+python openhands/agent_server/docker/build_for_runtime_api.py --target source --output-dir /tmp/builds --no-upload
 ```
 
 ## Filename Convention
@@ -122,23 +144,22 @@ The script interacts with two Runtime API endpoints:
 
 ### Authentication
 
-The script uses the `X-API-Key` header for authentication:
+The script uses Bearer token authentication:
 
 ```bash
-curl -H "X-API-Key: your-api-key" -F "context=@build.tar.gz" -F "target_image=my-image" https://api.example.com/build
+curl -H "Authorization: Bearer your-api-key" -H "Content-Type: application/json" -d '{"context":"base64-encoded-tar.gz","target_image":"my-image"}' https://api.example.com/build
 ```
 
 ### Build Monitoring
 
-The script polls the build status every 30 seconds with a 30-minute timeout. Build progress is displayed in real-time:
+The script polls the build status every 10 seconds with a 10-minute timeout. Build progress is displayed in real-time:
 
 ```
-[runtime-build] Build initiated with ID: abc123
-[runtime-build] Build status: PENDING
-[runtime-build] Build status: RUNNING
-[runtime-build] Build status: SUCCESS
+[runtime-build] Build started with ID: abc123
+[runtime-build] Build status: pending
+[runtime-build] Build status: running
+[runtime-build] Build status: completed
 [runtime-build] ✅ Build completed successfully!
-[runtime-build] 🎉 Image: registry.example.com/agent-server:abc123
 ```
 
 ## Output Structure
@@ -147,15 +168,16 @@ The generated tar.gz contains:
 
 ```
 ./
-├── Dockerfile              # Standalone, multi-stage Dockerfile
-├── BUILD_INSTRUCTIONS.md   # Detailed build instructions
+├── Dockerfile              # Generated Dockerfile for the target
 ├── pyproject.toml          # Python project configuration
 ├── uv.lock                 # Locked dependencies
-├── LICENSE                 # License file
-├── README.md               # Project documentation
+├── README.mdx              # Project documentation
 └── openhands/              # Complete source code
+    ├── sdk/                # OpenHands SDK
+    ├── tools/              # OpenHands Tools
+    ├── workspace/          # Workspace management
     └── agent_server/       # Agent server implementation
-        ├── app.py
+        ├── server.py
         ├── dependencies.py
         └── ...
 ```
@@ -210,14 +232,14 @@ RUN echo "Custom configuration" > /app/config.txt
 # Example GitHub Actions workflow
 - name: Generate runtime build context
   run: |
-    ./openhands/agent_server/docker/build_for_runtime_api.sh
+    python openhands/agent_server/docker/build_for_runtime_api.py --no-upload
     
 - name: Upload to Runtime API
   env:
     RUNTIME_API_URL: ${{ secrets.RUNTIME_API_URL }}
     RUNTIME_API_KEY: ${{ secrets.RUNTIME_API_KEY }}
   run: |
-    ./openhands/agent_server/docker/build_for_runtime_api.sh
+    python openhands/agent_server/docker/build_for_runtime_api.py
 ```
 
 ### Error Handling
@@ -233,20 +255,26 @@ The script includes comprehensive error handling:
 
 ### Common Issues
 
-1. **Permission denied**: Make sure the script is executable
+1. **Python not found**: Make sure Python 3.8+ is installed
    ```bash
-   chmod +x ./openhands/agent_server/docker/build_for_runtime_api.sh
+   python3 --version
+   pip install requests  # If requests library is missing
    ```
 
-2. **Git not found**: The script requires git to generate the SHA
+2. **Permission denied**: Make sure the script is executable (if running directly)
+   ```bash
+   chmod +x ./openhands/agent_server/docker/build_for_runtime_api.py
+   ```
+
+3. **Git not found**: The script requires git to generate the SHA
    ```bash
    # Install git if not available
    apt-get update && apt-get install -y git
    ```
 
-3. **Runtime API authentication**: Verify your API key and URL
+4. **Runtime API authentication**: Verify your API key and URL
    ```bash
-   curl -H "X-API-Key: your-key" https://your-api.com/build_status?build_id=test
+   curl -H "Authorization: Bearer your-key" https://your-api.com/build_status/test
    ```
 
 4. **Large archive size**: The archive includes all source code and dependencies
@@ -271,10 +299,10 @@ Enable verbose output for API debugging:
 
 ```bash
 # Test API connectivity
-curl -v -H "X-API-Key: your-key" https://your-api.com/build_status?build_id=test
+curl -v -H "Authorization: Bearer your-key" https://your-api.com/build_status/test
 
 # Check build logs (if supported by your Runtime API)
-curl -H "X-API-Key: your-key" https://your-api.com/build_logs?build_id=your-build-id
+curl -H "Authorization: Bearer your-key" https://your-api.com/build_logs/your-build-id
 ```
 
 ## Related Files
