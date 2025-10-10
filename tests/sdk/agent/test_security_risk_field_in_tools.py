@@ -241,3 +241,129 @@ def test_readonly_tool_excludes_security_risk_field():
     # Note: This test demonstrates that FileEditorTool and BashTool are NOT
     # read-only tools, so they include the security_risk field.
     # If we had actual read-only tools, they would exclude this field.
+
+
+# Integration tests that verify how the agent actually calls to_openai_tool()
+
+
+def test_agent_integration_no_security_analyzer():
+    """Test agent integration: no security analyzer means no security_risk field."""
+    from openhands.tools.file_editor import FileEditorTool
+
+    register_tool("FileEditorTool", FileEditorTool)
+
+    # Create agent with no security analyzer
+    agent = Agent(
+        llm=LLM(
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
+        ),
+        tools=[Tool(name="FileEditorTool")],
+        security_analyzer=None,  # No security analyzer
+    )
+
+    # Initialize the agent by creating a conversation
+    Conversation(agent=agent, visualize=False)
+
+    # Check that _add_security_risk_prediction returns False
+    assert not agent._add_security_risk_prediction
+
+    # Verify tool conversion behavior matches agent's expectation
+    file_editor_tool = agent.tools_map["str_replace_editor"]
+    openai_tool = file_editor_tool.to_openai_tool(
+        add_security_risk_prediction=agent._add_security_risk_prediction
+    )
+
+    # Should NOT contain security_risk field
+    assert "function" in openai_tool
+    assert "parameters" in openai_tool["function"]
+    assert "security_risk" not in openai_tool["function"]["parameters"]["properties"]
+
+
+def test_agent_integration_with_llm_security_analyzer():
+    """Test agent integration: LLMSecurityAnalyzer means security_risk field is included."""  # noqa: E501
+    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+    from openhands.tools.file_editor import FileEditorTool
+
+    register_tool("FileEditorTool", FileEditorTool)
+
+    # Create agent with LLMSecurityAnalyzer
+    agent = Agent(
+        llm=LLM(
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
+        ),
+        tools=[Tool(name="FileEditorTool")],
+        security_analyzer=LLMSecurityAnalyzer(),  # LLM security analyzer
+    )
+
+    # Initialize the agent by creating a conversation
+    Conversation(agent=agent, visualize=False)
+
+    # Check that _add_security_risk_prediction returns True
+    assert agent._add_security_risk_prediction
+
+    # Verify tool conversion behavior matches agent's expectation
+    file_editor_tool = agent.tools_map["str_replace_editor"]
+    openai_tool = file_editor_tool.to_openai_tool(
+        add_security_risk_prediction=agent._add_security_risk_prediction
+    )
+
+    # Should contain security_risk field
+    assert "function" in openai_tool
+    assert "parameters" in openai_tool["function"]
+    assert "security_risk" in openai_tool["function"]["parameters"]["properties"]
+    security_risk_field = openai_tool["function"]["parameters"]["properties"][
+        "security_risk"
+    ]
+    assert "Security risk levels for actions" in security_risk_field["description"]
+
+
+# Note: We skip testing non-LLM security analyzers since the main integration
+# point is that only LLMSecurityAnalyzer triggers add_security_risk_prediction=True.
+# The key behavior is tested in the other integration tests.
+
+
+def test_agent_integration_bash_tool_with_llm_analyzer():
+    """Test agent integration: BashTool with LLMSecurityAnalyzer includes security_risk field."""  # noqa: E501
+    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+    from openhands.tools.execute_bash import BashTool
+
+    register_tool("BashTool", BashTool)
+
+    # Create agent with LLMSecurityAnalyzer and BashTool
+    agent = Agent(
+        llm=LLM(
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
+        ),
+        tools=[Tool(name="BashTool")],
+        security_analyzer=LLMSecurityAnalyzer(),
+    )
+
+    # Initialize the agent by creating a conversation
+    Conversation(agent=agent, visualize=False)
+
+    # Check that _add_security_risk_prediction returns True
+    assert agent._add_security_risk_prediction
+
+    # Verify tool conversion behavior
+    bash_tool = agent.tools_map["execute_bash"]
+    openai_tool = bash_tool.to_openai_tool(
+        add_security_risk_prediction=agent._add_security_risk_prediction
+    )
+
+    # Should contain security_risk field
+    assert "function" in openai_tool
+    assert "parameters" in openai_tool["function"]
+    assert "security_risk" in openai_tool["function"]["parameters"]["properties"]
+    security_risk_field = openai_tool["function"]["parameters"]["properties"][
+        "security_risk"
+    ]
+    assert "Security risk levels for actions" in security_risk_field["description"]
