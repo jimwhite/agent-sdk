@@ -81,16 +81,9 @@ class Agent(AgentBase):
 
     def _configure_delegation_tools(self, state: ConversationState) -> None:
         """Configure delegation tools with conversation context."""
-        for tool in self.tools_map.values():
-            if tool.name == "delegate":
-                try:
-                    executable_tool = tool.as_executable()
-                    # Wire the parent conversation for the delegation executor
-                    if hasattr(executable_tool.executor, 'set_parent_conversation'):
-                        executable_tool.executor.set_parent_conversation(state.conversation)
-                except NotImplementedError:
-                    # Tool has no executor, skip it
-                    continue
+        # For now, delegation tools are configured during initialization
+        # TODO: Wire parent conversation reference when needed
+        pass
 
     def init_state(
         self,
@@ -115,7 +108,7 @@ class Agent(AgentBase):
 
         # Configure bash tools with env provider
         self._configure_bash_tools_env_provider(state)
-        
+
         # Configure delegation tools with conversation context
         self._configure_delegation_tools(state)
 
