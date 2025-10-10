@@ -214,7 +214,9 @@ class BuildContextCreator:
             self._create_tarball(temp_path, output_path)
 
         Logger.info(f"Build context created: {output_path}")
-        Logger.info(f"File size: {self._format_size(output_path.stat().st_size)}")
+        Logger.info(
+            f"File size: {self._format_size(float(output_path.stat().st_size))}"
+        )
 
         return output_path
 
@@ -285,7 +287,7 @@ class BuildContextCreator:
             for item in source_dir.iterdir():
                 tar.add(item, arcname=item.name)
 
-    def _format_size(self, size_bytes: int) -> str:
+    def _format_size(self, size_bytes: float) -> str:
         """Format file size in human readable format."""
         for unit in ["B", "KB", "MB", "GB"]:
             if size_bytes < 1024.0:
@@ -302,7 +304,6 @@ class RuntimeAPIClient:
         self.base_url = config.runtime_api_url.rstrip("/")
         self.headers = {
             "X-API-Key": config.runtime_api_key,
-            "Content-Type": "application/json",
         }
 
     def upload_and_build(self, tar_path: Path) -> bool:
@@ -311,27 +312,36 @@ class RuntimeAPIClient:
             Logger.info("Runtime API credentials not provided, skipping upload")
             return True
 
-        Logger.info("Uploading build context to Runtime API...")
+        Logger.info("📤 Uploading build context to Runtime API...")
 
         # Encode tar.gz file as base64
         try:
             with open(tar_path, "rb") as f:
                 encoded_context = base64.b64encode(f.read()).decode("utf-8")
         except Exception as e:
-            Logger.error(f"Failed to encode tar.gz file: {e}")
+            Logger.error(f"❌ Failed to encode tar.gz file: {e}")
             return False
-
-        # Prepare payload
-        target_image = f"agent-server:{self.config.short_sha}-{self.config.primary_tag}"
-        payload = {"context": encoded_context, "target_image": target_image}
 
         # Upload build context
         try:
-            with httpx.Client() as client:
+            with httpx.Client(headers=self.headers) as client:
+                # Get the registry prefix - we need to know what to call this thing...
+                response = client.get(f"{self.base_url}/registry_prefix")
+                response_json = response.json()
+                registry_prefix = response_json["registry_prefix"]
+
+                # Prepare payload
+                target_image = (
+                    f"{registry_prefix}/agent-server:{self.config.short_sha}"
+                    f"-{self.config.primary_tag}"
+                )
+                files = [
+                    ("context", ("context.tar.gz", encoded_context)),
+                    ("target_image", (None, target_image)),
+                ]
                 response = client.post(
                     f"{self.base_url}/build",
-                    headers=self.headers,
-                    json=payload,
+                    files=files,
                     timeout=300,  # 5 minutes timeout for upload
                 )
                 response.raise_for_status()
@@ -343,8 +353,8 @@ class RuntimeAPIClient:
                     Logger.error("No build_id returned from Runtime API")
                     return False
 
-                Logger.info(f"Build started with ID: {build_id}")
-                Logger.info(f"Target image: {target_image}")
+                Logger.info(f"🛠️  Build started with ID: {build_id}")
+                Logger.info(f"🎯 Target image: {target_image}")
 
                 # Poll for build completion
                 return self._poll_build_status(build_id)
@@ -370,7 +380,8 @@ class RuntimeAPIClient:
             try:
                 with httpx.Client() as client:
                     response = client.get(
-                        f"{self.base_url}/build_status/{build_id}",
+                        f"{self.base_url}/build_status",
+                        params={"build_id": build_id},
                         headers=self.headers,
                         timeout=30,
                     )
@@ -381,20 +392,23 @@ class RuntimeAPIClient:
 
                     Logger.info(f"Build status: {status}")
 
-                    if status == "completed":
+                    if status == "SUCCESS":
                         Logger.info("✅ Build completed successfully!")
                         return True
-                    elif status == "failed":
+                    elif status in (
+                        "FAILURE",
+                        "INTERNAL_ERROR",
+                        "TIMEOUT",
+                        "CANCELLED",
+                        "EXPIRED",
+                    ):
                         error_msg = status_data.get("error", "Unknown error")
                         Logger.error(f"❌ Build failed: {error_msg}")
                         return False
-                    elif status in ["pending", "running"]:
-                        # Continue polling
-                        time.sleep(10)
-                        attempt += 1
-                    else:
-                        Logger.error(f"Unknown build status: {status}")
-                        return False
+
+                    # Continue polling
+                    time.sleep(10)
+                    attempt += 1
 
             except (httpx.RequestError, httpx.HTTPStatusError) as e:
                 Logger.error(f"Failed to check build status: {e}")
@@ -413,9 +427,9 @@ def main():
         epilog="""
 Environment Variables:
   OUTPUT_DIR          Output directory (default: ./runtime-build)
-  BASE_IMAGE          Base Docker image 
+  BASE_IMAGE          Base Docker image
                       (default: nikolaik/python-nodejs:python3.12-nodejs22)
-  TARGET              Build target: binary, binary-minimal, source, 
+  TARGET              Build target: binary, binary-minimal, source,
                       source-minimal (default: binary)
   CLEAN_OUTPUT        Clean output directory before build (default: true)
   CUSTOM_TAGS         Comma-separated custom tags (default: python)
