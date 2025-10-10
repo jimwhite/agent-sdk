@@ -12,6 +12,13 @@ The `build_for_runtime_api.sh` script creates a tar.gz file containing:
 
 This allows you to upload the tar.gz to a runtime environment where the actual Docker build will be performed. If Runtime API credentials are provided, the script will automatically upload and monitor the build process.
 
+## Prerequisites
+
+- `tar` and `gzip` utilities
+- `curl` (for Runtime API uploads)
+- `base64` (for Runtime API uploads)
+- `jq` (optional, for better JSON parsing)
+
 ## Usage
 
 ### Basic Usage
@@ -106,7 +113,7 @@ Examples:
 The script interacts with two Runtime API endpoints:
 
 1. **POST `/build`**: Upload build context and initiate build
-   - Accepts multipart form data with `context` (tar.gz file) and `target_image` fields
+   - Accepts JSON payload with `context` (base64-encoded tar.gz) and `target_image` fields
    - Returns JSON with `build_id` for tracking
 
 2. **GET `/build_status?build_id={id}`**: Check build status

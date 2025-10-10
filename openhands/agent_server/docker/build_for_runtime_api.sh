@@ -217,16 +217,26 @@ if [[ -n "${RUNTIME_API_URL}" && -n "${RUNTIME_API_KEY}" ]]; then
         echo "[runtime-build] Uploading build context..."
         echo "[runtime-build] Target image: ${target_image}"
         
-        # Upload to /build endpoint using multipart form data
+        # Base64 encode the tar file for upload
+        echo "[runtime-build] Encoding build context..."
+        local encoded_context
+        if command -v base64 >/dev/null 2>&1; then
+            encoded_context=$(base64 -w 0 "${tar_file}")
+        else
+            echo "[runtime-build] ❌ base64 command not found. Please install coreutils."
+            return 1
+        fi
+        
+        # Upload to /build endpoint using JSON payload with base64-encoded context
         local upload_response
         upload_response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "X-API-Key: ${RUNTIME_API_KEY}" \
-            -F "context=@${tar_file}" \
-            -F "target_image=${target_image}" \
+            -H "Content-Type: application/json" \
+            -d "{\"context\":\"${encoded_context}\",\"target_image\":\"${target_image}\"}" \
             "${RUNTIME_API_URL}/build")
         
         local http_code
-        http_code=$(echo "${upload_response}" | tail -n1)
+        http_code=$(echo "${upload_response}" | tail -n 1)
         local response_body
         response_body=$(echo "${upload_response}" | head -n -1)
         
@@ -275,7 +285,7 @@ if [[ -n "${RUNTIME_API_URL}" && -n "${RUNTIME_API_KEY}" ]]; then
                 "${RUNTIME_API_URL}/build_status?build_id=${build_id}")
             
             local status_http_code
-            status_http_code=$(echo "${status_response}" | tail -n1)
+            status_http_code=$(echo "${status_response}" | tail -n 1)
             local status_body
             status_body=$(echo "${status_response}" | head -n -1)
             
