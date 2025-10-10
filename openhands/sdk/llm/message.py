@@ -279,14 +279,20 @@ class Message(BaseModel):
         return message_dict
 
     def _to_chat_string_payload(self) -> dict[str, Any]:
-        # convert content to a single string for Chat Completions
-        content = "\n".join(
-            item.text for item in self.content if isinstance(item, TextContent)
-        )
-        message_dict: dict[str, Any] = {"content": content, "role": self.role}
+        # Derive from canonical list payload to keep single source of truth
+        list_payload = self._to_chat_list_payload()
+        content_list = list_payload.get("content", [])
 
-        # tool call keys are added in to_chat_dict to centralize behavior
-        return message_dict
+        # Extract only text items; ignore images, thinking blocks, etc.
+        text_parts: list[str] = []
+        for part in content_list:
+            if part.get("type") == "text":
+                text = part.get("text")
+                if isinstance(text, str):
+                    text_parts.append(text)
+
+        # Return minimal string payload for providers requiring a string
+        return {"content": "\n".join(text_parts), "role": self.role}
 
     def _to_chat_list_payload(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
