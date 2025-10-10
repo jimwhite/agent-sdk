@@ -6,14 +6,22 @@ set -euo pipefail
 # ------------------------------------------------------------
 IMAGE="${IMAGE:-ghcr.io/all-hands-ai/agent-server}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
-VARIANT_NAME="${VARIANT_NAME:-python}"  # "python", "java", or "golang"
-TARGET="${TARGET:-binary}"          # "binary" (prod) or "source" (dev)
+# Comma-separated; the FIRST is the "primary" tag used for version & cache keys
+CUSTOM_TAGS="${CUSTOM_TAGS:-python}"
+# Targets: prod -> binary | binary-minimal,  dev -> source | source-minimal
+TARGET="${TARGET:-binary}"
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
+AGENT_SDK_PATH="${AGENT_SDK_PATH:-.}"
 
-# Path to Dockerfile (in script dir, not cwd)
+# Validate target
+case "${TARGET}" in
+  binary|binary-minimal|source|source-minimal) ;;
+  *) echo "[build] ERROR: Invalid TARGET '${TARGET}'. Must be one of: binary, binary-minimal, source, source-minimal" >&2; exit 1 ;;
+esac
+
+# Paths
 SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
 DOCKERFILE="${SCRIPT_DIR}/Dockerfile"
-
 [[ -f "${DOCKERFILE}" ]] || { echo "[build] ERROR: Dockerfile not found at ${DOCKERFILE}"; exit 1; }
 
 # ------------------------------------------------------------
@@ -33,54 +41,75 @@ PY
 )"
 echo "[build] Using SDK version ${SDK_VERSION}"
 
-# Base slug (keep legacy format so downstream tags don’t change)
+# ------------------------------------------------------------
+# Tag components
+# ------------------------------------------------------------
+IFS=',' read -ra CUSTOM_TAG_ARRAY <<< "${CUSTOM_TAGS}"
 BASE_SLUG="$(echo -n "${BASE_IMAGE}" | sed -e 's|/|_s_|g' -e 's|:|_tag_|g')"
-VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}_${VARIANT_NAME}"
+VERSIONED_TAG="v${SDK_VERSION}_${BASE_SLUG}"
+
+# Dev/Prod classification by target
+case "${TARGET}" in
+  source|source-minimal) IS_DEV=1 ;;
+  *) IS_DEV=0 ;;
+esac
 
 # ------------------------------------------------------------
 # Cache configuration
 # ------------------------------------------------------------
-CACHE_TAG_BASE="buildcache-${VARIANT_NAME}"
+# Scope cache by primary tag + target to improve reuse and avoid cross-pollution
+CACHE_TAG_BASE="buildcache-${TARGET}-${BASE_SLUG}"
 CACHE_TAG="${CACHE_TAG_BASE}"
-
-# Add branch-specific cache tag for better cache hits
 if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
   CACHE_TAG="${CACHE_TAG_BASE}-main"
 elif [[ "${GIT_REF}" != "unknown" ]]; then
-  # Sanitize branch name for use in cache tag
   SANITIZED_REF="$(echo "${GIT_REF}" | sed 's|refs/heads/||' | sed 's/[^a-zA-Z0-9.-]\+/-/g' | tr '[:upper:]' '[:lower:]')"
   CACHE_TAG="${CACHE_TAG_BASE}-${SANITIZED_REF}"
 fi
 
 # ------------------------------------------------------------
-# Tagging: prod vs dev
+# Tagging
 # ------------------------------------------------------------
-if [[ "${TARGET}" == "source" ]]; then
-  # Dev tags: add -dev suffix
-  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}-dev" "${IMAGE}:${VERSIONED_TAG}-dev" )
-  if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}-dev" )
+TAGS=()
+
+# SHA tags (per custom tag)
+for t in "${CUSTOM_TAG_ARRAY[@]}"; do
+  if [[ "${IS_DEV}" -eq 1 ]]; then
+    TAGS+=( "${IMAGE}:${SHORT_SHA}-${t}-dev" )
+  else
+    TAGS+=( "${IMAGE}:${SHORT_SHA}-${t}" )
   fi
+done
+
+# "main" moving tag when on main
+if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
+  for t in "${CUSTOM_TAG_ARRAY[@]}"; do
+    if [[ "${IS_DEV}" -eq 1 ]]; then
+      TAGS+=( "${IMAGE}:main-${t}-dev" )
+    else
+      TAGS+=( "${IMAGE}:main-${t}" )
+    fi
+  done
+fi
+
+# Versioned tag (single, uses primary tag baked into VERSIONED_TAG)
+if [[ "${IS_DEV}" -eq 1 ]]; then
+  TAGS+=( "${IMAGE}:${VERSIONED_TAG}-dev" )
 else
-  # Prod tags
-  TAGS=( "${IMAGE}:${SHORT_SHA}-${VARIANT_NAME}" "${IMAGE}:${VERSIONED_TAG}" )
-  if [[ "${GIT_REF}" == "main" || "${GIT_REF}" == "refs/heads/main" ]]; then
-    TAGS+=( "${IMAGE}:latest-${VARIANT_NAME}" )
-  fi
+  TAGS+=( "${IMAGE}:${VERSIONED_TAG}" )
 fi
 
 # ------------------------------------------------------------
 # Build flags
 # ------------------------------------------------------------
-AGENT_SDK_PATH="${AGENT_SDK_PATH:-.}"
 COMMON_ARGS=(
   --build-arg "BASE_IMAGE=${BASE_IMAGE}"
   --target "${TARGET}"
   --file "${DOCKERFILE}"
-  $AGENT_SDK_PATH
+  "${AGENT_SDK_PATH}"
 )
 
-echo "[build] Building target='${TARGET}' image='${IMAGE}' variant='${VARIANT_NAME}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"
+echo "[build] Building target='${TARGET}' image='${IMAGE}' custom_tags='${CUSTOM_TAGS}' from base='${BASE_IMAGE}' for platforms='${PLATFORMS}'"
 echo "[build] Git ref='${GIT_REF}' sha='${GIT_SHA}' version='${SDK_VERSION}'"
 echo "[build] Cache tag: ${CACHE_TAG}"
 echo "[build] Tags:"
@@ -90,7 +119,6 @@ printf ' - %s\n' "${TAGS[@]}" 1>&2
 # Buildx: push in CI, load locally
 # ------------------------------------------------------------
 if [[ -n "${GITHUB_ACTIONS:-}" || -n "${CI:-}" ]]; then
-  # CI: multi-arch, push with caching
   docker buildx create --use --name agentserver-builder >/dev/null 2>&1 || true
   docker buildx build \
     --platform "${PLATFORMS}" \
@@ -101,7 +129,6 @@ if [[ -n "${GITHUB_ACTIONS:-}" || -n "${CI:-}" ]]; then
     --cache-to="type=registry,ref=${IMAGE}:${CACHE_TAG},mode=max" \
     --push
 else
-  # Local: single-arch, load to docker with caching
   docker buildx build \
     "${COMMON_ARGS[@]}" \
     $(printf ' --tag %q' "${TAGS[@]}") \
@@ -112,7 +139,6 @@ fi
 
 echo "[build] Done. Tags:"
 printf ' - %s\n' "${TAGS[@]}"
-
 
 # ------------------------------------------------------------
 # GitHub Actions outputs (if available)
