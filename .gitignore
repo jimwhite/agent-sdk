@@ -203,3 +203,6 @@ cache
 /workspace/
 openapi.json
 .client/
+
+# Do not save the K8 file
+k8s-build
