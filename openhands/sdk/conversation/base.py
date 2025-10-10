@@ -7,6 +7,7 @@ from openhands.sdk.conversation.conversation_stats import ConversationStats
 from openhands.sdk.conversation.events_list_base import EventsListBase
 from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.llm.llm import LLM
 from openhands.sdk.llm.message import Message
 from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
@@ -93,6 +94,20 @@ class BaseConversation(ABC):
     def confirmation_policy_active(self) -> bool:
         return not isinstance(self.state.confirmation_policy, NeverConfirm)
 
+    @property
+    def is_confirmation_mode_active(self) -> bool:
+        """Check if confirmation mode is active.
+
+        Returns True if BOTH conditions are met:
+        1. The agent has a security analyzer set (not None)
+        2. The confirmation policy is active
+
+        """
+        return (
+            self.state.agent.security_analyzer is not None
+            and self.confirmation_policy_active
+        )
+
     @abstractmethod
     def reject_pending_actions(
         self, reason: str = "User rejected the action"
@@ -106,6 +121,23 @@ class BaseConversation(ABC):
 
     @abstractmethod
     def close(self) -> None: ...
+
+    @abstractmethod
+    def generate_title(self, llm: LLM | None = None, max_length: int = 50) -> str:
+        """Generate a title for the conversation based on the first user message.
+
+        Args:
+            llm: Optional LLM to use for title generation. If not provided,
+                 uses the agent's LLM.
+            max_length: Maximum length of the generated title.
+
+        Returns:
+            A generated title for the conversation.
+
+        Raises:
+            ValueError: If no user messages are found in the conversation.
+        """
+        ...
 
     @staticmethod
     def get_persistence_dir(
