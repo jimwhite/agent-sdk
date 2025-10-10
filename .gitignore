@@ -204,5 +204,5 @@ cache
 openapi.json
 .client/
 
-# Do not save the K8 file
-k8s-build
+# runtime build context output
+runtime-build/
