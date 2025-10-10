@@ -92,11 +92,11 @@ class Telemetry:
           - records latency, tokens, cost into Metrics
           - optionally writes a JSON log file
         """
-        # Only handle ModelResponse instances
-        if not isinstance(resp, ModelResponse):
+        # Only handle known response types
+        if not isinstance(resp, (ModelResponse, ResponsesAPIResponse)):
             return self._metrics.deep_copy()
 
-        # 1) latency
+        # 1) latency (applies to both ModelResponse and ResponsesAPIResponse)
         self._last_latency = time.time() - (self._req_start or time.time())
         response_id = str(getattr(resp, "id", None) or "unknown")
         self._metrics.add_response_latency(self._last_latency, response_id)
