@@ -109,7 +109,7 @@ class Telemetry:
             self._metrics.add_cost(cost)
 
         # 3) tokens - use typed usage field when available
-        usage = getattr(resp, "usage", None)
+        usage = resp.usage
 
         if usage and self._has_meaningful_usage(usage):
             self._record_usage(
@@ -277,7 +277,7 @@ class Telemetry:
 
             # Usage summary (prompt, completion, reasoning tokens) for quick inspection
             try:
-                usage = getattr(resp, "usage", None)
+                usage = resp.usage
                 if usage:
                     prompt_tokens = int(
                         getattr(usage, "prompt_tokens", None)
