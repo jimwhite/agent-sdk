@@ -98,7 +98,7 @@ class Telemetry:
 
         # 1) latency (applies to both ModelResponse and ResponsesAPIResponse)
         self._last_latency = time.time() - (self._req_start or time.time())
-        response_id = str(getattr(resp, "id", None) or "unknown")
+        response_id = str(resp.id)
         self._metrics.add_response_latency(self._last_latency, response_id)
 
         # 2) cost
