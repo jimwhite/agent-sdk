@@ -21,7 +21,7 @@ This is designed for Kubernetes environments where you need to upload a build co
 ./openhands/agent_server/docker/create_k8s_build_context.sh
 ```
 
-This creates `./k8s-build/openhands-agent-server-k8s-build.tar.gz` with the default binary target.
+This creates `./k8s-build/agent-server-{SHORT_SHA}-python.tar.gz` with the default binary target, where `{SHORT_SHA}` is the first 7 characters of the current git commit hash.
 
 #### Advanced Usage
 
@@ -31,7 +31,7 @@ You can customize the build using environment variables:
 # Create a minimal build context
 TARGET=binary-minimal ./openhands/agent_server/docker/create_k8s_build_context.sh
 
-# Use a different output directory and filename
+# Use a different output directory and custom filename
 OUTPUT_DIR=./my-builds OUTPUT_NAME=agent-server-v1.0.tar.gz ./openhands/agent_server/docker/create_k8s_build_context.sh
 
 # Use a different base image
@@ -46,10 +46,30 @@ CLEAN_OUTPUT=false ./openhands/agent_server/docker/create_k8s_build_context.sh
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `OUTPUT_DIR` | `./k8s-build` | Directory where the tar.gz will be created |
-| `OUTPUT_NAME` | `openhands-agent-server-k8s-build.tar.gz` | Name of the output tar.gz file |
+| `OUTPUT_NAME` | *(auto-generated)* | Custom name for output file. If not set, uses `agent-server-{SHORT_SHA}-{PRIMARY_TAG}.tar.gz` |
 | `BASE_IMAGE` | `nikolaik/python-nodejs:python3.12-nodejs22` | Base Docker image to use |
+| `CUSTOM_TAGS` | `python` | Comma-separated tags (first one used in filename) |
 | `TARGET` | `binary` | Docker build target (binary, binary-minimal, source, source-minimal) |
 | `CLEAN_OUTPUT` | `true` | Whether to clean the output directory before building |
+
+### File Naming
+
+By default, the script generates filenames using the same tagging format as the Docker build system:
+
+```
+agent-server-{SHORT_SHA}-{PRIMARY_TAG}.tar.gz
+```
+
+Where:
+- `{SHORT_SHA}`: First 7 characters of the current git commit hash
+- `{PRIMARY_TAG}`: First tag from `CUSTOM_TAGS` (default: "python")
+
+Examples:
+- `agent-server-189979a-python.tar.gz` (default)
+- `agent-server-189979a-nodejs.tar.gz` (with `CUSTOM_TAGS=nodejs`)
+- `agent-server-abc1234-python.tar.gz` (different commit)
+
+You can override this by setting `OUTPUT_NAME` explicitly.
 
 ### Build Targets
 

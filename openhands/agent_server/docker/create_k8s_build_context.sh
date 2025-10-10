@@ -12,10 +12,25 @@ set -euo pipefail
 
 # Config (overridables)
 OUTPUT_DIR="${OUTPUT_DIR:-./k8s-build}"
-OUTPUT_NAME="${OUTPUT_NAME:-openhands-agent-server-k8s-build.tar.gz}"
 BASE_IMAGE="${BASE_IMAGE:-nikolaik/python-nodejs:python3.12-nodejs22}"
 TARGET="${TARGET:-binary}"
 CLEAN_OUTPUT="${CLEAN_OUTPUT:-true}"
+CUSTOM_TAGS="${CUSTOM_TAGS:-python}"
+
+# Generate tag using same logic as build.sh
+GIT_SHA="${GITHUB_SHA:-$(git rev-parse --verify HEAD 2>/dev/null || echo unknown)}"
+SHORT_SHA="${GIT_SHA:0:7}"
+IFS=',' read -ra CUSTOM_TAG_ARRAY <<< "${CUSTOM_TAGS}"
+PRIMARY_TAG="${CUSTOM_TAG_ARRAY[0]}"
+
+# Generate output filename with tag
+if [[ -n "${OUTPUT_NAME:-}" ]]; then
+    # Use provided OUTPUT_NAME if specified
+    OUTPUT_FILENAME="${OUTPUT_NAME}"
+else
+    # Generate filename with tag format: agent-server-{SHORT_SHA}-{PRIMARY_TAG}.tar.gz
+    OUTPUT_FILENAME="agent-server-${SHORT_SHA}-${PRIMARY_TAG}.tar.gz"
+fi
 
 # Validate target
 case "${TARGET}" in
@@ -32,7 +47,9 @@ echo "[k8s-build] Creating Kubernetes build context for agent-server"
 echo "[k8s-build] Repository root: ${REPO_ROOT}"
 echo "[k8s-build] Target: ${TARGET}"
 echo "[k8s-build] Base image: ${BASE_IMAGE}"
-echo "[k8s-build] Output: ${OUTPUT_DIR}/${OUTPUT_NAME}"
+echo "[k8s-build] Git SHA: ${SHORT_SHA}"
+echo "[k8s-build] Primary tag: ${PRIMARY_TAG}"
+echo "[k8s-build] Output: ${OUTPUT_DIR}/${OUTPUT_FILENAME}"
 
 # Clean and create output directory
 if [[ "${CLEAN_OUTPUT}" == "true" && -d "${OUTPUT_DIR}" ]]; then
@@ -366,13 +383,13 @@ EOF
 echo "[k8s-build] Creating tar.gz archive..."
 
 cd "${OUTPUT_DIR}"
-tar -czf "${OUTPUT_NAME}" -C build-context .
+tar -czf "${OUTPUT_FILENAME}" -C build-context .
 
 # Get file size for reporting
-FILE_SIZE=$(du -h "${OUTPUT_NAME}" | cut -f1)
+FILE_SIZE=$(du -h "${OUTPUT_FILENAME}" | cut -f1)
 
 echo "[k8s-build] ✅ Successfully created Kubernetes build context!"
-echo "[k8s-build] 📦 Archive: ${OUTPUT_DIR}/${OUTPUT_NAME} (${FILE_SIZE})"
+echo "[k8s-build] 📦 Archive: ${OUTPUT_DIR}/${OUTPUT_FILENAME} (${FILE_SIZE})"
 echo "[k8s-build] 📁 Contents:"
 echo "   - Dockerfile (standalone, multi-stage)"
 echo "   - Complete source code (openhands/)"
@@ -380,14 +397,14 @@ echo "   - Dependencies (pyproject.toml, uv.lock)"
 echo "   - Build instructions (BUILD_INSTRUCTIONS.md)"
 echo ""
 echo "[k8s-build] 🚀 Ready for Kubernetes deployment!"
-echo "[k8s-build] Extract and run: tar -xzf ${OUTPUT_NAME} && docker build -t openhands-agent-server ."
+echo "[k8s-build] Extract and run: tar -xzf ${OUTPUT_FILENAME} && docker build -t openhands-agent-server ."
 
 # Optional: show archive contents
 if command -v tar >/dev/null 2>&1; then
   echo ""
   echo "[k8s-build] 📋 Archive contents:"
-  tar -tzf "${OUTPUT_NAME}" | head -20
-  TOTAL_FILES=$(tar -tzf "${OUTPUT_NAME}" | wc -l)
+  tar -tzf "${OUTPUT_FILENAME}" | head -20
+  TOTAL_FILES=$(tar -tzf "${OUTPUT_FILENAME}" | wc -l)
   if [[ ${TOTAL_FILES} -gt 20 ]]; then
     echo "   ... and $((TOTAL_FILES - 20)) more files"
   fi
