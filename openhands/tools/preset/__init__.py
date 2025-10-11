@@ -23,4 +23,9 @@ from .planning import get_planning_agent
 from .worker import get_worker_agent
 
 
-__all__ = ["get_default_agent", "get_default_worker_agent", "get_planning_agent", "get_worker_agent"]
+__all__ = [
+    "get_default_agent",
+    "get_default_worker_agent",
+    "get_planning_agent",
+    "get_worker_agent",
+]

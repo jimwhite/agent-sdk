@@ -1,253 +1,192 @@
 """Tests for delegation tools."""
 
-import pytest
-from unittest.mock import Mock
-
-from openhands.tools.delegation.definition import (
-    DelegateAction,
-    DelegateObservation,
-    DelegationTool,
-)
+from openhands.tools.delegation.definition import DelegateAction, DelegateObservation
 from openhands.tools.delegation.impl import DelegateExecutor
-from openhands.sdk.delegation.manager import DelegationManager
 
 
-def test_delegate_action_spawn():
-    """Test DelegateAction for spawn operation."""
-    action = DelegateAction(
-        operation="spawn",
-        task="Test task for sub-agent"
+def test_delegate_action_creation():
+    """Test creating DelegateAction instances."""
+    # Test spawn action
+    spawn_action = DelegateAction(operation="spawn", task="Analyze code quality")
+    assert spawn_action.operation == "spawn"
+    assert spawn_action.task == "Analyze code quality"
+    assert spawn_action.sub_conversation_id is None
+    assert spawn_action.message is None
+
+    # Test send action
+    send_action = DelegateAction(
+        operation="send", sub_conversation_id="sub-123", message="Hello"
     )
-    
-    assert action.operation == "spawn"
-    assert action.task == "Test task for sub-agent"
-    assert action.sub_conversation_id is None
-    assert action.message is None
+    assert send_action.operation == "send"
+    assert send_action.sub_conversation_id == "sub-123"
+    assert send_action.message == "Hello"
+    assert send_action.task is None
 
 
-def test_delegate_action_send():
-    """Test DelegateAction for send operation."""
-    action = DelegateAction(
-        operation="send",
-        sub_conversation_id="sub-123",
-        message="Hello sub-agent"
-    )
-    
-    assert action.operation == "send"
-    assert action.sub_conversation_id == "sub-123"
-    assert action.message == "Hello sub-agent"
-    assert action.task is None
-
-
-def test_delegate_action_close():
-    """Test DelegateAction for close operation."""
-    action = DelegateAction(
-        operation="close",
-        sub_conversation_id="sub-123"
-    )
-    
-    assert action.operation == "close"
-    assert action.sub_conversation_id == "sub-123"
-    assert action.task is None
-    assert action.message is None
-
-
-def test_delegate_observation():
-    """Test DelegateObservation."""
+def test_delegate_observation_creation():
+    """Test creating DelegateObservation instances."""
     observation = DelegateObservation(
         sub_conversation_id="sub-123",
         status="created",
         message="Sub-agent created successfully",
-        result="Task completed"
+        result="Task assigned",
     )
-    
     assert observation.sub_conversation_id == "sub-123"
     assert observation.status == "created"
     assert observation.message == "Sub-agent created successfully"
-    assert observation.result == "Task completed"
+    assert observation.result == "Task assigned"
 
 
 def test_delegate_executor_spawn():
     """Test DelegateExecutor spawn operation."""
-    # Mock delegation manager
-    mock_manager = Mock(spec=DelegationManager)
-    mock_sub_conversation = Mock()
-    mock_sub_conversation.id = "sub-456"
-    mock_manager.spawn_sub_agent.return_value = mock_sub_conversation
-    
-    # Mock parent conversation
-    mock_parent_conversation = Mock()
-    
-    # Create executor
-    executor = DelegateExecutor(mock_manager)
-    executor.parent_conversation = mock_parent_conversation
-    
+    # Create executor (it creates its own DelegationManager)
+    executor = DelegateExecutor()
+
     # Create spawn action
-    action = DelegateAction(
-        operation="spawn",
-        task="Analyze code quality"
-    )
-    
+    action = DelegateAction(operation="spawn", task="Analyze code quality")
+
     # Execute action
-    observation = executor.execute(action)
-    
+    observation = executor(action)
+
     # Verify
     assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == "sub-456"
+    assert observation.sub_conversation_id is not None
     assert observation.status == "created"
     assert "Sub-agent created successfully" in observation.message
-    
-    # Verify manager was called
-    mock_manager.spawn_sub_agent.assert_called_once_with(
-        mock_parent_conversation, "Analyze code quality"
+    assert (
+        observation.result is not None
+        and "Task assigned: Analyze code quality" in observation.result
     )
 
 
 def test_delegate_executor_send():
     """Test DelegateExecutor send operation."""
-    # Mock delegation manager
-    mock_manager = Mock(spec=DelegationManager)
-    mock_manager.send_to_sub_agent.return_value = True
-    
-    # Create executor
-    executor = DelegateExecutor(mock_manager)
-    
-    # Create send action
-    action = DelegateAction(
-        operation="send",
-        sub_conversation_id="sub-123",
-        message="Please analyze the file"
+    executor = DelegateExecutor()
+
+    # First spawn a sub-agent
+    spawn_action = DelegateAction(operation="spawn", task="Test task")
+    spawn_result = executor(spawn_action)
+    sub_id = spawn_result.sub_conversation_id
+
+    # Send message to sub-agent
+    send_action = DelegateAction(
+        operation="send", sub_conversation_id=sub_id, message="Hello sub-agent"
     )
-    
-    # Execute action
-    observation = executor.execute(action)
-    
+    observation = executor(send_action)
+
     # Verify
     assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == "sub-123"
+    assert observation.sub_conversation_id == sub_id
     assert observation.status == "message_sent"
-    assert "Message sent to sub-agent" in observation.message
-    
-    # Verify manager was called
-    mock_manager.send_to_sub_agent.assert_called_once_with(
-        "sub-123", "Please analyze the file"
+    assert f"Message sent to sub-agent {sub_id}" in observation.message
+    assert (
+        observation.result is not None
+        and "Message: Hello sub-agent" in observation.result
     )
 
 
-def test_delegate_executor_send_failure():
-    """Test DelegateExecutor send operation failure."""
-    # Mock delegation manager
-    mock_manager = Mock(spec=DelegationManager)
-    mock_manager.send_to_sub_agent.return_value = False
-    
-    # Create executor
-    executor = DelegateExecutor(mock_manager)
-    
-    # Create send action
+def test_delegate_executor_send_invalid_id():
+    """Test DelegateExecutor send with invalid sub-agent ID."""
+    executor = DelegateExecutor()
+
+    # Send message to non-existent sub-agent
     action = DelegateAction(
-        operation="send",
-        sub_conversation_id="non-existent",
-        message="Test message"
+        operation="send", sub_conversation_id="invalid-id", message="Hello"
     )
-    
-    # Execute action
-    observation = executor.execute(action)
-    
+    observation = executor(action)
+
     # Verify
     assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == "non-existent"
     assert observation.status == "error"
     assert "Failed to send message" in observation.message
 
 
-def test_delegate_executor_status():
-    """Test DelegateExecutor status operation."""
-    # Mock delegation manager
-    mock_manager = Mock(spec=DelegationManager)
-    mock_manager.get_sub_agent_status.return_value = "active"
-    
-    # Create executor
-    executor = DelegateExecutor(mock_manager)
-    
-    # Create status action
-    action = DelegateAction(
-        operation="status",
-        sub_conversation_id="sub-123"
-    )
-    
-    # Execute action
-    observation = executor.execute(action)
-    
-    # Verify
-    assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == "sub-123"
-    assert observation.status == "active"
-    assert "Sub-agent status: active" in observation.message
-    
-    # Verify manager was called
-    mock_manager.get_sub_agent_status.assert_called_once_with("sub-123")
-
-
 def test_delegate_executor_close():
     """Test DelegateExecutor close operation."""
-    # Mock delegation manager
-    mock_manager = Mock(spec=DelegationManager)
-    mock_manager.close_sub_agent.return_value = True
-    
-    # Create executor
-    executor = DelegateExecutor(mock_manager)
-    
-    # Create close action
-    action = DelegateAction(
-        operation="close",
-        sub_conversation_id="sub-123"
-    )
-    
-    # Execute action
-    observation = executor.execute(action)
-    
+    executor = DelegateExecutor()
+
+    # First spawn a sub-agent
+    spawn_action = DelegateAction(operation="spawn", task="Test task")
+    spawn_result = executor(spawn_action)
+    sub_id = spawn_result.sub_conversation_id
+
+    # Close the sub-agent
+    close_action = DelegateAction(operation="close", sub_conversation_id=sub_id)
+    observation = executor(close_action)
+
     # Verify
     assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == "sub-123"
+    assert observation.sub_conversation_id == sub_id
     assert observation.status == "closed"
-    assert "Sub-agent closed successfully" in observation.message
-    
-    # Verify manager was called
-    mock_manager.close_sub_agent.assert_called_once_with("sub-123")
+    assert f"Sub-agent {sub_id} closed successfully" in observation.message
 
 
-def test_delegate_executor_close_failure():
-    """Test DelegateExecutor close operation failure."""
-    # Mock delegation manager
-    mock_manager = Mock(spec=DelegationManager)
-    mock_manager.close_sub_agent.return_value = False
-    
-    # Create executor
-    executor = DelegateExecutor(mock_manager)
-    
-    # Create close action
-    action = DelegateAction(
-        operation="close",
-        sub_conversation_id="non-existent"
-    )
-    
-    # Execute action
-    observation = executor.execute(action)
-    
+def test_delegate_executor_status():
+    """Test DelegateExecutor status operation."""
+    executor = DelegateExecutor()
+
+    # First spawn a sub-agent
+    spawn_action = DelegateAction(operation="spawn", task="Test task")
+    spawn_result = executor(spawn_action)
+    sub_id = spawn_result.sub_conversation_id
+
+    # Get status of the sub-agent
+    status_action = DelegateAction(operation="status", sub_conversation_id=sub_id)
+    observation = executor(status_action)
+
     # Verify
     assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == "non-existent"
+    assert observation.sub_conversation_id == sub_id
+    assert observation.status == "active"
+    assert f"Sub-agent {sub_id} is created" in observation.message
+    assert (
+        observation.result is not None
+        and "Agent status: created, Task: Test task" in observation.result
+    )
+
+
+def test_delegate_executor_status_not_found():
+    """Test DelegateExecutor status with non-existent sub-agent."""
+    executor = DelegateExecutor()
+
+    # Get status of non-existent sub-agent
+    status_action = DelegateAction(operation="status", sub_conversation_id="invalid-id")
+    observation = executor(status_action)
+
+    # Verify
+    assert isinstance(observation, DelegateObservation)
+    assert observation.status == "not_found"
+    assert "Sub-agent invalid-id not found" in observation.message
+
+
+def test_delegate_executor_spawn_missing_task():
+    """Test DelegateExecutor spawn without task."""
+    executor = DelegateExecutor()
+
+    # Create spawn action without task
+    action = DelegateAction(operation="spawn")
+
+    # Execute action
+    observation = executor(action)
+
+    # Verify
+    assert isinstance(observation, DelegateObservation)
     assert observation.status == "error"
-    assert "Failed to close sub-agent" in observation.message
+    assert "Task is required for spawn operation" in observation.message
 
 
-def test_delegation_tool_creation():
-    """Test DelegationTool creation."""
-    mock_manager = Mock(spec=DelegationManager)
-    
-    tool = DelegationTool.create(delegation_manager=mock_manager)
-    
-    assert tool is not None
-    assert hasattr(tool, 'executor')
-    assert isinstance(tool.executor, DelegateExecutor)
-    assert tool.executor.delegation_manager == mock_manager
+def test_delegate_executor_send_missing_params():
+    """Test DelegateExecutor send with missing parameters."""
+    executor = DelegateExecutor()
+
+    # Test missing sub_conversation_id
+    action1 = DelegateAction(operation="send", message="Hello")
+    observation1 = executor(action1)
+    assert observation1.status == "error"
+    assert "Sub-conversation ID is required" in observation1.message
+
+    # Test missing message
+    action2 = DelegateAction(operation="send", sub_conversation_id="sub-123")
+    observation2 = executor(action2)
+    assert observation2.status == "error"
+    assert "Message is required" in observation2.message

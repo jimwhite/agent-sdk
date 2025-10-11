@@ -75,10 +75,10 @@ def get_worker_agent(
     cli_mode: bool = False,
 ) -> Agent:
     """Get a worker agent that can be used as a sub-agent for delegation.
-    
+
     This agent is identical to the default agent but without delegation tools.
     It's designed to be used as a sub-agent by the main agent with delegation.
-    
+
     Args:
         llm: The LLM to use for the agent
         cli_mode: Whether to run in CLI mode (disables browser tools)

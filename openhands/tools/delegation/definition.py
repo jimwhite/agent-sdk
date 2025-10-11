@@ -18,21 +18,19 @@ from openhands.tools.delegation.impl import DelegateExecutor
 
 class DelegateAction(Action):
     """Action for delegating tasks to sub-agents."""
-    
-    operation: Literal['spawn', 'send', 'status', 'close'] = Field(
+
+    operation: Literal["spawn", "send", "status", "close"] = Field(
         description="The delegation operation to perform"
     )
     task: str | None = Field(
-        default=None,
-        description="Task description for spawn operation"
+        default=None, description="Task description for spawn operation"
     )
     sub_conversation_id: str | None = Field(
         default=None,
-        description="ID of the sub-conversation for send/status/close operations"
+        description="ID of the sub-conversation for send/status/close operations",
     )
     message: str | None = Field(
-        default=None,
-        description="Message to send to sub-agent (for send operation)"
+        default=None, description="Message to send to sub-agent (for send operation)"
     )
 
     @property
@@ -40,47 +38,41 @@ class DelegateAction(Action):
         """Return Rich Text representation of this action."""
         content = Text()
         content.append(f"Delegate {self.operation}:\n", style="bold blue")
-        
+
         if self.operation == "spawn" and self.task:
             content.append(f"Task: {self.task}")
         elif self.operation == "send" and self.message and self.sub_conversation_id:
             content.append(f"To {self.sub_conversation_id}: {self.message}")
         elif self.operation in ["status", "close"] and self.sub_conversation_id:
             content.append(f"Sub-agent: {self.sub_conversation_id}")
-        
+
         return content
 
 
 class DelegateObservation(Observation):
     """Observation from delegation operations."""
-    
+
     sub_conversation_id: str | None = Field(
-        default=None,
-        description="ID of the sub-conversation"
+        default=None, description="ID of the sub-conversation"
     )
-    status: str = Field(
-        description="Status of the operation"
-    )
+    status: str = Field(description="Status of the operation")
     result: str | None = Field(
-        default=None,
-        description="Result or additional information"
+        default=None, description="Result or additional information"
     )
-    message: str = Field(
-        description="Human-readable message about the operation"
-    )
+    message: str = Field(description="Human-readable message about the operation")
 
     @property
     def to_llm_content(self) -> Sequence[TextContent | ImageContent]:
         content_parts = [f"Status: {self.status}"]
-        
+
         if self.sub_conversation_id:
             content_parts.append(f"Sub-agent ID: {self.sub_conversation_id}")
-        
+
         if self.result:
             content_parts.append(f"Result: {self.result}")
-        
+
         content_parts.append(f"Message: {self.message}")
-        
+
         return [TextContent(text="\n".join(content_parts))]
 
     @property
@@ -89,10 +81,10 @@ class DelegateObservation(Observation):
         content = Text()
         content.append(f"Delegation {self.status}:\n", style="bold green")
         content.append(self.message)
-        
+
         if self.result:
             content.append(f"\nResult: {self.result}")
-        
+
         return content
 
 
@@ -103,7 +95,7 @@ check their status, and close them when done.
 
 Operations:
 - spawn: Create a new sub-agent with a specific task
-- send: Send a message to an existing sub-agent  
+- send: Send a message to an existing sub-agent
 - status: Check the status of a sub-agent
 - close: Close a sub-agent and clean up resources
 

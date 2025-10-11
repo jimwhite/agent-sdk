@@ -14,7 +14,9 @@ from openhands.sdk.tool import Tool, register_tool
 logger = get_logger(__name__)
 
 
-def register_default_tools(enable_browser: bool = True, enable_delegation: bool = True) -> None:
+def register_default_tools(
+    enable_browser: bool = True, enable_delegation: bool = True
+) -> None:
     """Register the default set of tools."""
     from openhands.tools.execute_bash import BashTool
     from openhands.tools.file_editor import FileEditorTool
@@ -32,7 +34,7 @@ def register_default_tools(enable_browser: bool = True, enable_delegation: bool 
 
         register_tool("BrowserToolSet", BrowserToolSet)
         logger.debug("Tool: BrowserToolSet registered.")
-    
+
     if enable_delegation:
         from openhands.tools.delegation import DelegationTool
 
@@ -50,7 +52,9 @@ def get_default_tools(
         enable_browser: Whether to include browser tools.
         enable_delegation: Whether to include delegation tools.
     """
-    register_default_tools(enable_browser=enable_browser, enable_delegation=enable_delegation)
+    register_default_tools(
+        enable_browser=enable_browser, enable_delegation=enable_delegation
+    )
 
     tools = [
         Tool(name="BashTool"),
@@ -79,9 +83,9 @@ def get_default_agent(
     enable_delegation: bool = True,
 ) -> Agent:
     """Get the default agent with delegation capabilities.
-    
+
     This agent includes delegation tools and can spawn worker agents.
-    
+
     Args:
         llm: The LLM to use for the agent
         cli_mode: Whether to run in CLI mode (disables browser tools)
@@ -113,14 +117,15 @@ def get_default_agent(
 
 def get_worker_agent(llm: LLM, cli_mode: bool = False) -> Agent:
     """Get a worker agent that can be used as a sub-agent for delegation.
-    
+
     This agent is identical to the default agent but without delegation tools.
     It's designed to be used as a sub-agent by the new default agent with delegation.
-    
+
     Args:
         llm: The LLM to use for the agent
         cli_mode: Whether to run in CLI mode (disables browser tools)
     """
     # Import here to avoid circular imports
     from openhands.tools.preset.worker import get_worker_agent as _get_worker_agent
+
     return _get_worker_agent(llm=llm, cli_mode=cli_mode)
