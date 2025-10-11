@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Agent Delegation Example
 
@@ -14,9 +13,6 @@ The main agent decomposes the task into two parallel subtasks:
 
 Each sub-agent runs independently and returns its results to the main agent,
 which then merges both analyses into a single consolidated report.
-
-Usage:
-    python examples/28_agent_delegation.py
 """
 
 import os
@@ -35,7 +31,6 @@ from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
-
 
 # Sample Python file to analyze
 SAMPLE_PYTHON_CODE = '''
@@ -102,104 +97,85 @@ if __name__ == "__main__":
     main()
 '''
 
+print("Agent Delegation Example")
+print("This example demonstrates parallel task delegation between agents")
+print()
 
-def main():
-    """Main function demonstrating agent delegation."""
+# Configure LLM
+api_key = os.getenv("LLM_API_KEY")
+assert api_key is not None, "LLM_API_KEY environment variable is not set."
+llm = LLM(
+    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
+    base_url="<secret_hidden>",
+    api_key=SecretStr(api_key),
+    service_id="agent",
+    drop_params=True,
+)
+
+# Create a temporary Python file to analyze
+with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+    f.write(SAMPLE_PYTHON_CODE)
+    temp_file_path = f.name
+
+try:
     print("🚀 Starting Agent Delegation Example")
     print("=" * 50)
 
-    # Configure LLM
-    api_key = os.getenv("LLM_API_KEY")
-    assert api_key is not None, "LLM_API_KEY environment variable is not set."
-    llm = LLM(
-        model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-        base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-        api_key=SecretStr(api_key),
-        service_id="agent",
-        drop_params=True,
+    # Initialize main agent with delegation capabilities
+    cwd = os.getcwd()
+    main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
+
+    # Collect LLM messages for debugging
+    llm_messages = []
+
+    def conversation_callback(event: Event):
+        if isinstance(event, LLMConvertibleEvent):
+            llm_messages.append(event.to_llm_message())
+
+    # Create conversation with the main agent
+    conversation = Conversation(
+        agent=main_agent,
+        workspace=cwd,
+        callbacks=[conversation_callback],
+        visualize=True,
     )
 
-    # Create a temporary Python file to analyze
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(SAMPLE_PYTHON_CODE)
-        temp_file_path = f.name
-
-    try:
-        # Initialize main agent with delegation capabilities
-        cwd = os.getcwd()
-        main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
-
-        # Collect LLM messages for debugging
-        llm_messages = []
-
-        def conversation_callback(event: Event):
-            if isinstance(event, LLMConvertibleEvent):
-                llm_messages.append(event.to_llm_message())
-
-        # Create conversation with the main agent
-        conversation = Conversation(
-            agent=main_agent,
-            workspace=cwd,
-            callbacks=[conversation_callback],
-            visualize=True,
-        )
-
-        print(f"📁 Created temporary Python file: {temp_file_path}")
-        print("🤖 Main agent will delegate analysis tasks to sub-agents")
-        print()
-
-        # Send the high-level task to the main agent
-        task_message = (
-            f"Please analyze the Python file at {temp_file_path} for code quality.\n\n"
-            "I want you to delegate this work to two sub-agents working in parallel:\n"
-            "1. Sub-agent 1: Perform linting analysis (style issues, naming problems, "
-            "imports)\n"
-            "2. Sub-agent 2: Perform complexity analysis (function count, complexity "
-            "metrics)\n\n"
-            "After both sub-agents complete their work, merge their analyses into a "
-            "single consolidated report with recommendations.\n\n"
-            "Use the delegation tool to spawn sub-agents, wait for their results, "
-            "and then provide a comprehensive analysis."
-        )
-
-        print("📤 Sending task to main agent:")
-        print(f"   {task_message[:100]}...")
-        print()
-
-        # Send message and run conversation
-        conversation.send_message(task_message)
-        conversation.run()
-
-        print("✅ Agent delegation example completed!")
-        print("📊 Check the conversation output above for the delegation workflow")
-
-        # Print LLM message summary
-        print("=" * 100)
-        print("Conversation finished. Got the following LLM messages:")
-        for i, message in enumerate(llm_messages):
-            print(f"Message {i}: {str(message)[:200]}")
-
-    except Exception as e:
-        print(f"❌ Error during delegation example: {e}")
-        raise
-    finally:
-        # Clean up temporary file
-        if os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-            print(f"🧹 Cleaned up temporary file: {temp_file_path}")
-
-
-if __name__ == "__main__":
-    print("Agent Delegation Example")
-    print("This example demonstrates parallel task delegation between agents")
+    print(f"📁 Created temporary Python file: {temp_file_path}")
+    print("🤖 Main agent will delegate analysis tasks to sub-agents")
     print()
 
-    # Check for required environment variables
-    if not os.getenv("LLM_API_KEY"):
-        print("❌ Error: LLM_API_KEY environment variable is required")
-        print("   Please set your OpenAI API key:")
-        print("   export LLM_API_KEY=your_api_key_here")
-        exit(1)
+    # Send the high-level task to the main agent
+    task_message = (
+        f"Please analyze the Python file at {temp_file_path} for code quality.\n\n"
+        "I want you to delegate this work to two sub-agents working in parallel:\n"
+        "1. Sub-agent 1: Perform linting analysis (style issues, naming problems, "
+        "imports)\n"
+        "2. Sub-agent 2: Perform complexity analysis (function count, complexity "
+        "metrics)\n\n"
+        "After both sub-agents complete their work, merge their analyses into a "
+        "single consolidated report with recommendations.\n\n"
+        "Use the delegation tool to spawn sub-agents, wait for their results, "
+        "and then provide a comprehensive analysis."
+    )
 
-    # Run the main function
-    main()
+    print("📤 Sending task to main agent:")
+    print(f"   {task_message[:100]}...")
+    print()
+
+    # Send message and run conversation
+    conversation.send_message(task_message)
+    conversation.run()
+
+    print("✅ Agent delegation example completed!")
+    print("📊 Check the conversation output above for the delegation workflow")
+    print("=" * 100)
+
+    print("Conversation finished. Got the following LLM messages:")
+    for i, message in enumerate(llm_messages):
+        print(f"Message {i}: {str(message)[:200]}")
+
+finally:
+    # Clean up temporary file
+    if os.path.exists(temp_file_path):
+        os.unlink(temp_file_path)
+        print(f"🧹 Cleaned up temporary file: {temp_file_path}")
