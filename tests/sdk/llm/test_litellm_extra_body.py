@@ -1,7 +1,6 @@
 """Tests for litellm_extra_body configuration support."""
 
-import json
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
@@ -24,15 +23,17 @@ def base_llm():
 
 def test_litellm_extra_body_field_initialization():
     """Test that litellm_extra_body field can be initialized."""
-    extra_body_json = '{"metadata": {"user_id": "test-user", "session_id": "test-session"}}'
-    
+    extra_body_json = (
+        '{"metadata": {"user_id": "test-user", "session_id": "test-session"}}'
+    )
+
     llm = LLM(
         model="litellm_proxy/claude-sonnet-4",
         api_key=SecretStr("test_key"),
         service_id="test-llm",
         litellm_extra_body=extra_body_json,
     )
-    
+
     assert llm.litellm_extra_body == extra_body_json
 
 
@@ -43,7 +44,7 @@ def test_litellm_extra_body_default_none():
         api_key=SecretStr("test_key"),
         service_id="test-llm",
     )
-    
+
     assert llm.litellm_extra_body is None
 
 
@@ -54,24 +55,24 @@ def test_litellm_extra_body_parsing_and_merging(mock_completion, base_llm):
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with litellm_extra_body
     extra_body_json = '{"metadata": {"user_id": "test-user"}, "custom_param": "value"}'
     base_llm.litellm_extra_body = extra_body_json
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion
     base_llm.completion(messages)
-    
+
     # Verify that litellm_completion was called with the parsed extra_body
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
-    
+
     expected_extra_body = {
         "metadata": {"user_id": "test-user"},
-        "custom_param": "value"
+        "custom_param": "value",
     }
     assert call_kwargs["extra_body"] == expected_extra_body
 
@@ -83,29 +84,32 @@ def test_litellm_extra_body_merges_with_existing_extra_body(mock_completion, bas
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with litellm_extra_body
     extra_body_json = '{"metadata": {"user_id": "test-user"}, "custom_param": "value"}'
     base_llm.litellm_extra_body = extra_body_json
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion with existing extra_body
-    existing_extra_body = {"metadata": {"session_id": "test-session"}, "other_param": "other"}
+    existing_extra_body = {
+        "metadata": {"session_id": "test-session"},
+        "other_param": "other",
+    }
     base_llm.completion(messages, extra_body=existing_extra_body)
-    
+
     # Verify that litellm_completion was called with merged extra_body
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
-    
+
     expected_extra_body = {
         "metadata": {
             "session_id": "test-session",  # from existing
-            "user_id": "test-user",        # from litellm_extra_body (should override)
+            "user_id": "test-user",  # from litellm_extra_body (should override)
         },
-        "other_param": "other",            # from existing
-        "custom_param": "value"            # from litellm_extra_body
+        "other_param": "other",  # from existing
+        "custom_param": "value",  # from litellm_extra_body
     }
     assert call_kwargs["extra_body"] == expected_extra_body
 
@@ -117,54 +121,58 @@ def test_litellm_extra_body_metadata_merging(mock_completion, base_llm):
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with litellm_extra_body containing metadata
     extra_body_json = '{"metadata": {"user_id": "test-user", "trace_id": "abc123"}}'
     base_llm.litellm_extra_body = extra_body_json
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion with existing extra_body that also has metadata
-    existing_extra_body = {"metadata": {"session_id": "test-session", "user_id": "old-user"}}
+    existing_extra_body = {
+        "metadata": {"session_id": "test-session", "user_id": "old-user"}
+    }
     base_llm.completion(messages, extra_body=existing_extra_body)
-    
+
     # Verify that metadata is properly merged (litellm_extra_body should override)
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
-    
+
     expected_metadata = {
         "session_id": "test-session",  # from existing
-        "user_id": "test-user",        # from litellm_extra_body (overrides existing)
-        "trace_id": "abc123"           # from litellm_extra_body
+        "user_id": "test-user",  # from litellm_extra_body (overrides existing)
+        "trace_id": "abc123",  # from litellm_extra_body
     }
     assert call_kwargs["extra_body"]["metadata"] == expected_metadata
 
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
 @patch("openhands.sdk.llm.llm.logger")
-def test_litellm_extra_body_invalid_json_warning(mock_logger, mock_completion, base_llm):
+def test_litellm_extra_body_invalid_json_warning(
+    mock_logger, mock_completion, base_llm
+):
     """Test that invalid JSON in litellm_extra_body logs a warning and is ignored."""
     # Setup mock response
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with invalid JSON in litellm_extra_body
     base_llm.litellm_extra_body = '{"invalid": json}'
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion
     base_llm.completion(messages)
-    
+
     # Verify that a warning was logged
     mock_logger.warning.assert_called_once()
     warning_call = mock_logger.warning.call_args[0][0]
     assert "Failed to parse litellm_extra_body as JSON" in warning_call
     assert "Ignoring custom extra_body" in warning_call
-    
+
     # Verify that litellm_completion was called without extra_body
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
@@ -178,18 +186,18 @@ def test_litellm_extra_body_non_dict_replaces_existing(mock_completion, base_llm
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with non-dict litellm_extra_body
     extra_body_json = '"string_value"'
     base_llm.litellm_extra_body = extra_body_json
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion with existing extra_body
     existing_extra_body = {"metadata": {"session_id": "test-session"}}
     base_llm.completion(messages, extra_body=existing_extra_body)
-    
+
     # Verify that litellm_completion was called with the string value
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
@@ -203,24 +211,24 @@ def test_litellm_extra_body_no_existing_extra_body(mock_completion, base_llm):
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with litellm_extra_body
     extra_body_json = '{"metadata": {"user_id": "test-user"}, "custom_param": "value"}'
     base_llm.litellm_extra_body = extra_body_json
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion without existing extra_body
     base_llm.completion(messages)
-    
+
     # Verify that litellm_completion was called with the parsed extra_body
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
-    
+
     expected_extra_body = {
         "metadata": {"user_id": "test-user"},
-        "custom_param": "value"
+        "custom_param": "value",
     }
     assert call_kwargs["extra_body"] == expected_extra_body
 
@@ -234,11 +242,11 @@ def test_litellm_extra_body_removed_for_non_proxy_models():
         service_id="test-llm",
         litellm_extra_body='{"metadata": {"user_id": "test-user"}}',
     )
-    
+
     # Test the _normalize_call_kwargs method directly
     kwargs = {"extra_body": {"existing": "data"}}
     normalized_kwargs = llm._normalize_call_kwargs(kwargs, has_tools=False)
-    
+
     # extra_body should be removed for non-proxy models
     assert "extra_body" not in normalized_kwargs
 
@@ -250,17 +258,17 @@ def test_litellm_extra_body_preserved_for_proxy_models(mock_completion, base_llm
     mock_completion.return_value = create_mock_litellm_response(
         content="Test response", model="claude-sonnet-4"
     )
-    
+
     # Set up LLM with litellm_extra_body (base_llm uses litellm_proxy model)
     extra_body_json = '{"metadata": {"user_id": "test-user"}}'
     base_llm.litellm_extra_body = extra_body_json
-    
+
     # Create test message
-    messages = [Message(content=[TextContent(text="Test message")])]
-    
+    messages = [Message(role="user", content=[TextContent(text="Test message")])]
+
     # Call completion
     base_llm.completion(messages)
-    
+
     # Verify that extra_body was preserved and passed to litellm_completion
     mock_completion.assert_called_once()
     call_kwargs = mock_completion.call_args[1]
@@ -271,18 +279,18 @@ def test_litellm_extra_body_preserved_for_proxy_models(mock_completion, base_llm
 def test_litellm_extra_body_serialization():
     """Test that LLM with litellm_extra_body can be serialized and deserialized."""
     extra_body_json = '{"metadata": {"user_id": "test-user"}}'
-    
+
     llm = LLM(
         model="litellm_proxy/claude-sonnet-4",
         api_key=SecretStr("test_key"),
         service_id="test-llm",
         litellm_extra_body=extra_body_json,
     )
-    
+
     # Test serialization
     serialized = llm.model_dump()
     assert serialized["litellm_extra_body"] == extra_body_json
-    
+
     # Test deserialization
     deserialized = LLM.model_validate(serialized)
     assert deserialized.litellm_extra_body == extra_body_json

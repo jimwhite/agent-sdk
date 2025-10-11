@@ -212,7 +212,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         default=None,
         description=(
             "Additional parameters to pass in the request body as JSON string. "
-            "Useful for custom metadata, provider-specific parameters, or routing information."
+            "Useful for custom metadata, provider-specific parameters, or routing info."
         ),
     )
     service_id: str = Field(
