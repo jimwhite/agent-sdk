@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from openhands.sdk.agent.base import AgentBase
 from openhands.sdk.conversation.base import BaseConversation
@@ -115,6 +116,32 @@ class LocalConversation(BaseConversation):
             # Convert dict[str, str] to dict[str, SecretValue]
             secret_values: dict[str, SecretValue] = {k: v for k, v in secrets.items()}
             self.update_secrets(secret_values)
+
+        # Wire conversation-aware tools (e.g., delegation) with this conversation
+        try:
+            for tool in self.agent.tools_map.values():
+                try:
+                    executable_tool = tool.as_executable()
+                except NotImplementedError:
+                    # Tool has no executor, skip it
+                    continue
+                # Some executors (e.g., DelegateExecutor) need a reference to the
+                # parent conversation to spawn sub-conversations and route messages.
+                if hasattr(executable_tool.executor, "set_parent_conversation"):
+                    try:
+                        # Use getattr with type Any to satisfy static type checkers
+                        executor: Any = executable_tool.executor
+                        getattr(executor, "set_parent_conversation")(self)
+                    except Exception as e:
+                        logger.warning(
+                            "Error wiring parent conversation for tool '%s': %s",
+                            tool.name,
+                            e,
+                        )
+        except Exception as e:
+            logger.warning(
+                f"Failed to wire conversation-aware tools: {e}", exc_info=True
+            )
 
     @property
     def id(self) -> ConversationID:

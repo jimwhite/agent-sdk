@@ -54,7 +54,8 @@ class DelegationManager:
         Returns:
             The new sub-conversation
         """
-        from openhands.sdk.conversation.conversation import Conversation
+
+        from openhands.sdk.conversation.impl.local_conversation import LocalConversation
         from openhands.sdk.llm import Message, TextContent
 
         # Generate a unique ID for the sub-conversation
@@ -71,7 +72,8 @@ class DelegationManager:
                 if hasattr(event, "llm_message") and event.llm_message:
                     message_text = ""
                     for content in event.llm_message.content:
-                        if hasattr(content, "text"):
+                        # Only include text content in the forwarded message
+                        if isinstance(content, TextContent):
                             message_text += content.text
 
                     # Send message to parent conversation
@@ -106,7 +108,8 @@ class DelegationManager:
                             parent_conversation.run()
                         except Exception as e:
                             logger.error(
-                                f"Error running parent conversation from sub-agent: {e}",  # noqa
+                                "Error running parent conversation from sub-agent: %s",
+                                e,
                                 exc_info=True,
                             )
 
@@ -115,9 +118,10 @@ class DelegationManager:
                     parent_thread.start()
 
         # Create sub-conversation with the same workspace as parent
-        sub_conversation = Conversation(
+        # Access workspace via parent_conversation.state to satisfy typing
+        sub_conversation = LocalConversation(
             agent=worker_agent,
-            workspace=parent_conversation.workspace,
+            workspace=parent_conversation.state.workspace,
             visualize=visualize,
             callbacks=[sub_agent_completion_callback],
         )
@@ -126,7 +130,7 @@ class DelegationManager:
         self.conversations[sub_conversation_id] = sub_conversation
 
         # Track parent-child relationship
-        parent_id = parent_conversation.conversation_id
+        parent_id = str(parent_conversation.id)
         if parent_id not in self.parent_to_children:
             self.parent_to_children[parent_id] = set()
         self.parent_to_children[parent_id].add(sub_conversation_id)

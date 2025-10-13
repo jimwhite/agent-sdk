@@ -19,8 +19,12 @@ logger = get_logger(__name__)
 class DelegateExecutor(ToolExecutor):
     """Executor for delegation operations."""
 
-    def __init__(self):
-        self.delegation_manager = DelegationManager()
+    def __init__(self, delegation_manager: DelegationManager | None = None):
+        self.delegation_manager = delegation_manager or DelegationManager()
+
+    def set_parent_conversation(self, conversation) -> None:
+        # Used by LocalConversation to wire this executor with the parent conversation
+        self._parent_conversation = conversation
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
         """Execute a delegation action."""
@@ -57,7 +61,9 @@ class DelegateExecutor(ToolExecutor):
             logger.error("Parent conversation not set for DelegateExecutor")
             return DelegateObservation(
                 status="error",
-                message="Delegation not properly configured - parent conversation missing",
+                message=(
+                    "Delegation not properly configured - parent conversation missing"
+                ),
             )
 
         try:
@@ -76,8 +82,8 @@ class DelegateExecutor(ToolExecutor):
                 cli_mode=cli_mode,
             )
 
-            # Get visualize setting from parent conversation
-            visualize = getattr(self._parent_conversation, "visualize", False)
+            # Get visualize setting from parent conversation (default True)
+            visualize = getattr(self._parent_conversation, "visualize", True)
 
             # Spawn the sub-agent with real conversation (non-blocking)
             sub_conversation = self.delegation_manager.spawn_sub_agent(
@@ -88,14 +94,17 @@ class DelegateExecutor(ToolExecutor):
             )
 
             logger.info(
-                f"Spawned sub-agent {sub_conversation.conversation_id} for task: {action.task[:100]}..."
+                "Spawned sub-agent %s for task: %s...",
+                sub_conversation.id,
+                action.task[:100],
             )
 
             return DelegateObservation(
-                sub_conversation_id=str(sub_conversation.conversation_id),
+                sub_conversation_id=str(sub_conversation.id),
                 status="created",
                 message=(
-                    f"Sub-agent {sub_conversation.conversation_id} created and running asynchronously"
+                    f"Sub-agent {sub_conversation.id} created and running "
+                    "asynchronously"
                 ),
                 result=f"Task assigned: {action.task}",
             )
@@ -211,7 +220,3 @@ class DelegateExecutor(ToolExecutor):
                 status="error",
                 message=f"Failed to close sub-agent {action.sub_conversation_id}",
             )
-
-    def set_parent_conversation(self, conversation):
-        """Set the parent conversation for this executor."""
-        self._parent_conversation = conversation

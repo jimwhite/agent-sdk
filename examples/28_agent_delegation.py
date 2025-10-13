@@ -27,6 +27,9 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
+from openhands.sdk.delegation.manager import DelegationManager
+from openhands.sdk.tool import register_tool
+from openhands.tools.delegation import DelegateExecutor, DelegationTool
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -125,6 +128,15 @@ try:
     # Initialize main agent with delegation capabilities
     main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
 
+    # Create a DelegationManager up front and override DelegationTool registration
+    delegation_manager = DelegationManager()
+
+    # Override DelegationTool with a factory that binds our manager
+    def _delegation_tool_factory(*, conv_state=None, **params):
+        return [DelegationTool.set_executor(DelegateExecutor(delegation_manager))]
+
+    register_tool("DelegationTool", _delegation_tool_factory)
+
     # Collect LLM messages for debugging
     llm_messages = []
 
@@ -137,8 +149,18 @@ try:
         agent=main_agent,
         workspace=cwd,
         callbacks=[conversation_callback],
-        visualize=True,
     )
+
+    # Explicitly attach parent conversation to delegate executor for message routing
+    try:
+        delegate_tool = main_agent.tools_map.get("delegate")
+        if delegate_tool is not None:
+            exec = delegate_tool.as_executable().executor
+            if hasattr(exec, "set_parent_conversation"):
+                exec.set_parent_conversation(conversation)
+                print("🔗 Attached parent conversation to DelegateExecutor")
+    except Exception as e:
+        print(f"⚠️ Failed to attach parent conversation to DelegateExecutor: {e}")
 
     print(f"📁 Created temporary Python file: {temp_file_path}")
     print("🤖 Main agent will delegate analysis tasks to sub-agents")
@@ -182,9 +204,14 @@ try:
 
     # Get the delegation manager from the main agent's delegate tool
     delegation_tool = main_agent.tools_map.get("delegate")
-    delegation_manager = (
-        delegation_tool.executor.delegation_manager if delegation_tool else None
-    )
+    delegation_manager = None
+    if delegation_tool is not None:
+        try:
+            executor = delegation_tool.as_executable().executor
+            # DelegateExecutor exposes delegation_manager at runtime
+            delegation_manager = getattr(executor, "delegation_manager", None)
+        except Exception:
+            delegation_manager = None
 
     # Wait for specific sub-agent threads to complete (with timeout)
     max_wait = 180  # 3 minutes to account for LLM processing time
@@ -208,7 +235,8 @@ try:
                 print(f"   ✅ Sub-agent {sub_conv_id[:8]} thread completed")
             else:
                 print(
-                    f"   ⚠️  Sub-agent {sub_conv_id[:8]} thread still running after timeout"
+                    f"   ⚠️  Sub-agent {sub_conv_id[:8]} thread still running after"
+                    " timeout"
                 )
 
         # Check if all threads completed
@@ -217,7 +245,8 @@ try:
             print("\n✅ All sub-agent threads completed successfully!")
         else:
             print(
-                f"\n⏰ Timeout after {int(time.time() - start_time)}s - some threads still running"
+                f"\n⏰ Timeout after {int(time.time() - start_time)}s - some threads"
+                " still running"
             )
     else:
         print("⚠️  No delegation manager found")
