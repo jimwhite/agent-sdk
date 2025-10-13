@@ -1,5 +1,6 @@
 """DelegationManager for handling agent delegation and message routing."""
 
+import threading
 import uuid
 from typing import TYPE_CHECKING, Any
 
@@ -29,26 +30,144 @@ class DelegationManager:
         # Track parent-child relationships
         self.parent_to_children: dict[str, set[str]] = {}
         self.child_to_parent: dict[str, str] = {}
+        # Track sub-agent threads
+        self.sub_agent_threads: dict[str, threading.Thread] = {}
 
     def spawn_sub_agent(
         self,
         parent_conversation: "BaseConversation",
         task: str,
         worker_agent: "AgentBase",
+        visualize: bool = False,
     ) -> "BaseConversation":
-        """Spawn a sub-agent with a new conversation.
+        """Spawn a sub-agent with a new conversation that runs asynchronously.
+
+        The sub-agent will run in a background thread and send messages back to
+        the parent conversation when it completes or needs input.
 
         Args:
             parent_conversation: The parent conversation
             task: The task description for the sub-agent
             worker_agent: The worker agent to use for the sub-conversation
+            visualize: Whether to enable visualization for the sub-agent
 
         Returns:
             The new sub-conversation
         """
-        # TODO: Implement full conversation creation
-        # For now, this is not used - we use create_simple_sub_agent instead
-        raise NotImplementedError("Full conversation spawning not yet implemented")
+        from openhands.sdk.conversation.conversation import Conversation
+        from openhands.sdk.llm import Message, TextContent
+
+        # Generate a unique ID for the sub-conversation
+        sub_conversation_id = str(uuid.uuid4())
+
+        # Create a callback to route sub-agent messages to parent
+        def sub_agent_completion_callback(event):
+            """Route sub-agent completion messages to parent."""
+            from openhands.sdk.event import MessageEvent
+
+            # When sub-agent sends a message, forward it to parent
+            if isinstance(event, MessageEvent) and event.source == "agent":
+                # Get the message content
+                if hasattr(event, "llm_message") and event.llm_message:
+                    message_text = ""
+                    for content in event.llm_message.content:
+                        if hasattr(content, "text"):
+                            message_text += content.text
+
+                    # Send message to parent conversation
+                    parent_message = (
+                        f"[Sub-agent {sub_conversation_id[:8]}]: {message_text}"
+                    )
+                    logger.info(
+                        f"Sub-agent {sub_conversation_id[:8]} sending message "
+                        f"to parent: {message_text[:100]}..."
+                    )
+                    parent_conversation.send_message(
+                        Message(
+                            role="user",
+                            content=[
+                                TextContent(
+                                    text=parent_message,
+                                )
+                            ],
+                        )
+                    )
+
+                    # Trigger parent conversation to run in a separate thread
+                    # to avoid blocking the sub-agent thread
+                    import threading
+
+                    def run_parent():
+                        try:
+                            logger.info(
+                                f"Sub-agent {sub_conversation_id[:8]} triggering "
+                                "parent conversation to run"
+                            )
+                            parent_conversation.run()
+                        except Exception as e:
+                            logger.error(
+                                f"Error running parent conversation from sub-agent: {e}",  # noqa
+                                exc_info=True,
+                            )
+
+                    # Start parent run in a new thread so sub-agent can complete
+                    parent_thread = threading.Thread(target=run_parent, daemon=True)
+                    parent_thread.start()
+
+        # Create sub-conversation with the same workspace as parent
+        sub_conversation = Conversation(
+            agent=worker_agent,
+            workspace=parent_conversation.workspace,
+            visualize=visualize,
+            callbacks=[sub_agent_completion_callback],
+        )
+
+        # Store the sub-conversation
+        self.conversations[sub_conversation_id] = sub_conversation
+
+        # Track parent-child relationship
+        parent_id = parent_conversation.conversation_id
+        if parent_id not in self.parent_to_children:
+            self.parent_to_children[parent_id] = set()
+        self.parent_to_children[parent_id].add(sub_conversation_id)
+        self.child_to_parent[sub_conversation_id] = parent_id
+
+        # Start sub-agent in background thread
+        def run_sub_agent():
+            try:
+                logger.info(
+                    f"Sub-agent {sub_conversation_id[:8]} starting with task: {task[:100]}..."  # noqa
+                )
+                # Send initial task to sub-agent
+                sub_conversation.send_message(task)
+                # Run the sub-agent
+                sub_conversation.run()
+                logger.info(f"Sub-agent {sub_conversation_id[:8]} completed")
+            except Exception as e:
+                logger.error(
+                    f"Sub-agent {sub_conversation_id[:8]} failed: {e}", exc_info=True
+                )
+                # Send error message to parent
+                parent_conversation.send_message(
+                    Message(
+                        role="user",
+                        content=[
+                            TextContent(
+                                text=f"[Sub-agent {sub_conversation_id[:8]} ERROR]: {str(e)}",  # noqa
+                            )
+                        ],
+                    )
+                )
+
+        thread = threading.Thread(target=run_sub_agent, daemon=False)
+        self.sub_agent_threads[sub_conversation_id] = thread
+        thread.start()
+
+        logger.info(
+            f"Spawned sub-agent {sub_conversation_id[:8]} with task: {task[:100]}..."
+        )
+
+        return sub_conversation
 
     def send_to_sub_agent(self, sub_conversation_id: str, message: str) -> bool:
         """Send a message to a sub-agent.

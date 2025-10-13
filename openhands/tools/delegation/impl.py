@@ -40,7 +40,11 @@ class DelegateExecutor(ToolExecutor):
             )
 
     def _spawn_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
-        """Spawn a new sub-agent."""
+        """Spawn a new sub-agent that runs asynchronously.
+
+        The sub-agent will run in a separate thread and send messages back to the
+        parent conversation when it completes or needs input.
+        """
         from openhands.tools.delegation.definition import DelegateObservation
 
         if not action.task:
@@ -48,24 +52,56 @@ class DelegateExecutor(ToolExecutor):
                 status="error", message="Task is required for spawn operation"
             )
 
+        # Check if parent conversation is set
+        if not hasattr(self, "_parent_conversation"):
+            logger.error("Parent conversation not set for DelegateExecutor")
+            return DelegateObservation(
+                status="error",
+                message="Delegation not properly configured - parent conversation missing",
+            )
+
         try:
-            # For now, create a simple sub-agent without parent conversation wiring
-            # This is a simplified implementation for demonstration
-            sub_conversation_id = self.delegation_manager.create_simple_sub_agent(
-                action.task
+            # Create a worker agent for the sub-agent
+            from openhands.tools.preset.worker import get_worker_agent
+
+            # Get the parent agent's LLM to use for worker
+            parent_llm = self._parent_conversation.agent.llm
+            cli_mode = getattr(
+                self._parent_conversation.agent, "cli_mode", False
+            ) or not hasattr(self._parent_conversation, "workspace")
+
+            # Create worker agent
+            worker_agent = get_worker_agent(
+                llm=parent_llm.model_copy(update={"service_id": "sub_agent"}),
+                cli_mode=cli_mode,
+            )
+
+            # Get visualize setting from parent conversation
+            visualize = getattr(self._parent_conversation, "visualize", False)
+
+            # Spawn the sub-agent with real conversation (non-blocking)
+            sub_conversation = self.delegation_manager.spawn_sub_agent(
+                parent_conversation=self._parent_conversation,
+                task=action.task,
+                worker_agent=worker_agent,
+                visualize=visualize,
+            )
+
+            logger.info(
+                f"Spawned sub-agent {sub_conversation.conversation_id} for task: {action.task[:100]}..."
             )
 
             return DelegateObservation(
-                sub_conversation_id=sub_conversation_id,
+                sub_conversation_id=str(sub_conversation.conversation_id),
                 status="created",
                 message=(
-                    f"Sub-agent created successfully with ID: {sub_conversation_id}"
+                    f"Sub-agent {sub_conversation.conversation_id} created and running asynchronously"
                 ),
                 result=f"Task assigned: {action.task}",
             )
 
         except Exception as e:
-            logger.error(f"Failed to spawn sub-agent: {e}")
+            logger.error(f"Failed to spawn sub-agent: {e}", exc_info=True)
             return DelegateObservation(
                 status="error", message=f"Failed to spawn sub-agent: {str(e)}"
             )

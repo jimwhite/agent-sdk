@@ -142,20 +142,24 @@ try:
 
     print(f"📁 Created temporary Python file: {temp_file_path}")
     print("🤖 Main agent will delegate analysis tasks to sub-agents")
+    print("   Sub-agents will run as real conversations with full visualization")
     print()
 
     # Send the high-level task to the main agent
     task_message = (
         f"Please analyze the Python file at {temp_file_path} for code quality.\n\n"
         "I want you to delegate this work to two sub-agents working in parallel:\n"
-        "1. Sub-agent 1: Perform linting analysis (style issues, naming problems, "
-        "imports)\n"
-        "2. Sub-agent 2: Perform complexity analysis (function count, complexity "
-        "metrics)\n\n"
-        "After both sub-agents complete their work, merge their analyses into a "
-        "single consolidated report with recommendations.\n\n"
-        "Use the delegation tool to spawn sub-agents, wait for their results, "
-        "and then provide a comprehensive analysis."
+        "1. Sub-agent 1: Perform a LIGHT linting analysis. Just identify 2 main "
+        "style issues (like naming problems or unused imports). Keep it brief.\n"
+        "2. Sub-agent 2: Perform a LIGHT complexity analysis. Just count the functions "
+        "and identify the most complex one. Keep it brief.\n\n"
+        "IMPORTANT: Tell each sub-agent to keep their analysis SHORT and CONCISE "
+        "(no more than 10 lines of output each).\n\n"
+        "Use the delegate tool to spawn both sub-agents with their tasks. "
+        "After spawning them, use FinishAction to pause and wait for their results. "
+        "The sub-agents will send their analysis back to you when complete.\n\n"
+        "Once you receive results from BOTH sub-agents, merge their analyses into a "
+        "single SHORT consolidated report (5-10 lines total) with top recommendations."
     )
 
     print("📤 Sending task to main agent:")
@@ -166,13 +170,99 @@ try:
     conversation.send_message(task_message)
     conversation.run()
 
-    print("✅ Agent delegation example completed!")
+    # Main agent will finish after spawning sub-agents
+    # Sub-agents will automatically trigger the parent conversation to run
+    # when they send messages back via the delegation manager
+    #
+    # Wait for all sub-agent threads to complete
+    import time
+
+    print("⏳ Waiting for sub-agent threads to complete...")
+    print()
+
+    # Get the delegation manager from the main agent's delegate tool
+    delegation_tool = main_agent.tools_map.get("delegate")
+    delegation_manager = (
+        delegation_tool.executor.delegation_manager if delegation_tool else None
+    )
+
+    # Wait for specific sub-agent threads to complete (with timeout)
+    max_wait = 180  # 3 minutes to account for LLM processing time
+    start_time = time.time()
+
+    if delegation_manager:
+        # Get the specific sub-agent threads we created
+        sub_agent_threads = list(delegation_manager.sub_agent_threads.items())
+        print(f"   Waiting for {len(sub_agent_threads)} sub-agent thread(s)...")
+
+        for sub_conv_id, thread in sub_agent_threads:
+            remaining = max_wait - (time.time() - start_time)
+            if remaining <= 0:
+                print(f"   ⏰ Timeout after {max_wait}s waiting for sub-agent threads")
+                break
+
+            # Wait for this specific thread to complete
+            thread.join(timeout=remaining)
+
+            if not thread.is_alive():
+                print(f"   ✅ Sub-agent {sub_conv_id[:8]} thread completed")
+            else:
+                print(
+                    f"   ⚠️  Sub-agent {sub_conv_id[:8]} thread still running after timeout"
+                )
+
+        # Check if all threads completed
+        all_completed = all(not thread.is_alive() for _, thread in sub_agent_threads)
+        if all_completed:
+            print("\n✅ All sub-agent threads completed successfully!")
+        else:
+            print(
+                f"\n⏰ Timeout after {int(time.time() - start_time)}s - some threads still running"
+            )
+    else:
+        print("⚠️  No delegation manager found")
+
+    print()
+
+    # Verify that main agent received messages from both sub-agents
+    print("🔍 Verifying delegation workflow...")
+    sub_agent_message_count = sum(1 for msg in llm_messages if "[Sub-agent" in str(msg))
+    print(f"   Found {sub_agent_message_count} messages from sub-agents")
+
+    # Check for specific sub-agent responses
+    linting_found = any("lint" in str(msg).lower() for msg in llm_messages)
+    complexity_found = any("complex" in str(msg).lower() for msg in llm_messages)
+
+    print(f"   Linting analysis received: {'✅' if linting_found else '❌'}")
+    print(f"   Complexity analysis received: {'✅' if complexity_found else '❌'}")
+
+    # Verify main agent created consolidated report
+    consolidated_found = any(
+        "consolidat" in str(msg).lower() or "merged" in str(msg).lower()
+        for msg in llm_messages
+    )
+    print(f"   Consolidated report created: {'✅' if consolidated_found else '❌'}")
+
+    print()
+
+    # Assert that delegation workflow completed successfully
+    assert sub_agent_message_count >= 2, (
+        f"Expected at least 2 sub-agent messages, got {sub_agent_message_count}"
+    )
+    assert linting_found, "Linting analysis not found in conversation"
+    assert complexity_found, "Complexity analysis not found in conversation"
+
+    print("✅ Agent delegation example completed successfully!")
     print("📊 Check the conversation output above for the delegation workflow")
     print("=" * 100)
 
-    print("Conversation finished. Got the following LLM messages:")
+    print(f"\nConversation finished. Got {len(llm_messages)} total LLM messages:")
     for i, message in enumerate(llm_messages):
-        print(f"Message {i}: {str(message)[:200]}")
+        msg_str = str(message)[:200]
+        if "[Sub-agent" in msg_str:
+            print(f"Message {i}: [SUB-AGENT MESSAGE] {msg_str[:150]}...")
+        else:
+            print(f"Message {i}: {msg_str}...")
 
 finally:
     # Clean up temporary file
