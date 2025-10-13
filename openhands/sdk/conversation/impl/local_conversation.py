@@ -97,19 +97,12 @@ class LocalConversation(BaseConversation):
 
         self._on_event = BaseConversation.compose_callbacks(composed_list)
         self.max_iteration_per_run = max_iteration_per_run
-        self._callbacks = callbacks or []
 
         # Initialize stuck detector
         self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
 
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
-
-        # Set parent conversation for delegation tool if it exists
-        delegation_tool = self.agent.tools_map.get("delegate")
-        if delegation_tool and delegation_tool.executor:
-            if hasattr(delegation_tool.executor, "set_parent_conversation"):
-                delegation_tool.executor.set_parent_conversation(self)
 
         # Register existing llms in agent
         self.llm_registry = LLMRegistry()
@@ -127,21 +120,6 @@ class LocalConversation(BaseConversation):
     def id(self) -> ConversationID:
         """Get the unique ID of the conversation."""
         return self._state.id
-
-    @property
-    def conversation_id(self) -> ConversationID:
-        """Get the unique ID of the conversation (alias for id)."""
-        return self._state.id
-
-    @property
-    def visualize(self) -> bool:
-        """Check if visualization is enabled for this conversation."""
-        return self._visualizer is not None
-
-    @property
-    def callbacks(self) -> list[ConversationCallbackType]:
-        """Get the callbacks for this conversation."""
-        return self._callbacks
 
     @property
     def state(self) -> ConversationState:
