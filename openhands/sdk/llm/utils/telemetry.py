@@ -71,38 +71,68 @@ class Telemetry:
         raw_resp: ModelResponse | ResponsesAPIResponse | None = None,
     ) -> Metrics:
         """
-        Side-effects:
-          - records latency, tokens, cost into Metrics
-          - optionally writes a JSON log file
+        Backward-compatible shim: dispatch to typed handlers.
         """
-        # Only handle known response types
-        if not isinstance(resp, (ModelResponse, ResponsesAPIResponse)):
-            return self._metrics.deep_copy()
+        if isinstance(resp, ModelResponse):
+            raw = raw_resp if isinstance(raw_resp, ModelResponse) else None
+            return self.on_completion_response(resp, raw_resp=raw)
+        if isinstance(resp, ResponsesAPIResponse):
+            raw = raw_resp if isinstance(raw_resp, ResponsesAPIResponse) else None
+            return self.on_responses_response(resp, raw_resp=raw)
+        return self._metrics.deep_copy()
 
-        # 1) latency (applies to both ModelResponse and ResponsesAPIResponse)
+    def on_completion_response(
+        self, resp: ModelResponse, raw_resp: ModelResponse | None = None
+    ) -> Metrics:
+        # latency
         self._last_latency = time.time() - (self._req_start or time.time())
         response_id = str(resp.id)
         self._metrics.add_response_latency(self._last_latency, response_id)
 
-        # 2) cost
+        # cost
         cost = self._compute_cost(resp)
-        # Intentionally skip logging zero-cost (0.0) responses; only record
-        # positive cost
         if cost:
             self._metrics.add_cost(cost)
 
-        # 3) tokens - use typed usage field when available
+        # tokens
         usage = resp.usage
+        if usage:
+            pt = int((usage.prompt_tokens or 0))
+            ct = int((usage.completion_tokens or 0))
+            if pt > 0 or ct > 0:
+                self._record_usage_completion(
+                    usage, response_id, self._req_ctx.get("context_window", 0)
+                )
 
-        if usage and self._has_meaningful_usage(usage):
-            self._record_usage(
-                usage, response_id, self._req_ctx.get("context_window", 0)
-            )
-
-        # 4) optional logging
         if self.log_enabled:
             self.log_llm_call(resp, cost, raw_resp=raw_resp)
+        return self._metrics.deep_copy()
 
+    def on_responses_response(
+        self, resp: ResponsesAPIResponse, raw_resp: ResponsesAPIResponse | None = None
+    ) -> Metrics:
+        # latency
+        self._last_latency = time.time() - (self._req_start or time.time())
+        response_id = str(resp.id)
+        self._metrics.add_response_latency(self._last_latency, response_id)
+
+        # cost
+        cost = self._compute_cost(resp)
+        if cost:
+            self._metrics.add_cost(cost)
+
+        # tokens
+        usage = resp.usage
+        if usage:
+            pt = int((usage.input_tokens or 0))
+            ct = int((usage.output_tokens or 0))
+            if pt > 0 or ct > 0:
+                self._record_usage_responses(
+                    usage, response_id, self._req_ctx.get("context_window", 0)
+                )
+
+        if self.log_enabled:
+            self.log_llm_call(resp, cost, raw_resp=raw_resp)
         return self._metrics.deep_copy()
 
     def on_error(self, err: Exception) -> None:
@@ -110,72 +140,44 @@ class Telemetry:
         return
 
     # ---------- Helpers ----------
-    def _has_meaningful_usage(self, usage: Usage | ResponseAPIUsage | None) -> bool:
-        """Check if usage has meaningful (non-zero) token counts.
-
-        Supports both Chat Completions Usage and Responses API Usage shapes.
-        """
-        if usage is None:
-            return False
-        try:
-            prompt_tokens = getattr(usage, "prompt_tokens", None)
-            if prompt_tokens is None:
-                prompt_tokens = getattr(usage, "input_tokens", 0)
-            completion_tokens = getattr(usage, "completion_tokens", None)
-            if completion_tokens is None:
-                completion_tokens = getattr(usage, "output_tokens", 0)
-
-            pt = int(prompt_tokens or 0)
-            ct = int(completion_tokens or 0)
-            return pt > 0 or ct > 0
-        except Exception:
-            return False
-
-    def _record_usage(
-        self, usage: Usage | ResponseAPIUsage, response_id: str, context_window: int
+    def _record_usage_completion(
+        self, usage: Usage, response_id: str, context_window: int
     ) -> None:
-        """
-        Record token usage, supporting both Chat Completions Usage and
-        Responses API Usage.
-
-        Chat shape:
-          - prompt_tokens, completion_tokens
-          - prompt_tokens_details.cached_tokens
-          - completion_tokens_details.reasoning_tokens
-          - _cache_creation_input_tokens for cache_write
-        Responses shape:
-          - input_tokens, output_tokens
-          - input_tokens_details.cached_tokens
-          - output_tokens_details.reasoning_tokens
-        """
-        prompt_tokens = int(
-            getattr(usage, "prompt_tokens", None)
-            or getattr(usage, "input_tokens", 0)
-            or 0
-        )
-        completion_tokens = int(
-            getattr(usage, "completion_tokens", None)
-            or getattr(usage, "output_tokens", 0)
-            or 0
-        )
-
+        prompt_tokens = int(usage.prompt_tokens or 0)
+        completion_tokens = int(usage.completion_tokens or 0)
         cache_read = 0
-        p_details = getattr(usage, "prompt_tokens_details", None) or getattr(
-            usage, "input_tokens_details", None
-        )
-        if p_details is not None:
-            cache_read = int(getattr(p_details, "cached_tokens", 0) or 0)
-
+        if getattr(usage, "prompt_tokens_details", None) is not None:
+            cache_read = int(getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0)
         reasoning_tokens = 0
-        c_details = getattr(usage, "completion_tokens_details", None) or getattr(
-            usage, "output_tokens_details", None
-        )
-        if c_details is not None:
-            reasoning_tokens = int(getattr(c_details, "reasoning_tokens", 0) or 0)
-
-        # Chat-specific: litellm may set a hidden cache write field
+        if getattr(usage, "completion_tokens_details", None) is not None:
+            reasoning_tokens = int(
+                getattr(usage.completion_tokens_details, "reasoning_tokens", 0) or 0
+            )
         cache_write = int(getattr(usage, "_cache_creation_input_tokens", 0) or 0)
+        self._metrics.add_token_usage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cache_read_tokens=cache_read,
+            cache_write_tokens=cache_write,
+            reasoning_tokens=reasoning_tokens,
+            context_window=context_window,
+            response_id=response_id,
+        )
 
+    def _record_usage_responses(
+        self, usage: ResponseAPIUsage, response_id: str, context_window: int
+    ) -> None:
+        prompt_tokens = int(usage.input_tokens or 0)
+        completion_tokens = int(usage.output_tokens or 0)
+        cache_read = 0
+        if getattr(usage, "input_tokens_details", None) is not None:
+            cache_read = int(getattr(usage.input_tokens_details, "cached_tokens", 0) or 0)
+        reasoning_tokens = 0
+        if getattr(usage, "output_tokens_details", None) is not None:
+            reasoning_tokens = int(
+                getattr(usage.output_tokens_details, "reasoning_tokens", 0) or 0
+            )
+        cache_write = 0
         self._metrics.add_token_usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,

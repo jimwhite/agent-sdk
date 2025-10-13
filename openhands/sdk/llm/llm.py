@@ -464,7 +464,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     resp, nonfncall_msgs=formatted_messages, tools=cc_tools
                 )
             # 6) telemetry
-            self._telemetry.on_response(resp, raw_resp=raw_resp)
+            self._telemetry.on_completion_response(resp, raw_resp=raw_resp)
 
             # Ensure at least one choice
             if not resp.get("choices") or len(resp["choices"]) < 1:
@@ -590,7 +590,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     )
                     # telemetry (latency, cost). Token usage mapping we handle after.
                     assert self._telemetry is not None
-                    self._telemetry.on_response(ret)
+                    self._telemetry.on_responses_response(ret)
                     return ret
 
         try:
