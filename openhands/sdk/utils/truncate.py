@@ -17,6 +17,13 @@ DEFAULT_TRUNCATE_NOTICE = (
     "response has been shown to you.</NOTE>"
 )
 
+DEFAULT_TRUNCATE_NOTICE_WITH_PERSIST = (
+    "<response clipped><NOTE>Due to the max output limit, only part of the full "
+    "response has been shown to you. The complete output has been saved to "
+    "{file_path} - you can use other tools to view the full content (truncated "
+    "part starts around line {line_num}).</NOTE>"
+)
+
 
 def _save_full_content(content: str, save_dir: str, tool_prefix: str) -> str | None:
     """Save full content to the specified directory and return the file path."""
@@ -85,12 +92,9 @@ def maybe_truncate(
             # Calculate line number where truncation happens (using head_chars)
             head_content_lines = len(content[:head_chars].splitlines())
 
-            final_notice = (
-                f"<response clipped><NOTE>Due to the max output limit, only part of "
-                f"the full response has been shown to you. The complete output has "
-                f"been saved to {saved_file_path} - you can use other tools "
-                f"to view the full content (truncated part starts around "
-                f"line {head_content_lines + 1}).</NOTE>"
+            final_notice = DEFAULT_TRUNCATE_NOTICE_WITH_PERSIST.format(
+                file_path=saved_file_path,
+                line_num=head_content_lines + 1,  # +1 to indicate next line
             )
 
     # Calculate tail size based on final notice (head_chars stays consistent)

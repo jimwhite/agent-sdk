@@ -1,6 +1,5 @@
 """Browser-use tool implementation for web automation."""
 
-import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -606,23 +605,15 @@ class BrowserToolSet(ToolBase):
     def create(
         cls,
         conv_state: "ConversationState",
-        full_output_save_dir: str = "full_tool_outputs",
         **executor_config,
     ) -> list[ToolBase]:
         # Import executor only when actually needed to
         # avoid hanging during module import
         from openhands.tools.browser_use.impl import BrowserToolExecutor
 
-        # Compute full output save dir
-        if os.path.isabs(full_output_save_dir):
-            full_output_save_dir = full_output_save_dir
-        else:
-            full_output_save_dir = os.path.join(
-                conv_state.persistence_dir or "", full_output_save_dir
-            )
-
         executor = BrowserToolExecutor(
-            full_output_save_dir=full_output_save_dir, **executor_config
+            full_output_save_dir=conv_state.env_observation_persistence_dir,
+            **executor_config,
         )
         return [
             browser_navigate_tool.set_executor(executor),

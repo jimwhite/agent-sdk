@@ -120,7 +120,7 @@ class BrowserToolExecutor(ToolExecutor):
         allowed_domains: list[str] | None = None,
         session_timeout_minutes: int = 30,
         init_timeout_seconds: int = 30,
-        full_output_save_dir: str = "full_tool_outputs",
+        full_output_save_dir: str | None = None,
         **config,
     ):
         """Initialize BrowserToolExecutor with timeout protection.

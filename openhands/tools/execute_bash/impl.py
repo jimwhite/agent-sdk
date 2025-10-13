@@ -39,7 +39,7 @@ class BashExecutor(ToolExecutor):
             env_masker: Optional function that returns current secret values
                         for masking purposes. This ensures consistent masking
                         even when env_provider calls fail.
-            full_output_save_dir: Absolute path to directory to save full output
+            full_output_save_dir: Path to directory to save full output
                                   logs and files, used when truncation is needed.
         """
         self.session = create_terminal_session(
