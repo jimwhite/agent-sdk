@@ -27,7 +27,7 @@ class Telemetry:
     """
 
     # External dependency, excluded from equality (identity, runtime-managed)
-    metrics: InitVar[Metrics]
+    metrics: InitVar[Metrics | None] = None
     _metrics: Metrics = field(init=False, compare=False, repr=False)
 
     # Config fields (participate in equality)
@@ -44,7 +44,7 @@ class Telemetry:
     )
     _last_latency: float = field(default=0.0, init=False, compare=False, repr=False)
 
-    def __post_init__(self, metrics: Metrics) -> None:
+    def __post_init__(self, metrics: Metrics | None) -> None:
         if not isinstance(metrics, Metrics):
             raise ValueError("Telemetry requires a Metrics instance")
         self._metrics = metrics
@@ -68,7 +68,7 @@ class Telemetry:
     def on_response(
         self,
         resp: ModelResponse | ResponsesAPIResponse,
-        raw_resp: ModelResponse | None = None,
+        raw_resp: ModelResponse | ResponsesAPIResponse | None = None,
     ) -> Metrics:
         """
         Side-effects:
