@@ -3,7 +3,7 @@ import os
 import time
 import uuid
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from typing import Any
 
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
@@ -17,7 +17,7 @@ from openhands.sdk.logger import get_logger
 logger = get_logger(__name__)
 
 
-@dataclass(eq=True, init=False)
+@dataclass(eq=True)
 class Telemetry:
     """
     Boring, simple telemetry service.
@@ -27,6 +27,7 @@ class Telemetry:
     """
 
     # External dependency, excluded from equality (identity, runtime-managed)
+    metrics: InitVar[Metrics]
     _metrics: Metrics = field(init=False, compare=False, repr=False)
 
     # Config fields (participate in equality)
@@ -43,28 +44,10 @@ class Telemetry:
     )
     _last_latency: float = field(default=0.0, init=False, compare=False, repr=False)
 
-    def __init__(
-        self,
-        *,
-        model_name: str = "unknown",
-        log_enabled: bool = False,
-        log_dir: str | None = None,
-        input_cost_per_token: float | None = None,
-        output_cost_per_token: float | None = None,
-        metrics: Metrics | None = None,
-    ) -> None:
-        self.model_name = model_name
-        self.log_enabled = log_enabled
-        self.log_dir = log_dir
-        self.input_cost_per_token = input_cost_per_token
-        self.output_cost_per_token = output_cost_per_token
-        self._req_start = 0.0
-        self._req_ctx = {}
-        self._last_latency = 0.0
+    def __post_init__(self, metrics: Metrics) -> None:
         if not isinstance(metrics, Metrics):
             raise ValueError("Telemetry requires a Metrics instance")
         self._metrics = metrics
-        # post-init validations
         if self.input_cost_per_token is not None and self.input_cost_per_token < 0:
             raise ValueError("input_cost_per_token must be >= 0")
         if self.output_cost_per_token is not None and self.output_cost_per_token < 0:
