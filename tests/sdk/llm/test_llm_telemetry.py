@@ -592,7 +592,7 @@ class TestTelemetryEdgeCases:
         basic_telemetry.on_response(response_no_id)
 
         # Test with non-ModelResponse object
-        # For plain class, no ValidationError; just ensure it doesn't crash
+        # Ensure it works (it doesn't crash)
         mock_response = MagicMock()
         basic_telemetry.on_request({})
         basic_telemetry.on_response(mock_response)
