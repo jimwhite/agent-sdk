@@ -28,7 +28,6 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.delegation.manager import DelegationManager
-from openhands.sdk.tool import register_tool
 from openhands.tools.delegation import DelegateExecutor, DelegationTool
 from openhands.tools.preset.default import get_default_agent
 
@@ -125,17 +124,12 @@ try:
     print("🚀 Starting Agent Delegation Example")
     print("=" * 50)
 
+    # Create DelegationManager first (before agent and conversation)
+    delegation_manager = DelegationManager()
+    print("📋 Created DelegationManager")
+
     # Initialize main agent with delegation capabilities
     main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
-
-    # Create a DelegationManager up front and override DelegationTool registration
-    delegation_manager = DelegationManager()
-
-    # Override DelegationTool with a factory that binds our manager
-    def _delegation_tool_factory(*, conv_state=None, **params):
-        return [DelegationTool.set_executor(DelegateExecutor(delegation_manager))]
-
-    register_tool("DelegationTool", _delegation_tool_factory)
 
     # Collect LLM messages for debugging
     llm_messages = []
@@ -151,16 +145,21 @@ try:
         callbacks=[conversation_callback],
     )
 
-    # Explicitly attach parent conversation to delegate executor for message routing
-    try:
-        delegate_tool = main_agent.tools_map.get("delegate")
-        if delegate_tool is not None:
-            exec = delegate_tool.as_executable().executor
-            if hasattr(exec, "set_parent_conversation"):
-                exec.set_parent_conversation(conversation)
-                print("🔗 Attached parent conversation to DelegateExecutor")
-    except Exception as e:
-        print(f"⚠️ Failed to attach parent conversation to DelegateExecutor: {e}")
+    # Wire the parent conversation to DelegateExecutor (simple and clean)
+    delegate_tool = main_agent.tools_map.get("delegate")
+    if delegate_tool is not None:
+        # Replace the executor with one that uses our delegation manager
+        delegate_executor = DelegateExecutor(delegation_manager)
+        delegate_executor.set_parent_conversation(conversation)
+        
+        # Update the tool with our configured executor
+        from openhands.tools.delegation import DelegationTool
+        updated_tool = DelegationTool.set_executor(delegate_executor)
+        main_agent.tools_map["delegate"] = updated_tool
+        
+        print("🔗 Wired parent conversation to DelegateExecutor")
+    else:
+        raise RuntimeError("Delegate tool not found in agent")
 
     print(f"📁 Created temporary Python file: {temp_file_path}")
     print("🤖 Main agent will delegate analysis tasks to sub-agents")

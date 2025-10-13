@@ -23,7 +23,11 @@ class DelegateExecutor(ToolExecutor):
         self.delegation_manager = delegation_manager or DelegationManager()
 
     def set_parent_conversation(self, conversation) -> None:
-        # Used by LocalConversation to wire this executor with the parent conversation
+        """Set the parent conversation for delegation operations.
+        
+        This should be called by the application after creating the conversation
+        to enable message routing between parent and sub-agents.
+        """
         self._parent_conversation = conversation
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
