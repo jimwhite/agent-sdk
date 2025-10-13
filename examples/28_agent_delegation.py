@@ -106,14 +106,15 @@ api_key = os.getenv("LLM_API_KEY")
 assert api_key is not None, "LLM_API_KEY environment variable is not set."
 llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="<secret_hidden>",
+    base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
     service_id="agent",
     drop_params=True,
 )
 
-# Create a temporary Python file to analyze
-with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+cwd = os.getcwd()
+
+with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, dir=cwd) as f:
     f.write(SAMPLE_PYTHON_CODE)
     temp_file_path = f.name
 
@@ -122,7 +123,6 @@ try:
     print("=" * 50)
 
     # Initialize main agent with delegation capabilities
-    cwd = os.getcwd()
     main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
 
     # Collect LLM messages for debugging
