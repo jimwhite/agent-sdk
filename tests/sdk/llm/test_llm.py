@@ -10,6 +10,8 @@ from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
+from litellm.types.llms.openai import ResponsesAPIResponse
+
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
 
@@ -282,12 +284,7 @@ def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
             self.id = "resp123"
             self.created_at = 0
 
-    from litellm.types.llms.openai import ResponsesAPIResponse
-
-    class DummyTyped(ResponsesAPIResponse):
-        pass
-
-    mock_responses.return_value = DummyTyped.model_validate(
+    mock_responses.return_value = ResponsesAPIResponse.model_validate(
         DummyResponses().__dict__
     )
 
