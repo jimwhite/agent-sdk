@@ -208,11 +208,13 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
-    litellm_extra_body: str | None = Field(
+    litellm_extra_body: dict[str, Any] | str | None = Field(
         default=None,
         description=(
-            "Additional parameters to pass in the request body as JSON string. "
-            "Useful for custom metadata, provider-specific parameters, or routing info."
+            "Additional parameters to pass in the request body. "
+            "Can be a dict or JSON string (for backward compatibility). "
+            "Useful for provider-specific parameters or routing info. "
+            "Note: Use 'metadata' field for LLM instance metadata instead."
         ),
     )
     service_id: str = Field(
@@ -738,42 +740,57 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             out.pop("tools", None)
             out.pop("tool_choice", None)
 
-        # Handle custom extra_body configuration
-        if self.litellm_extra_body:
-            try:
-                custom_extra_body = json.loads(self.litellm_extra_body)
+        # Build extra_body by combining metadata and litellm_extra_body
+        extra_body_parts = []
+        
+        # Start with existing extra_body from kwargs if present
+        if "extra_body" in out:
+            existing_extra_body = out["extra_body"]
+            if isinstance(existing_extra_body, dict):
+                extra_body_parts.append(existing_extra_body)
+            else:
+                # If existing extra_body is not a dict, use it as-is and skip merging
+                out["extra_body"] = existing_extra_body
+                return out
 
-                # Merge with existing extra_body if present
-                if "extra_body" in out:
-                    # Deep merge the dictionaries
-                    existing_extra_body = out["extra_body"]
-                    if isinstance(existing_extra_body, dict) and isinstance(
-                        custom_extra_body, dict
-                    ):
-                        # Merge metadata if both have it
-                        if (
-                            "metadata" in existing_extra_body
-                            and "metadata" in custom_extra_body
-                        ):
-                            merged_metadata = {
-                                **existing_extra_body["metadata"],
-                                **custom_extra_body["metadata"],
-                            }
-                            custom_extra_body["metadata"] = merged_metadata
-                        # Merge the entire extra_body
-                        out["extra_body"] = {
-                            **existing_extra_body,
-                            **custom_extra_body,
-                        }
+        # Add LLM instance metadata if present
+        if self.metadata:
+            extra_body_parts.append({"metadata": self.metadata})
+
+        # Add litellm_extra_body if present
+        if self.litellm_extra_body:
+            if isinstance(self.litellm_extra_body, dict):
+                extra_body_parts.append(self.litellm_extra_body)
+            elif isinstance(self.litellm_extra_body, str):
+                # Backward compatibility: parse JSON string
+                try:
+                    parsed_extra_body = json.loads(self.litellm_extra_body)
+                    if isinstance(parsed_extra_body, dict):
+                        extra_body_parts.append(parsed_extra_body)
                     else:
-                        out["extra_body"] = custom_extra_body
-                else:
-                    out["extra_body"] = custom_extra_body
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.warning(
-                    f"Failed to parse litellm_extra_body as JSON: {e}. "
-                    "Ignoring custom extra_body."
-                )
+                        out["extra_body"] = parsed_extra_body
+                        return out
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.warning(
+                        f"Failed to parse litellm_extra_body as JSON: {e}. "
+                        "Ignoring litellm_extra_body."
+                    )
+
+        # Merge all extra_body parts
+        if extra_body_parts:
+            merged_extra_body = {}
+            for part in extra_body_parts:
+                if isinstance(part, dict):
+                    # Special handling for metadata key - merge nested dicts
+                    for key, value in part.items():
+                        if key == "metadata" and key in merged_extra_body:
+                            if isinstance(merged_extra_body[key], dict) and isinstance(value, dict):
+                                merged_extra_body[key] = {**merged_extra_body[key], **value}
+                            else:
+                                merged_extra_body[key] = value
+                        else:
+                            merged_extra_body[key] = value
+            out["extra_body"] = merged_extra_body
 
         # non litellm proxy special-case: keep `extra_body` off unless model requires it
         if "litellm_proxy" not in self.model:
@@ -826,6 +843,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         # Respect max_output_tokens if configured at LLM level
         if self.max_output_tokens is not None:
             out.setdefault("max_output_tokens", self.max_output_tokens)
+
+        # Default to LLM.metadata if not provided
+        if self.metadata:
+            out.setdefault("metadata", self.metadata)
 
         # Request plaintext reasoning summary
         effort = self.reasoning_effort or "high"
