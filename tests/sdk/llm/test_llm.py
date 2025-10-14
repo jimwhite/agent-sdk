@@ -254,7 +254,7 @@ def test_llm_forwards_extra_headers_to_litellm(mock_completion):
     mock_response = create_mock_litellm_response("ok")
     mock_completion.return_value = mock_response
 
-    headers = {"editor-version": "vscode/1.85.1", "Copilot-Integration-Id": "vscode-chat"}
+    headers = {"anthropic-beta": "context-1m-2025-08-07"}  # Enable 1M context
     llm = LLM(
         service_id="test-llm",
         model="gpt-4o",
@@ -288,7 +288,7 @@ def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
         DummyResponses().__dict__
     )
 
-    headers = {"editor-version": "vscode/1.85.1"}
+    headers = {"anthropic-beta": "context-1m-2025-08-07"}
     llm = LLM(
         service_id="test-llm",
         model="gpt-4o",
