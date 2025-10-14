@@ -24,6 +24,7 @@ from openhands.agent_server.models import (
     SendMessageRequest,
     Success,
 )
+from openhands.agent_server.utils import normalize_datetime_to_server_timezone
 from openhands.sdk import Message
 from openhands.sdk.event import Event
 
@@ -33,6 +34,7 @@ event_router = APIRouter(
 )
 conversation_service = get_default_conversation_service()
 logger = logging.getLogger(__name__)
+
 
 # Read methods
 
@@ -73,8 +75,19 @@ async def search_conversation_events(
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+    # Normalize timezone-aware datetimes to server timezone
+    normalized_gte = (
+        normalize_datetime_to_server_timezone(timestamp__gte)
+        if timestamp__gte
+        else None
+    )
+    normalized_lt = (
+        normalize_datetime_to_server_timezone(timestamp__lt) if timestamp__lt else None
+    )
+
     return await event_service.search_events(
-        page_id, limit, kind, sort_order, timestamp__gte, timestamp__lt
+        page_id, limit, kind, sort_order, normalized_gte, normalized_lt
     )
 
 
@@ -100,7 +113,18 @@ async def count_conversation_events(
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
-    count = await event_service.count_events(kind, timestamp__gte, timestamp__lt)
+
+    # Normalize timezone-aware datetimes to server timezone
+    normalized_gte = (
+        normalize_datetime_to_server_timezone(timestamp__gte)
+        if timestamp__gte
+        else None
+    )
+    normalized_lt = (
+        normalize_datetime_to_server_timezone(timestamp__lt) if timestamp__lt else None
+    )
+
+    count = await event_service.count_events(kind, normalized_gte, normalized_lt)
     return count
 
 
@@ -136,7 +160,7 @@ async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Su
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     message = Message(role=request.role, content=request.content)
-    await event_service.send_message(message)
+    await event_service.send_message(message, request.run)
     return Success()
 
 

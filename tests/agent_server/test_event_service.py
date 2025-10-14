@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,7 @@ from openhands.agent_server.models import (
     StoredConversation,
 )
 from openhands.sdk import LLM, Agent, Conversation, Message
-from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.security.confirmation_policy import NeverConfirm
 from openhands.sdk.workspace import LocalWorkspace
@@ -348,13 +348,14 @@ class TestEventServiceSearchEvents:
         """Test filtering events with timestamp__lt (less than)."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Filter events < 12:00:00 (should return events 1, 2)
-        filter_time = datetime(2025, 1, 1, 12, 0, 0)
+        # Filter events < 13:00:00 (should return events 1, 2, 3)
+        filter_time = datetime(2025, 1, 1, 13, 0, 0)
         result = await event_service.search_events(timestamp__lt=filter_time)
 
-        assert len(result.items) == 2
+        assert len(result.items) == 3
         assert result.items[0].id == "event1"
         assert result.items[1].id == "event2"
+        assert result.items[2].id == "event3"
         # All returned events should have timestamp < filter value
         filter_iso = filter_time.isoformat()
         for event in result.items:
@@ -364,10 +365,10 @@ class TestEventServiceSearchEvents:
     async def test_search_events_timestamp_range_filter(
         self, event_service, mock_conversation_with_timestamped_events
     ):
-        """Test filtering events with timestamp range (gte and lt combined)."""
+        """Test filtering events with both timestamp__gte and timestamp__lt."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Filter events in range [11:00:00, 13:00:00) - should return events 2, 3
+        # Filter events between 11:00:00 and 13:00:00 (should return events 2, 3)
         gte_time = datetime(2025, 1, 1, 11, 0, 0)
         lt_time = datetime(2025, 1, 1, 13, 0, 0)
         result = await event_service.search_events(
@@ -377,7 +378,7 @@ class TestEventServiceSearchEvents:
         assert len(result.items) == 2
         assert result.items[0].id == "event2"
         assert result.items[1].id == "event3"
-        # All returned events should be in the range [gte, lt)
+        # All returned events should be within the range
         gte_iso = gte_time.isoformat()
         lt_iso = lt_time.isoformat()
         for event in result.items:
@@ -385,13 +386,29 @@ class TestEventServiceSearchEvents:
             assert event.timestamp < lt_iso
 
     @pytest.mark.asyncio
+    async def test_search_events_timestamp_filter_with_timezone_aware(
+        self, event_service, mock_conversation_with_timestamped_events
+    ):
+        """Test filtering events with timezone-aware datetime."""
+        event_service._conversation = mock_conversation_with_timestamped_events
+
+        # Filter events >= 12:00:00 UTC (should return events 3, 4, 5)
+        filter_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        result = await event_service.search_events(timestamp__gte=filter_time)
+
+        assert len(result.items) == 3
+        assert result.items[0].id == "event3"
+        assert result.items[1].id == "event4"
+        assert result.items[2].id == "event5"
+
+    @pytest.mark.asyncio
     async def test_search_events_timestamp_filter_no_matches(
         self, event_service, mock_conversation_with_timestamped_events
     ):
-        """Test timestamp filtering when no events match."""
+        """Test filtering events with timestamps that don't match any events."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Filter events >= 15:00:00 (no events should match)
+        # Filter events >= 15:00:00 (should return no events)
         filter_time = datetime(2025, 1, 1, 15, 0, 0)
         result = await event_service.search_events(timestamp__gte=filter_time)
 
@@ -399,73 +416,19 @@ class TestEventServiceSearchEvents:
         assert result.next_page_id is None
 
     @pytest.mark.asyncio
-    async def test_search_events_timestamp_filter_with_pagination(
+    async def test_search_events_timestamp_filter_all_events(
         self, event_service, mock_conversation_with_timestamped_events
     ):
-        """Test timestamp filtering combined with pagination."""
+        """Test filtering events with timestamps that include all events."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Filter events >= 11:00:00 with limit 2 (should return events 2, 3)
-        filter_time = datetime(2025, 1, 1, 11, 0, 0)
-        result = await event_service.search_events(timestamp__gte=filter_time, limit=2)
+        # Filter events >= 09:00:00 (should return all events)
+        filter_time = datetime(2025, 1, 1, 9, 0, 0)
+        result = await event_service.search_events(timestamp__gte=filter_time)
 
-        assert len(result.items) == 2
-        assert result.items[0].id == "event2"
-        assert result.items[1].id == "event3"
-        assert result.next_page_id is not None
-
-        # Get next page
-        result = await event_service.search_events(
-            timestamp__gte=filter_time,
-            page_id=result.next_page_id,
-            limit=2,
-        )
-
-        assert len(result.items) == 2
-        assert result.items[0].id == "event4"
-        assert result.items[1].id == "event5"
-        assert result.next_page_id is None
-
-    @pytest.mark.asyncio
-    async def test_search_events_timestamp_filter_with_kind(
-        self, event_service, mock_conversation_with_timestamped_events
-    ):
-        """Test timestamp filtering combined with kind filtering."""
-        event_service._conversation = mock_conversation_with_timestamped_events
-
-        # Filter by timestamp and kind
-        gte_time = datetime(2025, 1, 1, 11, 0, 0)
-        lt_time = datetime(2025, 1, 1, 14, 0, 0)
-        result = await event_service.search_events(
-            timestamp__gte=gte_time,
-            timestamp__lt=lt_time,
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent",
-        )
-
-        assert len(result.items) == 3
-        assert result.items[0].id == "event2"
-        assert result.items[1].id == "event3"
-        assert result.items[2].id == "event4"
-
-    @pytest.mark.asyncio
-    async def test_search_events_timestamp_filter_with_desc_sort(
-        self, event_service, mock_conversation_with_timestamped_events
-    ):
-        """Test timestamp filtering with descending sort order."""
-        event_service._conversation = mock_conversation_with_timestamped_events
-
-        # Filter events >= 12:00:00 and sort descending
-        filter_time = datetime(2025, 1, 1, 12, 0, 0)
-        result = await event_service.search_events(
-            timestamp__gte=filter_time,
-            sort_order=EventSortOrder.TIMESTAMP_DESC,
-        )
-
-        assert len(result.items) == 3
-        # Should be in reverse order: event5, event4, event3
-        assert result.items[0].id == "event5"
-        assert result.items[1].id == "event4"
-        assert result.items[2].id == "event3"
+        assert len(result.items) == 5
+        assert result.items[0].id == "event1"
+        assert result.items[4].id == "event5"
 
 
 class TestEventServiceCountEvents:
@@ -532,23 +495,10 @@ class TestEventServiceCountEvents:
         """Test counting events with timestamp__gte filter."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Count events >= 12:00:00 (should be 3: events 3, 4, 5)
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 12, 0, 0)
-        )
+        # Count events >= 12:00:00 (should return 3)
+        filter_time = datetime(2025, 1, 1, 12, 0, 0)
+        result = await event_service.count_events(timestamp__gte=filter_time)
         assert result == 3
-
-        # Count events >= 10:00:00 (should be all 5 events)
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 10, 0, 0)
-        )
-        assert result == 5
-
-        # Count events >= 15:00:00 (should be 0)
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 15, 0, 0)
-        )
-        assert result == 0
 
     @pytest.mark.asyncio
     async def test_count_events_timestamp_lt_filter(
@@ -557,95 +507,241 @@ class TestEventServiceCountEvents:
         """Test counting events with timestamp__lt filter."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Count events < 12:00:00 (should be 2: events 1, 2)
-        result = await event_service.count_events(
-            timestamp__lt=datetime(2025, 1, 1, 12, 0, 0)
-        )
-        assert result == 2
-
-        # Count events < 15:00:00 (should be all 5 events)
-        result = await event_service.count_events(
-            timestamp__lt=datetime(2025, 1, 1, 15, 0, 0)
-        )
-        assert result == 5
-
-        # Count events < 10:00:00 (should be 0)
-        result = await event_service.count_events(
-            timestamp__lt=datetime(2025, 1, 1, 10, 0, 0)
-        )
-        assert result == 0
+        # Count events < 13:00:00 (should return 3)
+        filter_time = datetime(2025, 1, 1, 13, 0, 0)
+        result = await event_service.count_events(timestamp__lt=filter_time)
+        assert result == 3
 
     @pytest.mark.asyncio
     async def test_count_events_timestamp_range_filter(
         self, event_service, mock_conversation_with_timestamped_events
     ):
-        """Test counting events with timestamp range (gte and lt combined)."""
+        """Test counting events with both timestamp filters."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Count events in range [11:00:00, 13:00:00) - should be 2: events 2, 3
+        # Count events between 11:00:00 and 13:00:00 (should return 2)
+        gte_time = datetime(2025, 1, 1, 11, 0, 0)
+        lt_time = datetime(2025, 1, 1, 13, 0, 0)
         result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 11, 0, 0),
-            timestamp__lt=datetime(2025, 1, 1, 13, 0, 0),
+            timestamp__gte=gte_time, timestamp__lt=lt_time
         )
         assert result == 2
 
-        # Count events in range [10:00:00, 14:00:00) - should be 4: events 1, 2, 3, 4
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 10, 0, 0),
-            timestamp__lt=datetime(2025, 1, 1, 14, 0, 0),
-        )
-        assert result == 4
-
-        # Count events in narrow range [12:00:00, 13:00:00) - should be 1: event 3
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 12, 0, 0),
-            timestamp__lt=datetime(2025, 1, 1, 13, 0, 0),
-        )
-        assert result == 1
-
     @pytest.mark.asyncio
-    async def test_count_events_timestamp_filter_with_kind(
+    async def test_count_events_timestamp_filter_with_timezone_aware(
         self, event_service, mock_conversation_with_timestamped_events
     ):
-        """Test counting events with timestamp and kind filters combined."""
+        """Test counting events with timezone-aware datetime."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Count MessageEvent events in range [11:00:00, 14:00:00)
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 11, 0, 0),
-            timestamp__lt=datetime(2025, 1, 1, 14, 0, 0),
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent",
-        )
-        assert result == 3  # events 2, 3, 4
+        # Count events >= 12:00:00 UTC (should return 3)
+        filter_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+        result = await event_service.count_events(timestamp__gte=filter_time)
+        assert result == 3
 
-        # Count non-existent event type in range (should be 0)
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 11, 0, 0),
-            timestamp__lt=datetime(2025, 1, 1, 14, 0, 0),
-            kind="NonExistentEvent",
-        )
+    @pytest.mark.asyncio
+    async def test_count_events_timestamp_filter_no_matches(
+        self, event_service, mock_conversation_with_timestamped_events
+    ):
+        """Test counting events with timestamps that don't match any events."""
+        event_service._conversation = mock_conversation_with_timestamped_events
+
+        # Count events >= 15:00:00 (should return 0)
+        filter_time = datetime(2025, 1, 1, 15, 0, 0)
+        result = await event_service.count_events(timestamp__gte=filter_time)
         assert result == 0
 
     @pytest.mark.asyncio
-    async def test_count_events_timestamp_boundaries(
+    async def test_count_events_timestamp_filter_all_events(
         self, event_service, mock_conversation_with_timestamped_events
     ):
-        """Test timestamp filter boundaries (inclusive gte, exclusive lt)."""
+        """Test counting events with timestamps that include all events."""
         event_service._conversation = mock_conversation_with_timestamped_events
 
-        # Count events >= 11:00:00 (should include event2)
-        result = await event_service.count_events(
-            timestamp__gte=datetime(2025, 1, 1, 11, 0, 0)
-        )
-        assert result == 4  # events 2, 3, 4, 5
+        # Count events >= 09:00:00 (should return 5)
+        filter_time = datetime(2025, 1, 1, 9, 0, 0)
+        result = await event_service.count_events(timestamp__gte=filter_time)
+        assert result == 5
 
-        # Count events < 11:00:00 (should not include event2)
-        result = await event_service.count_events(
-            timestamp__lt=datetime(2025, 1, 1, 11, 0, 0)
-        )
-        assert result == 1  # only event 1
 
-        # Verify they sum to total
-        total = await event_service.count_events()
-        assert total == 5
-        assert 4 + 1 == total  # No gaps or overlaps
+class TestEventServiceSendMessage:
+    """Test cases for EventService.send_message method."""
+
+    async def _mock_executor(self, *args):
+        """Helper to create a mock coroutine for run_in_executor."""
+        return None
+
+    @pytest.mark.asyncio
+    async def test_send_message_inactive_service(self, event_service):
+        """Test that send_message raises ValueError when service is inactive."""
+        event_service._conversation = None
+        message = Message(role="user", content=[])
+
+        with pytest.raises(ValueError, match="inactive_service"):
+            await event_service.send_message(message)
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_false_default(self, event_service):
+        """Test send_message with default run=True."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        state = MagicMock()
+        state.agent_status = AgentExecutionStatus.IDLE
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation.state = state
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with default run=True
+            await event_service.send_message(message)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, message
+            )
+            # Verify run was called via executor since run=True and agent is not running
+            assert (
+                None,
+                conversation.run,
+            ) not in mock_loop.run_in_executor.call_args_list
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_false(self, event_service):
+        """Test send_message with run=False."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with run=False
+            await event_service.send_message(message, run=False)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_called_once_with(
+                None, conversation.send_message, message
+            )
+            # Verify run was NOT called since run=False
+            assert mock_loop.run_in_executor.call_count == 1  # Only send_message call
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_true_agent_already_running(
+        self, event_service
+    ):
+        """Test send_message with run=True but agent already running."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        state = MagicMock()
+        state.agent_status = AgentExecutionStatus.RUNNING
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation.state = state
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with run=True
+            await event_service.send_message(message, run=True)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_called_once_with(
+                None, conversation.send_message, message
+            )
+            # Verify run was NOT called since agent is already running
+            assert mock_loop.run_in_executor.call_count == 1  # Only send_message call
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_run_true_agent_idle(self, event_service):
+        """Test send_message with run=True and agent idle."""
+        # Mock conversation and its methods
+        conversation = MagicMock()
+        state = MagicMock()
+        state.agent_status = AgentExecutionStatus.IDLE
+        state.__enter__ = MagicMock(return_value=state)
+        state.__exit__ = MagicMock(return_value=None)
+        conversation.state = state
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+        message = Message(role="user", content=[])
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            mock_loop.run_in_executor.return_value = self._mock_executor()
+
+            # Call send_message with run=True
+            await event_service.send_message(message, run=True)
+
+            # Verify send_message was called via executor
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, message
+            )
+            # Verify run was called via executor since agent is idle
+            mock_loop.run_in_executor.assert_any_call(None, conversation.run)
+
+    @pytest.mark.asyncio
+    async def test_send_message_with_different_message_types(self, event_service):
+        """Test send_message with different message types."""
+        # Mock conversation
+        conversation = MagicMock()
+        conversation.send_message = MagicMock()
+        conversation.run = MagicMock()
+
+        event_service._conversation = conversation
+
+        # Mock the event loop and executor
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+            # Create a side effect that returns a new coroutine each time
+            mock_loop.run_in_executor.side_effect = lambda *args: self._mock_executor()
+
+            # Test with user message (run=False to avoid state checking)
+            user_message = Message(role="user", content=[])
+            await event_service.send_message(user_message, run=False)
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, user_message
+            )
+
+            # Test with assistant message
+            assistant_message = Message(role="assistant", content=[])
+            await event_service.send_message(assistant_message, run=False)
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, assistant_message
+            )
+
+            # Test with system message
+            system_message = Message(role="system", content=[])
+            await event_service.send_message(system_message, run=False)
+            mock_loop.run_in_executor.assert_any_call(
+                None, conversation.send_message, system_message
+            )

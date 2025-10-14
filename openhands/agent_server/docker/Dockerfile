@@ -10,7 +10,7 @@ ARG PORT=8000
 # Builder (source mode)
 # We copy source + build a venv here for local dev and debugging.
 ####################################################################################
-FROM python:3.12-bookworm AS builder
+FROM python:3.12-bullseye AS builder
 ARG USERNAME UID GID
 ENV UV_PROJECT_ENVIRONMENT=/agent-server/.venv
 
@@ -120,6 +120,11 @@ RUN set -eux; \
     \
     # Set proper ownership
     chown -R ${USERNAME}:${USERNAME} ${OPENVSCODE_SERVER_ROOT}
+
+
+# Include VSCode extensions alongside the server so targets inheriting base-image
+# implicitly get the extensions; minimal images (without VSCode) won't.
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions ${OPENVSCODE_SERVER_ROOT}/extensions
 
 # --- Docker ---
 RUN set -eux; \
