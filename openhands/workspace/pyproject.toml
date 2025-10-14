@@ -13,9 +13,12 @@ dependencies = [
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-dir]
+"openhands.workspace" = "."
+
 [tool.setuptools.packages.find]
-where = ["../.."]
-include = ["openhands*"]
+where = ["."]
+namespaces = false
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

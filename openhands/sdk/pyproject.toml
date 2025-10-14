@@ -22,9 +22,12 @@ boto3 = ["boto3>=1.35.0"]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-dir]
+"openhands.sdk" = "."
+
 [tool.setuptools.packages.find]
-where = ["../.."]
-include = ["openhands*"]
+where = ["."]
+namespaces = false
 
 [tool.setuptools.package-data]
 "*" = ["py.typed", "*.j2"]
