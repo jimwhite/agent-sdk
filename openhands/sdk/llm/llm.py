@@ -208,11 +208,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
-    litellm_extra_body: dict[str, Any] | str | None = Field(
+    litellm_extra_body: str | None = Field(
         default=None,
         description=(
-            "Additional parameters to pass in the request body. "
-            "Can be a dict or JSON string (for backward compatibility). "
+            "Additional parameters to pass in the request body as JSON string. "
             "Useful for provider-specific parameters or routing info. "
             "Note: Use 'metadata' field for LLM instance metadata instead."
         ),
@@ -757,24 +756,20 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         if self.metadata:
             extra_body_parts.append({"metadata": self.metadata})
 
-        # Add litellm_extra_body if present
+        # Add litellm_extra_body if present (JSON string)
         if self.litellm_extra_body:
-            if isinstance(self.litellm_extra_body, dict):
-                extra_body_parts.append(self.litellm_extra_body)
-            elif isinstance(self.litellm_extra_body, str):
-                # Backward compatibility: parse JSON string
-                try:
-                    parsed_extra_body = json.loads(self.litellm_extra_body)
-                    if isinstance(parsed_extra_body, dict):
-                        extra_body_parts.append(parsed_extra_body)
-                    else:
-                        out["extra_body"] = parsed_extra_body
-                        return out
-                except (json.JSONDecodeError, TypeError) as e:
-                    logger.warning(
-                        f"Failed to parse litellm_extra_body as JSON: {e}. "
-                        "Ignoring litellm_extra_body."
-                    )
+            try:
+                parsed_extra_body = json.loads(self.litellm_extra_body)
+                if isinstance(parsed_extra_body, dict):
+                    extra_body_parts.append(parsed_extra_body)
+                else:
+                    out["extra_body"] = parsed_extra_body
+                    return out
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.warning(
+                    f"Failed to parse litellm_extra_body as JSON: {e}. "
+                    "Ignoring litellm_extra_body."
+                )
 
         # Merge all extra_body parts
         if extra_body_parts:

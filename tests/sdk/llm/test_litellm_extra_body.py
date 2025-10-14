@@ -296,34 +296,6 @@ def test_litellm_extra_body_serialization():
     assert deserialized.litellm_extra_body == extra_body_json
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
-def test_litellm_extra_body_dict_format(mock_completion, base_llm):
-    """Test that litellm_extra_body works with dict format."""
-    # Setup mock response
-    mock_completion.return_value = create_mock_litellm_response(
-        content="Test response", model="claude-sonnet-4"
-    )
-
-    # Set up LLM with litellm_extra_body as dict
-    extra_body_dict = {"metadata": {"user_id": "test-user"}, "custom_param": "value"}
-    base_llm.litellm_extra_body = extra_body_dict
-
-    # Create test message
-    messages = [Message(role="user", content=[TextContent(text="Test message")])]
-
-    # Call completion
-    base_llm.completion(messages)
-
-    # Verify that litellm_completion was called with the dict extra_body
-    mock_completion.assert_called_once()
-    call_kwargs = mock_completion.call_args[1]
-
-    expected_extra_body = {
-        "metadata": {"user_id": "test-user"},
-        "custom_param": "value",
-    }
-    assert call_kwargs["extra_body"] == expected_extra_body
-
 
 @patch("openhands.sdk.llm.llm.litellm_completion")
 def test_metadata_automatically_included(mock_completion, base_llm):
@@ -362,10 +334,7 @@ def test_metadata_and_litellm_extra_body_merging(mock_completion, base_llm):
 
     # Set up LLM with both metadata and litellm_extra_body
     base_llm.metadata = {"session_id": "test-session", "trace_id": "trace-123"}
-    base_llm.litellm_extra_body = {
-        "metadata": {"user_id": "test-user"},
-        "custom_param": "value"
-    }
+    base_llm.litellm_extra_body = '{"metadata": {"user_id": "test-user"}, "custom_param": "value"}'
 
     # Create test message
     messages = [Message(role="user", content=[TextContent(text="Test message")])]
