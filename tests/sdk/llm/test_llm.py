@@ -273,23 +273,31 @@ def test_llm_forwards_extra_headers_to_litellm(mock_completion):
 
 @patch("openhands.sdk.llm.llm.litellm_responses")
 def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
-    # Build a dummy ResponsesAPIResponse-like object with minimal attributes used
-    class DummyResponses:
-        def __init__(self):
-            self.output = [
-                {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": "ok"}],
-                }
-            ]
-            self.usage = None
-            self.id = "resp123"
-            self.created_at = 0
-
-    mock_responses.return_value = ResponsesAPIResponse.model_validate(
-        DummyResponses().__dict__
+    # Build a minimal, but valid, ResponsesAPIResponse instance per litellm types
+    resp = ResponsesAPIResponse(
+        id="resp123",
+        created_at=0,
+        output=[
+            {
+                "type": "message",
+                "id": "m1",
+                "role": "assistant",
+                "status": "completed",
+                "content": [
+                    {"type": "output_text", "text": "ok", "annotations": []}
+                ],
+            }
+        ],
+        usage={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        parallel_tool_calls=False,
+        tool_choice="auto",
+        top_p=None,
+        tools=[],
+        instructions="",
+        status="completed",
     )
+
+    mock_responses.return_value = resp
 
     headers = {"anthropic-beta": "context-1m-2025-08-07"}
     llm = LLM(
