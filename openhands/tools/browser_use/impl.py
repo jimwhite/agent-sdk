@@ -120,6 +120,7 @@ class BrowserToolExecutor(ToolExecutor):
         allowed_domains: list[str] | None = None,
         session_timeout_minutes: int = 30,
         init_timeout_seconds: int = 30,
+        browser_start_timeout_seconds: int | None = None,
         **config,
     ):
         """Initialize BrowserToolExecutor with timeout protection.
@@ -129,6 +130,10 @@ class BrowserToolExecutor(ToolExecutor):
             allowed_domains: List of allowed domains for browser operations
             session_timeout_minutes: Browser session timeout in minutes
             init_timeout_seconds: Timeout for browser initialization in seconds
+            browser_start_timeout_seconds: Timeout for browser start event in seconds.
+                If not specified, uses browser-use library default (30s). Set higher
+                for slower environments or if experiencing timeout errors during
+                browser startup.
             **config: Additional configuration options
 
         Raises:
@@ -138,6 +143,18 @@ class BrowserToolExecutor(ToolExecutor):
         def init_logic():
             nonlocal headless
             executable_path = _ensure_chromium_available()
+
+            # Configure browser-use timeouts via environment variables
+            # This sets the timeout for the BrowserStartEvent in the browser-use library
+            if browser_start_timeout_seconds is not None:
+                os.environ["TIMEOUT_BrowserStartEvent"] = str(
+                    float(browser_start_timeout_seconds)
+                )
+                logger.info(
+                    f"Browser start timeout configured to "
+                    f"{browser_start_timeout_seconds}s"
+                )
+
             self._server = CustomBrowserUseServer(
                 session_timeout_minutes=session_timeout_minutes,
             )

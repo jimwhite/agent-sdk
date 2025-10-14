@@ -593,6 +593,17 @@ class BrowserToolSet(ToolBase):
 
     The toolset automatically checks for Chromium availability
     when created and automatically installs it if missing.
+
+    Timeout Configuration:
+        If you experience browser initialization timeout errors
+        (e.g., "Event handler timed out after 30.0s"), you can increase
+        the timeout using the `browser_start_timeout_seconds` parameter:
+
+        Example:
+            BrowserToolSet.create(browser_start_timeout_seconds=60)
+
+        This is particularly useful for slower environments or when
+        running in resource-constrained systems.
     """
 
     @classmethod
