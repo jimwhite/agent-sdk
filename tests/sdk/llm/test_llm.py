@@ -282,9 +282,7 @@ def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
         type="message",
         role="assistant",
         status="completed",
-        content=[
-            ResponseOutputText(type="output_text", text="ok", annotations=[])
-        ],
+        content=[ResponseOutputText(type="output_text", text="ok", annotations=[])],
     )
     usage = ResponseAPIUsage(input_tokens=0, output_tokens=0, total_tokens=0)
     resp = ResponsesAPIResponse(
