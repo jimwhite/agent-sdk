@@ -542,7 +542,6 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         )
 
         # Normalize/override Responses kwargs consistently
-        # Inject extra_headers if configured (Responses path supports headers via LiteLLM)
         if self.extra_headers and "extra_headers" not in kwargs:
             kwargs["extra_headers"] = self.extra_headers
         call_kwargs = self._normalize_responses_kwargs(

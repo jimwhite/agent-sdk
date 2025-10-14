@@ -4,13 +4,12 @@ import pytest
 from litellm.exceptions import (
     RateLimitError,
 )
+from litellm.types.llms.openai import ResponsesAPIResponse
 from pydantic import SecretStr
 
 from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands.sdk.llm.exceptions import LLMNoResponseError
 from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
-
-from litellm.types.llms.openai import ResponsesAPIResponse
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
@@ -278,7 +277,11 @@ def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
     class DummyResponses:
         def __init__(self):
             self.output = [
-                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "ok"}]}
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "ok"}],
+                }
             ]
             self.usage = None
             self.id = "resp123"
