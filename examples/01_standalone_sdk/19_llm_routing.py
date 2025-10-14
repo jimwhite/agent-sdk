@@ -10,7 +10,6 @@ from openhands.sdk import (
     Event,
     ImageContent,
     LLMConvertibleEvent,
-    LocalFileStore,
     Message,
     TextContent,
     get_logger,
@@ -57,7 +56,6 @@ def conversation_callback(event: Event):
 
 
 conversation_id = uuid.uuid4()
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 
 conversation = Conversation(
     agent=agent,

@@ -9,7 +9,6 @@ from openhands.sdk import (
     Conversation,
     Event,
     LLMConvertibleEvent,
-    LocalFileStore,
     Message,
     TextContent,
     get_logger,
@@ -54,7 +53,6 @@ def conversation_callback(event: Event):
 
 # Set up conversation with persistence for serialization demo
 conversation_id = uuid.uuid4()
-file_store = LocalFileStore(f"./.conversations/{conversation_id}")
 
 conversation = Conversation(
     agent=agent,
