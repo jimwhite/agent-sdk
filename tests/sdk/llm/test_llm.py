@@ -247,6 +247,70 @@ def test_llm_token_counting(default_llm):
     assert token_count >= 0
 
 
+@patch("openhands.sdk.llm.llm.litellm_completion")
+def test_llm_forwards_extra_headers_to_litellm(mock_completion):
+    mock_response = create_mock_litellm_response("ok")
+    mock_completion.return_value = mock_response
+
+    headers = {"editor-version": "vscode/1.85.1", "Copilot-Integration-Id": "vscode-chat"}
+    llm = LLM(
+        service_id="test-llm",
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        extra_headers=headers,
+        num_retries=0,
+    )
+
+    messages = [Message(role="user", content=[TextContent(text="Hi")])]
+    _ = llm.completion(messages=messages)
+
+    assert mock_completion.call_count == 1
+    _, kwargs = mock_completion.call_args
+    # extra_headers forwarded either directly or inside **kwargs
+    assert kwargs.get("extra_headers") == headers
+
+
+@patch("openhands.sdk.llm.llm.litellm_responses")
+def test_llm_responses_forwards_extra_headers_to_litellm(mock_responses):
+    # Build a dummy ResponsesAPIResponse-like object with minimal attributes used
+    class DummyResponses:
+        def __init__(self):
+            self.output = [
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "ok"}]}
+            ]
+            self.usage = None
+            self.id = "resp123"
+            self.created_at = 0
+
+    from litellm.types.llms.openai import ResponsesAPIResponse
+
+    class DummyTyped(ResponsesAPIResponse):
+        pass
+
+    mock_responses.return_value = DummyTyped.model_validate(
+        DummyResponses().__dict__
+    )
+
+    headers = {"editor-version": "vscode/1.85.1"}
+    llm = LLM(
+        service_id="test-llm",
+        model="gpt-4o",
+        api_key=SecretStr("test_key"),
+        extra_headers=headers,
+        num_retries=0,
+    )
+
+    messages = [
+        Message(role="system", content=[TextContent(text="sys")]),
+        Message(role="user", content=[TextContent(text="Hi")]),
+    ]
+    _ = llm.responses(messages=messages)
+
+    assert mock_responses.call_count == 1
+    _, kwargs = mock_responses.call_args
+    assert kwargs.get("extra_headers") == headers
+
+
 def test_llm_vision_support(default_llm):
     """Test LLM vision support detection."""
     llm = default_llm
