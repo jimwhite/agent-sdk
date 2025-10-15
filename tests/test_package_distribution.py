@@ -127,14 +127,14 @@ def get_source_files(package_info: dict) -> set[str]:
 
     files = set()
     # Get the package root (e.g., "openhands-sdk")
-    # source_dir is like "openhands-sdk/openhands/sdk"
+    # source_dir is like "openhands-sdk/openhands-sdk"
     # We want to get paths relative to "openhands-sdk"
-    # so they include "openhands/sdk/..."
+    # so they include "openhands-sdk/..."
     package_root = REPO_ROOT / package_info["name"]
 
     for file_path in source_path.rglob("*"):
         if file_path.is_file() and should_include_file(file_path):
-            # Get path relative to the package root (e.g., "openhands/sdk/...")
+            # Get path relative to the package root (e.g., "openhands-sdk/...")
             rel_path = file_path.relative_to(package_root)
             files.add(str(rel_path))
 
@@ -164,7 +164,7 @@ def get_tarball_files(package_info: dict, version: str = "1.0.0a1") -> set[str]:
         for member in tar.getmembers():
             if member.isfile():
                 # Remove the top-level directory from the path
-                # e.g., "openhands_sdk-1.0.0a1/openhands/sdk/..." -> "openhands/sdk/..."
+                # e.g., "openhands_sdk-1.0.0a1/openhands-sdk/..." -> "openhands-sdk/..."
                 parts = Path(member.name).parts
                 if len(parts) > 1:
                     rel_path = Path(*parts[1:])

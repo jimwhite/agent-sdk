@@ -18,7 +18,7 @@ class CustomBrowserUseServer(BrowserUseServer):
 
         # Extract clean markdown using the new method
         try:
-            content, content_stats = await self.tools.extract_clean_markdown(
+            content, content_stats = await self.tools.extract_clean_markdown(  # type: ignore[attr-defined]
                 self.browser_session, extract_links
             )
         except Exception as e:

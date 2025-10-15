@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
     uv sync --frozen --dev --no-editable
 
 RUN --mount=type=cache,target=/home/${USERNAME}/.cache,uid=${UID},gid=${GID} \
-    uv run pyinstaller openhands/agent_server/agent-server.spec
+    uv run pyinstaller openhands-agent-server/openhands/agent_server/agent-server.spec
 # Fail fast if the expected binary is missing
 RUN test -x /agent-server/dist/openhands-agent-server
 
@@ -125,7 +125,7 @@ RUN set -eux; \
 
 # Include VSCode extensions alongside the server so targets inheriting base-image
 # implicitly get the extensions; minimal images (without VSCode) won't.
-COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands/agent_server/vscode_extensions ${OPENVSCODE_SERVER_ROOT}/extensions
+COPY --chown=${USERNAME}:${USERNAME} --from=builder /agent-server/openhands-agent-server/openhands/agent_server/vscode_extensions ${OPENVSCODE_SERVER_ROOT}/extensions
 
 # --- Docker ---
 RUN set -eux; \
@@ -174,7 +174,7 @@ ENV NOVNC_WEB=/usr/share/novnc \
 
 RUN chown -R ${USERNAME}:${USERNAME} ${NOVNC_WEB}
 # Override default XFCE wallpaper
-COPY --chown=${USERNAME}:${USERNAME} openhands/agent_server/docker/wallpaper.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
+COPY --chown=${USERNAME}:${USERNAME} openhands-agent-server/openhands/agent_server/docker/wallpaper.svg /usr/share/backgrounds/xfce/xfce-shapes.svg
 
 USER ${USERNAME}
 WORKDIR /
