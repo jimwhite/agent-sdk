@@ -72,6 +72,5 @@ extraPaths = [
     "openhands-agent-server"
 ]
 pythonVersion = "3.12"
-typeCheckingMode = "basic"
 useLibraryCodeForTypes = true
 
