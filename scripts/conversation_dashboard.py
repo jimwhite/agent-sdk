@@ -1,7 +1,7 @@
 """OpenHands conversation dashboard for real-time LLM event introspection.
 
 Run with:
-    streamlit run examples/03_conversation_dashboard.py
+    streamlit run scripts/conversation_dashboard.py
 """
 
 from __future__ import annotations
