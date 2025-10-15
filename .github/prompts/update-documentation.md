@@ -15,7 +15,7 @@ You are a world-class documentation writer tasked with keeping the OpenHands Age
 
 - Scan `examples/` for available examples
 - Scan `openhands-tools/` for all available runtime tools
-- Check `openhands-sdk/openhands/tool/builtins/` for built-in tools
+- Check `openhands-sdk/openhands_sdk/tool/builtins/` for built-in tools
 - Identify any new tools or removed tools since last update
 
 ### 2. Documentation Review
