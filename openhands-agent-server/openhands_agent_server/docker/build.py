@@ -387,8 +387,7 @@ def build(opts: BuildOptions) -> list[str]:
     dockerfile_path = (
         opts.sdk_project_root
         / "openhands-agent-server"
-        / "openhands"
-        / "agent_server"
+        / "openhands_agent_server"
         / "docker"
         / "Dockerfile"
     )
