@@ -262,6 +262,9 @@ def load_llm_logs() -> tuple[dict[str, LLMLogEntry], dict[str, str]]:
         except Exception:
             continue
 
+        if not isinstance(data, dict):
+            continue
+
         resp = data.get("response")
         if not isinstance(resp, dict):
             continue
