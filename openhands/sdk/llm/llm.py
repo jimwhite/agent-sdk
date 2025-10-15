@@ -992,21 +992,81 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         for m in msgs:
             m.vision_enabled = vision_active
 
-        # Assign system instructions as a string, collect input items
-        instructions: str | None = None
+        # First pass: gather system instructions and map tool outputs by call_id
+        instruction_parts: list[str] = []
+        tool_outputs: dict[str, list[dict[str, Any]]] = {}
+        tool_output_order: list[str] = []
+
+        def _normalize_call_id(call_id: str | None) -> str | None:
+            if call_id is None:
+                return None
+            return call_id if str(call_id).startswith("fc") else f"fc_{call_id}"
+
+        for message in msgs:
+            if message.role == "system":
+                val = message.to_responses_value(vision_enabled=vision_active)
+                if isinstance(val, str):
+                    text = val.strip()
+                    if text:
+                        instruction_parts.append(text)
+            elif message.role == "tool":
+                outputs = message.to_responses_dict(vision_enabled=vision_active)
+                for item in outputs:
+                    call_id = _normalize_call_id(item.get("call_id"))
+                    if call_id is None:
+                        continue
+                    item["call_id"] = call_id
+                    tool_outputs.setdefault(call_id, []).append(item)
+                    if call_id not in tool_output_order:
+                        tool_output_order.append(call_id)
+
+        # Second pass: build input items ensuring each function_call is immediately
+        # followed by its corresponding function_call_output items.
         input_items: list[dict[str, Any]] = []
-        for m in msgs:
-            val = m.to_responses_value(vision_enabled=vision_active)
-            if isinstance(val, str):
-                s = val.strip()
-                if not s:
+        for message in msgs:
+            if message.role == "system":
+                continue
+            if message.role == "user":
+                items = message.to_responses_dict(vision_enabled=vision_active)
+                if items:
+                    input_items.extend(items)
+                continue
+            if message.role != "assistant":
+                # Tool messages were already consumed when building tool_outputs
+                continue
+
+            assistant_items = message.to_responses_dict(vision_enabled=vision_active)
+            function_calls: list[dict[str, Any]] = []
+            for item in assistant_items:
+                item_type = item.get("type")
+                if item_type == "function_call":
+                    item["call_id"] = _normalize_call_id(item.get("call_id"))
+                    function_calls.append(item)
                     continue
-                instructions = (
-                    s if instructions is None else f"{instructions}\n\n---\n\n{s}"
-                )
-            else:
-                if val:
-                    input_items.extend(val)
+                if item_type == "reasoning":
+                    input_items.append(item)
+                    continue
+                input_items.append(item)
+
+            for fc in function_calls:
+                call_id = fc.get("call_id")
+                input_items.append(fc)
+                if call_id is None:
+                    continue
+                outputs = tool_outputs.pop(call_id, [])
+                if outputs:
+                    input_items.extend(outputs)
+
+        # Append any remaining tool outputs (should not happen, but avoid loss)
+        if tool_outputs:
+            for call_id in tool_output_order:
+                outputs = tool_outputs.pop(call_id, [])
+                if outputs:
+                    input_items.extend(outputs)
+
+        instructions = (
+            None if not instruction_parts else "\n\n---\n\n".join(instruction_parts)
+        )
         return instructions, input_items
 
     def get_token_count(self, messages: list[Message]) -> int:
