@@ -11,10 +11,31 @@ from pydantic import (
     Tag,
     TypeAdapter,
 )
+from pydantic_core import core_schema
 
 
 logger = logging.getLogger(__name__)
 _rebuild_required = True
+_schema_generation_in_progress = set()  # Track classes currently generating schemas
+
+
+def _is_abstract(type_: type) -> bool:
+    """Determine whether the class directly extends ABC or contains abstract methods"""
+    try:
+        return inspect.isabstract(type_) or ABC in type_.__bases__
+    except Exception:
+        return False
+
+
+def _get_all_subclasses(cls) -> set[type]:
+    """
+    Recursively finds and returns all (loaded) subclasses of a given class.
+    """
+    result = set()
+    for subclass in cls.__subclasses__():
+        result.add(subclass)
+        result.update(_get_all_subclasses(subclass))
+    return result
 
 
 def rebuild_all():
@@ -108,6 +129,45 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
     """
 
     kind: str = Field(default="")  # We dynamically update on a per class basis
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler,
+    ) -> core_schema.CoreSchema:
+        """
+        Customize schema generation for discriminated unions.
+
+        This ensures that when a TypeAdapter is created for an abstract
+        DiscriminatedUnionMixin class, it properly discovers all subclasses
+        and creates a discriminated union schema.
+        """
+        global _schema_generation_in_progress
+
+        # Recursion guard: if we're already generating schema
+        # for this class, use default handler
+        if cls in _schema_generation_in_progress:
+            return handler(source_type)
+
+        _schema_generation_in_progress.add(cls)
+        try:
+            # For abstract classes, generate a union schema of all subclasses
+            # Note: We don't call rebuild_all() here to avoid
+            # interfering with class initialization
+            if _is_abstract(cls):
+                union_type = cls.get_serializable_type()
+                # If get_serializable_type() returns the class itself (no subclasses),
+                # use the default handler to avoid recursion
+                if union_type is cls or union_type == cls:
+                    return handler(source_type)
+                # Use handler.generate_schema to build the schema for the union type
+                return handler.generate_schema(union_type)
+
+            # For concrete classes, use the default schema
+            return handler(source_type)
+        finally:
+            _schema_generation_in_progress.discard(cls)
 
     @classmethod
     def resolve_kind(cls, kind: str) -> type:
@@ -237,22 +297,3 @@ class DiscriminatedUnionMixin(OpenHandsModel, ABC):
 def _rebuild_if_required():
     if _rebuild_required:
         rebuild_all()
-
-
-def _is_abstract(type_: type) -> bool:
-    """Determine whether the class directly extends ABC or contains abstract methods"""
-    try:
-        return inspect.isabstract(type_) or ABC in type_.__bases__
-    except Exception:
-        return False
-
-
-def _get_all_subclasses(cls) -> set[type]:
-    """
-    Recursively finds and returns all (loaded) subclasses of a given class.
-    """
-    result = set()
-    for subclass in cls.__subclasses__():
-        result.add(subclass)
-        result.update(_get_all_subclasses(subclass))
-    return result
