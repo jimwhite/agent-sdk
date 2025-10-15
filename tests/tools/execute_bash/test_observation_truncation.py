@@ -1,9 +1,9 @@
 """Tests for ExecuteBashObservation truncation functionality."""
 
-from openhands.sdk.llm import TextContent
-from openhands.tools.execute_bash.constants import MAX_CMD_OUTPUT_SIZE
-from openhands.tools.execute_bash.definition import ExecuteBashObservation
-from openhands.tools.execute_bash.metadata import CmdOutputMetadata
+from openhands_sdk.llm import TextContent
+from openhands_tools.execute_bash.constants import MAX_CMD_OUTPUT_SIZE
+from openhands_tools.execute_bash.definition import ExecuteBashObservation
+from openhands_tools.execute_bash.metadata import CmdOutputMetadata
 
 
 def test_execute_bash_observation_truncation_under_limit():

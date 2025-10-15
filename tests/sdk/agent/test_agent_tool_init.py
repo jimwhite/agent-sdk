@@ -1,13 +1,13 @@
 from collections.abc import Sequence
 from unittest.mock import patch
 
-from openhands.sdk import LLM, Conversation
-from openhands.sdk.agent import Agent
-from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool import ToolDefinition
-from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import Tool
-from openhands.sdk.tool.tool import Action, Observation, ToolExecutor
+from openhands_sdk import LLM, Conversation
+from openhands_sdk.agent import Agent
+from openhands_sdk.llm.message import ImageContent, TextContent
+from openhands_sdk.tool import ToolDefinition
+from openhands_sdk.tool.registry import register_tool
+from openhands_sdk.tool.spec import Tool
+from openhands_sdk.tool.tool import Action, Observation, ToolExecutor
 
 
 class _Action(Action):

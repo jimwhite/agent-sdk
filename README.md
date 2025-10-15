@@ -15,8 +15,8 @@ This is what it looks like to write a program with an OpenHands agent:
 ```python
 import os
 from pydantic import SecretStr
-from openhands.sdk import LLM, Conversation
-from openhands.tools.preset import get_default_agent
+from openhands_sdk import LLM, Conversation
+from openhands_tools.preset import get_default_agent
 
 # Configure LLM
 api_key = os.getenv("LLM_API_KEY")
@@ -86,7 +86,7 @@ Agents are the central orchestrators that coordinate between LLMs and tools. The
 We recommend that you try out the default presets at first, which gives you a powerful agent with our default set of tools.
 
 ```python
-from openhands.tools.preset import get_default_agent
+from openhands_tools.preset import get_default_agent
 
 # Get a fully configured agent with default tools and settings
 agent = get_default_agent(
@@ -98,11 +98,11 @@ agent = get_default_agent(
 #### Manual Agent Configuration
 
 ```python
-from openhands.sdk import Agent
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands_sdk import Agent
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from openhands_tools.task_tracker import TaskTrackerTool
 
 # Register tools
 register_tool("BashTool", BashTool)
@@ -125,7 +125,7 @@ agent = Agent(
 The SDK supports multiple LLM providers through a unified interface:
 
 ```python
-from openhands.sdk import LLM, LLMRegistry
+from openhands_sdk import LLM, LLMRegistry
 from pydantic import SecretStr
 
 # Direct LLM configuration
@@ -153,10 +153,10 @@ Tools provide agents with capabilities to interact with the environment. The SDK
 The default contains all of these tools, but for more control, you can configure tools explicitly:
 
 ```python
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from openhands_tools.task_tracker import TaskTrackerTool
 
 # Register tools
 register_tool("BashTool", BashTool)
@@ -176,7 +176,7 @@ tools = [
 Conversations manage the interaction flow between users and agents:
 
 ```python
-from openhands.sdk import Conversation
+from openhands_sdk import Conversation
 
 conversation = Conversation(agent=agent)
 
@@ -198,8 +198,8 @@ Context is automatically managed but you can customize your context with:
 3. Providing custom suffix for system and user prompt.
 
 ```python
-from openhands.sdk import AgentContext
-from openhands.sdk.context import RepoMicroagent, KnowledgeMicroagent
+from openhands_sdk import AgentContext
+from openhands_sdk.context import RepoMicroagent, KnowledgeMicroagent
 
 context = AgentContext(
     microagents=[
@@ -227,7 +227,7 @@ context = AgentContext(
 The SDK includes a REST API and WebSocket server for remote agent interactions:
 
 ```python
-from openhands.agent_server.api import create_app
+from openhands_agent_server.api import create_app
 import uvicorn
 
 # Create FastAPI application

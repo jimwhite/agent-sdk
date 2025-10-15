@@ -1,4 +1,4 @@
-from openhands.sdk.llm import LLM
+from openhands_sdk.llm import LLM
 
 
 def test_llm_metadata_default():

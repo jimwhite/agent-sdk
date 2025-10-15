@@ -5,22 +5,21 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
-
-from openhands.sdk.event.base import LLMConvertibleEvent
-from openhands.sdk.event.llm_convertible import (
+from openhands_sdk.event.base import LLMConvertibleEvent
+from openhands_sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import (
+from openhands_sdk.llm import (
     ImageContent,
     Message,
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool import Action, Observation
+from openhands_sdk.tool import Action, Observation
 
 
 class EventsToMessagesMockAction(Action):

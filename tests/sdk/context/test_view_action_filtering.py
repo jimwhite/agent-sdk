@@ -6,15 +6,15 @@ when paired with UserRejectObservation or AgentErrorEvent instead of Observation
 
 from unittest.mock import create_autospec
 
-from openhands.sdk.context.view import View
-from openhands.sdk.event.llm_convertible import (
+from openhands_sdk.context.view import View
+from openhands_sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
     ObservationEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands_sdk.llm import Message, TextContent
 
 
 def message_event(content: str) -> MessageEvent:

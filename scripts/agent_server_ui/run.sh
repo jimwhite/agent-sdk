@@ -9,4 +9,4 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$SCRIPT_DIR"
 
 export OH_STATIC_FILES_PATH="static"
-python -m openhands.agent_server 
+python -m openhands_agent_server 

@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from openhands.sdk.mcp import create_mcp_tools
+from openhands_sdk.mcp import create_mcp_tools
 
 
 def test_mock_create_mcp_tools_empty_config():
@@ -10,7 +10,7 @@ def test_mock_create_mcp_tools_empty_config():
     config = {}
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -37,7 +37,7 @@ def test_mock_create_mcp_tools_stdio_server():
     }
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -68,7 +68,7 @@ def test_mock_create_mcp_tools_http_server():
     }
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -102,7 +102,7 @@ def test_mock_create_mcp_tools_mixed_servers():
     }
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -135,7 +135,7 @@ def test_mock_create_mcp_tools_with_timeout():
     }
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -164,7 +164,7 @@ def test_mock_create_mcp_tools_connection_error():
     }
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -191,7 +191,7 @@ def test_mock_create_mcp_tools_dict_config():
     }
 
     # Mock the MCPClient and its methods
-    with patch("openhands.sdk.mcp.utils.MCPClient") as mock_client_class:
+    with patch("openhands_sdk.mcp.utils.MCPClient") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 

@@ -4,11 +4,10 @@ import pytest
 from litellm.exceptions import (
     RateLimitError,
 )
+from openhands_sdk.llm import LLM, LLMResponse, Message, TextContent
+from openhands_sdk.llm.exceptions import LLMNoResponseError
+from openhands_sdk.llm.utils.metrics import Metrics, TokenUsage
 from pydantic import SecretStr
-
-from openhands.sdk.llm import LLM, LLMResponse, Message, TextContent
-from openhands.sdk.llm.exceptions import LLMNoResponseError
-from openhands.sdk.llm.utils.metrics import Metrics, TokenUsage
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response
@@ -37,7 +36,7 @@ def test_llm_init_with_default_config(default_llm):
     assert default_llm.metrics.model_name == "gpt-4o"
 
 
-@patch("openhands.sdk.llm.llm.httpx.get")
+@patch("openhands_sdk.llm.llm.httpx.get")
 def test_base_url_for_openhands_provider(mock_get):
     """Test that openhands/ prefix automatically sets base_url to production proxy."""
     # Mock the model info fetch to avoid actual HTTP calls to production
@@ -159,7 +158,7 @@ def test_metrics_diff():
     assert accumulated_diff["cache_write_tokens"] == 2
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_mock(mock_completion):
     """Test LLM completion with mocked litellm."""
     mock_response = create_mock_litellm_response("Test response")
@@ -184,7 +183,7 @@ def test_llm_completion_with_mock(mock_completion):
     mock_completion.assert_called_once()
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_retry_on_rate_limit(mock_completion):
     """Test that LLM retries on rate limit errors."""
     mock_response = create_mock_litellm_response("Success after retry")
@@ -409,7 +408,7 @@ def test_llm_config_validation():
     assert full_llm.max_output_tokens == 1000
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_no_response_error(mock_completion):
     """Test handling of LLMNoResponseError."""
     from litellm.types.utils import ModelResponse, Usage
@@ -496,8 +495,8 @@ def test_telemetry_cost_calculation_header_exception():
     """Test telemetry cost calculation handles header parsing exceptions."""
     from unittest.mock import Mock, patch
 
-    from openhands.sdk.llm.utils.metrics import Metrics
-    from openhands.sdk.llm.utils.telemetry import Telemetry
+    from openhands_sdk.llm.utils.metrics import Metrics
+    from openhands_sdk.llm.utils.telemetry import Telemetry
 
     # Create a mock response with headers that will cause an exception
     mock_response = Mock()
@@ -507,10 +506,10 @@ def test_telemetry_cost_calculation_header_exception():
     telemetry = Telemetry(model_name="test-model", metrics=metrics)
 
     # Mock the logger to capture debug messages
-    with patch("openhands.sdk.llm.utils.telemetry.logger") as mock_logger:
+    with patch("openhands_sdk.llm.utils.telemetry.logger") as mock_logger:
         # Mock litellm_completion_cost to return a valid cost
         with patch(
-            "openhands.sdk.llm.utils.telemetry.litellm_completion_cost",
+            "openhands_sdk.llm.utils.telemetry.litellm_completion_cost",
             return_value=0.001,
         ):
             cost = telemetry._compute_cost(mock_response)

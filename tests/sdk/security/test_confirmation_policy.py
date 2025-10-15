@@ -1,14 +1,13 @@
 """Tests for ConfirmationPolicy classes and serialization."""
 
 import pytest
-from pydantic import BaseModel
-
-from openhands.sdk.security.confirmation_policy import (
+from openhands_sdk.security.confirmation_policy import (
     AlwaysConfirm,
     ConfirmationPolicyBase,
     NeverConfirm,
 )
-from openhands.sdk.security.risk import SecurityRisk
+from openhands_sdk.security.risk import SecurityRisk
+from pydantic import BaseModel
 
 
 class TestConfirmationPolicyBase:

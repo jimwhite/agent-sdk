@@ -3,8 +3,8 @@
 import tempfile
 from pathlib import Path
 
-from openhands.tools.glob import GlobAction
-from openhands.tools.glob.impl import GlobExecutor
+from openhands_tools.glob import GlobAction
+from openhands_tools.glob.impl import GlobExecutor
 
 
 def test_glob_executor_initialization():

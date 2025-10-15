@@ -3,12 +3,11 @@
 from unittest.mock import MagicMock
 
 import mcp.types
-
-from openhands.sdk.llm import TextContent
-from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.definition import MCPToolObservation
-from openhands.sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
-from openhands.sdk.tool import ToolAnnotations
+from openhands_sdk.llm import TextContent
+from openhands_sdk.mcp.client import MCPClient
+from openhands_sdk.mcp.definition import MCPToolObservation
+from openhands_sdk.mcp.tool import MCPToolDefinition, MCPToolExecutor
+from openhands_sdk.tool import ToolAnnotations
 
 
 class MockMCPClient(MCPClient):

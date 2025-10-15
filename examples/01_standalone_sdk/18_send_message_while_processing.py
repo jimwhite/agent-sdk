@@ -43,16 +43,15 @@ import threading
 import time
 from datetime import datetime
 
-from pydantic import SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Conversation,
 )
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from pydantic import SecretStr
 
 
 # Configure LLM

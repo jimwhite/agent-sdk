@@ -1,9 +1,8 @@
 """Tests for SecretsManager class."""
 
+from openhands_sdk.conversation.secret_source import SecretSource, StaticSecret
+from openhands_sdk.conversation.secrets_manager import SecretsManager
 from pydantic import SecretStr
-
-from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
-from openhands.sdk.conversation.secrets_manager import SecretsManager
 
 
 def test_update_secrets_with_static_values():

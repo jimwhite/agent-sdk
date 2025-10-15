@@ -134,7 +134,7 @@ When reviewing code, provide constructive feedback:
 - AFTER you edit ONE file, you should run pre-commit hook on that file via `uv run pre-commit run --files [filepath]` to make sure you didn't break it.
 - Don't write TOO MUCH test, you should write just enough to cover edge cases.
 - Check how we perform tests in .github/workflows/tests.yml
-- You should put unit tests in the corresponding test folder. For example, to test `openhands.sdk.tool/tool.py`, you should put tests under `openhands.sdk.tests/tool/test_tool.py`.
+- You should put unit tests in the corresponding test folder. For example, to test `openhands_sdk.tool/tool.py`, you should put tests under `openhands_sdk.tests/tool/test_tool.py`.
 - DON'T write TEST CLASSES unless absolutely necessary!
 - If you find yourself duplicating logics in preparing mocks, loading data etc, these logic should be fixtures in conftest.py!
 - Please test only the logic implemented in the current codebase. Do not test functionality (e.g., BaseModel.model_dumps()) that is not implemented in this repository.

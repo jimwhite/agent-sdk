@@ -7,9 +7,7 @@ thread and a callback with results is executed in the main runloop
 import asyncio
 import os
 
-from pydantic import SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Conversation,
@@ -17,12 +15,13 @@ from openhands.sdk import (
     LLMConvertibleEvent,
     get_logger,
 )
-from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.tool import Tool, register_tool
-from openhands.sdk.utils.async_utils import AsyncCallbackWrapper
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands_sdk.conversation.types import ConversationCallbackType
+from openhands_sdk.tool import Tool, register_tool
+from openhands_sdk.utils.async_utils import AsyncCallbackWrapper
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from openhands_tools.task_tracker import TaskTrackerTool
+from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

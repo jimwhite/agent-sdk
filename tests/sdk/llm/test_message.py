@@ -5,7 +5,7 @@ import pytest
 
 def test_content_base_class_not_implemented():
     """Test that Content base class cannot be instantiated due to abstract method."""
-    from openhands.sdk.llm.message import BaseContent
+    from openhands_sdk.llm.message import BaseContent
 
     with pytest.raises(TypeError, match="Can't instantiate abstract class BaseContent"):
         BaseContent()  # type: ignore[abstract]
@@ -13,7 +13,7 @@ def test_content_base_class_not_implemented():
 
 def test_text_content_with_cache_prompt():
     """Test TextContent with cache_prompt enabled."""
-    from openhands.sdk.llm.message import TextContent
+    from openhands_sdk.llm.message import TextContent
 
     content = TextContent(text="Hello world", cache_prompt=True)
     result = content.to_llm_dict()
@@ -26,7 +26,7 @@ def test_text_content_with_cache_prompt():
 
 def test_image_content_with_cache_prompt():
     """Test ImageContent with cache_prompt enabled."""
-    from openhands.sdk.llm.message import ImageContent
+    from openhands_sdk.llm.message import ImageContent
 
     content = ImageContent(
         image_urls=["data:image/png;base64,abc123", "data:image/jpeg;base64,def456"],
@@ -46,7 +46,7 @@ def test_image_content_with_cache_prompt():
 
 def test_message_contains_image_property():
     """Test Message.contains_image property."""
-    from openhands.sdk.llm.message import ImageContent, Message, TextContent
+    from openhands_sdk.llm.message import ImageContent, Message, TextContent
 
     # Message with only text content
     text_message = Message(role="user", content=[TextContent(text="Hello")])
@@ -67,7 +67,7 @@ def test_message_contains_image_property():
 
 def test_message_tool_role_with_cache_prompt():
     """Test Message with tool role and cache_prompt."""
-    from openhands.sdk.llm.message import Message, TextContent
+    from openhands_sdk.llm.message import Message, TextContent
 
     message = Message(
         role="tool",
@@ -87,7 +87,7 @@ def test_message_tool_role_with_cache_prompt():
 
 def test_message_tool_role_with_image_cache_prompt():
     """Test Message with tool role and ImageContent with cache_prompt."""
-    from openhands.sdk.llm.message import ImageContent, Message
+    from openhands_sdk.llm.message import ImageContent, Message
 
     message = Message(
         role="tool",
@@ -113,7 +113,7 @@ def test_message_tool_role_with_image_cache_prompt():
 
 def test_message_with_tool_calls():
     """Test Message with tool_calls."""
-    from openhands.sdk.llm.message import (
+    from openhands_sdk.llm.message import (
         Message,
         MessageToolCall,
         TextContent,
@@ -145,8 +145,7 @@ def test_message_with_tool_calls():
 def test_message_from_llm_chat_message_function_role_error():
     """Test Message.from_llm_chat_message with function role raises error."""
     from litellm.types.utils import Message as LiteLLMMessage
-
-    from openhands.sdk.llm.message import Message
+    from openhands_sdk.llm.message import Message
 
     litellm_message = LiteLLMMessage(role="function", content="Function response")  # type: ignore
 
@@ -157,8 +156,7 @@ def test_message_from_llm_chat_message_function_role_error():
 def test_message_from_llm_chat_message_with_non_string_content():
     """Test Message.from_llm_chat_message with non-string content."""
     from litellm.types.utils import Message as LiteLLMMessage
-
-    from openhands.sdk.llm.message import Message
+    from openhands_sdk.llm.message import Message
 
     # Create a message with non-string content (None or list)
     litellm_message = LiteLLMMessage(role="assistant", content=None)
@@ -170,7 +168,7 @@ def test_message_from_llm_chat_message_with_non_string_content():
 
 def test_text_content_truncation_under_limit():
     """Test TextContent doesn't truncate when under limit."""
-    from openhands.sdk.llm.message import TextContent
+    from openhands_sdk.llm.message import TextContent
 
     content = TextContent(text="Short text")
     result = content.to_llm_dict()
@@ -181,13 +179,13 @@ def test_text_content_truncation_under_limit():
 
 def test_text_content_truncation_over_limit():
     """Test TextContent truncates when over limit."""
-    from openhands.sdk.llm.message import TextContent
-    from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
+    from openhands_sdk.llm.message import TextContent
+    from openhands_sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
 
     # Create text that exceeds the limit
     long_text = "A" * (DEFAULT_TEXT_CONTENT_LIMIT + 1000)
 
-    with patch("openhands.sdk.llm.message.logger") as mock_logger:
+    with patch("openhands_sdk.llm.message.logger") as mock_logger:
         content = TextContent(text=long_text)
         result = content.to_llm_dict()
 
@@ -212,13 +210,13 @@ def test_text_content_truncation_over_limit():
 
 def test_text_content_truncation_exact_limit():
     """Test TextContent doesn't truncate when exactly at limit."""
-    from openhands.sdk.llm.message import TextContent
-    from openhands.sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
+    from openhands_sdk.llm.message import TextContent
+    from openhands_sdk.utils import DEFAULT_TEXT_CONTENT_LIMIT
 
     # Create text that is exactly at the limit
     exact_text = "A" * DEFAULT_TEXT_CONTENT_LIMIT
 
-    with patch("openhands.sdk.llm.message.logger") as mock_logger:
+    with patch("openhands_sdk.llm.message.logger") as mock_logger:
         content = TextContent(text=exact_text)
         result = content.to_llm_dict()
 

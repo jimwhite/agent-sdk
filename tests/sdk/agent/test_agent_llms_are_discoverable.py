@@ -1,5 +1,5 @@
-from openhands.sdk import LLM, Agent, LLMSummarizingCondenser
-from openhands.sdk.llm.router import MultimodalRouter
+from openhands_sdk import LLM, Agent, LLMSummarizingCondenser
+from openhands_sdk.llm.router import MultimodalRouter
 
 
 def check_service_id_exists(service_id: str, llms: list[LLM]):

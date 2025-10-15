@@ -1,4 +1,4 @@
-from openhands.tools.file_editor import file_editor_tool
+from openhands_tools.file_editor import file_editor_tool
 
 
 def test_to_mcp_tool_detailed_type_validation_editor():

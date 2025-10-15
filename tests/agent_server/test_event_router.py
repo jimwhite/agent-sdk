@@ -7,11 +7,10 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from openhands.agent_server.event_router import event_router
-from openhands.agent_server.event_service import EventService
-from openhands.sdk import Message
-from openhands.sdk.llm.message import TextContent
+from openhands_agent_server.event_router import event_router
+from openhands_agent_server.event_service import EventService
+from openhands_sdk import Message
+from openhands_sdk.llm.message import TextContent
 
 
 @pytest.fixture
@@ -45,7 +44,7 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with run=True."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
+            "openhands_agent_server.event_router.conversation_service"
         ) as mock_conv_service:
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
@@ -82,7 +81,7 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with run=False."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
+            "openhands_agent_server.event_router.conversation_service"
         ) as mock_conv_service:
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
@@ -116,7 +115,7 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with default run value."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
+            "openhands_agent_server.event_router.conversation_service"
         ) as mock_conv_service:
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
@@ -150,7 +149,7 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint when conversation is not found."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
+            "openhands_agent_server.event_router.conversation_service"
         ) as mock_conv_service:
             mock_conv_service.get_event_service = AsyncMock(return_value=None)
 
@@ -172,7 +171,7 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with different content types."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
+            "openhands_agent_server.event_router.conversation_service"
         ) as mock_conv_service:
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
@@ -215,7 +214,7 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with system role."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
+            "openhands_agent_server.event_router.conversation_service"
         ) as mock_conv_service:
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service

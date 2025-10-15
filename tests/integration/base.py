@@ -9,21 +9,20 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from typing import Any
 
-from pydantic import BaseModel, SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Message,
     TextContent,
 )
-from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.event.base import Event
-from openhands.sdk.event.llm_convertible import (
+from openhands_sdk.conversation.impl.local_conversation import LocalConversation
+from openhands_sdk.event.base import Event
+from openhands_sdk.event.llm_convertible import (
     MessageEvent,
 )
-from openhands.sdk.llm import content_to_str
-from openhands.sdk.tool import Tool
+from openhands_sdk.llm import content_to_str
+from openhands_sdk.tool import Tool
+from pydantic import BaseModel, SecretStr
 
 
 class TestResult(BaseModel):

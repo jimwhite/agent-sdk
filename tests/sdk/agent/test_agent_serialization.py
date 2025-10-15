@@ -5,15 +5,14 @@ from unittest.mock import Mock
 
 import mcp.types
 import pytest
+from openhands_sdk.agent import Agent
+from openhands_sdk.agent.base import AgentBase
+from openhands_sdk.llm import LLM
+from openhands_sdk.mcp.client import MCPClient
+from openhands_sdk.mcp.tool import MCPToolDefinition
+from openhands_sdk.tool.tool import ToolBase
+from openhands_sdk.utils.models import OpenHandsModel
 from pydantic import BaseModel
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.llm import LLM
-from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPToolDefinition
-from openhands.sdk.tool.tool import ToolBase
-from openhands.sdk.utils.models import OpenHandsModel
 
 
 def create_mock_mcp_tool(name: str) -> MCPToolDefinition:

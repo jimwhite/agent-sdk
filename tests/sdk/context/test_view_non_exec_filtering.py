@@ -1,12 +1,12 @@
 import json
 
-from openhands.sdk.context.view import View
-from openhands.sdk.event.llm_convertible import (
+from openhands_sdk.context.view import View
+from openhands_sdk.event.llm_convertible import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
 )
-from openhands.sdk.llm import Message, MessageToolCall, TextContent
+from openhands_sdk.llm import Message, MessageToolCall, TextContent
 
 
 def test_filter_keeps_action_none_when_matched_by_observation() -> None:

@@ -3,11 +3,10 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from openhands_sdk import LLM, ConversationStats, LLMRegistry, RegistryEvent
+from openhands_sdk.io.local import LocalFileStore
+from openhands_sdk.llm.utils.metrics import Metrics
 from pydantic import SecretStr
-
-from openhands.sdk import LLM, ConversationStats, LLMRegistry, RegistryEvent
-from openhands.sdk.io.local import LocalFileStore
-from openhands.sdk.llm.utils.metrics import Metrics
 
 
 # Test UUIDs
@@ -109,7 +108,7 @@ def test_get_metrics_for_service(conversation_stats):
 def test_register_llm_with_new_service(conversation_stats):
     """Test registering a new LLM service."""
     # Patch the LLM class to avoid actual API calls
-    with patch("openhands.sdk.llm.llm.litellm_completion"):
+    with patch("openhands_sdk.llm.llm.litellm_completion"):
         llm = LLM(
             service_id="new-service",
             model="gpt-4o",
@@ -140,7 +139,7 @@ def test_register_llm_with_restored_metrics(conversation_stats):
     conversation_stats.service_to_metrics = {service_id: restored_metrics}
 
     # Patch the LLM class to avoid actual API calls
-    with patch("openhands.sdk.llm.llm.litellm_completion"):
+    with patch("openhands_sdk.llm.llm.litellm_completion"):
         llm = LLM(
             service_id=service_id,
             model="gpt-4o",
@@ -318,7 +317,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
     }
 
     # Patch the LLM class to avoid actual API calls
-    with patch("openhands.sdk.llm.llm.litellm_completion"):
+    with patch("openhands_sdk.llm.llm.litellm_completion"):
         # Register first LLM
         llm_1 = LLM(
             service_id=service_id_1,

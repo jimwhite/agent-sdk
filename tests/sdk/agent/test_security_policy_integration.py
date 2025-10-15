@@ -9,13 +9,12 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation import Conversation
+from openhands_sdk.event import ActionEvent, AgentErrorEvent
+from openhands_sdk.llm import LLM, Message, TextContent
+from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
 from pydantic import SecretStr
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.event import ActionEvent, AgentErrorEvent
-from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
 
 def test_security_policy_in_system_message():
@@ -62,7 +61,7 @@ def test_security_policy_in_system_message():
 def test_security_policy_template_rendering():
     """Test that the security policy template renders correctly."""
 
-    from openhands.sdk.context.prompts.prompt import render_template
+    from openhands_sdk.context.prompts.prompt import render_template
 
     # Get the prompts directory
     agent = Agent(
@@ -170,8 +169,8 @@ def test_no_security_analyzer_excludes_risk_assessment():
 
 def test_non_llm_security_analyzer_excludes_risk_assessment():
     """Test that security risk assessment section is excluded when security analyzer is not LLMSecurityAnalyzer."""  # noqa: E501
-    from openhands.sdk.security.analyzer import SecurityAnalyzerBase
-    from openhands.sdk.security.risk import SecurityRisk
+    from openhands_sdk.security.analyzer import SecurityAnalyzerBase
+    from openhands_sdk.security.risk import SecurityRisk
 
     class MockSecurityAnalyzer(SecurityAnalyzerBase):
         def security_risk(self, action: ActionEvent) -> SecurityRisk:
@@ -241,7 +240,7 @@ def test_security_risk_param_ignored_when_no_analyzer():
     convo = Conversation(agent=agent, callbacks=[events.append])
 
     with patch(
-        "openhands.sdk.llm.llm.litellm_completion",
+        "openhands_sdk.llm.llm.litellm_completion",
         return_value=_tool_response(
             "think",
             '{"thought": "This is a test thought", "security_risk": "LOW"}',

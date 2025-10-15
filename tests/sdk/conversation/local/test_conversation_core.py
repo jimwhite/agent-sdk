@@ -5,12 +5,11 @@ import tempfile
 import uuid
 
 import pytest
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation import Conversation
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.llm import LLM, Message, TextContent
 from pydantic import SecretStr
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def create_test_agent() -> Agent:

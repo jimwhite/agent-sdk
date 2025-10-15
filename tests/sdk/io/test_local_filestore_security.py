@@ -4,8 +4,7 @@ import os
 import tempfile
 
 import pytest
-
-from openhands.sdk.io.local import LocalFileStore
+from openhands_sdk.io.local import LocalFileStore
 
 
 def test_path_traversal_attacks_blocked():

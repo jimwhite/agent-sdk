@@ -2,10 +2,9 @@
 
 import json
 
+from openhands_sdk.llm import LLM
+from openhands_sdk.llm.utils.metrics import Metrics
 from pydantic import BaseModel, SecretStr
-
-from openhands.sdk.llm import LLM
-from openhands.sdk.llm.utils.metrics import Metrics
 
 
 def test_llm_basic_json_serialization() -> None:

@@ -4,9 +4,7 @@ import os
 import shlex
 from collections.abc import Sequence
 
-from pydantic import Field, SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Action,
     Agent,
@@ -19,17 +17,18 @@ from openhands.sdk import (
     ToolDefinition,
     get_logger,
 )
-from openhands.sdk.tool import (
+from openhands_sdk.tool import (
     Tool,
     ToolExecutor,
     register_tool,
 )
-from openhands.tools.execute_bash import (
+from openhands_tools.execute_bash import (
     BashExecutor,
     ExecuteBashAction,
     execute_bash_tool,
 )
-from openhands.tools.file_editor import FileEditorTool
+from openhands_tools.file_editor import FileEditorTool
+from pydantic import Field, SecretStr
 
 
 logger = get_logger(__name__)

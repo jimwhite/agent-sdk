@@ -4,11 +4,10 @@ import json
 from unittest.mock import Mock
 
 import pytest
-
-from openhands.sdk.conversation.event_store import EventLog
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.io.memory import InMemoryFileStore
-from openhands.sdk.llm import Message, TextContent
+from openhands_sdk.conversation.event_store import EventLog
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.io.memory import InMemoryFileStore
+from openhands_sdk.llm import Message, TextContent
 
 
 def create_test_event(event_id: str, content: str = "Test content") -> MessageEvent:
@@ -217,7 +216,7 @@ def test_event_log_index_gaps_detection():
             "content": [{"type": "text", "text": "Event 0"}],
         },
         "source": "user",
-        "kind": "openhands.sdk.event.llm_convertible.MessageEvent",
+        "kind": "openhands_sdk.event.llm_convertible.MessageEvent",
     }
     fs.write("events/event-00000-event-0.json", json.dumps(event0))
 
@@ -228,7 +227,7 @@ def test_event_log_index_gaps_detection():
             "content": [{"type": "text", "text": "Event 2"}],
         },
         "source": "user",
-        "kind": "openhands.sdk.event.llm_convertible.MessageEvent",
+        "kind": "openhands_sdk.event.llm_convertible.MessageEvent",
     }
     fs.write("events/event-00002-event-2.json", json.dumps(event2))
 

@@ -3,9 +3,8 @@
 import copy
 
 from litellm import ChatCompletionToolParam
-
-from openhands.sdk.event.llm_convertible import SystemPromptEvent
-from openhands.sdk.llm import TextContent
+from openhands_sdk.event.llm_convertible import SystemPromptEvent
+from openhands_sdk.llm import TextContent
 
 
 def test_visualize_no_data_mutation():

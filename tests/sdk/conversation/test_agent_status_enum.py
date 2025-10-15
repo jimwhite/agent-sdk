@@ -1,10 +1,9 @@
 """Test the AgentExecutionStatus enum functionality."""
 
+from openhands_sdk import Agent, Conversation
+from openhands_sdk.conversation.state import AgentExecutionStatus
+from openhands_sdk.llm import LLM
 from pydantic import SecretStr
-
-from openhands.sdk import Agent, Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.llm import LLM
 
 
 def test_agent_execution_state_enum_basic():

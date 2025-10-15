@@ -9,13 +9,12 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation import Conversation
+from openhands_sdk.conversation.state import AgentExecutionStatus
+from openhands_sdk.event import AgentErrorEvent, MessageEvent
+from openhands_sdk.llm import LLM, Message, TextContent
 from pydantic import SecretStr
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus
-from openhands.sdk.event import AgentErrorEvent, MessageEvent
-from openhands.sdk.llm import LLM, Message, TextContent
 
 
 def test_nonexistent_tool_returns_error_and_continues_conversation():
@@ -70,7 +69,7 @@ def test_nonexistent_tool_returns_error_and_continues_conversation():
     conversation = Conversation(agent=agent, callbacks=[event_callback])
 
     with patch(
-        "openhands.sdk.llm.llm.litellm_completion", side_effect=mock_llm_response
+        "openhands_sdk.llm.llm.litellm_completion", side_effect=mock_llm_response
     ):
         # Send a message to start the conversation
         conversation.send_message(
@@ -160,7 +159,7 @@ def test_nonexistent_tool_error_includes_available_tools():
     conversation = Conversation(agent=agent, callbacks=[event_callback])
 
     with patch(
-        "openhands.sdk.llm.llm.litellm_completion", side_effect=mock_llm_response
+        "openhands_sdk.llm.llm.litellm_completion", side_effect=mock_llm_response
     ):
         conversation.send_message(
             Message(
@@ -260,7 +259,7 @@ def test_conversation_continues_after_tool_error():
     conversation = Conversation(agent=agent, callbacks=[event_callback])
 
     with patch(
-        "openhands.sdk.llm.llm.litellm_completion", side_effect=mock_llm_response
+        "openhands_sdk.llm.llm.litellm_completion", side_effect=mock_llm_response
     ):
         conversation.send_message(
             Message(

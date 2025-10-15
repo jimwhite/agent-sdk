@@ -1,5 +1,5 @@
-from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.message import (
+from openhands_sdk.llm.llm import LLM
+from openhands_sdk.llm.message import (
     ImageContent,
     Message,
     MessageToolCall,

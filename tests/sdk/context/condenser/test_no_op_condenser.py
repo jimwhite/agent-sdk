@@ -1,8 +1,8 @@
-from openhands.sdk.context.condenser.no_op_condenser import NoOpCondenser
-from openhands.sdk.context.view import View
-from openhands.sdk.event.base import Event
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import Message, TextContent
+from openhands_sdk.context.condenser.no_op_condenser import NoOpCondenser
+from openhands_sdk.context.view import View
+from openhands_sdk.event.base import Event
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.llm import Message, TextContent
 
 
 def message_event(content: str) -> MessageEvent:

@@ -1,6 +1,5 @@
+from openhands_sdk.tool import Action, ToolAnnotations, ToolDefinition
 from pydantic import Field
-
-from openhands.sdk.tool import Action, ToolAnnotations, ToolDefinition
 
 
 class TRTSAction(Action):

@@ -31,10 +31,9 @@ import sys
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
+from openhands_sdk import LLM, Conversation, get_logger
+from openhands_tools.preset.default import get_default_agent
 from pydantic import SecretStr
-
-from openhands.sdk import LLM, Conversation, get_logger
-from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)

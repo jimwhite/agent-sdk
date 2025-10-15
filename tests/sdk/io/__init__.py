@@ -1,1 +1,1 @@
-# Tests for openhands.sdk.io module
+# Tests for openhands_sdk.io module

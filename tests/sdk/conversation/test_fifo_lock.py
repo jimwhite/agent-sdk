@@ -7,8 +7,7 @@ import time
 from collections import deque
 
 import pytest
-
-from openhands.sdk.conversation.fifo_lock import FIFOLock
+from openhands_sdk.conversation.fifo_lock import FIFOLock
 
 
 def test_fifo_lock_basic_functionality():

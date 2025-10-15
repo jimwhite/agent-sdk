@@ -2,9 +2,7 @@
 
 import os
 
-from pydantic import SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Conversation,
@@ -13,8 +11,9 @@ from openhands.sdk import (
     RedactedThinkingBlock,
     ThinkingBlock,
 )
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from pydantic import SecretStr
 
 
 # Configure LLM for Anthropic Claude with extended thinking

@@ -1,6 +1,5 @@
 import pytest
-
-from openhands.tools.execute_bash.utils.command import (
+from openhands_tools.execute_bash.utils.command import (
     escape_bash_special_chars,
     split_bash_commands,
 )

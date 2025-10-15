@@ -4,20 +4,19 @@ import tempfile
 import uuid
 from unittest.mock import patch
 
-from pydantic import SecretStr
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.llm import LLM
-from openhands.sdk.workspace import LocalWorkspace
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.impl import BashExecutor
-from openhands.tools.execute_bash.terminal import (
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation.state import ConversationState
+from openhands_sdk.llm import LLM
+from openhands_sdk.workspace import LocalWorkspace
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.execute_bash.definition import ExecuteBashAction
+from openhands_tools.execute_bash.impl import BashExecutor
+from openhands_tools.execute_bash.terminal import (
     SubprocessTerminal,
     TerminalSession,
     TmuxTerminal,
 )
+from pydantic import SecretStr
 
 
 def _create_conv_state(working_dir: str) -> ConversationState:
@@ -83,7 +82,7 @@ def test_unix_auto_detection(mock_system):
     with tempfile.TemporaryDirectory() as temp_dir:
         # Mock tmux as available
         with patch(
-            "openhands.tools.execute_bash.terminal.factory._is_tmux_available",
+            "openhands_tools.execute_bash.terminal.factory._is_tmux_available",
             return_value=True,
         ):
             tools = BashTool.create(_create_conv_state(temp_dir))
@@ -96,7 +95,7 @@ def test_unix_auto_detection(mock_system):
 
         # Mock tmux as unavailable
         with patch(
-            "openhands.tools.execute_bash.terminal.factory._is_tmux_available",
+            "openhands_tools.execute_bash.terminal.factory._is_tmux_available",
             return_value=False,
         ):
             tools = BashTool.create(_create_conv_state(temp_dir))

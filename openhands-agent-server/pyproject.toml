@@ -20,16 +20,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 
-[tool.setuptools.package-dir]
-"" = "."
-
 [tool.setuptools.packages.find]
 include = ["openhands_agent_server*"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
 # Include Docker-related files and VSCode extensions
-"openhands.agent_server" = [
+"openhands_agent_server" = [
   "docker/Dockerfile",
   "docker/wallpaper.svg",
   "vscode_extensions/**/*.json",
@@ -37,4 +34,4 @@ include = ["openhands_agent_server*"]
 ]
 
 [project.scripts]
-agent-server = "openhands.agent_server.__main__:main"
+agent-server = "openhands_agent_server.__main__:main"

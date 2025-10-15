@@ -48,18 +48,16 @@ from litellm.types.utils import (  # noqa: E402
     Message as LiteLLMMessage,
     ModelResponse,
 )
-from pydantic import Field  # noqa: E402
-
-from openhands.sdk.agent import Agent  # noqa: E402
-from openhands.sdk.conversation import Conversation  # noqa: E402
-from openhands.sdk.event import MessageEvent  # noqa: E402
-from openhands.sdk.llm import (  # noqa: E402
+from openhands_sdk.agent import Agent  # noqa: E402
+from openhands_sdk.conversation import Conversation  # noqa: E402
+from openhands_sdk.event import MessageEvent  # noqa: E402
+from openhands_sdk.llm import (  # noqa: E402
     LLM,
     ImageContent,
     Message,
     TextContent,
 )
-from openhands.sdk.tool import (  # noqa: E402
+from openhands_sdk.tool import (  # noqa: E402
     Action,
     Observation,
     Tool,
@@ -67,6 +65,7 @@ from openhands.sdk.tool import (  # noqa: E402
     ToolExecutor,
     register_tool,
 )
+from pydantic import Field  # noqa: E402
 
 
 # Custom sleep tool for testing timing scenarios
@@ -310,7 +309,7 @@ class TestMessageWhileFinishing:
         print(f"{elapsed_time()} Test started")
 
         with patch(
-            "openhands.sdk.llm.llm.litellm_completion",
+            "openhands_sdk.llm.llm.litellm_completion",
             side_effect=self._mock_llm_response,
         ):
             # Start the conversation with a natural request

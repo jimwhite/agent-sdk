@@ -4,20 +4,19 @@ import tempfile
 import uuid
 from unittest.mock import patch
 
-from pydantic import SecretStr
-
-from openhands.sdk import Agent
-from openhands.sdk.agent import AgentBase
-from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+from openhands_sdk import Agent
+from openhands_sdk.agent import AgentBase
+from openhands_sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.preset.default import get_default_agent
+from openhands_sdk.conversation import Conversation
+from openhands_sdk.conversation.impl.local_conversation import LocalConversation
+from openhands_sdk.llm import LLM, Message, TextContent
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from openhands_tools.preset.default import get_default_agent
+from pydantic import SecretStr
 
 
 register_tool("BashTool", BashTool)
@@ -207,7 +206,7 @@ def test_conversation_with_same_agent_succeeds():
         assert len(new_conversation.state.events) > 0
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_conversation_persistence_lifecycle(mock_completion):
     """Test full conversation persistence lifecycle similar to examples/10_persistence.py."""  # noqa: E501
     from tests.conftest import create_mock_litellm_response
@@ -314,7 +313,7 @@ def test_agent_resolve_diff_from_deserialized():
 
 def test_agent_resolve_diff_allows_security_analyzer_change():
     """Test that security_analyzer can differ between runtime and persisted agents."""
-    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+    from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
     with tempfile.TemporaryDirectory():
         # Create original agent WITH security analyzer
@@ -351,7 +350,7 @@ def test_agent_resolve_diff_allows_security_analyzer_change():
 
 def test_agent_resolve_diff_allows_adding_security_analyzer():
     """Test that security_analyzer can be added to a persisted agent without one."""
-    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+    from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
     with tempfile.TemporaryDirectory():
         # Create original agent WITHOUT security analyzer
@@ -388,7 +387,7 @@ def test_agent_resolve_diff_allows_adding_security_analyzer():
 
 def test_conversation_restart_with_different_security_analyzer():
     """Test restarting conversation with different security analyzer (issue #668)."""
-    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+    from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create conversation with security analyzer
@@ -441,7 +440,7 @@ def test_conversation_restart_with_different_security_analyzer():
 
 def test_conversation_restart_adding_security_analyzer():
     """Test restarting conversation and adding security analyzer (issue #668)."""
-    from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
+    from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create conversation WITHOUT security analyzer

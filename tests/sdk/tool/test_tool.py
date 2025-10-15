@@ -1,9 +1,8 @@
 """Test Tool class functionality."""
 
 import pytest
+from openhands_sdk.tool.spec import Tool
 from pydantic import ValidationError
-
-from openhands.sdk.tool.spec import Tool
 
 
 def test_tool_minimal():
@@ -134,7 +133,7 @@ def test_tool_field_descriptions():
     assert fields["name"].description is not None
     assert "Name of the tool class" in fields["name"].description
     assert (
-        "Import it from an `openhands.tools.<module>` subpackage."
+        "Import it from an `openhands_tools.<module>` subpackage."
         in fields["name"].description
     )
 

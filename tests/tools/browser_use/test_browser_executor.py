@@ -2,13 +2,13 @@
 
 from unittest.mock import AsyncMock, patch
 
-from openhands.tools.browser_use.definition import (
+from openhands_tools.browser_use.definition import (
     BrowserClickAction,
     BrowserGetStateAction,
     BrowserNavigateAction,
     BrowserObservation,
 )
-from openhands.tools.browser_use.impl import BrowserToolExecutor
+from openhands_tools.browser_use.impl import BrowserToolExecutor
 
 from .conftest import (
     assert_browser_observation_error,
@@ -41,7 +41,7 @@ def test_browser_executor_config_passing():
     assert executor._config["custom_param"] == "value"
 
 
-@patch("openhands.tools.browser_use.impl.BrowserToolExecutor.navigate")
+@patch("openhands_tools.browser_use.impl.BrowserToolExecutor.navigate")
 async def test_browser_executor_action_routing_navigate(
     mock_navigate, mock_browser_executor
 ):
@@ -55,7 +55,7 @@ async def test_browser_executor_action_routing_navigate(
     assert_browser_observation_success(result, "Navigation successful")
 
 
-@patch("openhands.tools.browser_use.impl.BrowserToolExecutor.click")
+@patch("openhands_tools.browser_use.impl.BrowserToolExecutor.click")
 async def test_browser_executor_action_routing_click(mock_click, mock_browser_executor):
     """Test that click actions are routed correctly."""
     mock_click.return_value = "Click successful"
@@ -67,7 +67,7 @@ async def test_browser_executor_action_routing_click(mock_click, mock_browser_ex
     assert_browser_observation_success(result, "Click successful")
 
 
-@patch("openhands.tools.browser_use.impl.BrowserToolExecutor.get_state")
+@patch("openhands_tools.browser_use.impl.BrowserToolExecutor.get_state")
 async def test_browser_executor_action_routing_get_state(
     mock_get_state, mock_browser_executor
 ):
@@ -96,7 +96,7 @@ async def test_browser_executor_unsupported_action_handling(mock_browser_executo
     assert_browser_observation_error(result, "Unsupported action type")
 
 
-@patch("openhands.tools.browser_use.impl.BrowserToolExecutor.navigate")
+@patch("openhands_tools.browser_use.impl.BrowserToolExecutor.navigate")
 async def test_browser_executor_error_wrapping(mock_navigate, mock_browser_executor):
     """Test that exceptions are properly wrapped in BrowserObservation."""
     mock_navigate.side_effect = Exception("Browser error occurred")

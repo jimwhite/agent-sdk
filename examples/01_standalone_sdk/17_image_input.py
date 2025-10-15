@@ -6,9 +6,7 @@ vision support by sending an image to the agent alongside text instructions.
 
 import os
 
-from pydantic import SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Conversation,
@@ -19,11 +17,12 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.tool.registry import register_tool
-from openhands.sdk.tool.spec import Tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
+from openhands_sdk.tool.registry import register_tool
+from openhands_sdk.tool.spec import Tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from openhands_tools.task_tracker import TaskTrackerTool
+from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

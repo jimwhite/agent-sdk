@@ -4,17 +4,16 @@ import os
 import tempfile
 from uuid import uuid4
 
-from pydantic import SecretStr
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.llm import LLM
-from openhands.sdk.workspace import LocalWorkspace
-from openhands.tools.file_editor import (
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation.state import ConversationState
+from openhands_sdk.llm import LLM
+from openhands_sdk.workspace import LocalWorkspace
+from openhands_tools.file_editor import (
     FileEditorAction,
     FileEditorObservation,
     FileEditorTool,
 )
+from pydantic import SecretStr
 
 
 def _create_test_conv_state(temp_dir: str) -> ConversationState:

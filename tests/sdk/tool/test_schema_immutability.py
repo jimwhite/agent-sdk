@@ -1,18 +1,17 @@
-"""Tests for schema immutability in openhands.sdk.tool.schema."""
+"""Tests for schema immutability in openhands_sdk.tool.schema."""
 
 from collections.abc import Sequence
 from typing import Any
 
 import pytest
-from pydantic import Field, ValidationError
-
-from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.mcp.definition import MCPToolAction
-from openhands.sdk.tool.schema import (
+from openhands_sdk.llm import ImageContent, TextContent
+from openhands_sdk.mcp.definition import MCPToolAction
+from openhands_sdk.tool.schema import (
     Action,
     Observation,
     Schema,
 )
+from pydantic import Field, ValidationError
 
 
 class MockSchema(Schema):

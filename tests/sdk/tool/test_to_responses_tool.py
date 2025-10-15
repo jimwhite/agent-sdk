@@ -1,5 +1,5 @@
-from openhands.sdk.tool.schema import Action, Observation
-from openhands.sdk.tool.tool import ToolBase
+from openhands_sdk.tool.schema import Action, Observation
+from openhands_sdk.tool.tool import ToolBase
 
 
 class A(Action):
@@ -8,7 +8,7 @@ class A(Action):
 
 class Obs(Observation):
     def to_llm_content(self):  # type: ignore[override]
-        from openhands.sdk.llm import TextContent
+        from openhands_sdk.llm import TextContent
 
         return [TextContent(text="ok")]
 

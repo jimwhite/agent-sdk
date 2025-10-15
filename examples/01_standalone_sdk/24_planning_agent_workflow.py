@@ -14,12 +14,11 @@ import os
 import tempfile
 from pathlib import Path
 
+from openhands_sdk import LLM, Conversation
+from openhands_sdk.llm import content_to_str
+from openhands_tools.preset.default import get_default_agent
+from openhands_tools.preset.planning import get_planning_agent
 from pydantic import SecretStr
-
-from openhands.sdk import LLM, Conversation
-from openhands.sdk.llm import content_to_str
-from openhands.tools.preset.default import get_default_agent
-from openhands.tools.preset.planning import get_planning_agent
 
 
 def get_event_content(event):

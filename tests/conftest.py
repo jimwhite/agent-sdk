@@ -3,10 +3,9 @@
 from unittest.mock import MagicMock
 
 import pytest
+from openhands_sdk.llm import LLM
+from openhands_sdk.tool import ToolExecutor
 from pydantic import SecretStr
-
-from openhands.sdk.llm import LLM
-from openhands.sdk.tool import ToolExecutor
 
 
 @pytest.fixture
@@ -92,4 +91,4 @@ def create_mock_litellm_response(
 def suppress_logging(monkeypatch):
     """Suppress logging during tests to reduce noise."""
     mock_logger = MagicMock()
-    monkeypatch.setattr("openhands.sdk.llm.llm.logger", mock_logger)
+    monkeypatch.setattr("openhands_sdk.llm.llm.logger", mock_logger)

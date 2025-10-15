@@ -3,9 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from openhands.tools.browser_use.impl import BrowserToolExecutor
-from openhands.tools.utils.timeout import TimeoutError
+from openhands_tools.browser_use.impl import BrowserToolExecutor
+from openhands_tools.utils.timeout import TimeoutError
 
 
 class TestBrowserInitialization:
@@ -15,11 +14,11 @@ class TestBrowserInitialization:
         """Test that initialization timeout is handled properly."""
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.run_with_timeout",
+                "openhands_tools.browser_use.impl.run_with_timeout",
                 side_effect=TimeoutError("Timeout occurred"),
             ),
         ):
@@ -36,14 +35,14 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
-            patch("openhands.tools.browser_use.impl.run_with_timeout") as mock_timeout,
+            patch("openhands_tools.browser_use.impl.run_with_timeout") as mock_timeout,
         ):
             BrowserToolExecutor(init_timeout_seconds=60)
             mock_timeout.assert_called_once()
@@ -57,14 +56,14 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
-            patch("openhands.tools.browser_use.impl.run_with_timeout") as mock_timeout,
+            patch("openhands_tools.browser_use.impl.run_with_timeout") as mock_timeout,
         ):
             BrowserToolExecutor()
             mock_timeout.assert_called_once()
@@ -78,11 +77,11 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
         ):
@@ -108,11 +107,11 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ) as mock_server_class,
         ):
@@ -127,15 +126,15 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
             patch(
-                "openhands.tools.browser_use.impl.AsyncExecutor",
+                "openhands_tools.browser_use.impl.AsyncExecutor",
                 return_value=mock_async_executor,
             ),
         ):
@@ -147,7 +146,7 @@ class TestBrowserInitialization:
     def test_initialization_chromium_not_available(self):
         """Test initialization when Chromium is not available."""
         with patch(
-            "openhands.tools.browser_use.impl._ensure_chromium_available",
+            "openhands_tools.browser_use.impl._ensure_chromium_available",
             side_effect=Exception("Chromium not found"),
         ):
             with pytest.raises(Exception) as exc_info:
@@ -169,15 +168,15 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
             patch(
-                "openhands.tools.browser_use.impl.AsyncExecutor",
+                "openhands_tools.browser_use.impl.AsyncExecutor",
                 return_value=mock_async_executor,
             ),
         ):
@@ -197,15 +196,15 @@ class TestBrowserInitialization:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
             patch(
-                "openhands.tools.browser_use.impl.AsyncExecutor",
+                "openhands_tools.browser_use.impl.AsyncExecutor",
                 return_value=mock_async_executor,
             ),
         ):

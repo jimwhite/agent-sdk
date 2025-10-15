@@ -8,8 +8,7 @@ from litellm.types.utils import Function
 from openai.types.responses.response_function_tool_call import (
     ResponseFunctionToolCall,
 )
-
-from openhands.sdk.llm.message import MessageToolCall
+from openhands_sdk.llm.message import MessageToolCall
 
 
 def test_from_chat_tool_call_success():

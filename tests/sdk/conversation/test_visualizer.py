@@ -3,13 +3,11 @@
 import json
 from collections.abc import Sequence
 
-from rich.text import Text
-
-from openhands.sdk.conversation.visualizer import (
+from openhands_sdk.conversation.visualizer import (
     ConversationVisualizer,
     create_default_visualizer,
 )
-from openhands.sdk.event import (
+from openhands_sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
@@ -18,13 +16,14 @@ from openhands.sdk.event import (
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import (
+from openhands_sdk.llm import (
     ImageContent,
     Message,
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool import Action
+from openhands_sdk.tool import Action
+from rich.text import Text
 
 
 class VisualizerMockAction(Action):
@@ -150,7 +149,7 @@ def test_action_event_visualize():
 
 def test_observation_event_visualize():
     """Test ObservationEvent visualization."""
-    from openhands.sdk.tool import Observation
+    from openhands_sdk.tool import Observation
 
     class VisualizerMockObservation(Observation):
         content: str = "Command output"
@@ -305,8 +304,8 @@ def test_visualizer_user_reject_observation_panel():
 
 def test_metrics_formatting():
     """Test metrics subtitle formatting."""
-    from openhands.sdk.conversation.conversation_stats import ConversationStats
-    from openhands.sdk.llm.utils.metrics import Metrics
+    from openhands_sdk.conversation.conversation_stats import ConversationStats
+    from openhands_sdk.llm.utils.metrics import Metrics
 
     # Create conversation stats with metrics
     conversation_stats = ConversationStats()
@@ -342,8 +341,8 @@ def test_metrics_formatting():
 
 def test_event_base_fallback_visualize():
     """Test that Event provides fallback visualization."""
-    from openhands.sdk.event.base import Event
-    from openhands.sdk.event.types import SourceType
+    from openhands_sdk.event.base import Event
+    from openhands_sdk.event.types import SourceType
 
     class UnknownEvent(Event):
         source: SourceType = "agent"

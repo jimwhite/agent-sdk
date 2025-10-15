@@ -6,9 +6,7 @@ from typing import Any
 from unittest.mock import patch
 
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
-from pydantic import SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Conversation,
@@ -16,16 +14,17 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.event.base import Event
-from openhands.sdk.event.llm_convertible import (
+from openhands_sdk.conversation.impl.local_conversation import LocalConversation
+from openhands_sdk.event.base import Event
+from openhands_sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
     ObservationEvent,
 )
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from pydantic import SecretStr
 
 
 class TestHelloWorld:
@@ -144,7 +143,7 @@ class TestHelloWorld:
 
         return [first_response, second_response]
 
-    @patch("openhands.sdk.llm.llm.litellm_completion")
+    @patch("openhands_sdk.llm.llm.litellm_completion")
     def test_hello_world_with_real_llm_data(self, mock_completion, fncall_raw_logs):
         """Test the complete hello world flow with real LLM completion data."""
         # Setup real LLM responses from fixtures
@@ -268,7 +267,7 @@ class TestHelloWorld:
                         "Real responses should have content"
                     )
 
-    @patch("openhands.sdk.llm.llm.litellm_completion")
+    @patch("openhands_sdk.llm.llm.litellm_completion")
     def test_llm_completion_logging_fidelity(self, mock_completion, fncall_raw_logs):
         """Test mocked LLM completion logging produces same output."""
         # Use mock responses for consistent behavior instead of real fixture data
@@ -391,9 +390,8 @@ class TestHelloWorld:
             Message as LiteLLMMessage,
             ModelResponse,
         )
-
-        from openhands.sdk.llm import LLM
-        from openhands.sdk.llm.message import Message, TextContent
+        from openhands_sdk.llm import LLM
+        from openhands_sdk.llm.message import Message, TextContent
 
         # Create a mock response without function calls (pure text response)
         mock_response = ModelResponse(
@@ -436,7 +434,7 @@ class TestHelloWorld:
 
         # Mock the completion method
         with patch(
-            "openhands.sdk.llm.llm.litellm_completion",
+            "openhands_sdk.llm.llm.litellm_completion",
             side_effect=capture_completion_fidelity,
         ):
             # Create conversation and send a message
@@ -529,7 +527,7 @@ class TestHelloWorld:
 
         # Mock the completion method
         with patch(
-            "openhands.sdk.llm.llm.litellm_completion",
+            "openhands_sdk.llm.llm.litellm_completion",
             side_effect=capture_completion_non_func,
         ):
             # Create conversation and send a message

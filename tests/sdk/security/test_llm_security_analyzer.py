@@ -1,12 +1,11 @@
 """Tests for the LLMSecurityAnalyzer class."""
 
 import pytest
-
-from openhands.sdk.event import ActionEvent
-from openhands.sdk.llm import MessageToolCall, TextContent
-from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool import Action
+from openhands_sdk.event import ActionEvent
+from openhands_sdk.llm import MessageToolCall, TextContent
+from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
+from openhands_sdk.security.risk import SecurityRisk
+from openhands_sdk.tool import Action
 
 
 class LlmSecurityAnalyzerMockAction(Action):

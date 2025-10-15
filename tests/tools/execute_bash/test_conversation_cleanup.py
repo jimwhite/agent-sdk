@@ -8,9 +8,9 @@ when conversations are closed or destroyed.
 import tempfile
 from unittest.mock import Mock
 
-from openhands.sdk import Agent, Conversation
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashExecutor, BashTool
+from openhands_sdk import Agent, Conversation
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashExecutor, BashTool
 
 
 def test_conversation_close_calls_executor_close(mock_llm):

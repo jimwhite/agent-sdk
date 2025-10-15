@@ -1,11 +1,10 @@
-"""Tests for MCP schema generation in openhands.sdk.tool.schema."""
+"""Tests for MCP schema generation in openhands_sdk.tool.schema."""
 
 from collections.abc import Sequence
 
+from openhands_sdk.llm import ImageContent, TextContent
+from openhands_sdk.tool.schema import Action, Observation
 from pydantic import Field
-
-from openhands.sdk.llm import ImageContent, TextContent
-from openhands.sdk.tool.schema import Action, Observation
 
 
 class MCPSchemaTestAction(Action):

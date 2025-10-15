@@ -5,8 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from openhands.tools.browser_use.impl import (
+from openhands_tools.browser_use.impl import (
     _check_chromium_available,
     _ensure_chromium_available,
     _install_chromium,
@@ -202,7 +201,7 @@ class TestEnsureChromiumAvailable:
     def test_ensure_chromium_available_already_available(self):
         """Test when Chromium is already available."""
         with patch(
-            "openhands.tools.browser_use.impl._check_chromium_available",
+            "openhands_tools.browser_use.impl._check_chromium_available",
             return_value="/usr/bin/chromium",
         ):
             result = _ensure_chromium_available()
@@ -211,7 +210,7 @@ class TestEnsureChromiumAvailable:
     def test_ensure_chromium_available_not_found_raises_error(self):
         """Test that clear error is raised when Chromium is not available."""
         with patch(
-            "openhands.tools.browser_use.impl._check_chromium_available",
+            "openhands_tools.browser_use.impl._check_chromium_available",
             return_value=None,
         ):
             with pytest.raises(Exception) as exc_info:

@@ -3,9 +3,7 @@
 from collections.abc import Sequence
 
 import pytest
-from pydantic import ValidationError
-
-from openhands.sdk.event import (
+from openhands_sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     Condensation,
@@ -15,13 +13,14 @@ from openhands.sdk.event import (
     ObservationEvent,
     SystemPromptEvent,
 )
-from openhands.sdk.llm import (
+from openhands_sdk.llm import (
     ImageContent,
     Message,
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool import Action, Observation
+from openhands_sdk.tool import Action, Observation
+from pydantic import ValidationError
 
 
 class EventSerializationMockEvent(Event):
@@ -123,7 +122,7 @@ def test_observation_event_serialization() -> None:
 
 def test_message_event_serialization() -> None:
     """Test MessageEvent serialization/deserialization."""
-    from openhands.sdk.llm import Message
+    from openhands_sdk.llm import Message
 
     llm_message = Message(
         role="user", content=[TextContent(text="Hello, world!")], cache_enabled=True

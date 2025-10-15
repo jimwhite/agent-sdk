@@ -14,11 +14,10 @@ import tempfile
 import time
 
 import pytest
-
-from openhands.sdk import TextContent
-from openhands.sdk.logger import get_logger
-from openhands.tools.execute_bash.definition import ExecuteBashAction
-from openhands.tools.execute_bash.terminal import (
+from openhands_sdk import TextContent
+from openhands_sdk.logger import get_logger
+from openhands_tools.execute_bash.definition import ExecuteBashAction
+from openhands_tools.execute_bash.terminal import (
     TerminalCommandStatus,
     create_terminal_session,
 )

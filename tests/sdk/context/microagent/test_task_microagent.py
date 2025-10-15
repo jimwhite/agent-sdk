@@ -1,5 +1,5 @@
-from openhands.sdk.context.microagents import TaskMicroagent
-from openhands.sdk.context.microagents.types import InputMetadata
+from openhands_sdk.context.microagents import TaskMicroagent
+from openhands_sdk.context.microagents.types import InputMetadata
 
 
 def test_task_microagent_prompt_appending():

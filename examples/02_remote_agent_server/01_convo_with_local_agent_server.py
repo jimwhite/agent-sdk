@@ -4,11 +4,10 @@ import sys
 import threading
 import time
 
+from openhands_sdk import LLM, Conversation, RemoteConversation, Workspace, get_logger
+from openhands_sdk.event import ConversationStateUpdateEvent
+from openhands_tools.preset.default import get_default_agent
 from pydantic import SecretStr
-
-from openhands.sdk import LLM, Conversation, RemoteConversation, Workspace, get_logger
-from openhands.sdk.event import ConversationStateUpdateEvent
-from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
@@ -47,7 +46,7 @@ class ManagedAPIServer:
             [
                 "python",
                 "-m",
-                "openhands.agent_server",
+                "openhands_agent_server",
                 "--port",
                 str(self.port),
                 "--host",

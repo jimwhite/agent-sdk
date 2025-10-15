@@ -6,17 +6,16 @@ import uuid
 from pathlib import Path
 
 import pytest
+from openhands_sdk import Agent, Conversation
+from openhands_sdk.agent.base import AgentBase
+from openhands_sdk.conversation.impl.local_conversation import LocalConversation
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands_sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
+from openhands_sdk.llm import LLM, Message, TextContent
+from openhands_sdk.llm.llm_registry import RegistryEvent
+from openhands_sdk.security.confirmation_policy import AlwaysConfirm
+from openhands_sdk.workspace import LocalWorkspace
 from pydantic import SecretStr
-
-from openhands.sdk import Agent, Conversation
-from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.event.llm_convertible import MessageEvent, SystemPromptEvent
-from openhands.sdk.llm import LLM, Message, TextContent
-from openhands.sdk.llm.llm_registry import RegistryEvent
-from openhands.sdk.security.confirmation_policy import AlwaysConfirm
-from openhands.sdk.workspace import LocalWorkspace
 
 
 def test_conversation_state_basic_serialization():

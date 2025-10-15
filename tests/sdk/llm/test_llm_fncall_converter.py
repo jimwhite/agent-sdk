@@ -4,12 +4,11 @@ import json
 
 import pytest
 from litellm import ChatCompletionToolParam
-
-from openhands.sdk.llm.exceptions import (
+from openhands_sdk.llm.exceptions import (
     FunctionCallConversionError,
     FunctionCallValidationError,
 )
-from openhands.sdk.llm.mixins.fn_call_converter import (
+from openhands_sdk.llm.mixins.fn_call_converter import (
     STOP_WORDS,
     convert_fncall_messages_to_non_fncall_messages,
     convert_non_fncall_messages_to_fncall_messages,

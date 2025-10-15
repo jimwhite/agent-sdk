@@ -3,15 +3,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from litellm.types.utils import ModelResponse
-
-from openhands.sdk.context.condenser.llm_summarizing_condenser import (
+from openhands_sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )
-from openhands.sdk.context.view import View
-from openhands.sdk.event.base import Event
-from openhands.sdk.event.condenser import Condensation
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import (
+from openhands_sdk.context.view import View
+from openhands_sdk.event.base import Event
+from openhands_sdk.event.condenser import Condensation
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.llm import (
     LLM,
     LLMResponse,
     Message,

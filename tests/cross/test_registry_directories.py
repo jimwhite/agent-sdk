@@ -5,19 +5,18 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from openhands_sdk.agent.base import AgentBase
+from openhands_sdk.conversation import Conversation
+from openhands_sdk.conversation.state import ConversationState
+from openhands_sdk.conversation.types import ConversationCallbackType
+from openhands_sdk.event.llm_convertible import SystemPromptEvent
+from openhands_sdk.llm import LLM, TextContent
+from openhands_sdk.tool.registry import resolve_tool
+from openhands_sdk.tool.spec import Tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+from openhands_tools.task_tracker import TaskTrackerTool
 from pydantic import SecretStr
-
-from openhands.sdk.agent.base import AgentBase
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.conversation.types import ConversationCallbackType
-from openhands.sdk.event.llm_convertible import SystemPromptEvent
-from openhands.sdk.llm import LLM, TextContent
-from openhands.sdk.tool.registry import resolve_tool
-from openhands.sdk.tool.spec import Tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
-from openhands.tools.task_tracker import TaskTrackerTool
 
 
 class DummyAgent(AgentBase):
@@ -52,7 +51,7 @@ def test_agent():
 @pytest.fixture(autouse=True)
 def register_tools():
     """Register tools for testing."""
-    from openhands.sdk.tool import register_tool
+    from openhands_sdk.tool import register_tool
 
     register_tool("BashTool", BashTool)
     register_tool("FileEditorTool", FileEditorTool)

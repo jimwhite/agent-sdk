@@ -1,4 +1,4 @@
-from openhands.tools.execute_bash import execute_bash_tool
+from openhands_tools.execute_bash import execute_bash_tool
 
 
 def test_to_mcp_tool_detailed_type_validation_bash():

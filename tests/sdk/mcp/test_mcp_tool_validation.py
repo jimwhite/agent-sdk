@@ -2,10 +2,9 @@ from unittest.mock import Mock
 
 import mcp.types
 import pytest
+from openhands_sdk.mcp.client import MCPClient
+from openhands_sdk.mcp.tool import MCPToolDefinition
 from pydantic import ValidationError
-
-from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.tool import MCPToolDefinition
 
 
 def _make_tool_with_schema(schema: dict):

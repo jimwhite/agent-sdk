@@ -6,11 +6,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-
-from openhands.agent_server.api import create_app
-from openhands.agent_server.bash_service import BashEventService
-from openhands.agent_server.config import Config
-from openhands.agent_server.models import BashCommand
+from openhands_agent_server.api import create_app
+from openhands_agent_server.bash_service import BashEventService
+from openhands_agent_server.config import Config
+from openhands_agent_server.models import BashCommand
 
 
 @pytest.fixture
@@ -33,7 +32,7 @@ def client():
 @pytest.mark.asyncio
 async def test_clear_all_bash_events_empty_storage():
     """Test clearing bash events when storage is empty."""
-    with patch("openhands.agent_server.bash_router.bash_event_service") as mock_service:
+    with patch("openhands_agent_server.bash_router.bash_event_service") as mock_service:
         mock_service.clear_all_events = AsyncMock(return_value=0)
 
         config = Config(session_api_keys=[])  # Disable authentication
@@ -48,7 +47,7 @@ async def test_clear_all_bash_events_empty_storage():
 @pytest.mark.asyncio
 async def test_clear_all_bash_events_with_data():
     """Test clearing bash events when storage contains data."""
-    with patch("openhands.agent_server.bash_router.bash_event_service") as mock_service:
+    with patch("openhands_agent_server.bash_router.bash_event_service") as mock_service:
         mock_service.clear_all_events = AsyncMock(return_value=5)
 
         config = Config(session_api_keys=[])  # Disable authentication

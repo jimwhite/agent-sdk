@@ -2,11 +2,10 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
-from openhands.tools.file_editor.definition import (
+from openhands_tools.file_editor.definition import (
     FileEditorObservation,
 )
-from openhands.tools.file_editor.editor import FileEditor
+from openhands_tools.file_editor.editor import FileEditor
 
 
 @pytest.fixture

@@ -3,8 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from openhands.tools.browser_use.impl import BrowserToolExecutor
+from openhands_tools.browser_use.impl import BrowserToolExecutor
 
 
 class TestBrowserCleanup:
@@ -18,15 +17,15 @@ class TestBrowserCleanup:
 
         with (
             patch(
-                "openhands.tools.browser_use.impl._ensure_chromium_available",
+                "openhands_tools.browser_use.impl._ensure_chromium_available",
                 return_value="/usr/bin/chromium",
             ),
             patch(
-                "openhands.tools.browser_use.impl.CustomBrowserUseServer",
+                "openhands_tools.browser_use.impl.CustomBrowserUseServer",
                 return_value=mock_server,
             ),
             patch(
-                "openhands.tools.browser_use.impl.AsyncExecutor",
+                "openhands_tools.browser_use.impl.AsyncExecutor",
                 return_value=mock_async_executor,
             ),
         ):

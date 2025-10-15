@@ -4,8 +4,7 @@ from collections.abc import Sequence
 
 import pytest
 from litellm import ChatCompletionToolParam
-
-from openhands.sdk.event import (
+from openhands_sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     Condensation,
@@ -17,13 +16,13 @@ from openhands.sdk.event import (
     SystemPromptEvent,
     UserRejectObservation,
 )
-from openhands.sdk.llm import (
+from openhands_sdk.llm import (
     ImageContent,
     Message,
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.tool.schema import Action, Observation
+from openhands_sdk.tool.schema import Action, Observation
 
 
 class EventsImmutabilityMockAction(Action):

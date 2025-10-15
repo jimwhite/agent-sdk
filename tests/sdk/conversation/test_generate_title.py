@@ -6,12 +6,11 @@ import pytest
 
 # Import LiteLLM types for proper mocking
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation import Conversation
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.llm import LLM, LLMResponse, Message, MetricsSnapshot, TextContent
 from pydantic import SecretStr
-
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation import Conversation
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm import LLM, LLMResponse, Message, MetricsSnapshot, TextContent
 
 
 def create_test_agent() -> Agent:
@@ -66,7 +65,7 @@ def create_mock_llm_response(content: str) -> LLMResponse:
     )
 
 
-@patch("openhands.sdk.llm.llm.LLM.completion")
+@patch("openhands_sdk.llm.llm.LLM.completion")
 def test_generate_title_basic(mock_completion):
     """Test basic generate_title functionality."""
     agent = create_test_agent()
@@ -102,7 +101,7 @@ def test_generate_title_no_user_messages():
         conv.generate_title()
 
 
-@patch("openhands.sdk.llm.llm.LLM.completion")
+@patch("openhands_sdk.llm.llm.LLM.completion")
 def test_generate_title_llm_error_fallback(mock_completion):
     """Test generate_title falls back to simple truncation when LLM fails."""
     agent = create_test_agent()
@@ -122,7 +121,7 @@ def test_generate_title_llm_error_fallback(mock_completion):
     assert title == "Fix the bug in my application"
 
 
-@patch("openhands.sdk.llm.llm.LLM.completion")
+@patch("openhands_sdk.llm.llm.LLM.completion")
 def test_generate_title_with_max_length(mock_completion):
     """Test generate_title respects max_length parameter."""
     agent = create_test_agent()
@@ -146,7 +145,7 @@ def test_generate_title_with_max_length(mock_completion):
     assert title.endswith("...")
 
 
-@patch("openhands.sdk.llm.llm.LLM.completion")
+@patch("openhands_sdk.llm.llm.LLM.completion")
 def test_generate_title_with_custom_llm(mock_completion):
     """Test generate_title with a custom LLM provided."""
     agent = create_test_agent()
@@ -172,7 +171,7 @@ def test_generate_title_with_custom_llm(mock_completion):
     assert title == "Debug Code Issue"
 
 
-@patch("openhands.sdk.llm.llm.LLM.completion")
+@patch("openhands_sdk.llm.llm.LLM.completion")
 def test_generate_title_empty_llm_response_fallback(mock_completion):
     """Test generate_title falls back when LLM returns empty response."""
     agent = create_test_agent()

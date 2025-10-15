@@ -5,12 +5,11 @@ from uuid import uuid4
 
 import pytest
 from fastapi import WebSocketDisconnect
-
-from openhands.agent_server.event_service import EventService
-from openhands.agent_server.sockets import _WebSocketSubscriber
-from openhands.sdk import Message
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm.message import TextContent
+from openhands_agent_server.event_service import EventService
+from openhands_agent_server.sockets import _WebSocketSubscriber
+from openhands_sdk import Message
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.llm.message import TextContent
 
 
 @pytest.fixture
@@ -91,9 +90,9 @@ class TestWebSocketDisconnectHandling:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
@@ -102,7 +101,7 @@ class TestWebSocketDisconnectHandling:
             )
 
             # Import and call the socket function directly
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             # This should not hang or loop infinitely
             await events_socket(
@@ -123,9 +122,9 @@ class TestWebSocketDisconnectHandling:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
@@ -133,7 +132,7 @@ class TestWebSocketDisconnectHandling:
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             await events_socket(
                 sample_conversation_id, mock_websocket, session_api_key=None
@@ -162,9 +161,9 @@ class TestWebSocketDisconnectHandling:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
@@ -172,7 +171,7 @@ class TestWebSocketDisconnectHandling:
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             await events_socket(
                 sample_conversation_id, mock_websocket, session_api_key=None
@@ -202,9 +201,9 @@ class TestWebSocketDisconnectHandling:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
@@ -212,7 +211,7 @@ class TestWebSocketDisconnectHandling:
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             await events_socket(
                 sample_conversation_id, mock_websocket, session_api_key=None
@@ -237,9 +236,9 @@ class TestWebSocketDisconnectHandling:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
@@ -247,7 +246,7 @@ class TestWebSocketDisconnectHandling:
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             # This should raise the RuntimeError but still clean up
             with pytest.raises(RuntimeError):
@@ -271,16 +270,16 @@ class TestResendAllFunctionality:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             await events_socket(
                 sample_conversation_id,
@@ -313,8 +312,8 @@ class TestResendAllFunctionality:
 
         from typing import cast
 
-        from openhands.agent_server.models import EventPage
-        from openhands.sdk.event import Event
+        from openhands_agent_server.models import EventPage
+        from openhands_sdk.event import Event
 
         mock_event_page = EventPage(
             items=cast(list[Event], mock_events), next_page_id=None
@@ -324,16 +323,16 @@ class TestResendAllFunctionality:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             await events_socket(
                 sample_conversation_id,
@@ -362,16 +361,16 @@ class TestResendAllFunctionality:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             # Should raise the exception from search_events
             with pytest.raises(Exception, match="Search failed"):
@@ -404,8 +403,8 @@ class TestResendAllFunctionality:
 
         from typing import cast
 
-        from openhands.agent_server.models import EventPage
-        from openhands.sdk.event import Event
+        from openhands_agent_server.models import EventPage
+        from openhands_sdk.event import Event
 
         mock_event_page = EventPage(
             items=cast(list[Event], mock_events), next_page_id=None
@@ -418,16 +417,16 @@ class TestResendAllFunctionality:
 
         with (
             patch(
-                "openhands.agent_server.sockets.conversation_service"
+                "openhands_agent_server.sockets.conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
+            patch("openhands_agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
             mock_conv_service.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
 
-            from openhands.agent_server.sockets import events_socket
+            from openhands_agent_server.sockets import events_socket
 
             # Should not raise exception, should handle gracefully
             await events_socket(

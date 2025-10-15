@@ -1,19 +1,18 @@
-"""Tests for the Tool class in openhands.sdk.runtime.tool."""
+"""Tests for the Tool class in openhands_sdk.runtime.tool."""
 
 from collections.abc import Sequence
 from typing import Any
 
 import pytest
-from pydantic import Field
-
-from openhands.sdk.llm.message import ImageContent, TextContent
-from openhands.sdk.tool import (
+from openhands_sdk.llm.message import ImageContent, TextContent
+from openhands_sdk.tool import (
     Action,
     Observation,
     ToolAnnotations,
     ToolDefinition,
     ToolExecutor,
 )
+from pydantic import Field
 
 
 class ToolMockAction(Action):
@@ -651,7 +650,7 @@ class TestTool:
 
     def test_security_risk_is_required_field_in_schema(self):
         """Test that _create_action_type_with_risk always makes security_risk a required field."""  # noqa: E501
-        from openhands.sdk.tool.tool import _create_action_type_with_risk
+        from openhands_sdk.tool.tool import _create_action_type_with_risk
 
         # Test with a simple action type
         action_type_with_risk = _create_action_type_with_risk(ToolMockAction)

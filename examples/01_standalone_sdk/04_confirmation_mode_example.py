@@ -4,12 +4,11 @@ import os
 import signal
 from collections.abc import Callable
 
+from openhands_sdk import LLM, BaseConversation, Conversation
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands_sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
+from openhands_tools.preset.default import get_default_agent
 from pydantic import SecretStr
-
-from openhands.sdk import LLM, BaseConversation, Conversation
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
-from openhands.tools.preset.default import get_default_agent
 
 
 # Make ^C a clean exit instead of a stack trace

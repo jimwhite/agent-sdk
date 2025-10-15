@@ -5,8 +5,7 @@ import time
 from collections.abc import Generator
 
 import pytest
-
-from openhands.tools.browser_use.definition import (
+from openhands_tools.browser_use.definition import (
     BrowserClickAction,
     BrowserCloseTabAction,
     BrowserGetContentAction,
@@ -19,7 +18,7 @@ from openhands.tools.browser_use.definition import (
     BrowserSwitchTabAction,
     BrowserTypeAction,
 )
-from openhands.tools.browser_use.impl import BrowserToolExecutor
+from openhands_tools.browser_use.impl import BrowserToolExecutor
 
 
 # Test HTML content for browser operations

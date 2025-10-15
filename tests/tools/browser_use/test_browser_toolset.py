@@ -1,8 +1,8 @@
 """Test BrowserToolSet functionality."""
 
-from openhands.sdk.tool import ToolDefinition
-from openhands.sdk.tool.tool import ToolBase
-from openhands.tools.browser_use import (
+from openhands_sdk.tool import ToolDefinition
+from openhands_sdk.tool.tool import ToolBase
+from openhands_tools.browser_use import (
     BrowserToolSet,
     browser_click_tool,
     browser_close_tab_tool,
@@ -15,7 +15,7 @@ from openhands.tools.browser_use import (
     browser_switch_tab_tool,
     browser_type_tool,
 )
-from openhands.tools.browser_use.impl import BrowserToolExecutor
+from openhands_tools.browser_use.impl import BrowserToolExecutor
 
 
 def test_browser_toolset_create_returns_list():

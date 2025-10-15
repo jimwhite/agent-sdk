@@ -3,11 +3,10 @@
 import json
 
 import pytest
+from openhands_sdk.tool import ToolDefinition
+from openhands_sdk.tool.builtins import FinishTool, ThinkTool
+from openhands_sdk.tool.tool import ToolBase
 from pydantic import BaseModel, ValidationError
-
-from openhands.sdk.tool import ToolDefinition
-from openhands.sdk.tool.builtins import FinishTool, ThinkTool
-from openhands.sdk.tool.tool import ToolBase
 
 
 def test_tool_serialization_deserialization() -> None:

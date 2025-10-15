@@ -7,10 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from litellm.types.utils import ModelResponse, Usage
+from openhands_sdk.llm.utils.metrics import Metrics
+from openhands_sdk.llm.utils.telemetry import Telemetry, _safe_json
 from pydantic import ValidationError
-
-from openhands.sdk.llm.utils.metrics import Metrics
-from openhands.sdk.llm.utils.telemetry import Telemetry, _safe_json
 
 
 @pytest.fixture
@@ -229,7 +228,7 @@ class TestTelemetryCostCalculation:
         )
 
         with patch(
-            "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
+            "openhands_sdk.llm.utils.telemetry.litellm_completion_cost"
         ) as mock_cost:
             mock_cost.return_value = 0.25
             telemetry._compute_cost(mock_response)
@@ -264,7 +263,7 @@ class TestTelemetryCostCalculation:
         )
 
         with patch(
-            "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
+            "openhands_sdk.llm.utils.telemetry.litellm_completion_cost"
         ) as mock_cost:
             mock_cost.return_value = 0.30
             cost = basic_telemetry._compute_cost(mock_response)
@@ -283,7 +282,7 @@ class TestTelemetryCostCalculation:
         )
 
         with patch(
-            "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
+            "openhands_sdk.llm.utils.telemetry.litellm_completion_cost"
         ) as mock_cost:
             mock_cost.side_effect = Exception("Cost calculation failed")
 
@@ -308,7 +307,7 @@ class TestTelemetryCostCalculation:
         )
 
         with patch(
-            "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
+            "openhands_sdk.llm.utils.telemetry.litellm_completion_cost"
         ) as mock_cost:
             mock_cost.return_value = 0.10
             telemetry._compute_cost(mock_response)
@@ -480,7 +479,7 @@ class TestTelemetryIntegration:
             )
 
             with patch(
-                "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
+                "openhands_sdk.llm.utils.telemetry.litellm_completion_cost"
             ) as mock_cost:
                 mock_cost.return_value = 0.25
                 metrics = telemetry.on_response(response)  # type: ignore
@@ -512,7 +511,7 @@ class TestTelemetryIntegration:
             )
 
             with patch(
-                "openhands.sdk.llm.utils.telemetry.litellm_completion_cost"
+                "openhands_sdk.llm.utils.telemetry.litellm_completion_cost"
             ) as mock_cost:
                 mock_cost.return_value = 0.1 + i * 0.05
                 cost = basic_telemetry.on_response(response)

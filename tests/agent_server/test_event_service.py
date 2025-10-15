@@ -4,18 +4,17 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-
-from openhands.agent_server.event_service import EventService
-from openhands.agent_server.models import (
+from openhands_agent_server.event_service import EventService
+from openhands_agent_server.models import (
     EventPage,
     EventSortOrder,
     StoredConversation,
 )
-from openhands.sdk import LLM, Agent, Conversation, Message
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.security.confirmation_policy import NeverConfirm
-from openhands.sdk.workspace import LocalWorkspace
+from openhands_sdk import LLM, Agent, Conversation, Message
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.security.confirmation_policy import NeverConfirm
+from openhands_sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -123,7 +122,7 @@ class TestEventServiceSearchEvents:
 
         # Test filtering by MessageEvent
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent"
+            kind="openhands_sdk.event.llm_convertible.message.MessageEvent"
         )
         assert len(result.items) == 5
         for event in result.items:
@@ -185,7 +184,7 @@ class TestEventServiceSearchEvents:
 
         # Filter by ActionEvent and sort by TIMESTAMP_DESC
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent",
+            kind="openhands_sdk.event.llm_convertible.message.MessageEvent",
             sort_order=EventSortOrder.TIMESTAMP_DESC,
         )
 
@@ -204,7 +203,7 @@ class TestEventServiceSearchEvents:
 
         # Filter by MessageEvent with limit 1
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent", limit=1
+            kind="openhands_sdk.event.llm_convertible.message.MessageEvent", limit=1
         )
         assert len(result.items) == 1
         assert result.items[0].__class__.__name__ == "MessageEvent"
@@ -212,7 +211,7 @@ class TestEventServiceSearchEvents:
 
         # Get second page
         result = await event_service.search_events(
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent",
+            kind="openhands_sdk.event.llm_convertible.message.MessageEvent",
             page_id=result.next_page_id,
             limit=4,
         )
@@ -337,7 +336,7 @@ class TestEventServiceCountEvents:
 
         # Count ActionEvent events (should be 5)
         result = await event_service.count_events(
-            kind="openhands.sdk.event.llm_convertible.message.MessageEvent"
+            kind="openhands_sdk.event.llm_convertible.message.MessageEvent"
         )
         assert result == 5
 

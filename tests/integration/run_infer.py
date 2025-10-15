@@ -14,9 +14,9 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+from openhands_sdk.logger import get_logger
 from pydantic import BaseModel
 
-from openhands.sdk.logger import get_logger
 from tests.integration.base import BaseIntegrationTest, TestResult
 from tests.integration.schemas import ModelTestResults
 from tests.integration.utils.format_costs import format_cost

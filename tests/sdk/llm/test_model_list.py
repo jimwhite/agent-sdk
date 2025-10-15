@@ -1,7 +1,7 @@
 import sys
 from unittest.mock import patch
 
-from openhands.sdk.llm.utils.unverified_models import (
+from openhands_sdk.llm.utils.unverified_models import (
     _list_bedrock_foundation_models,
     get_unverified_models,
 )
@@ -22,7 +22,7 @@ def test_organize_models_and_providers():
     ]
 
     with patch(
-        "openhands.sdk.llm.utils.unverified_models.get_supported_llm_models",
+        "openhands_sdk.llm.utils.unverified_models.get_supported_llm_models",
         return_value=models,
     ):
         result = get_unverified_models()
@@ -45,7 +45,7 @@ def test_list_bedrock_models_without_boto3(monkeypatch):
     monkeypatch.setitem(sys.modules, "boto3", None)
 
     # Mock the logger to verify warning is called
-    with patch("openhands.sdk.llm.utils.unverified_models.logger") as mock_logger:
+    with patch("openhands_sdk.llm.utils.unverified_models.logger") as mock_logger:
         result = _list_bedrock_foundation_models("us-east-1", "key", "secret")
 
     assert result == []

@@ -1,9 +1,8 @@
 """Tests for LLM metrics classes."""
 
 import pytest
+from openhands_sdk.llm.utils.metrics import Cost, Metrics, ResponseLatency, TokenUsage
 from pydantic import ValidationError
-
-from openhands.sdk.llm.utils.metrics import Cost, Metrics, ResponseLatency, TokenUsage
 
 
 def test_cost_creation_valid():

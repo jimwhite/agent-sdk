@@ -2,7 +2,7 @@
 Standalone unit tests for WebhookSubscriber class functionality.
 
 This test file recreates the WebhookSubscriber class logic to test it
-without dependencies on the openhands.sdk module.
+without dependencies on the openhands_sdk module.
 """
 
 import asyncio
@@ -13,17 +13,16 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from openhands_agent_server.config import WebhookSpec
+from openhands_agent_server.conversation_service import WebhookSubscriber
+from openhands_agent_server.event_service import EventService
+from openhands_agent_server.models import StoredConversation
+from openhands_agent_server.utils import utc_now
+from openhands_sdk import LLM, Agent
+from openhands_sdk.event.llm_convertible import MessageEvent
+from openhands_sdk.llm.message import Message, TextContent
+from openhands_sdk.workspace import LocalWorkspace
 from pydantic import SecretStr, ValidationError
-
-from openhands.agent_server.config import WebhookSpec
-from openhands.agent_server.conversation_service import WebhookSubscriber
-from openhands.agent_server.event_service import EventService
-from openhands.agent_server.models import StoredConversation
-from openhands.agent_server.utils import utc_now
-from openhands.sdk import LLM, Agent
-from openhands.sdk.event.llm_convertible import MessageEvent
-from openhands.sdk.llm.message import Message, TextContent
-from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture
@@ -32,7 +31,7 @@ def mock_event_service():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         # Mock httpx.get to prevent HTTP calls to staging server during LLM init
-        with patch("openhands.sdk.llm.llm.httpx.get") as mock_get:
+        with patch("openhands_sdk.llm.llm.httpx.get") as mock_get:
             mock_get.return_value = MagicMock(json=lambda: {"data": []})
             service = EventService(
                 stored=StoredConversation(
@@ -989,11 +988,11 @@ class TestConversationWebhookSubscriber:
         self, mock_client_class, webhook_spec, mock_event_service
     ):
         """Test successful posting of conversation info."""
-        from openhands.agent_server.conversation_service import (
+        from openhands_agent_server.conversation_service import (
             ConversationWebhookSubscriber,
         )
-        from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state import AgentExecutionStatus
+        from openhands_agent_server.models import ConversationInfo
+        from openhands_sdk.conversation.state import AgentExecutionStatus
 
         # Setup mock client
         mock_client = AsyncMock()
@@ -1036,11 +1035,11 @@ class TestConversationWebhookSubscriber:
         self, mock_client_class, webhook_spec, mock_event_service
     ):
         """Test posting conversation info with session API key."""
-        from openhands.agent_server.conversation_service import (
+        from openhands_agent_server.conversation_service import (
             ConversationWebhookSubscriber,
         )
-        from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state import AgentExecutionStatus
+        from openhands_agent_server.models import ConversationInfo
+        from openhands_sdk.conversation.state import AgentExecutionStatus
 
         # Setup mock client
         mock_client = AsyncMock()
@@ -1085,11 +1084,11 @@ class TestConversationWebhookSubscriber:
         self, webhook_spec, mock_event_service
     ):
         """Test HTTP error handling with retry logic for conversation webhooks."""
-        from openhands.agent_server.conversation_service import (
+        from openhands_agent_server.conversation_service import (
             ConversationWebhookSubscriber,
         )
-        from openhands.agent_server.models import ConversationInfo
-        from openhands.sdk.conversation.state import AgentExecutionStatus
+        from openhands_agent_server.models import ConversationInfo
+        from openhands_sdk.conversation.state import AgentExecutionStatus
 
         subscriber = ConversationWebhookSubscriber(
             spec=webhook_spec,

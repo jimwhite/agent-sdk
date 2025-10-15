@@ -14,10 +14,8 @@ import os
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel, Field
-
-from openhands.agent_server.config import Config
-from openhands.agent_server.env_parser import (
+from openhands_agent_server.config import Config
+from openhands_agent_server.env_parser import (
     MISSING,
     BoolEnvParser,
     DelayedParser,
@@ -33,6 +31,8 @@ from openhands.agent_server.env_parser import (
     get_env_parser,
     merge,
 )
+from pydantic import BaseModel, Field
+
 from tests.sdk.utils.test_discriminated_union import Animal, Dog
 
 

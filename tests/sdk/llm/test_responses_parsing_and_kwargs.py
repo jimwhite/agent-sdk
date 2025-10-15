@@ -8,9 +8,8 @@ from openai.types.responses.response_reasoning_item import (
     ResponseReasoningItem,
     Summary,
 )
-
-from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.message import Message, ReasoningItemModel, TextContent
+from openhands_sdk.llm.llm import LLM
+from openhands_sdk.llm.message import Message, ReasoningItemModel, TextContent
 
 
 def build_responses_message_output(texts: list[str]) -> ResponseOutputMessage:
@@ -82,7 +81,7 @@ def test_normalize_responses_kwargs_policy():
     assert out["max_output_tokens"] == 128
 
 
-@patch("openhands.sdk.llm.llm.litellm_responses")
+@patch("openhands_sdk.llm.llm.litellm_responses")
 def test_llm_responses_end_to_end(mock_responses_call):
     # Configure LLM
     llm = LLM(model="gpt-5-mini")

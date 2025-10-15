@@ -1,10 +1,10 @@
 """Tests for the SecurityAnalyzer class."""
 
-from openhands.sdk.event import ActionEvent, PauseEvent
-from openhands.sdk.llm import MessageToolCall, TextContent
-from openhands.sdk.security.analyzer import SecurityAnalyzerBase
-from openhands.sdk.security.risk import SecurityRisk
-from openhands.sdk.tool import Action
+from openhands_sdk.event import ActionEvent, PauseEvent
+from openhands_sdk.llm import MessageToolCall, TextContent
+from openhands_sdk.security.analyzer import SecurityAnalyzerBase
+from openhands_sdk.security.risk import SecurityRisk
+from openhands_sdk.tool import Action
 
 
 class SecurityAnalyzerMockAction(Action):

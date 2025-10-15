@@ -1,22 +1,22 @@
 import uuid
 
-from openhands.sdk.agent import Agent
-from openhands.sdk.conversation.state import ConversationState
-from openhands.sdk.conversation.stuck_detector import StuckDetector
-from openhands.sdk.event import (
+from openhands_sdk.agent import Agent
+from openhands_sdk.conversation.state import ConversationState
+from openhands_sdk.conversation.stuck_detector import StuckDetector
+from openhands_sdk.event import (
     ActionEvent,
     AgentErrorEvent,
     MessageEvent,
     ObservationEvent,
 )
-from openhands.sdk.llm import (
+from openhands_sdk.llm import (
     LLM,
     Message,
     MessageToolCall,
     TextContent,
 )
-from openhands.sdk.workspace import LocalWorkspace
-from openhands.tools.execute_bash.definition import (
+from openhands_sdk.workspace import LocalWorkspace
+from openhands_tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,
 )

@@ -3,10 +3,11 @@
 import os
 import subprocess
 
-from openhands.sdk import get_logger
-from openhands.sdk.tool import Tool, register_tool
-from openhands.tools.execute_bash import BashTool
-from openhands.tools.file_editor import FileEditorTool
+from openhands_sdk import get_logger
+from openhands_sdk.tool import Tool, register_tool
+from openhands_tools.execute_bash import BashTool
+from openhands_tools.file_editor import FileEditorTool
+
 from tests.integration.base import BaseIntegrationTest, TestResult
 
 

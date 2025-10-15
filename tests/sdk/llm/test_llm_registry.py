@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
-from openhands.sdk.llm.llm import LLM
-from openhands.sdk.llm.llm_registry import LLMRegistry, RegistryEvent
+from openhands_sdk.llm.llm import LLM
+from openhands_sdk.llm.llm_registry import LLMRegistry, RegistryEvent
 
 
 class TestLLMRegistry(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestLLMRegistry(unittest.TestCase):
 
         # Mock the RegistryEvent to avoid LLM attribute access
         with patch(
-            "openhands.sdk.llm.llm_registry.RegistryEvent"
+            "openhands_sdk.llm.llm_registry.RegistryEvent"
         ) as mock_registry_event:
             mock_registry_event.return_value = Mock()
             self.registry.add(mock_llm)
@@ -65,7 +65,7 @@ def test_llm_registry_notify_exception_handling():
     registry.subscribe(failing_subscriber)
 
     # Mock the logger to capture warning messages
-    with patch("openhands.sdk.llm.llm_registry.logger") as mock_logger:
+    with patch("openhands_sdk.llm.llm_registry.logger") as mock_logger:
         # Create a mock event
         mock_event = Mock()
 
@@ -89,7 +89,7 @@ def test_llm_registry_list_services():
     mock_llm2.service_id = "service2"
 
     # Mock the RegistryEvent to avoid LLM attribute access
-    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+    with patch("openhands_sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Add some LLMs using the new API
@@ -114,7 +114,7 @@ def test_llm_registry_add_method():
     service_id = mock_llm.service_id
 
     # Mock the RegistryEvent to avoid LLM attribute access
-    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+    with patch("openhands_sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Test adding an LLM
@@ -144,7 +144,7 @@ def test_llm_registry_get_method():
     service_id = mock_llm.service_id
 
     # Mock the RegistryEvent to avoid LLM attribute access
-    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+    with patch("openhands_sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Add the LLM first
@@ -172,7 +172,7 @@ def test_llm_registry_add_get_workflow():
     llm2.service_id = "service2"
 
     # Mock the RegistryEvent to avoid LLM attribute access
-    with patch("openhands.sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
+    with patch("openhands_sdk.llm.llm_registry.RegistryEvent") as mock_registry_event:
         mock_registry_event.return_value = Mock()
 
         # Add multiple LLMs

@@ -1,19 +1,19 @@
 from typing import cast
 from unittest.mock import create_autospec
 
-from openhands.sdk.context.view import View
-from openhands.sdk.event.base import Event
-from openhands.sdk.event.condenser import (
+from openhands_sdk.context.view import View
+from openhands_sdk.event.base import Event
+from openhands_sdk.event.condenser import (
     Condensation,
     CondensationRequest,
     CondensationSummaryEvent,
 )
-from openhands.sdk.event.llm_convertible import (
+from openhands_sdk.event.llm_convertible import (
     ActionEvent,
     MessageEvent,
     ObservationEvent,
 )
-from openhands.sdk.llm import Message, TextContent
+from openhands_sdk.llm import Message, TextContent
 
 
 def message_event(content: str) -> MessageEvent:

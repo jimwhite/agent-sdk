@@ -5,22 +5,21 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
-from pydantic import SecretStr
-
-from openhands.agent_server.conversation_service import ConversationService
-from openhands.agent_server.event_service import EventService
-from openhands.agent_server.models import (
+from openhands_agent_server.conversation_service import ConversationService
+from openhands_agent_server.event_service import EventService
+from openhands_agent_server.models import (
     ConversationPage,
     ConversationSortOrder,
     StartConversationRequest,
     StoredConversation,
     UpdateConversationRequest,
 )
-from openhands.sdk import LLM, Agent
-from openhands.sdk.conversation.secret_source import SecretSource, StaticSecret
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.security.confirmation_policy import NeverConfirm
-from openhands.sdk.workspace import LocalWorkspace
+from openhands_sdk import LLM, Agent
+from openhands_sdk.conversation.secret_source import SecretSource, StaticSecret
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands_sdk.security.confirmation_policy import NeverConfirm
+from openhands_sdk.workspace import LocalWorkspace
+from pydantic import SecretStr
 
 
 @pytest.fixture
@@ -504,7 +503,7 @@ class TestConversationServiceStartConversation:
 
             # Mock the EventService constructor and start method
             with patch(
-                "openhands.agent_server.conversation_service.EventService"
+                "openhands_agent_server.conversation_service.EventService"
             ) as mock_event_service_class:
                 mock_event_service = AsyncMock(spec=EventService)
                 mock_event_service_class.return_value = mock_event_service
@@ -566,7 +565,7 @@ class TestConversationServiceStartConversation:
 
             # Mock the EventService constructor and start method
             with patch(
-                "openhands.agent_server.conversation_service.EventService"
+                "openhands_agent_server.conversation_service.EventService"
             ) as mock_event_service_class:
                 mock_event_service = AsyncMock(spec=EventService)
                 mock_event_service_class.return_value = mock_event_service

@@ -2,7 +2,7 @@
 Standalone unit tests for PubSub class functionality.
 
 This test file recreates the PubSub class logic to test it
-without dependencies on the openhands.sdk module.
+without dependencies on the openhands_sdk module.
 """
 
 import asyncio

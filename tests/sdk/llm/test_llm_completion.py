@@ -11,15 +11,14 @@ from litellm.types.utils import (
     ModelResponse,
     Usage,
 )
-from pydantic import SecretStr
-
-from openhands.sdk.llm import (
+from openhands_sdk.llm import (
     LLM,
     Message,
     TextContent,
 )
-from openhands.sdk.tool.schema import Action
-from openhands.sdk.tool.tool import ToolBase, ToolDefinition
+from openhands_sdk.tool.schema import Action
+from openhands_sdk.tool.tool import ToolBase, ToolDefinition
+from pydantic import SecretStr
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):
@@ -53,7 +52,7 @@ def default_config():
     )
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_basic(mock_completion):
     """Test basic LLM completion functionality."""
     mock_response = create_mock_response("Test response")
@@ -98,7 +97,7 @@ def test_llm_streaming_not_supported(default_config):
         llm.completion(messages=messages, stream=True)
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_tools(mock_completion):
     """Test LLM completion with tools."""
     mock_response = create_mock_response("I'll use the tool")
@@ -149,7 +148,7 @@ def test_llm_completion_with_tools(mock_completion):
     mock_completion.assert_called_once()
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_error_handling(mock_completion):
     """Test LLM completion error handling."""
     # Mock an exception
@@ -259,7 +258,7 @@ def test_llm_token_usage_tracking(default_config):
     assert accumulated.completion_tokens >= 5
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_with_custom_params(mock_completion, default_config):
     """Test LLM completion with custom parameters."""
     mock_response = create_mock_response("Custom response")
@@ -296,7 +295,7 @@ def test_llm_completion_with_custom_params(mock_completion, default_config):
     assert call_kwargs.get("top_p") == 0.9
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_non_function_call_mode(mock_completion):
     """Test LLM completion with non-function call mode (prompt-based tool calling)."""
     # Create a mock response that looks like a non-function call response
@@ -383,7 +382,7 @@ def test_llm_completion_non_function_call_mode(mock_completion):
     assert len(call_messages) >= len(messages)
 
 
-@patch("openhands.sdk.llm.llm.litellm_completion")
+@patch("openhands_sdk.llm.llm.litellm_completion")
 def test_llm_completion_function_call_vs_non_function_call_mode(mock_completion):
     """Test the difference between function call mode and non-function call mode."""
     mock_response = create_mock_response("Test response")

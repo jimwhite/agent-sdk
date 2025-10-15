@@ -8,12 +8,11 @@ These tests demonstrate the expected behavior and limitations.
 from unittest.mock import Mock
 
 import mcp.types
-
-from openhands.sdk.mcp.client import MCPClient
-from openhands.sdk.mcp.definition import MCPToolAction, MCPToolObservation
-from openhands.sdk.mcp.tool import MCPToolDefinition
-from openhands.sdk.tool.schema import Action
-from openhands.sdk.tool.tool import ToolBase
+from openhands_sdk.mcp.client import MCPClient
+from openhands_sdk.mcp.definition import MCPToolAction, MCPToolObservation
+from openhands_sdk.mcp.tool import MCPToolDefinition
+from openhands_sdk.tool.schema import Action
+from openhands_sdk.tool.tool import ToolBase
 
 
 def create_mock_mcp_tool(name: str) -> mcp.types.Tool:

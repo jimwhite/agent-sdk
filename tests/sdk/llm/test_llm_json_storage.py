@@ -4,9 +4,8 @@ import json
 import tempfile
 from pathlib import Path
 
+from openhands_sdk.llm import LLM
 from pydantic import SecretStr
-
-from openhands.sdk.llm import LLM
 
 
 def test_llm_store_and_load_json():

@@ -3,13 +3,12 @@
 import uuid
 
 import pytest
+from openhands_sdk import LLM, Agent
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands_sdk.event.conversation_state import ConversationStateUpdateEvent
+from openhands_sdk.io import InMemoryFileStore
+from openhands_sdk.workspace import LocalWorkspace
 from pydantic import SecretStr
-
-from openhands.sdk import LLM, Agent
-from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands.sdk.event.conversation_state import ConversationStateUpdateEvent
-from openhands.sdk.io import InMemoryFileStore
-from openhands.sdk.workspace import LocalWorkspace
 
 
 @pytest.fixture

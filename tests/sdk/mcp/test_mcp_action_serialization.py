@@ -1,7 +1,6 @@
 import pytest
+from openhands_sdk.mcp import MCPToolAction
 from pydantic import ValidationError
-
-from openhands.sdk.mcp import MCPToolAction
 
 
 def test_data_field_emerges_from_to_mcp_arguments():

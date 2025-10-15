@@ -23,7 +23,7 @@ def create_mock_response(content: str = "Test response", response_id: str = "tes
 
 def test_message_with_reasoning_content():
     """Test Message with reasoning content fields."""
-    from openhands.sdk.llm.message import Message, TextContent
+    from openhands_sdk.llm.message import Message, TextContent
 
     message = Message(
         role="assistant",
@@ -36,7 +36,7 @@ def test_message_with_reasoning_content():
 
 def test_message_without_reasoning_content():
     """Test Message without reasoning content (default behavior)."""
-    from openhands.sdk.llm.message import Message, TextContent
+    from openhands_sdk.llm.message import Message, TextContent
 
     message = Message(role="assistant", content=[TextContent(text="The answer is 42.")])
 
@@ -45,7 +45,7 @@ def test_message_without_reasoning_content():
 
 def test_message_from_llm_chat_message_with_reasoning():
     """Test Message.from_llm_chat_message with reasoning content."""
-    from openhands.sdk.llm.message import Message
+    from openhands_sdk.llm.message import Message
 
     # Create a mock LiteLLM message with reasoning content
     litellm_message = LiteLLMMessage(role="assistant", content="The answer is 42.")
@@ -56,7 +56,7 @@ def test_message_from_llm_chat_message_with_reasoning():
 
     assert message.role == "assistant"
     assert len(message.content) == 1
-    from openhands.sdk.llm.message import TextContent
+    from openhands_sdk.llm.message import TextContent
 
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
@@ -65,7 +65,7 @@ def test_message_from_llm_chat_message_with_reasoning():
 
 def test_message_from_llm_chat_message_without_reasoning():
     """Test Message.from_llm_chat_message without reasoning content."""
-    from openhands.sdk.llm.message import Message
+    from openhands_sdk.llm.message import Message
 
     litellm_message = LiteLLMMessage(role="assistant", content="The answer is 42.")
 
@@ -73,7 +73,7 @@ def test_message_from_llm_chat_message_without_reasoning():
 
     assert message.role == "assistant"
     assert len(message.content) == 1
-    from openhands.sdk.llm.message import TextContent
+    from openhands_sdk.llm.message import TextContent
 
     assert isinstance(message.content[0], TextContent)
     assert message.content[0].text == "The answer is 42."
@@ -82,7 +82,7 @@ def test_message_from_llm_chat_message_without_reasoning():
 
 def test_message_serialization_with_reasoning():
     """Test Message serialization includes reasoning content."""
-    from openhands.sdk.llm.message import Message, TextContent
+    from openhands_sdk.llm.message import Message, TextContent
 
     message = Message(
         role="assistant",
@@ -97,7 +97,7 @@ def test_message_serialization_with_reasoning():
 
 def test_message_serialization_without_reasoning():
     """Test Message serialization without reasoning content."""
-    from openhands.sdk.llm.message import Message, TextContent
+    from openhands_sdk.llm.message import Message, TextContent
 
     message = Message(role="assistant", content=[TextContent(text="Answer")])
 
@@ -108,12 +108,12 @@ def test_message_serialization_without_reasoning():
 
 def test_action_event_with_reasoning_content():
     """Test ActionEvent with reasoning content fields."""
-    from openhands.sdk.event.llm_convertible import ActionEvent
-    from openhands.sdk.llm.message import (
+    from openhands_sdk.event.llm_convertible import ActionEvent
+    from openhands_sdk.llm.message import (
         MessageToolCall,
         TextContent,
     )
-    from openhands.sdk.tool import Action
+    from openhands_sdk.tool import Action
 
     # Create a simple action for testing
     class TestAction(Action):

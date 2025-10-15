@@ -1,8 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
-
-from openhands.sdk.llm.message import Message, TextContent, content_to_str
+from openhands_sdk.llm.message import Message, TextContent, content_to_str
 
 
 def test_from_llm_chat_message_raises_when_only_non_function_tool_calls():

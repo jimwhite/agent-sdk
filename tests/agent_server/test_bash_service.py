@@ -5,10 +5,9 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
-from openhands.agent_server.bash_service import BashEventService
-from openhands.agent_server.models import BashCommand, BashOutput, ExecuteBashRequest
-from openhands.agent_server.pub_sub import Subscriber
+from openhands_agent_server.bash_service import BashEventService
+from openhands_agent_server.models import BashCommand, BashOutput, ExecuteBashRequest
+from openhands_agent_server.pub_sub import Subscriber
 
 
 @pytest.fixture

@@ -1,8 +1,6 @@
 import os
 
-from pydantic import SecretStr
-
-from openhands.sdk import (
+from openhands_sdk import (
     LLM,
     Agent,
     Conversation,
@@ -13,8 +11,9 @@ from openhands.sdk import (
     TextContent,
     get_logger,
 )
-from openhands.sdk.llm.router import MultimodalRouter
-from openhands.tools.preset.default import get_default_tools
+from openhands_sdk.llm.router import MultimodalRouter
+from openhands_tools.preset.default import get_default_tools
+from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

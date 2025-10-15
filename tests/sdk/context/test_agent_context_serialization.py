@@ -2,13 +2,13 @@
 
 import json
 
-from openhands.sdk.context.agent_context import AgentContext
-from openhands.sdk.context.microagents import (
+from openhands_sdk.context.agent_context import AgentContext
+from openhands_sdk.context.microagents import (
     KnowledgeMicroagent,
     RepoMicroagent,
     TaskMicroagent,
 )
-from openhands.sdk.context.microagents.types import InputMetadata
+from openhands_sdk.context.microagents.types import InputMetadata
 
 
 def test_agent_context_serialization_roundtrip():

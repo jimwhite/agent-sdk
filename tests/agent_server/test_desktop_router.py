@@ -4,8 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-
-from openhands.agent_server.desktop_router import DesktopUrlResponse, get_desktop_url
+from openhands_agent_server.desktop_router import DesktopUrlResponse, get_desktop_url
 
 
 class TestDesktopRouter:
@@ -15,7 +14,7 @@ class TestDesktopRouter:
     async def test_get_desktop_url_service_disabled(self):
         """Test get_desktop_url when desktop service is disabled."""
         with patch(
-            "openhands.agent_server.desktop_router.get_desktop_service",
+            "openhands_agent_server.desktop_router.get_desktop_service",
             return_value=None,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -33,7 +32,7 @@ class TestDesktopRouter:
         )
 
         with patch(
-            "openhands.agent_server.desktop_router.get_desktop_service",
+            "openhands_agent_server.desktop_router.get_desktop_service",
             return_value=mock_service,
         ):
             response = await get_desktop_url("http://localhost:8002")
@@ -54,7 +53,7 @@ class TestDesktopRouter:
         )
 
         with patch(
-            "openhands.agent_server.desktop_router.get_desktop_service",
+            "openhands_agent_server.desktop_router.get_desktop_service",
             return_value=mock_service,
         ):
             response = await get_desktop_url()
@@ -73,7 +72,7 @@ class TestDesktopRouter:
         mock_service.get_vnc_url.side_effect = Exception("VNC connection failed")
 
         with patch(
-            "openhands.agent_server.desktop_router.get_desktop_service",
+            "openhands_agent_server.desktop_router.get_desktop_service",
             return_value=mock_service,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -89,7 +88,7 @@ class TestDesktopRouter:
         mock_service.get_vnc_url.return_value = None
 
         with patch(
-            "openhands.agent_server.desktop_router.get_desktop_service",
+            "openhands_agent_server.desktop_router.get_desktop_service",
             return_value=mock_service,
         ):
             response = await get_desktop_url()

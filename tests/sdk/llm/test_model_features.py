@@ -1,6 +1,5 @@
 import pytest
-
-from openhands.sdk.llm.utils.model_features import (
+from openhands_sdk.llm.utils.model_features import (
     get_features,
     model_matches,
     normalize_model_name,

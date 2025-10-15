@@ -1,8 +1,7 @@
 import pytest
+from openhands_sdk.tool import Observation, ToolDefinition, ToolExecutor
+from openhands_sdk.tool.schema import Action
 from pydantic import Field
-
-from openhands.sdk.tool import Observation, ToolDefinition, ToolExecutor
-from openhands.sdk.tool.schema import Action
 
 
 class OCAAction(Action):
@@ -14,7 +13,7 @@ class OCAObs(Observation):
 
     @property
     def to_llm_content(self):  # type: ignore[override]
-        from openhands.sdk.llm import TextContent
+        from openhands_sdk.llm import TextContent
 
         return [TextContent(text=str(self.value))]
 
@@ -42,7 +41,7 @@ def test_tool_call_with_observation_none_result_shapes():
 
         @property
         def to_llm_content(self):  # type: ignore[override]
-            from openhands.sdk.llm import TextContent
+            from openhands_sdk.llm import TextContent
 
             return [TextContent(text=str(self.value))]
 
