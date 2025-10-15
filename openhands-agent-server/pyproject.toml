@@ -24,8 +24,7 @@ build-backend = "setuptools.build_meta"
 "" = "."
 
 [tool.setuptools.packages.find]
-include = ["openhands.agent_server*"]
-namespaces = true
+include = ["openhands_agent_server*"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

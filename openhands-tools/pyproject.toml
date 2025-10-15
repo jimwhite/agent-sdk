@@ -23,8 +23,7 @@ build-backend = "setuptools.build_meta"
 "" = "."
 
 [tool.setuptools.packages.find]
-include = ["openhands.tools*"]
-namespaces = true
+include = ["openhands_tools*"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
