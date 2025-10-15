@@ -1,8 +1,8 @@
 from unittest.mock import patch
 
-from openhands_sdk.llm import LLM, Message, TextContent
 from pydantic import SecretStr
 
+from openhands_sdk.llm import LLM, Message, TextContent
 from tests.conftest import create_mock_litellm_response
 
 

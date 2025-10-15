@@ -1,6 +1,7 @@
 """Tool router for OpenHands SDK."""
 
 from fastapi import APIRouter
+
 from openhands_sdk.tool.registry import list_registered_tools
 from openhands_tools.preset.default import register_default_tools
 

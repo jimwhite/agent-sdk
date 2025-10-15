@@ -3,10 +3,6 @@ from typing import Annotated
 
 import pytest
 from litellm import BaseModel
-from openhands_sdk.utils.models import (
-    DiscriminatedUnionMixin,
-    kind_of,
-)
 from pydantic import (
     ConfigDict,
     Discriminator,
@@ -15,6 +11,11 @@ from pydantic import (
     TypeAdapter,
     computed_field,
     model_validator,
+)
+
+from openhands_sdk.utils.models import (
+    DiscriminatedUnionMixin,
+    kind_of,
 )
 
 

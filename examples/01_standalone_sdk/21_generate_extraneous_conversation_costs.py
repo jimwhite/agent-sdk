@@ -1,5 +1,8 @@
 import os
 
+from pydantic import SecretStr
+from tabulate import tabulate
+
 from openhands_sdk import (
     LLM,
     Agent,
@@ -14,8 +17,6 @@ from openhands_sdk.tool.spec import Tool
 from openhands_tools.execute_bash import (
     BashTool,
 )
-from pydantic import SecretStr
-from tabulate import tabulate
 
 
 logger = get_logger(__name__)

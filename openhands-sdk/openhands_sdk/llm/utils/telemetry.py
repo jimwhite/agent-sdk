@@ -8,9 +8,10 @@ from typing import Any
 from litellm.cost_calculator import completion_cost as litellm_completion_cost
 from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 from litellm.types.utils import CostPerToken, ModelResponse, Usage
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+
 from openhands_sdk.llm.utils.metrics import Metrics
 from openhands_sdk.logger import get_logger
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 
 logger = get_logger(__name__)

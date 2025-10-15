@@ -4,9 +4,6 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, status
-from openhands_sdk import LLM, Agent, TextContent, Tool
-from openhands_sdk.conversation.state import AgentExecutionStatus
-from openhands_sdk.workspace import LocalWorkspace
 from pydantic import SecretStr
 
 from openhands_agent_server.conversation_service import ConversationService
@@ -24,6 +21,9 @@ from openhands_agent_server.models import (
     UpdateConversationRequest,
     UpdateSecretsRequest,
 )
+from openhands_sdk import LLM, Agent, TextContent, Tool
+from openhands_sdk.conversation.state import AgentExecutionStatus
+from openhands_sdk.workspace import LocalWorkspace
 
 
 conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])

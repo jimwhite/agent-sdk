@@ -13,7 +13,6 @@ import uuid
 from collections import deque
 
 from openhands_sdk.logger import get_logger
-
 from openhands_tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_BEGIN,
     CMD_OUTPUT_PS1_END,

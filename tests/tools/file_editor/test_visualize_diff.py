@@ -1,11 +1,12 @@
 """Tests for the visualize_diff functionality in FileEditorObservation."""
 
+from rich.text import Text
+
 from openhands_tools.file_editor.definition import FileEditorObservation
 from openhands_tools.file_editor.utils.diff import (
     get_edit_groups,
     visualize_diff,
 )
-from rich.text import Text
 
 
 def test_visualize_diff_simple_replacement():

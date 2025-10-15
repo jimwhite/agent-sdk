@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 
 import pytest
+from pydantic import ValidationError
+
 from openhands_sdk.event import (
     ActionEvent,
     AgentErrorEvent,
@@ -20,7 +22,6 @@ from openhands_sdk.llm import (
     TextContent,
 )
 from openhands_sdk.tool import Action, Observation
-from pydantic import ValidationError
 
 
 class EventSerializationMockEvent(Event):

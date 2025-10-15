@@ -11,6 +11,8 @@ from litellm.types.utils import (
     ModelResponse,
     Usage,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.llm import (
     LLM,
     Message,
@@ -18,7 +20,6 @@ from openhands_sdk.llm import (
 )
 from openhands_sdk.tool.schema import Action
 from openhands_sdk.tool.tool import ToolBase, ToolDefinition
-from pydantic import SecretStr
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):

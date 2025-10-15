@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from openhands_agent_server.event_router import event_router
 from openhands_agent_server.event_service import EventService
 from openhands_sdk import Message

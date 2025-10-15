@@ -6,6 +6,7 @@ Tests the check_session_api_key dependency with multiple session API keys suppor
 import pytest
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.testclient import TestClient
+
 from openhands_agent_server.config import Config
 from openhands_agent_server.dependencies import (
     create_session_api_key_dependency,

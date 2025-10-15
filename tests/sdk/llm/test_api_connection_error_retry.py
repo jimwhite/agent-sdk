@@ -3,8 +3,9 @@ from unittest.mock import patch
 import pytest
 from litellm.exceptions import APIConnectionError
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
-from openhands_sdk.llm import LLM, LLMResponse, Message, TextContent
 from pydantic import SecretStr
+
+from openhands_sdk.llm import LLM, LLMResponse, Message, TextContent
 
 
 def create_mock_response(content: str = "Test response", response_id: str = "test-id"):

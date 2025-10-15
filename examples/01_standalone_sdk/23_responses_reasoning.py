@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 
+from pydantic import SecretStr
+
 from openhands_sdk import (
     Conversation,
     Event,
@@ -17,7 +19,6 @@ from openhands_sdk import (
 )
 from openhands_sdk.llm import LLM
 from openhands_tools.preset.default import get_default_agent
-from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

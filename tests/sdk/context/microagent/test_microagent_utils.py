@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
+
 from openhands_sdk.context import (
     BaseMicroagent,
     KnowledgeMicroagent,
@@ -11,7 +13,6 @@ from openhands_sdk.context import (
     RepoMicroagent,
     load_microagents_from_dir,
 )
-from pydantic import ValidationError
 
 
 CONTENT = "# dummy header\ndummy content\n## dummy subheader\ndummy subcontent\n"

@@ -4,6 +4,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from openhands_agent_server.desktop_service import DesktopService, get_desktop_service
 
 

@@ -2,6 +2,8 @@ import os
 import threading
 import time
 
+from pydantic import SecretStr
+
 from openhands_sdk import (
     LLM,
     Agent,
@@ -11,7 +13,6 @@ from openhands_sdk.conversation.state import AgentExecutionStatus
 from openhands_sdk.tool import Tool, register_tool
 from openhands_tools.execute_bash import BashTool
 from openhands_tools.file_editor import FileEditorTool
-from pydantic import SecretStr
 
 
 # Configure LLM

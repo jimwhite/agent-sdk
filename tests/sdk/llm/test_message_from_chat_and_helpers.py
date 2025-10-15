@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+
 from openhands_sdk.llm.message import Message, TextContent, content_to_str
 
 

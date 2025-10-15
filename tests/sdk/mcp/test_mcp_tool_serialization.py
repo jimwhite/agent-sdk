@@ -8,6 +8,7 @@ These tests demonstrate the expected behavior and limitations.
 from unittest.mock import Mock
 
 import mcp.types
+
 from openhands_sdk.mcp.client import MCPClient
 from openhands_sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands_sdk.mcp.tool import MCPToolDefinition

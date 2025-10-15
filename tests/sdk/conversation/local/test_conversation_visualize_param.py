@@ -3,12 +3,13 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.visualizer import ConversationVisualizer
 from openhands_sdk.event.llm_convertible import MessageEvent
 from openhands_sdk.llm import LLM, Message, TextContent
-from pydantic import SecretStr
 
 
 def create_test_event(content: str = "Test event content") -> MessageEvent:

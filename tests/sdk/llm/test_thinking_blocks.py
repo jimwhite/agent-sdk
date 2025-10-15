@@ -2,8 +2,9 @@
 
 from litellm.types.llms.openai import ChatCompletionThinkingBlock
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
-from openhands_sdk import LLM, Message, MessageEvent, TextContent, ThinkingBlock
 from pydantic import SecretStr
+
+from openhands_sdk import LLM, Message, MessageEvent, TextContent, ThinkingBlock
 
 
 def create_mock_response_with_thinking(

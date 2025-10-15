@@ -2,6 +2,8 @@
 
 import json
 
+from pydantic import BaseModel, Field
+
 from openhands_sdk.context.microagents import (
     BaseMicroagent,
     KnowledgeMicroagent,
@@ -10,7 +12,6 @@ from openhands_sdk.context.microagents import (
 )
 from openhands_sdk.context.microagents.types import InputMetadata
 from openhands_sdk.utils.models import OpenHandsModel
-from pydantic import BaseModel, Field
 
 
 def test_repo_microagent_serialization():

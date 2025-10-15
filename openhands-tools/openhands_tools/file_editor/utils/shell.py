@@ -3,7 +3,6 @@ import subprocess
 import time
 
 from openhands_sdk.utils.truncate import maybe_truncate
-
 from openhands_tools.file_editor.utils.constants import (
     CONTENT_TRUNCATED_NOTICE,
     MAX_RESPONSE_LEN_CHAR,

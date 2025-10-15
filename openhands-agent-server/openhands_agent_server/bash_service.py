@@ -6,8 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from openhands_sdk.logger import get_logger
-
 from openhands_agent_server.models import (
     BashCommand,
     BashEventBase,
@@ -17,6 +15,7 @@ from openhands_agent_server.models import (
     ExecuteBashRequest,
 )
 from openhands_agent_server.pub_sub import PubSub, Subscriber
+from openhands_sdk.logger import get_logger
 
 
 logger = get_logger(__name__)

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+
 from openhands_agent_server.desktop_router import DesktopUrlResponse, get_desktop_url
 
 

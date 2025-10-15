@@ -21,6 +21,8 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.state import AgentExecutionStatus
@@ -40,7 +42,6 @@ from openhands_sdk.tool import (
     ToolExecutor,
     register_tool,
 )
-from pydantic import SecretStr
 
 
 class PauseFunctionalityMockAction(Action):

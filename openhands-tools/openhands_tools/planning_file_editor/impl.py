@@ -1,7 +1,6 @@
 """Implementation of the planning file editor tool."""
 
 from openhands_sdk.tool import ToolExecutor
-
 from openhands_tools.file_editor.definition import FileEditorAction
 from openhands_tools.file_editor.impl import FileEditorExecutor
 from openhands_tools.planning_file_editor.definition import (

@@ -4,6 +4,7 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
+
 from openhands_tools.execute_bash.terminal import (
     SubprocessTerminal,
     TerminalSession,

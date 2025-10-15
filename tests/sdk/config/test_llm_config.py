@@ -2,8 +2,9 @@ import os
 from unittest.mock import patch
 
 import pytest
-from openhands_sdk.llm import LLM
 from pydantic import SecretStr, ValidationError
+
+from openhands_sdk.llm import LLM
 
 
 def test_llm_config_defaults():

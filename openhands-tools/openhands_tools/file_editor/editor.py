@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import get_args
 
 from binaryornot.check import is_binary
+
 from openhands_sdk.logger import get_logger
 from openhands_sdk.utils.truncate import maybe_truncate
-
 from openhands_tools.file_editor.definition import (
     CommandLiteral,
     FileEditorObservation,

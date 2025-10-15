@@ -15,6 +15,8 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
@@ -38,7 +40,6 @@ from openhands_sdk.tool import (
     register_tool,
 )
 from openhands_sdk.tool.schema import Action, Observation
-from pydantic import SecretStr
 
 
 class MockConfirmationModeAction(Action):

@@ -9,6 +9,8 @@ import uuid
 from typing import Any
 from urllib.request import urlopen
 
+from pydantic import Field, PrivateAttr, model_validator
+
 from openhands_agent_server.docker.build import (
     BuildOptions,
     PlatformType,
@@ -18,7 +20,6 @@ from openhands_agent_server.docker.build import (
 from openhands_sdk.logger import get_logger
 from openhands_sdk.utils.command import execute_command
 from openhands_sdk.workspace import RemoteWorkspace
-from pydantic import Field, PrivateAttr, model_validator
 
 
 logger = get_logger(__name__)

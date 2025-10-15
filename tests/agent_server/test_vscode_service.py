@@ -4,6 +4,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from openhands_agent_server.vscode_service import (
     VSCodeService,
     get_vscode_service,

@@ -4,6 +4,7 @@ from typing import Any
 
 import bashlex
 from bashlex.errors import ParsingError
+
 from openhands_sdk.logger import get_logger
 
 

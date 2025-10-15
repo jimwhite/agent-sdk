@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from openhands_sdk.logger import DEBUG, get_logger
 from starlette.requests import Request
 
 from openhands_agent_server.bash_router import bash_router
@@ -31,6 +30,7 @@ from openhands_agent_server.sockets import sockets_router
 from openhands_agent_server.tool_router import tool_router
 from openhands_agent_server.vscode_router import vscode_router
 from openhands_agent_server.vscode_service import get_vscode_service
+from openhands_sdk.logger import DEBUG, get_logger
 
 
 logger = get_logger(__name__)

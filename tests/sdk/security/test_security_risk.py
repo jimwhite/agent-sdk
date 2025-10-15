@@ -3,6 +3,7 @@
 from itertools import product
 
 import pytest
+
 from openhands_sdk.security.risk import SecurityRisk
 
 

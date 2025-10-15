@@ -1,6 +1,7 @@
 """Tests for AgentContext template rendering functionality."""
 
 import pytest
+
 from openhands_sdk.context.agent_context import AgentContext
 from openhands_sdk.context.microagents import (
     KnowledgeMicroagent,

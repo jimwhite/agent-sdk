@@ -4,6 +4,7 @@ from typing import Protocol, TypeGuard
 
 from litellm import ChatCompletionToolParam, Message as LiteLLMMessage
 from litellm.types.utils import Choices, ModelResponse, StreamingChoices
+
 from openhands_sdk.llm.exceptions import LLMNoResponseError
 from openhands_sdk.llm.mixins.fn_call_converter import (
     STOP_WORDS,

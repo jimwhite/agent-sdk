@@ -4,10 +4,11 @@ import sys
 import threading
 import time
 
+from pydantic import SecretStr
+
 from openhands_sdk import LLM, Conversation, RemoteConversation, Workspace, get_logger
 from openhands_sdk.event import ConversationStateUpdateEvent
 from openhands_tools.preset.default import get_default_agent
-from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

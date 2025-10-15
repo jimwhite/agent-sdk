@@ -1,10 +1,10 @@
 """Desktop router for agent server API endpoints."""
 
 from fastapi import APIRouter, HTTPException
-from openhands_sdk.logger import get_logger
 from pydantic import BaseModel
 
 from openhands_agent_server.desktop_service import get_desktop_service
+from openhands_sdk.logger import get_logger
 
 
 logger = get_logger(__name__)

@@ -4,7 +4,6 @@ from typing import Literal
 
 from openhands_sdk.logger import get_logger
 from openhands_sdk.tool import ToolExecutor
-
 from openhands_tools.execute_bash.definition import (
     ExecuteBashAction,
     ExecuteBashObservation,

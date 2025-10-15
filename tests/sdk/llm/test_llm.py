@@ -4,10 +4,11 @@ import pytest
 from litellm.exceptions import (
     RateLimitError,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.llm import LLM, LLMResponse, Message, TextContent
 from openhands_sdk.llm.exceptions import LLMNoResponseError
 from openhands_sdk.llm.utils.metrics import Metrics, TokenUsage
-from pydantic import SecretStr
 
 # Import common test utilities
 from tests.conftest import create_mock_litellm_response

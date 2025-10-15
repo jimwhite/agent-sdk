@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_agent_server.conversation_service import ConversationService
 from openhands_agent_server.event_service import EventService
 from openhands_agent_server.models import (
@@ -19,7 +21,6 @@ from openhands_sdk.conversation.secret_source import SecretSource, StaticSecret
 from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands_sdk.security.confirmation_policy import NeverConfirm
 from openhands_sdk.workspace import LocalWorkspace
-from pydantic import SecretStr
 
 
 @pytest.fixture

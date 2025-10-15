@@ -9,6 +9,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from typing import Any
 
+from pydantic import BaseModel, SecretStr
+
 from openhands_sdk import (
     LLM,
     Agent,
@@ -22,7 +24,6 @@ from openhands_sdk.event.llm_convertible import (
 )
 from openhands_sdk.llm import content_to_str
 from openhands_sdk.tool import Tool
-from pydantic import BaseModel, SecretStr
 
 
 class TestResult(BaseModel):

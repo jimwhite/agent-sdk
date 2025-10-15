@@ -5,6 +5,7 @@ import time
 from collections.abc import Generator
 
 import pytest
+
 from openhands_tools.browser_use.definition import (
     BrowserClickAction,
     BrowserCloseTabAction,

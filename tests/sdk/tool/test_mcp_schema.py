@@ -2,9 +2,10 @@
 
 from collections.abc import Sequence
 
+from pydantic import Field
+
 from openhands_sdk.llm import ImageContent, TextContent
 from openhands_sdk.tool.schema import Action, Observation
-from pydantic import Field
 
 
 class MCPSchemaTestAction(Action):

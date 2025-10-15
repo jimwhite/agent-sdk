@@ -8,6 +8,8 @@ from pydantic import Field, PrivateAttr
 
 if TYPE_CHECKING:
     from openhands_sdk.conversation.state import ConversationState
+from rich.text import Text
+
 from openhands_sdk.llm import ImageContent, TextContent
 from openhands_sdk.tool import (
     Action,
@@ -15,8 +17,6 @@ from openhands_sdk.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
-from rich.text import Text
-
 from openhands_tools.file_editor.utils.diff import visualize_diff
 
 

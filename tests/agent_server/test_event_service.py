@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+
 from openhands_agent_server.event_service import EventService
 from openhands_agent_server.models import (
     EventPage,

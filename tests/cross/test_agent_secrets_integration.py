@@ -4,6 +4,8 @@ from typing import cast
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.impl.local_conversation import LocalConversation
@@ -13,7 +15,6 @@ from openhands_sdk.tool import Tool, register_tool
 from openhands_tools.execute_bash import BashTool
 from openhands_tools.execute_bash.definition import ExecuteBashAction
 from openhands_tools.execute_bash.impl import BashExecutor
-from pydantic import SecretStr
 
 
 # -----------------------

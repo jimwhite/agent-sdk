@@ -27,8 +27,9 @@ from contextlib import chdir
 from pathlib import Path
 from typing import Literal
 
-from openhands_sdk.logger import IN_CI, get_logger, rolling_log_view
 from pydantic import BaseModel, Field, field_validator
+
+from openhands_sdk.logger import IN_CI, get_logger, rolling_log_view
 
 
 logger = get_logger(__name__)

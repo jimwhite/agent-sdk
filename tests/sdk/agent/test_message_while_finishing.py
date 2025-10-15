@@ -48,6 +48,8 @@ from litellm.types.utils import (  # noqa: E402
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import Field  # noqa: E402
+
 from openhands_sdk.agent import Agent  # noqa: E402
 from openhands_sdk.conversation import Conversation  # noqa: E402
 from openhands_sdk.event import MessageEvent  # noqa: E402
@@ -65,7 +67,6 @@ from openhands_sdk.tool import (  # noqa: E402
     ToolExecutor,
     register_tool,
 )
-from pydantic import Field  # noqa: E402
 
 
 # Custom sleep tool for testing timing scenarios

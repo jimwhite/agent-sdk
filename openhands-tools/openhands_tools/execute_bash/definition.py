@@ -9,6 +9,8 @@ from pydantic import Field
 
 if TYPE_CHECKING:
     from openhands_sdk.conversation.state import ConversationState
+from rich.text import Text
+
 from openhands_sdk.llm import ImageContent, TextContent
 from openhands_sdk.tool import (
     Action,
@@ -17,8 +19,6 @@ from openhands_sdk.tool import (
     ToolDefinition,
 )
 from openhands_sdk.utils import maybe_truncate
-from rich.text import Text
-
 from openhands_tools.execute_bash.constants import (
     MAX_CMD_OUTPUT_SIZE,
     NO_CHANGE_TIMEOUT_SECONDS,

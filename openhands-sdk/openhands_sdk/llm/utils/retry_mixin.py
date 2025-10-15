@@ -1,8 +1,6 @@
 from collections.abc import Callable, Iterable
 from typing import Any, cast
 
-from openhands_sdk.llm.exceptions import LLMNoResponseError
-from openhands_sdk.logger import get_logger
 from tenacity import (
     RetryCallState,
     retry,
@@ -10,6 +8,9 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+from openhands_sdk.llm.exceptions import LLMNoResponseError
+from openhands_sdk.logger import get_logger
 
 
 logger = get_logger(__name__)

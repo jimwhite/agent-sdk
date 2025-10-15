@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 from cachetools import LRUCache
+
 from openhands_tools.file_editor import file_editor
 from openhands_tools.file_editor.utils.encoding import (
     EncodingManager,

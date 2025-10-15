@@ -7,9 +7,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from openhands_sdk.logger import get_logger
-
 from openhands_agent_server.config import get_default_config
+from openhands_sdk.logger import get_logger
 
 
 logger = get_logger(__name__)

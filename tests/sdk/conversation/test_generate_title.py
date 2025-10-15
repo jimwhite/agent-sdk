@@ -6,11 +6,12 @@ import pytest
 
 # Import LiteLLM types for proper mocking
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.event.llm_convertible import MessageEvent
 from openhands_sdk.llm import LLM, LLMResponse, Message, MetricsSnapshot, TextContent
-from pydantic import SecretStr
 
 
 def create_test_agent() -> Agent:

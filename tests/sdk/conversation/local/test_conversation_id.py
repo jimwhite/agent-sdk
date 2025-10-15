@@ -1,5 +1,7 @@
 import uuid
 
+from pydantic import SecretStr
+
 from openhands_sdk.agent.base import AgentBase
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.state import ConversationState
@@ -7,7 +9,6 @@ from openhands_sdk.conversation.types import ConversationCallbackType
 from openhands_sdk.event.llm_convertible import SystemPromptEvent
 from openhands_sdk.llm import LLM, TextContent
 from openhands_sdk.security.confirmation_policy import AlwaysConfirm, NeverConfirm
-from pydantic import SecretStr
 
 
 class ConversationIdDummyAgent(AgentBase):

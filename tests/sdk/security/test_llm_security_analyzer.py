@@ -1,6 +1,7 @@
 """Tests for the LLMSecurityAnalyzer class."""
 
 import pytest
+
 from openhands_sdk.event import ActionEvent
 from openhands_sdk.llm import MessageToolCall, TextContent
 from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer

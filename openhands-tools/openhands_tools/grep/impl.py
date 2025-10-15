@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 from openhands_sdk.tool import ToolExecutor
-
 from openhands_tools.grep.definition import GrepAction, GrepObservation
 from openhands_tools.utils import (
     _check_ripgrep_available,

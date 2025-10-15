@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk.agent.base import AgentBase
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.state import ConversationState
@@ -16,7 +18,6 @@ from openhands_sdk.tool.spec import Tool
 from openhands_tools.execute_bash import BashTool
 from openhands_tools.file_editor import FileEditorTool
 from openhands_tools.task_tracker import TaskTrackerTool
-from pydantic import SecretStr
 
 
 class DummyAgent(AgentBase):

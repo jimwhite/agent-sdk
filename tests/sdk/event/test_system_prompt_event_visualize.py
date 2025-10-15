@@ -3,6 +3,7 @@
 import copy
 
 from litellm import ChatCompletionToolParam
+
 from openhands_sdk.event.llm_convertible import SystemPromptEvent
 from openhands_sdk.llm import TextContent
 

@@ -3,15 +3,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import UUID
 
-from openhands_sdk import LLM, Agent, Event, Message, get_logger
-from openhands_sdk.conversation.impl.local_conversation import LocalConversation
-from openhands_sdk.conversation.secrets_manager import SecretValue
-from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
-from openhands_sdk.event.conversation_state import ConversationStateUpdateEvent
-from openhands_sdk.security.confirmation_policy import ConfirmationPolicyBase
-from openhands_sdk.utils.async_utils import AsyncCallbackWrapper
-from openhands_sdk.workspace import LocalWorkspace
-
 from openhands_agent_server.models import (
     ConfirmationResponseRequest,
     EventPage,
@@ -20,6 +11,14 @@ from openhands_agent_server.models import (
 )
 from openhands_agent_server.pub_sub import PubSub, Subscriber
 from openhands_agent_server.utils import utc_now
+from openhands_sdk import LLM, Agent, Event, Message, get_logger
+from openhands_sdk.conversation.impl.local_conversation import LocalConversation
+from openhands_sdk.conversation.secrets_manager import SecretValue
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
+from openhands_sdk.event.conversation_state import ConversationStateUpdateEvent
+from openhands_sdk.security.confirmation_policy import ConfirmationPolicyBase
+from openhands_sdk.utils.async_utils import AsyncCallbackWrapper
+from openhands_sdk.workspace import LocalWorkspace
 
 
 logger = get_logger(__name__)

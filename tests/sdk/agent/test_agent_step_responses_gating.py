@@ -2,12 +2,13 @@ from unittest.mock import MagicMock
 
 import pytest
 from litellm.types.utils import ModelResponse
+from pydantic import PrivateAttr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.event import MessageEvent
 from openhands_sdk.llm import LLM, LLMResponse, Message
 from openhands_sdk.llm.utils.metrics import MetricsSnapshot, TokenUsage
-from pydantic import PrivateAttr
 
 
 class DummyLLM(LLM):

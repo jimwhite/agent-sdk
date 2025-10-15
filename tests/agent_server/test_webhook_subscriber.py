@@ -13,6 +13,8 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from pydantic import SecretStr, ValidationError
+
 from openhands_agent_server.config import WebhookSpec
 from openhands_agent_server.conversation_service import WebhookSubscriber
 from openhands_agent_server.event_service import EventService
@@ -22,7 +24,6 @@ from openhands_sdk import LLM, Agent
 from openhands_sdk.event.llm_convertible import MessageEvent
 from openhands_sdk.llm.message import Message, TextContent
 from openhands_sdk.workspace import LocalWorkspace
-from pydantic import SecretStr, ValidationError
 
 
 @pytest.fixture

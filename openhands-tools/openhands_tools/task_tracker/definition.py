@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 if TYPE_CHECKING:
     from openhands_sdk.conversation.state import ConversationState
+from rich.text import Text
+
 from openhands_sdk import ImageContent, TextContent
 from openhands_sdk.logger import get_logger
 from openhands_sdk.tool import (
@@ -17,7 +19,6 @@ from openhands_sdk.tool import (
     ToolDefinition,
     ToolExecutor,
 )
-from rich.text import Text
 
 
 logger = get_logger(__name__)

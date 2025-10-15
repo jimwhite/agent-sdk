@@ -6,8 +6,6 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
-from openhands_sdk import LLM, Event, Message
-from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
 
 from openhands_agent_server.config import Config, WebhookSpec
 from openhands_agent_server.event_service import EventService
@@ -22,6 +20,8 @@ from openhands_agent_server.models import (
 from openhands_agent_server.pub_sub import Subscriber
 from openhands_agent_server.server_details_router import update_last_execution_time
 from openhands_agent_server.utils import utc_now
+from openhands_sdk import LLM, Event, Message
+from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
 
 
 logger = logging.getLogger(__name__)

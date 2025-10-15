@@ -7,9 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from litellm.types.utils import ModelResponse, Usage
+from pydantic import ValidationError
+
 from openhands_sdk.llm.utils.metrics import Metrics
 from openhands_sdk.llm.utils.telemetry import Telemetry, _safe_json
-from pydantic import ValidationError
 
 
 @pytest.fixture

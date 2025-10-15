@@ -9,12 +9,13 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.state import AgentExecutionStatus
 from openhands_sdk.event import AgentErrorEvent, MessageEvent
 from openhands_sdk.llm import LLM, Message, TextContent
-from pydantic import SecretStr
 
 
 def test_nonexistent_tool_returns_error_and_continues_conversation():

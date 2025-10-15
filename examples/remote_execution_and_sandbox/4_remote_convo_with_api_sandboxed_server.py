@@ -14,6 +14,8 @@ Requirements:
 import os
 import time
 
+from pydantic import SecretStr
+
 from openhands_sdk import (
     LLM,
     Conversation,
@@ -22,7 +24,6 @@ from openhands_sdk import (
 )
 from openhands_tools.preset.default import get_default_agent
 from openhands_workspace import APIRemoteWorkspace
-from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

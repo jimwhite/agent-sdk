@@ -6,6 +6,7 @@ Tests the complete authentication flow through the FastAPI application.
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+
 from openhands_agent_server.api import _find_http_exception, create_app
 from openhands_agent_server.config import Config
 

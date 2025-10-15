@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from typing import Any
 
 import pytest
+from pydantic import Field
+
 from openhands_sdk.llm.message import ImageContent, TextContent
 from openhands_sdk.tool import (
     Action,
@@ -12,7 +14,6 @@ from openhands_sdk.tool import (
     ToolDefinition,
     ToolExecutor,
 )
-from pydantic import Field
 
 
 class ToolMockAction(Action):

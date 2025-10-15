@@ -1,9 +1,9 @@
 import argparse
 
 import uvicorn
-from openhands_sdk.logger import DEBUG
 
 from openhands_agent_server.logging_config import LOGGING_CONFIG
+from openhands_sdk.logger import DEBUG
 
 
 def main():

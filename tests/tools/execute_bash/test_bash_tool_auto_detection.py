@@ -4,6 +4,8 @@ import tempfile
 import uuid
 from unittest.mock import patch
 
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation.state import ConversationState
 from openhands_sdk.llm import LLM
@@ -16,7 +18,6 @@ from openhands_tools.execute_bash.terminal import (
     TerminalSession,
     TmuxTerminal,
 )
-from pydantic import SecretStr
 
 
 def _create_conv_state(working_dir: str) -> ConversationState:

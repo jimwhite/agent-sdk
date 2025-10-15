@@ -5,8 +5,8 @@ import time
 import uuid
 
 import libtmux
-from openhands_sdk.logger import get_logger
 
+from openhands_sdk.logger import get_logger
 from openhands_tools.execute_bash.constants import HISTORY_LIMIT
 from openhands_tools.execute_bash.metadata import CmdOutputMetadata
 from openhands_tools.execute_bash.terminal import TerminalInterface

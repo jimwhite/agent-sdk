@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from litellm.types.utils import ModelResponse
+
 from openhands_sdk.context.condenser.llm_summarizing_condenser import (
     LLMSummarizingCondenser,
 )

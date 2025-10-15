@@ -12,7 +12,6 @@ from openhands_sdk.tool import (
     ToolAnnotations,
     ToolDefinition,
 )
-
 from openhands_tools.file_editor.definition import (
     TOOL_DESCRIPTION as FILE_EDITOR_TOOL_DESCRIPTION,
     FileEditorAction,

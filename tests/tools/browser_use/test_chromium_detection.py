@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from openhands_tools.browser_use.impl import (
     _check_chromium_available,
     _ensure_chromium_available,

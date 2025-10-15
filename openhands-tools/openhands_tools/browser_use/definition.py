@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal, Self
 
+from pydantic import Field
+
 from openhands_sdk.llm import ImageContent, TextContent
 from openhands_sdk.tool import (
     Action,
@@ -12,7 +14,6 @@ from openhands_sdk.tool import (
 )
 from openhands_sdk.tool.tool import ToolBase
 from openhands_sdk.utils import maybe_truncate
-from pydantic import Field
 
 
 # Lazy import to avoid hanging during module import

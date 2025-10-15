@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import WebSocketDisconnect
+
 from openhands_agent_server.event_service import EventService
 from openhands_agent_server.sockets import _WebSocketSubscriber
 from openhands_sdk import Message

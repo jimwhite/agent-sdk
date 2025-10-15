@@ -5,7 +5,6 @@ import time
 from enum import Enum
 
 from openhands_sdk.logger import get_logger
-
 from openhands_tools.execute_bash.constants import (
     CMD_OUTPUT_PS1_END,
     NO_CHANGE_TIMEOUT_SECONDS,

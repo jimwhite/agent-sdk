@@ -3,6 +3,8 @@
 import uuid
 from unittest.mock import Mock, patch
 
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.impl.remote_conversation import (
@@ -11,7 +13,6 @@ from openhands_sdk.conversation.impl.remote_conversation import (
 )
 from openhands_sdk.llm import LLM
 from openhands_sdk.workspace import RemoteWorkspace
-from pydantic import SecretStr
 
 from ..conftest import create_mock_http_client
 

@@ -4,9 +4,9 @@ import json
 import re
 import traceback
 
-from openhands_sdk.logger import get_logger
 from pydantic import BaseModel, Field
 
+from openhands_sdk.logger import get_logger
 from openhands_tools.execute_bash.constants import (
     CMD_OUTPUT_METADATA_PS1_REGEX,
     CMD_OUTPUT_PS1_BEGIN,

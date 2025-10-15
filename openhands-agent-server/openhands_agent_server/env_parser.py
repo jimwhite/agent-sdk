@@ -13,8 +13,9 @@ from types import UnionType
 from typing import Annotated, Literal, Union, get_args, get_origin
 from uuid import UUID
 
-from openhands_sdk.utils.models import DiscriminatedUnionMixin
 from pydantic import BaseModel, SecretStr, TypeAdapter
+
+from openhands_sdk.utils.models import DiscriminatedUnionMixin
 
 
 # Define Missing type

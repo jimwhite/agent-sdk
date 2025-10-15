@@ -2,6 +2,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from openhands_tools.file_editor.utils.config import (
     MAX_RESPONSE_LEN_CHAR,
 )

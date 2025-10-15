@@ -17,7 +17,6 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from openhands_sdk import Event, Message
 
 from openhands_agent_server.bash_service import get_default_bash_event_service
 from openhands_agent_server.config import get_default_config
@@ -26,6 +25,7 @@ from openhands_agent_server.conversation_service import (
 )
 from openhands_agent_server.models import BashEventBase
 from openhands_agent_server.pub_sub import Subscriber
+from openhands_sdk import Event, Message
 
 
 sockets_router = APIRouter(prefix="/sockets", tags=["WebSockets"])

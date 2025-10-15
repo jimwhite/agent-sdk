@@ -4,6 +4,7 @@ import json
 from unittest.mock import Mock
 
 import pytest
+
 from openhands_sdk.conversation.event_store import EventLog
 from openhands_sdk.event.llm_convertible import MessageEvent
 from openhands_sdk.io.memory import InMemoryFileStore

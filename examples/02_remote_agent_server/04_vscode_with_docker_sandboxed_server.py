@@ -2,11 +2,12 @@ import os
 import time
 
 import httpx
+from pydantic import SecretStr
+
 from openhands_sdk import LLM, Conversation, get_logger
 from openhands_sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands_tools.preset.default import get_default_agent
 from openhands_workspace import DockerWorkspace
-from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

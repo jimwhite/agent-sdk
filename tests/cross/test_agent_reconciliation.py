@@ -4,6 +4,8 @@ import tempfile
 import uuid
 from unittest.mock import patch
 
+from pydantic import SecretStr
+
 from openhands_sdk import Agent
 from openhands_sdk.agent import AgentBase
 from openhands_sdk.context.condenser.llm_summarizing_condenser import (
@@ -16,7 +18,6 @@ from openhands_sdk.tool import Tool, register_tool
 from openhands_tools.execute_bash import BashTool
 from openhands_tools.file_editor import FileEditorTool
 from openhands_tools.preset.default import get_default_agent
-from pydantic import SecretStr
 
 
 register_tool("BashTool", BashTool)

@@ -3,10 +3,11 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk import LLM, ConversationStats, LLMRegistry, RegistryEvent
 from openhands_sdk.io.local import LocalFileStore
 from openhands_sdk.llm.utils.metrics import Metrics
-from pydantic import SecretStr
 
 
 # Test UUIDs

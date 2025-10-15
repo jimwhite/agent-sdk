@@ -1,5 +1,6 @@
-from openhands_sdk.llm import LLM
 from pydantic import SecretStr
+
+from openhands_sdk.llm import LLM
 
 
 def test_empty_api_key_string_converted_to_none():

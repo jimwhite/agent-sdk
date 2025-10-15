@@ -1,10 +1,11 @@
 """Tests for Agent immutability and statelessness."""
 
 import pytest
+from pydantic import SecretStr, ValidationError
+
 from openhands_sdk.agent.agent import Agent
 from openhands_sdk.llm import LLM
 from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from pydantic import SecretStr, ValidationError
 
 
 class TestAgentImmutability:

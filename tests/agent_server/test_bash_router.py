@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+
 from openhands_agent_server.api import create_app
 from openhands_agent_server.bash_service import BashEventService
 from openhands_agent_server.config import Config

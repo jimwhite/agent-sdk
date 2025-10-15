@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from typing import Literal, NotRequired, TypedDict, cast
 
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
+
 from openhands_sdk.llm.exceptions import (
     FunctionCallConversionError,
     FunctionCallValidationError,

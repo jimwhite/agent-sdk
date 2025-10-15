@@ -1,5 +1,7 @@
 import os
 
+from pydantic import SecretStr
+
 from openhands_sdk import (
     LLM,
     Agent,
@@ -10,7 +12,6 @@ from openhands_sdk import (
 )
 from openhands_sdk.tool import Tool, register_tool
 from openhands_tools.execute_bash import BashTool
-from pydantic import SecretStr
 
 
 logger = get_logger(__name__)

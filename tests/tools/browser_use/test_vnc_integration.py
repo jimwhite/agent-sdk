@@ -4,6 +4,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+
 from openhands_tools.browser_use.impl import BrowserToolExecutor
 
 

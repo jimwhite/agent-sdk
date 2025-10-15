@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from typing import Any
 
 import pytest
+from pydantic import Field, ValidationError
+
 from openhands_sdk.llm import ImageContent, TextContent
 from openhands_sdk.mcp.definition import MCPToolAction
 from openhands_sdk.tool.schema import (
@@ -11,7 +13,6 @@ from openhands_sdk.tool.schema import (
     Observation,
     Schema,
 )
-from pydantic import Field, ValidationError
 
 
 class MockSchema(Schema):

@@ -3,6 +3,8 @@
 import json
 from collections.abc import Sequence
 
+from rich.text import Text
+
 from openhands_sdk.conversation.visualizer import (
     ConversationVisualizer,
     create_default_visualizer,
@@ -23,7 +25,6 @@ from openhands_sdk.llm import (
     TextContent,
 )
 from openhands_sdk.tool import Action
-from rich.text import Text
 
 
 class VisualizerMockAction(Action):

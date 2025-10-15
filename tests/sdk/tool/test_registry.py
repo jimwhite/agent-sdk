@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from unittest.mock import MagicMock
 
 import pytest
+
 from openhands_sdk import register_tool
 from openhands_sdk.conversation.state import ConversationState
 from openhands_sdk.llm.message import ImageContent, TextContent

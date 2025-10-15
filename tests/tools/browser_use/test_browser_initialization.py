@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from openhands_tools.browser_use.impl import BrowserToolExecutor
 from openhands_tools.utils.timeout import TimeoutError
 

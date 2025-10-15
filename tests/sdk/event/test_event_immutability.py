@@ -4,6 +4,7 @@ from collections.abc import Sequence
 
 import pytest
 from litellm import ChatCompletionToolParam
+
 from openhands_sdk.event import (
     ActionEvent,
     AgentErrorEvent,

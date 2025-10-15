@@ -1,6 +1,7 @@
 """Tests for MCP tool with security risk prediction."""
 
 import mcp.types
+
 from openhands_sdk.mcp.client import MCPClient
 from openhands_sdk.mcp.definition import MCPToolAction, MCPToolObservation
 from openhands_sdk.mcp.tool import MCPToolDefinition

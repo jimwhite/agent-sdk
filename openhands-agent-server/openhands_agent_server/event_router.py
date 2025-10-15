@@ -12,8 +12,6 @@ from fastapi import (
     Query,
     status,
 )
-from openhands_sdk import Message
-from openhands_sdk.event import Event
 
 from openhands_agent_server.conversation_service import (
     get_default_conversation_service,
@@ -25,6 +23,8 @@ from openhands_agent_server.models import (
     SendMessageRequest,
     Success,
 )
+from openhands_sdk import Message
+from openhands_sdk.event import Event
 
 
 event_router = APIRouter(

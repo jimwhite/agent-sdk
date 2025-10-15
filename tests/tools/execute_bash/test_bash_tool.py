@@ -3,6 +3,8 @@
 import tempfile
 from uuid import uuid4
 
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation.state import ConversationState
 from openhands_sdk.llm import LLM
@@ -12,7 +14,6 @@ from openhands_tools.execute_bash import (
     ExecuteBashAction,
     ExecuteBashObservation,
 )
-from pydantic import SecretStr
 
 
 def _create_test_conv_state(temp_dir: str) -> ConversationState:

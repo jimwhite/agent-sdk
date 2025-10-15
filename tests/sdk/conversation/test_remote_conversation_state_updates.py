@@ -2,12 +2,13 @@
 
 from unittest.mock import patch
 
+from pydantic import SecretStr
+
 from openhands_sdk import RemoteWorkspace
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation.impl.remote_conversation import RemoteConversation
 from openhands_sdk.event.conversation_state import ConversationStateUpdateEvent
 from openhands_sdk.llm import LLM
-from pydantic import SecretStr
 
 from .conftest import create_mock_http_client
 

@@ -4,6 +4,9 @@ from enum import Enum
 from typing import Literal
 from uuid import UUID, uuid4
 
+from pydantic import BaseModel, Field
+
+from openhands_agent_server.utils import utc_now
 from openhands_sdk import LLM, AgentBase, Event, ImageContent, Message, TextContent
 from openhands_sdk.conversation.secret_source import SecretSource
 from openhands_sdk.conversation.state import AgentExecutionStatus, ConversationState
@@ -14,9 +17,6 @@ from openhands_sdk.security.confirmation_policy import (
 )
 from openhands_sdk.utils.models import DiscriminatedUnionMixin, OpenHandsModel
 from openhands_sdk.workspace import LocalWorkspace
-from pydantic import BaseModel, Field
-
-from openhands_agent_server.utils import utc_now
 
 
 class ConversationSortOrder(str, Enum):

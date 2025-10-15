@@ -1,9 +1,10 @@
 from typing import ClassVar
 
+from pydantic import model_validator
+
 from openhands_sdk.llm.message import Message
 from openhands_sdk.llm.router.base import RouterLLM
 from openhands_sdk.logger import get_logger
-from pydantic import model_validator
 
 
 logger = get_logger(__name__)

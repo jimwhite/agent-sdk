@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 import mcp.types
+
 from openhands_sdk.llm import TextContent
 from openhands_sdk.mcp.client import MCPClient
 from openhands_sdk.mcp.definition import MCPToolObservation

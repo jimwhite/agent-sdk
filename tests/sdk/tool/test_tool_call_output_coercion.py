@@ -1,7 +1,8 @@
 import pytest
+from pydantic import Field
+
 from openhands_sdk.tool import Observation, ToolDefinition, ToolExecutor
 from openhands_sdk.tool.schema import Action
-from pydantic import Field
 
 
 class OCAAction(Action):

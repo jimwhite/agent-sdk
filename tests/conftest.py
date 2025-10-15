@@ -3,9 +3,10 @@
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk.llm import LLM
 from openhands_sdk.tool import ToolExecutor
-from pydantic import SecretStr
 
 
 @pytest.fixture

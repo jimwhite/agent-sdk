@@ -145,6 +145,7 @@ def test_message_with_tool_calls():
 def test_message_from_llm_chat_message_function_role_error():
     """Test Message.from_llm_chat_message with function role raises error."""
     from litellm.types.utils import Message as LiteLLMMessage
+
     from openhands_sdk.llm.message import Message
 
     litellm_message = LiteLLMMessage(role="function", content="Function response")  # type: ignore
@@ -156,6 +157,7 @@ def test_message_from_llm_chat_message_function_role_error():
 def test_message_from_llm_chat_message_with_non_string_content():
     """Test Message.from_llm_chat_message with non-string content."""
     from litellm.types.utils import Message as LiteLLMMessage
+
     from openhands_sdk.llm.message import Message
 
     # Create a message with non-string content (None or list)

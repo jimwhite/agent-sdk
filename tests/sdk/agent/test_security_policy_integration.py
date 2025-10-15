@@ -9,12 +9,13 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.event import ActionEvent, AgentErrorEvent
 from openhands_sdk.llm import LLM, Message, TextContent
 from openhands_sdk.security.llm_analyzer import LLMSecurityAnalyzer
-from pydantic import SecretStr
 
 
 def test_security_policy_in_system_message():

@@ -1,8 +1,9 @@
 """Test Tool class functionality."""
 
 import pytest
-from openhands_sdk.tool.spec import Tool
 from pydantic import ValidationError
+
+from openhands_sdk.tool.spec import Tool
 
 
 def test_tool_minimal():

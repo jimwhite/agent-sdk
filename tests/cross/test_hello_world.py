@@ -6,6 +6,8 @@ from typing import Any
 from unittest.mock import patch
 
 from litellm.types.utils import Choices, Message as LiteLLMMessage, ModelResponse, Usage
+from pydantic import SecretStr
+
 from openhands_sdk import (
     LLM,
     Agent,
@@ -24,7 +26,6 @@ from openhands_sdk.event.llm_convertible import (
 from openhands_sdk.tool import Tool, register_tool
 from openhands_tools.execute_bash import BashTool
 from openhands_tools.file_editor import FileEditorTool
-from pydantic import SecretStr
 
 
 class TestHelloWorld:
@@ -390,6 +391,7 @@ class TestHelloWorld:
             Message as LiteLLMMessage,
             ModelResponse,
         )
+
         from openhands_sdk.llm import LLM
         from openhands_sdk.llm.message import Message, TextContent
 

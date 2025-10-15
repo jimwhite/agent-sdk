@@ -1,9 +1,10 @@
 import importlib
 
 import litellm
+from pydantic import SecretStr
+
 from openhands_sdk.llm.utils.verified_models import VERIFIED_MODELS
 from openhands_sdk.logger import get_logger
-from pydantic import SecretStr
 
 
 def _get_boto3():

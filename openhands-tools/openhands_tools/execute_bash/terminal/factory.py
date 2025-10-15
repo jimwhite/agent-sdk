@@ -5,7 +5,6 @@ import subprocess
 from typing import Literal
 
 from openhands_sdk.logger import get_logger
-
 from openhands_tools.execute_bash.terminal.terminal_session import TerminalSession
 
 

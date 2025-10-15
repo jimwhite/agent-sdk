@@ -6,12 +6,13 @@ import uuid
 from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.state import ConversationState
 from openhands_sdk.llm import LLM
 from openhands_sdk.workspace import LocalWorkspace
-from pydantic import SecretStr
 
 
 @pytest.fixture

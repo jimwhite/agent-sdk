@@ -10,6 +10,8 @@ from litellm.types.utils import (
     Message as LiteLLMMessage,
     ModelResponse,
 )
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.event.llm_convertible import (
@@ -18,7 +20,6 @@ from openhands_sdk.event.llm_convertible import (
     MessageEvent,
 )
 from openhands_sdk.llm import LLM, Message, TextContent
-from pydantic import SecretStr
 
 
 def test_emits_action_event_with_none_action_then_error_on_missing_tool() -> None:

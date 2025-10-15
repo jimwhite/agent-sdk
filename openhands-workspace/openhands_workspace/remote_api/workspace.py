@@ -6,9 +6,10 @@ from urllib.request import urlopen
 
 import httpx
 import tenacity
+from pydantic import Field, PrivateAttr
+
 from openhands_sdk.logger import get_logger
 from openhands_sdk.workspace.remote.base import RemoteWorkspace
-from pydantic import Field, PrivateAttr
 
 
 logger = get_logger(__name__)

@@ -4,6 +4,8 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
+
 from openhands_sdk.agent import Agent
 from openhands_sdk.conversation import Conversation
 from openhands_sdk.conversation.impl.local_conversation import LocalConversation
@@ -11,7 +13,6 @@ from openhands_sdk.conversation.impl.remote_conversation import RemoteConversati
 from openhands_sdk.conversation.secret_source import SecretSource
 from openhands_sdk.llm import LLM
 from openhands_sdk.workspace import RemoteWorkspace
-from pydantic import SecretStr
 
 from .conftest import create_mock_http_client
 

@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
+
 from openhands_sdk.event.base import LLMConvertibleEvent
 from openhands_sdk.event.llm_convertible import (
     ActionEvent,

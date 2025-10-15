@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from openhands_tools.browser_use.definition import BrowserObservation
 from openhands_tools.browser_use.impl import BrowserToolExecutor
 
