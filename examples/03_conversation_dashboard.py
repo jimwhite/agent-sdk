@@ -646,35 +646,31 @@ def main() -> None:
     if "root_directory" not in st.session_state:
         st.session_state["root_directory"] = str(DEFAULT_CONVERSATIONS_ROOT)
 
-    controls = st.sidebar.container()
-    filters = st.sidebar.container()
-
-    with controls:
-        st.markdown("**Conversation source**")
-        root_input_value = st.text_input(
-            "Conversations directory",
-            value=st.session_state["root_directory"],
-            help=(
-                "Folder containing conversation dumps "
-                "(defaults to ~/.openhands/conversations)"
-            ),
+    st.sidebar.markdown("**Conversation source**")
+    root_input_value = st.sidebar.text_input(
+        "Conversations directory",
+        value=st.session_state["root_directory"],
+        help=(
+            "Folder containing conversation dumps "
+            "(defaults to ~/.openhands/conversations)"
+        ),
+    )
+    cols = st.sidebar.columns([1, 1])
+    with cols[0]:
+        auto_refresh = st.toggle(
+            "Auto refresh",
+            value=True,
+            help="Periodically reload events while a conversation is running",
         )
-        cols = st.columns([1, 1])
-        with cols[0]:
-            auto_refresh = st.toggle(
-                "Auto refresh",
-                value=True,
-                help="Periodically reload events while a conversation is running",
-            )
-        with cols[1]:
-            refresh_interval = st.slider(
-                "Refresh interval (seconds)",
-                min_value=1,
-                max_value=30,
-                value=5,
-                step=1,
-            )
-        reload_clicked = st.button("Reload now")
+    with cols[1]:
+        refresh_interval = st.slider(
+            "Refresh interval (seconds)",
+            min_value=1,
+            max_value=30,
+            value=5,
+            step=1,
+        )
+    reload_clicked = st.sidebar.button("Reload now")
 
     root_input = root_input_value or ""
 
@@ -717,131 +713,44 @@ def main() -> None:
         except ValueError:
             selected_idx = 0
 
-    with controls:
-        st.markdown("---")
-        st.markdown("**Conversation**")
-        selected_label = st.selectbox(
-            "Conversation (most recent first)",
-            options_with_labels,
-            index=selected_idx,
-        )
+    st.sidebar.markdown("**Conversation**")
+    selected_label = st.sidebar.selectbox(
+        "Conversation (most recent first)",
+        options_with_labels,
+        index=selected_idx,
+    )
     selected_path = conversation_paths[options_with_labels.index(selected_label)]
     st.session_state["conversation"] = selected_path.name
 
     conversation = load_conversation(str(selected_path))
     llm_blocks = build_llm_message_blocks(conversation.events)
 
-    available_kinds = sorted({record.kind for record in conversation.events})
     role_options = sorted({block.message.role for block in llm_blocks})
     default_roles = [role for role in role_options if role != "system"] or role_options
 
-    st.sidebar.markdown("---")
-    with filters:
-        st.markdown(
-            """
-            <style>
-            .filters-card {
-                background-color: #f5f6fa;
-                padding: 1rem 1.05rem 1.1rem;
-                border-radius: 10px;
-                border: 1px solid rgba(0, 0, 0, 0.05);
-                margin-top: 0.75rem;
-                display: flex;
-                flex-direction: column;
-                gap: 0.6rem;
-            }
-            .filters-card__title {
-                font-weight: 600;
-                font-size: 0.95rem;
-                color: #3a3f51;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-            .filters-card__section {
-                font-size: 0.82rem;
-                font-weight: 600;
-                color: #4b5563;
-                margin-bottom: 0.3rem;
-            }
-            .filters-card__group {
-                background: rgba(255, 255, 255, 0.65);
-                border-radius: 8px;
-                padding: 0.6rem 0.7rem;
-                border: 1px solid rgba(0, 0, 0, 0.04);
-            }
-            .filters-card__group .stCheckbox {
-                margin-bottom: 0.2rem;
-            }
-            .filters-card__group .stCheckbox:last-child {
-                margin-bottom: 0;
-            }
-            .filters-card div[data-testid="stTextInput"] input {
-                background-color: #ffffff;
-                border-radius: 6px;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown("<div class='filters-card'>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='filters-card__title'>Filters</div>", unsafe_allow_html=True
+    with st.sidebar:
+        st.markdown("Search")
+        search_key = f"search_{conversation.identifier}"
+        search_default = st.session_state.get(search_key, "")
+        if not isinstance(search_default, str):
+            search_default = str(search_default)
+        search_term = st.text_input(
+            "Search",
+            value=search_default,
+            placeholder="Search event JSON or message text",
+            key=search_key,
+            label_visibility="collapsed",
+            help="Filter events and message content by keyword",
         )
 
-        st.markdown("<div class='filters-card__group'>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='filters-card__section'>Events</div>", unsafe_allow_html=True
-        )
-        selected_kinds = render_checkbox_filter_group(
-            key=f"event_filter_{conversation.identifier}",
-            options=available_kinds,
-            defaults=available_kinds,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        with st.container():
-            st.markdown(
-                "<div class='filters-card__section'>Search</div>",
-                unsafe_allow_html=True,
-            )
-            search_key = f"search_{conversation.identifier}"
-            search_default = st.session_state.get(search_key, "")
-            if not isinstance(search_default, str):
-                search_default = str(search_default)
-            search_term = st.text_input(
-                "Search",
-                value=search_default,
-                placeholder="Search event JSON or message text",
-                key=search_key,
-                label_visibility="collapsed",
-                help="Filter events and message content by keyword",
-            )
-
-        st.markdown("<div class='filters-card__group'>", unsafe_allow_html=True)
-        st.markdown(
-            "<div class='filters-card__section'>LLM roles</div>", unsafe_allow_html=True
-        )
         selected_roles = render_checkbox_filter_group(
             key=f"roles_filter_{conversation.identifier}",
             options=role_options,
             defaults=default_roles,
             columns=2,
         )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
     search_lower = search_term.strip().lower()
-
-    filtered_events: list[EventRecord] = []
-    for record in conversation.events:
-        if selected_kinds and record.kind not in selected_kinds:
-            continue
-        if search_lower:
-            haystack = json.dumps(record.raw, default=str).lower()
-            if search_lower not in haystack:
-                continue
-        filtered_events.append(record)
 
     filtered_blocks: list[LLMMessageBlock] = []
     for block in llm_blocks:
@@ -859,7 +768,6 @@ def main() -> None:
                 continue
         filtered_blocks.append(block)
 
-    st.sidebar.markdown("---")
     st.sidebar.download_button(
         label="Download conversation as ZIP",
         data=create_conversation_zip(conversation),
