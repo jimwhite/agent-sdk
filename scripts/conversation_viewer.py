@@ -241,7 +241,7 @@ def draw_base_state(base_state: dict[str, Any]) -> None:
     cols = st.columns(3)
     agent = base_state.get("agent", {})
     llm = agent.get("llm", {})
-    cols[0].metric("Agent kind", agent.get("kind", "Unknown"))
+    cols[0].metric("Agent", agent.get("kind", "Unknown"))
     cols[1].metric("LLM model", llm.get("model", "Unknown"))
     cols[2].metric("Temperature", str(llm.get("temperature", "Unknown")))
 
@@ -316,17 +316,18 @@ def main() -> None:
             )
         st.session_state["root_directory"] = root_from_params
 
-    root_input = st.sidebar.text_input(
+    sidebar = st.sidebar
+    sidebar.header("Conversation source")
+    root_input = sidebar.text_input(
         "Conversations directory",
         value=st.session_state["root_directory"],
         help="Root folder containing OpenHands conversation dumps",
+        placeholder=str(DEFAULT_CONVERSATIONS_ROOT),
     )
 
-    # Ensure root_input is not None (should not happen with default value)
     if not root_input:
         root_input = st.session_state["root_directory"]
 
-    # Update session state if root input changed
     if root_input != st.session_state["root_directory"]:
         st.session_state["root_directory"] = root_input
         if not st.session_state.get("_suppress_query_update", False):
@@ -338,7 +339,7 @@ def main() -> None:
 
     root_path = Path(root_input).expanduser()
 
-    if st.sidebar.button(
+    if sidebar.button(
         "Reload conversations", help="Clear cached data and reload from disk"
     ):
         load_conversation.clear()
@@ -358,19 +359,17 @@ def main() -> None:
         st.warning("No conversation folders found in the selected directory.")
         return
 
-    # Create options with timestamps for better UX
-    options_with_timestamps = []
-    options = []
+    options_with_timestamps: list[str] = []
+    options: list[str] = []
     for directory in directories:
         timestamp = get_last_event_timestamp(str(directory))
         if timestamp:
-            # Format timestamp for display
             try:
                 if "T" in timestamp:
                     dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                     formatted_time = dt.strftime("%Y-%m-%d %H:%M")
                 else:
-                    formatted_time = timestamp[:16]  # Truncate if too long
+                    formatted_time = timestamp[:16]
                 display_name = f"{directory.name} ({formatted_time})"
             except (ValueError, TypeError):
                 display_name = f"{directory.name} ({timestamp[:16]})"
@@ -387,7 +386,8 @@ def main() -> None:
         except ValueError:
             selected_idx = 0
 
-    selected_display = st.sidebar.selectbox(
+    sidebar.header("Conversation")
+    selected_display = sidebar.selectbox(
         "Conversation (sorted by last event)",
         options_with_timestamps,
         index=selected_idx,
@@ -398,11 +398,10 @@ def main() -> None:
 
     conversation = load_conversation(str(root_path / selected))
 
-    # Add download button for the conversation
-    st.sidebar.divider()
+    sidebar.divider()
     zip_data = create_conversation_zip(conversation.path)
-    st.sidebar.download_button(
-        label="📥 Download Conversation as ZIP",
+    sidebar.download_button(
+        label="📥 Download conversation as ZIP",
         data=zip_data,
         file_name=f"{selected}.zip",
         mime="application/zip",
@@ -419,12 +418,26 @@ def main() -> None:
         return
 
     kinds = sorted({event.get("kind", "Unknown") for event in events})
-    selected_kinds = st.sidebar.multiselect(
-        "Filter by event kind", kinds, default=kinds
+
+    sidebar.header("Filters")
+    selected_kinds = sidebar.multiselect(
+        "Event kinds",
+        kinds,
+        default=kinds,
+        help="Display only selected event types",
     )
 
-    search_term = st.sidebar.text_input("Search across events", value="")
-    lowered = search_term.lower()
+    stored_search = st.session_state.get("event_search", "")
+    if not isinstance(stored_search, str):
+        stored_search = ""
+    search_term = sidebar.text_input(
+        "Search events",
+        value=stored_search,
+        placeholder="Filter by keyword or JSON content",
+        help="Case-insensitive search across event payloads",
+    )
+    st.session_state["event_search"] = search_term
+    lowered = search_term.lower() if search_term else ""
 
     filtered_events: list[dict[str, Any]] = []
     for event in events:
