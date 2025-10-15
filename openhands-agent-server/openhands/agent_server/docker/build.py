@@ -385,7 +385,12 @@ def _default_local_cache_dir() -> Path:
 def build(opts: BuildOptions) -> list[str]:
     """Single entry point for building the agent-server image."""
     dockerfile_path = (
-        opts.sdk_project_root / "openhands" / "agent_server" / "docker" / "Dockerfile"
+        opts.sdk_project_root
+        / "openhands-agent-server"
+        / "openhands"
+        / "agent_server"
+        / "docker"
+        / "Dockerfile"
     )
     if not dockerfile_path.exists():
         raise FileNotFoundError(f"Dockerfile not found at {dockerfile_path}")
