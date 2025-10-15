@@ -30,4 +30,4 @@ include = ["openhands.sdk*"]
 namespaces = true
 
 [tool.setuptools.package-data]
-"*" = ["py.typed", "*.j2", "*.md", "*.json", "*.yaml", "*.yml", "*.txt", "*.svg", "Dockerfile*"]
+"*" = ["py.typed", "*.j2"]

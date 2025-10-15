@@ -44,7 +44,10 @@ PACKAGES = [
 ]
 
 # File extensions that should be included in the distribution
-INCLUDED_EXTENSIONS = {".py", ".typed", ".json", ".yaml", ".yml", ".txt", ".md"}
+# Note: We only include specific file types, not generic *.md, *.json, etc.
+# Additional files (like vscode extensions, docker files) are handled via
+# specific package-data patterns
+INCLUDED_EXTENSIONS = {".py", ".j2"}
 
 # Files/directories to exclude from comparison
 EXCLUDED_PATTERNS = {
@@ -83,9 +86,27 @@ def should_include_file(file_path: Path) -> bool:
         return True
 
     # Include files without extension if they're in specific locations
-    # (e.g., __init__ files without .py extension shouldn't exist, but just in case)
-    if file_path.suffix == "" and file_path.name in {"py.typed", "MANIFEST.in"}:
+    if file_path.suffix == "" and file_path.name in {
+        "py.typed",
+        "MANIFEST.in",
+        "Dockerfile",
+    }:
         return True
+
+    # Include specific files for agent-server
+    if "agent_server" in file_path.parts:
+        # VSCode extension files
+        if "vscode_extensions" in file_path.parts and file_path.suffix in {
+            ".json",
+            ".js",
+        }:
+            return True
+        # Docker files
+        if "docker" in file_path.parts and file_path.name in {
+            "Dockerfile",
+            "wallpaper.svg",
+        }:
+            return True
 
     return False
 
@@ -265,6 +286,9 @@ def test_wheel_contains_all_source_files(package_info):
 def test_tarball_and_wheel_contain_same_files(package_info):
     """Test that tarball and wheel contain the same set of files.
 
+    It's acceptable for tarballs (source distributions) to contain extra
+    documentation files (.md, .txt, .rst) that wheels don't need.
+
     Args:
         package_info: Dictionary containing package metadata
     """
@@ -274,11 +298,17 @@ def test_tarball_and_wheel_contain_same_files(package_info):
     only_in_tarball = tarball_files - wheel_files
     only_in_wheel = wheel_files - tarball_files
 
+    # Filter out acceptable differences (documentation files in tarball but not wheel)
+    acceptable_tarball_only = {
+        f for f in only_in_tarball if f.endswith((".md", ".txt", ".rst"))
+    }
+    problematic_tarball_only = only_in_tarball - acceptable_tarball_only
+
     errors = []
-    if only_in_tarball:
+    if problematic_tarball_only:
         errors.append(
-            f"Files only in tarball ({len(only_in_tarball)}):\n"
-            + "\n".join(f"  - {f}" for f in sorted(only_in_tarball)[:5])
+            f"Unexpected files only in tarball ({len(problematic_tarball_only)}):\n"
+            + "\n".join(f"  - {f}" for f in sorted(problematic_tarball_only)[:5])
         )
 
     if only_in_wheel:
@@ -287,7 +317,7 @@ def test_tarball_and_wheel_contain_same_files(package_info):
             + "\n".join(f"  - {f}" for f in sorted(only_in_wheel)[:5])
         )
 
-    assert not only_in_tarball and not only_in_wheel, "\n".join(errors)
+    assert not problematic_tarball_only and not only_in_wheel, "\n".join(errors)
 
 
 def test_all_packages_have_distributions():

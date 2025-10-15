@@ -21,4 +21,4 @@ include = ["openhands.workspace*"]
 namespaces = true
 
 [tool.setuptools.package-data]
-"*" = ["py.typed", "*.md", "*.json", "*.yaml", "*.yml", "*.txt"]
+"*" = ["py.typed"]
