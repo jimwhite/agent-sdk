@@ -27,12 +27,18 @@ import json
 import os
 import subprocess
 import sys
+import warnings
 
 from prompt import PROMPT
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
+
+
+# Suppress Pydantic serialization warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
 
 
 logger = get_logger(__name__)
@@ -279,7 +285,8 @@ def process_todo(todo_data: dict) -> dict:
             # Agent didn't create a feature branch, ask it to do so
             logger.info("Agent didn't create a feature branch, requesting one")
             follow_up = (
-                "It looks like you haven't created a feature branch and pull request yet. "
+                "It looks like you haven't created a feature branch "
+                "and pull request yet. "
                 "Please create a feature branch for your changes and push them "
                 "to create a pull request."
             )
