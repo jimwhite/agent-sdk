@@ -18,6 +18,7 @@ The workflow consists of three main components:
 - 📝 **Progress Tracking**: Tracks TODO processing status and PR creation
 - 📊 **Comprehensive Reporting**: Detailed GitHub Actions summary with processing status
 - ⚙️ **Configurable**: Customizable limits and file patterns
+- 🔒 **Remote Execution**: Uses secure remote runtime with proper GitHub permissions
 
 ## How It Works
 
@@ -51,6 +52,7 @@ The workflow consists of three main components:
 Add these secrets to your GitHub repository:
 
 - `LLM_API_KEY` - Your LLM API key (required)
+- `RUNTIME_API_KEY` - API key for runtime API access (required)
 - `GITHUB_TOKEN` - GitHub token with repo permissions (automatically provided)
 
 ### 2. Install Workflow

@@ -6,9 +6,10 @@
 #
 # Setup:
 #  1. Add LLM_API_KEY to repository secrets
-#  2. Ensure GITHUB_TOKEN has appropriate permissions
-#  3. Commit this file to .github/workflows/ in your repository
-#  4. Configure the schedule or trigger manually
+#  2. Add RUNTIME_API_KEY to repository secrets
+#  3. Ensure GITHUB_TOKEN has appropriate permissions
+#  4. Commit this file to .github/workflows/ in your repository
+#  5. Configure the schedule or trigger manually
 
 name: Automated TODO Management
 
@@ -172,7 +173,8 @@ jobs:
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
-                  LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
+                  LLM_MODEL: litellm_proxy/anthropic/claude-sonnet-4-5-20250929
+                  RUNTIME_API_KEY: ${{ secrets.RUNTIME_API_KEY }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   GITHUB_REPOSITORY: ${{ github.repository }}
                   PYTHONPATH: ''
