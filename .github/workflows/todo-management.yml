@@ -167,9 +167,9 @@ jobs:
 
             - name: Download agent files
               run: |
-                  curl -sSL "$AGENT_URL" -o /tmp/agent.py
-                  curl -sSL "$PROMPT_URL" -o /tmp/prompt.py
-                  chmod +x /tmp/agent.py
+                  curl -sSL "$AGENT_URL" -o agent.py
+                  curl -sSL "$PROMPT_URL" -o prompt.py
+                  chmod +x agent.py
 
             - name: Configure Git
               run: |
@@ -206,7 +206,7 @@ jobs:
                   git checkout -B "$BRANCH_NAME"
 
                   # Run the agent to process the TODO
-                  cd /tmp
+                  # Stay in repository directory for git operations
 
                   # Create JSON payload for the agent
                   TODO_JSON=$(cat <<EOF
