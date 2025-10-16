@@ -148,7 +148,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                  pip install openhands-sdk
+                  pip install openhands-sdk openhands-tools
 
             - name: Download agent files
               run: |
