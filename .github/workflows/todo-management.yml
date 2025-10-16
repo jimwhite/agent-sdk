@@ -54,10 +54,8 @@ jobs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
         env:
-            SCANNER_URL: >
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
-                openhands/todo-management-example/examples/github_workflows/
-                03_todo_management/scanner.py
+            SCANNER_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/scanner.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -135,14 +133,10 @@ jobs:
                 todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
             max-parallel: 1 # Process one TODO at a time to avoid conflicts
         env:
-            AGENT_URL: >
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
-                openhands/todo-management-example/examples/github_workflows/
-                03_todo_management/agent.py
-            PROMPT_URL: >
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
-                openhands/todo-management-example/examples/github_workflows/
-                03_todo_management/prompt.py
+            AGENT_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/agent.py
+            PROMPT_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/prompt.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -150,20 +144,32 @@ jobs:
                   fetch-depth: 0
                   token: ${{ secrets.GITHUB_TOKEN }}
 
+            - name: Switch to main branch
+              run: |
+                  git checkout main
+                  git pull origin main
+
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
                   python-version: '3.12'
 
-            - name: Install dependencies
+            - name: Install uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+
+            - name: Install OpenHands dependencies
               run: |
-                  pip install openhands-sdk
+                  # Install OpenHands SDK and tools from git repository
+                  uv pip install --system "openhands-sdk @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/sdk"
+                  uv pip install --system "openhands-tools @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/tools"
 
             - name: Download agent files
               run: |
-                  curl -sSL "$AGENT_URL" -o /tmp/agent.py
-                  curl -sSL "$PROMPT_URL" -o /tmp/prompt.py
-                  chmod +x /tmp/agent.py
+                  curl -sSL "$AGENT_URL" -o agent.py
+                  curl -sSL "$PROMPT_URL" -o prompt.py
+                  chmod +x agent.py
 
             - name: Configure Git
               run: |
@@ -177,10 +183,12 @@ jobs:
                   LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_REPOSITORY: ${{ github.repository }}
                   TODO_FILE: ${{ matrix.todo.file }}
                   TODO_LINE: ${{ matrix.todo.line }}
                   TODO_TEXT: ${{ matrix.todo.text }}
                   TODO_DESCRIPTION: ${{ matrix.todo.description }}
+                  PYTHONPATH: ''
               run: |
                   echo "Processing TODO: $TODO_DESCRIPTION"
                   echo "File: $TODO_FILE:$TODO_LINE"
@@ -194,22 +202,59 @@ jobs:
                     cut -c1-50)"
                   echo "Branch name: $BRANCH_NAME"
 
-                  # Check if branch already exists
-                  if git ls-remote --heads origin "$BRANCH_NAME" | \
-                    grep -q "$BRANCH_NAME"; then
-                    echo "Branch $BRANCH_NAME already exists, skipping..."
-                    exit 0
-                  fi
-
-                  # Create and switch to new branch
-                  git checkout -b "$BRANCH_NAME"
+                  # Create and switch to new branch (force create if exists)
+                  git checkout -B "$BRANCH_NAME"
 
                   # Run the agent to process the TODO
-                  cd /tmp
-                  python agent.py \
-                    --file "$GITHUB_WORKSPACE/$TODO_FILE" \
-                    --line "$TODO_LINE" \
-                    --description "$TODO_DESCRIPTION"
+                  # Stay in repository directory for git operations
+
+                  # Create JSON payload for the agent
+                  TODO_JSON=$(cat <<EOF
+                  {
+                    "file": "$TODO_FILE",
+                    "line": $TODO_LINE,
+                    "description": "$TODO_DESCRIPTION",
+                    "text": "$TODO_TEXT"
+                  }
+                  EOF
+                  )
+
+                  echo "JSON payload for agent:"
+                  echo "$TODO_JSON"
+
+                  # Debug environment and setup
+                  echo "Current working directory: $(pwd)"
+                  echo "Environment variables:"
+                  echo "  LLM_MODEL: $LLM_MODEL"
+                  echo "  LLM_BASE_URL: $LLM_BASE_URL"
+                  echo "  GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+                  echo "  LLM_API_KEY: ${LLM_API_KEY:+[SET]}"
+                  echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:+[SET]}"
+                  echo "Available files:"
+                  ls -la
+
+                  # Run the agent with comprehensive logging
+                  echo "Starting agent execution..."
+                  set +e  # Don't exit on error, we want to capture it
+                  uv run python agent.py "$TODO_JSON" 2>&1 | tee agent_output.log
+                  AGENT_EXIT_CODE=$?
+                  set -e
+
+                  echo "Agent exit code: $AGENT_EXIT_CODE"
+                  echo "Agent output log:"
+                  cat agent_output.log
+
+                  # Check if agent created any result files
+                  echo "Files created by agent:"
+                  ls -la *.json || echo "No JSON result files found"
+
+                  # If agent failed, show more details
+                  if [ $AGENT_EXIT_CODE -ne 0 ]; then
+                    echo "Agent failed with exit code $AGENT_EXIT_CODE"
+                    echo "Last 50 lines of agent output:"
+                    tail -50 agent_output.log
+                    exit $AGENT_EXIT_CODE
+                  fi
 
                   # Check if any changes were made
                   cd "$GITHUB_WORKSPACE"
