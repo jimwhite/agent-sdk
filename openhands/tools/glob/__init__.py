@@ -1,12 +1,17 @@
-# Avoid shadowing stdlib `glob` during build by providing stdlib proxies
-try:
-    from importlib import import_module as _import_module
-
-    _stdlib_glob = _import_module("glob")
-    glob = _stdlib_glob.glob
-    iglob = _stdlib_glob.iglob
-except Exception:  # pragma: no cover - best-effort for build environments
-    pass
+# Compatibility shim: if this module is imported as top-level 'glob' during
+# build isolation (e.g., by setuptools), delegate to the stdlib glob module.
+# This avoids name shadowing from the package path 'openhands.tools.glob'.
+import sys, sysconfig, importlib.util, os  # noqa: E401
+if __name__ == "glob":  # pragma: no cover - build-time path only
+    stdlib = sysconfig.get_paths().get("stdlib")
+    if stdlib:
+        stdlib_glob_path = os.path.join(stdlib, "glob.py")
+        spec = importlib.util.spec_from_file_location("glob", stdlib_glob_path)
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            sys.modules["glob"] = module
+            globals().update(module.__dict__)
 
 # Avoid importing heavy dependencies at module import time (helps build isolation)
 __all__ = [
