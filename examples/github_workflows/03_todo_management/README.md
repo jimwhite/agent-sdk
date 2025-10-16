@@ -245,22 +245,48 @@ This ensures the workflow only processes unhandled TODOs and avoids creating dup
 
 ### Common Issues
 
-1. **No TODOs found**: 
+1. **No TODOs found**:
    - Ensure you're using the correct format `TODO(openhands)`
    - Check that TODOs aren't in test files or documentation
    - Use `python scanner.py .` to test locally
 
-2. **Permission denied**: 
-   - Check that `GITHUB_TOKEN` has required permissions
-   - Verify repository settings allow Actions to create PRs
+2. **"GitHub Actions is not permitted to create or approve pull requests"**:
+   This is the most common issue. The agent successfully creates and pushes the branch, but PR creation fails.
 
-3. **LLM API errors**: 
+   **Root Cause**: By default, GitHub restricts the `GITHUB_TOKEN` from creating PRs as a security measure.
+
+   **Solution**: Enable PR creation in repository settings:
+   1. Go to your repository **Settings**
+   2. Navigate to **Actions** → **General**
+   3. Scroll to **Workflow permissions**
+   4. Check the box: **"Allow GitHub Actions to create and approve pull requests"**
+   5. Click **Save**
+
+   **Alternative Solution**: Use a Personal Access Token (PAT) instead:
+   1. Create a PAT with `repo` scope at https://github.com/settings/tokens
+   2. Add it as a repository secret named `GH_PAT`
+   3. Update the workflow to use `${{ secrets.GH_PAT }}` instead of `${{ secrets.GITHUB_TOKEN }}`
+
+   **Note**: Even if PR creation fails, the branch with changes is still created and pushed. You can:
+   - Manually create a PR from the pushed branch
+   - Check the branch on GitHub using the URL format: `https://github.com/OWNER/REPO/compare/BRANCH_NAME`
+
+3. **Permission denied** (other):
+   - Check that `GITHUB_TOKEN` has required permissions in the workflow file
+   - Verify `contents: write` and `pull-requests: write` are set
+
+4. **LLM API errors**:
    - Verify your `LLM_API_KEY` is correct and has sufficient credits
    - Check the model name is supported
 
-4. **Workflow not found**:
+5. **Workflow not found**:
    - Ensure workflow file is in `.github/workflows/`
    - Workflow must be on the main branch to be triggered
+
+6. **Branch created but no changes visible**:
+   - Verify the full branch name (check for truncation in URLs)
+   - Use `git log origin/BRANCH_NAME` to see commits
+   - Check if changes already got merged to main
 
 ### Debug Mode
 

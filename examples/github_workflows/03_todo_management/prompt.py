@@ -13,12 +13,14 @@ Your task is to:
 3. Implement the functionality described in the TODO
 4. Create a pull request with your changes
 
+IMPORTANT - Creating the Pull Request:
+- Use the `gh pr create` command to create the PR
+- The GITHUB_TOKEN environment variable is available for authentication
+
 Please make sure to:
 - Create a descriptive branch name related to the TODO
 - Fix the issue with clean code
 - Include a test if needed, but not always necessary
-- Use the GITHUB_TOKEN and Github APIs to create a clear 
-pull request description explaining the implementation
 
 The TODO comment is: {todo_text}
 
