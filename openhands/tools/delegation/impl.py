@@ -20,15 +20,8 @@ class DelegateExecutor(ToolExecutor):
     """Executor for delegation operations."""
 
     def __init__(self, delegation_manager: DelegationManager | None = None):
+        # Use singleton by default, but allow override for testing
         self.delegation_manager = delegation_manager or DelegationManager()
-
-    def set_parent_conversation(self, conversation) -> None:
-        """Set the parent conversation for delegation operations.
-
-        This should be called by the application after creating the conversation
-        to enable message routing between parent and sub-agents.
-        """
-        self._parent_conversation = conversation
 
     def __call__(self, action: "DelegateAction") -> "DelegateObservation":
         """Execute a delegation action."""
@@ -60,25 +53,39 @@ class DelegateExecutor(ToolExecutor):
                 status="error", message="Task is required for spawn operation"
             )
 
-        # Check if parent conversation is set
-        if not hasattr(self, "_parent_conversation"):
-            logger.error("Parent conversation not set for DelegateExecutor")
+        # Check if conversation context is available
+        if not action.conversation_id:
+            logger.error("Conversation ID not set in action")
             return DelegateObservation(
                 status="error",
                 message=(
-                    "Delegation not properly configured - parent conversation missing"
+                    "Delegation not properly configured - conversation ID missing"
                 ),
             )
 
         try:
+            # Get parent conversation from delegation manager
+            parent_conversation = self.delegation_manager.get_conversation(
+                str(action.conversation_id)
+            )
+            if parent_conversation is None:
+                return DelegateObservation(
+                    status="error",
+                    message=f"Parent conversation {action.conversation_id} not found",
+                )
+
             # Create a worker agent for the sub-agent
             from openhands.tools.preset.worker import get_worker_agent
 
             # Get the parent agent's LLM to use for worker
-            parent_llm = self._parent_conversation.agent.llm
+            # Type ignore because BaseConversation protocol doesn't expose agent
+            # but LocalConversation does have it
+            parent_llm = parent_conversation.agent.llm  # type: ignore[attr-defined]
             cli_mode = getattr(
-                self._parent_conversation.agent, "cli_mode", False
-            ) or not hasattr(self._parent_conversation, "workspace")
+                parent_conversation.agent,  # type: ignore[attr-defined]
+                "cli_mode",
+                False,
+            ) or not hasattr(parent_conversation, "workspace")
 
             # Create worker agent
             worker_agent = get_worker_agent(
@@ -87,11 +94,11 @@ class DelegateExecutor(ToolExecutor):
             )
 
             # Get visualize setting from parent conversation (default True)
-            visualize = getattr(self._parent_conversation, "visualize", True)
+            visualize = getattr(parent_conversation, "visualize", True)
 
             # Spawn the sub-agent with real conversation (non-blocking)
             sub_conversation = self.delegation_manager.spawn_sub_agent(
-                parent_conversation=self._parent_conversation,
+                parent_conversation=parent_conversation,
                 task=action.task,
                 worker_agent=worker_agent,
                 visualize=visualize,

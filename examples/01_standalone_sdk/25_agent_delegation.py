@@ -28,7 +28,6 @@ from openhands.sdk import (
     get_logger,
 )
 from openhands.sdk.delegation.manager import DelegationManager
-from openhands.tools.delegation import DelegateExecutor, DelegationTool
 from openhands.tools.preset.default import get_default_agent
 
 
@@ -124,10 +123,6 @@ try:
     print("🚀 Starting Agent Delegation Example")
     print("=" * 50)
 
-    # Create DelegationManager first (before agent and conversation)
-    delegation_manager = DelegationManager()
-    print("📋 Created DelegationManager")
-
     # Initialize main agent with delegation capabilities
     main_agent = get_default_agent(llm=llm, enable_delegation=True, cli_mode=True)
 
@@ -145,22 +140,11 @@ try:
         callbacks=[conversation_callback],
     )
 
-    # Wire the parent conversation to DelegateExecutor (simple and clean)
-    delegate_tool = main_agent.tools_map.get("delegate")
-    if delegate_tool is not None:
-        # Replace the executor with one that uses our delegation manager
-        delegate_executor = DelegateExecutor(delegation_manager)
-        delegate_executor.set_parent_conversation(conversation)
-
-        # Update the tool with our configured executor
-        from openhands.tools.delegation import DelegationTool
-
-        updated_tool = DelegationTool.set_executor(delegate_executor)
-        main_agent.tools_map["delegate"] = updated_tool
-
-        print("🔗 Wired parent conversation to DelegateExecutor")
-    else:
-        raise RuntimeError("Delegate tool not found in agent")
+    # Register the conversation with the singleton delegation manager
+    # This allows the delegate tool to look up the parent conversation by ID
+    delegation_manager = DelegationManager()
+    delegation_manager.register_conversation(conversation)
+    print("🔗 Registered parent conversation with DelegationManager")
 
     print(f"📁 Created temporary Python file: {temp_file_path}")
     print("🤖 Main agent will delegate analysis tasks to sub-agents")
@@ -248,6 +232,31 @@ try:
                 f"\n⏰ Timeout after {int(time.time() - start_time)}s - some threads"
                 " still running"
             )
+
+        # Also wait for parent conversation threads (triggered by sub-agent messages)
+        parent_threads = delegation_manager.parent_threads.get(str(conversation.id), [])
+        if parent_threads:
+            print(
+                f"\n⏳ Waiting for {len(parent_threads)} parent conversation "
+                "thread(s)..."
+            )
+            for i, thread in enumerate(parent_threads):
+                remaining = max_wait - (time.time() - start_time)
+                if remaining <= 0:
+                    print("   ⏰ Timeout waiting for parent threads")
+                    break
+
+                thread.join(timeout=remaining)
+                if not thread.is_alive():
+                    print(f"   ✅ Parent thread {i + 1} completed")
+                else:
+                    print(f"   ⚠️  Parent thread {i + 1} still running after timeout")
+
+            all_parent_completed = all(not t.is_alive() for t in parent_threads)
+            if all_parent_completed:
+                print("✅ All parent conversation threads completed!")
+            else:
+                print("⚠️  Some parent threads still running")
     else:
         print("⚠️  No delegation manager found")
 

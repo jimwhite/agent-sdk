@@ -432,6 +432,10 @@ class Agent(AgentBase):
                 "as it was checked earlier."
             )
 
+        # Inject conversation context into action before execution
+        if action_event.action is not None:
+            action_event.action.conversation_id = state.id
+
         # Execute actions!
         observation: Observation = tool(action_event.action)
         assert isinstance(observation, Observation), (
