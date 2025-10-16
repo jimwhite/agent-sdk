@@ -15,7 +15,7 @@ The automated TODO management system consists of three main components:
 1. **Scan Phase**: The workflow scans your repository for `# TODO(openhands)` comments
 2. **Implementation Phase**: For each TODO found:
    - Uses OpenHands agent to implement the TODO (agent handles branch creation and PR)
-3. **Update Phase**: Updates the original TODO comment with the PR URL (e.g., `# TODO(in progress: https://github.com/owner/repo/pull/123)`)
+3. **Update Phase**: Uses GitHub API to extract branch information from the PR URL, then updates the original TODO comment with the PR URL (e.g., `# TODO(in progress: https://github.com/owner/repo/pull/123)`)
 
 ## Files
 
