@@ -202,25 +202,8 @@ jobs:
                     cut -c1-50)"
                   echo "Branch name: $BRANCH_NAME"
 
-                  # Check if there's already an open PR for this TODO
-                  EXISTING_PR=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                    -H "Accept: application/vnd.github.v3+json" \
-                    "https://api.github.com/repos/${{ github.repository }}/pulls?state=open" | \
-                    jq -r --arg branch "$BRANCH_NAME" '.[] | select(.head.ref == $branch) | .number')
-                  
-                  if [ ! -z "$EXISTING_PR" ]; then
-                    echo "Open PR #$EXISTING_PR already exists for branch $BRANCH_NAME, skipping..."
-                    exit 0
-                  fi
-                  
-                  # If branch exists but no open PR, delete the old branch and create a new one
-                  if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-                    echo "Branch $BRANCH_NAME exists but no open PR found. Deleting old branch..."
-                    git push origin --delete "$BRANCH_NAME" || echo "Failed to delete remote branch (may not exist)"
-                  fi
-
-                  # Create and switch to new branch
-                  git checkout -b "$BRANCH_NAME"
+                  # Create and switch to new branch (force create if exists)
+                  git checkout -B "$BRANCH_NAME"
 
                   # Run the agent to process the TODO
                   cd /tmp
