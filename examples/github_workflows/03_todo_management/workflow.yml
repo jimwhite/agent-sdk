@@ -44,8 +44,7 @@ jobs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
         env:
-            TODO_SCANNER_URL: 
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_todo_management/todo_scanner.py
+            SCANNER_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_todo_management/scanner.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -59,8 +58,8 @@ jobs:
 
             - name: Download TODO scanner
               run: |
-                  curl -sSL "$TODO_SCANNER_URL" -o /tmp/todo_scanner.py
-                  chmod +x /tmp/todo_scanner.py
+                  curl -sSL "$SCANNER_URL" -o /tmp/scanner.py
+                  chmod +x /tmp/scanner.py
 
             - name: Scan for TODOs
               id: scan
@@ -70,9 +69,9 @@ jobs:
                   # Run the scanner and capture output
                   if [ -n "${{ github.event.inputs.file_pattern }}" ]; then
                     # TODO: Add support for file pattern filtering in scanner
-                    python /tmp/todo_scanner.py . > todos.json
+                    python /tmp/scanner.py . > todos.json
                   else
-                    python /tmp/todo_scanner.py . > todos.json
+                    python /tmp/scanner.py . > todos.json
                   fi
 
                   # Count TODOs
@@ -119,7 +118,7 @@ jobs:
             fail-fast: false  # Continue processing other TODOs even if one fails
             max-parallel: 2   # Limit concurrent TODO processing
         env:
-            TODO_AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_todo_management/todo_agent.py
+            AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_todo_management/agent.py
             LLM_MODEL: openhands/claude-sonnet-4-5-20250929
             LLM_BASE_URL: ''
         steps:
@@ -159,8 +158,8 @@ jobs:
 
             - name: Download TODO agent
               run: |
-                  curl -sSL "$TODO_AGENT_URL" -o /tmp/todo_agent.py
-                  chmod +x /tmp/todo_agent.py
+                  curl -sSL "$AGENT_URL" -o /tmp/agent.py
+                  chmod +x /tmp/agent.py
 
             - name: Process TODO
               env:
@@ -177,7 +176,7 @@ jobs:
                   echo "TODO JSON: $TODO_JSON"
 
                   # Process the TODO
-                  uv run python /tmp/todo_agent.py "$TODO_JSON"
+                  uv run python /tmp/agent.py "$TODO_JSON"
 
             - name: Upload logs as artifact
               uses: actions/upload-artifact@v4

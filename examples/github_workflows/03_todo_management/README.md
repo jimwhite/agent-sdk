@@ -6,8 +6,8 @@ This example demonstrates how to set up automated TODO management using the Open
 
 The automated TODO management system consists of three main components:
 
-1. **TODO Scanner** (`todo_scanner.py`): Scans the codebase for `# TODO(openhands)` comments
-2. **TODO Agent** (`todo_agent.py`): Uses OpenHands to implement individual TODOs
+1. **TODO Scanner** (`scanner.py`): Scans the codebase for `# TODO(openhands)` comments
+2. **TODO Agent** (`agent.py`): Uses OpenHands to implement individual TODOs
 3. **GitHub Workflow** (`workflow.yml`): Orchestrates the entire process
 
 ## How It Works
@@ -20,8 +20,8 @@ The automated TODO management system consists of three main components:
 ## Files
 
 - **`workflow.yml`**: GitHub Actions workflow file
-- **`todo_scanner.py`**: Simple Python script to scan for TODO comments (Python, TypeScript, Java only)
-- **`todo_agent.py`**: Python script that implements individual TODOs using OpenHands
+- **`scanner.py`**: Simple Python script to scan for TODO comments (Python, TypeScript, Java only)
+- **`agent.py`**: Python script that implements individual TODOs using OpenHands
 - **`prompt.py`**: Contains the prompt template for TODO implementation
 - **`README.md`**: This documentation file
 

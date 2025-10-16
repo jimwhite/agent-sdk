@@ -7,10 +7,10 @@ This script processes individual TODO(openhands) comments by:
 2. Updating the original TODO comment with the PR URL
 
 Usage:
-    python todo_agent.py <todo_json>
+    python agent.py <todo_json>
 
 Arguments:
-    todo_json: JSON string containing TODO information from todo_scanner.py
+    todo_json: JSON string containing TODO information from scanner.py
 
 Environment Variables:
     LLM_API_KEY: API key for the LLM (required)
