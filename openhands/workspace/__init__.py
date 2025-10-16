@@ -2,9 +2,11 @@
 
 from .docker import DockerWorkspace
 from .kubernetes import KubernetesWorkspace
+from .remote_api import APIRemoteWorkspace
 
 
 __all__ = [
     "DockerWorkspace",
     "KubernetesWorkspace",
+    "APIRemoteWorkspace",
 ]
