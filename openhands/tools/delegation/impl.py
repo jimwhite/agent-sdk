@@ -74,7 +74,6 @@ class DelegateExecutor(ToolExecutor):
                     message=f"Parent conversation {action.conversation_id} not found",
                 )
 
-            # Create a worker agent for the sub-agent (using default agent without delegation)
             from openhands.tools.preset.default import get_default_agent
 
             # Get the parent agent's LLM to use for worker
