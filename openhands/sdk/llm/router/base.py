@@ -1,8 +1,10 @@
 from abc import abstractmethod
 from collections.abc import Sequence
+from types import MappingProxyType
 
 from pydantic import (
     Field,
+    field_serializer,
     field_validator,
     model_validator,
 )
@@ -47,6 +49,18 @@ class RouterLLM(LLM):
                 "llms_for_routing cannot be empty - at least one LLM must be provided"
             )
         return v
+
+    @model_validator(mode="after")
+    def make_immutable(self):
+        object.__setattr__(
+            self, "llms_for_routing", MappingProxyType(self.llms_for_routing)
+        )
+        return self
+
+    @field_serializer("llms_for_routing")
+    def serialize_llms_for_routing(self, v):
+        # Convert MappingProxyType back to a serializable dict
+        return dict(v)
 
     def completion(
         self,
