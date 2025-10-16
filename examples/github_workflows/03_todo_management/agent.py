@@ -131,7 +131,6 @@ def find_pr_for_branch(branch_name: str) -> str | None:
         return None
 
 
-
 def process_todo(todo_data: dict) -> dict:
     """
     Process a single TODO item using OpenHands agent.

@@ -19,7 +19,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.StreamHandler(sys.stderr),  # Log to stderr to avoid JSON interference
+        # Log to stderr to avoid JSON interference
+        logging.StreamHandler(sys.stderr),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -38,7 +39,8 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
         "/test" in file_str
         or "/tests/" in file_str
         or "test_" in file_path.name
-        or "/examples/github_workflows/03_todo_management/" in file_str  # Skip examples
+        # Skip examples
+        or "/examples/github_workflows/03_todo_management/" in file_str
     ):
         logger.debug(f"Skipping test/example file: {file_path}")
         return []
@@ -93,11 +95,12 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 or "TODO(implemented:" in line  # Implemented marker
                 or "TODO(completed:" in line  # Completed marker
                 or "github.com/" in line  # Contains GitHub URL
-                or "https://" in line  # Contains any URL
+                # Contains any URL
+                or "https://" in line
             ):
                 logger.debug(
-                    f"Skipping already processed TODO in {file_path}:{line_num}: "
-                    f"{stripped_line}"
+                    f"Skipping already processed TODO in {file_path}:"
+                    f"{line_num}: {stripped_line}"
                 )
                 continue
 
@@ -109,13 +112,18 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 or stripped_line.startswith("Scans for")
                 or stripped_line.startswith("This script processes")
                 or "description=" in line
-                or ".write_text(" in line  # Skip test file mock data
-                or 'content = """' in line  # Skip test file mock data
-                or "print(" in line  # Skip print statements
-                or 'print("' in line  # Skip print statements with double quotes
-                or "print('" in line  # Skip print statements with single quotes
+                # Skip test file mock data
+                or ".write_text(" in line
+                # Skip test file mock data
+                or 'content = """' in line
+                # Skip print statements
+                or "print(" in line
+                # Skip print statements with double quotes
+                or 'print("' in line
+                # Skip print statements with single quotes
+                or "print('" in line
                 or (
-                    "TODO(openhands)" in line and '"' in line and line.count('"') >= 2
+                    "TODO(openhands)" in line and '"' in line and line.count('"') >= 2  # noqa: E501
                 )  # Skip quoted strings
             ):
                 logger.debug(
@@ -127,30 +135,48 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
             # Extract initial description from the TODO line
             description = match.group(1).strip() if match.group(1) else ""
             full_text = line.strip()
-            
+
             # Look ahead for continuation lines that are also comments
             continuation_lines = []
             for next_line_idx in range(line_num, len(lines)):
                 next_line = lines[next_line_idx]
                 next_stripped = next_line.strip()
-                
+
                 # Check if this line is a comment continuation
-                if (next_stripped.startswith("#") and 
-                    not next_stripped.startswith("# TODO(openhands)") and
-                    next_stripped != "#" and  # Skip empty comment lines
-                    len(next_stripped) > 1):  # Must have content after #
-                    
+                if (
+                    next_stripped.startswith("#")
+                    and not next_stripped.startswith("# TODO(openhands)")
+                    # Skip empty comment lines
+                    and next_stripped != "#"
+                    # Must have content after #
+                    and len(next_stripped) > 1
+                ):
                     # Extract comment content (remove # and leading whitespace)
                     comment_content = next_stripped[1:].strip()
-                    
-                    # Stop if we encounter a comment that looks like a separate comment
-                    # (starts with capital letter and doesn't continue the previous thought)
-                    if (comment_content and 
-                        continuation_lines and  # Only apply this rule if we already have continuation lines
-                        comment_content[0].isupper() and
-                        not comment_content.lower().startswith(('and ', 'or ', 'but ', 'when ', 'that ', 'which ', 'where '))):
+
+                    # Stop if we encounter a comment that looks like a
+                    # separate comment (starts with capital letter and doesn't
+                    # continue the previous thought)
+                    if (
+                        comment_content
+                        # Only apply this rule if we already have
+                        # continuation lines
+                        and continuation_lines
+                        and comment_content[0].isupper()
+                        and not comment_content.lower().startswith(
+                            (
+                                "and ",
+                                "or ",
+                                "but ",
+                                "when ",
+                                "that ",
+                                "which ",
+                                "where ",
+                            )
+                        )
+                    ):
                         break
-                    
+
                     if comment_content:  # Only add non-empty content
                         continuation_lines.append(comment_content)
                         full_text += " " + comment_content
@@ -160,16 +186,16 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 else:
                     # Stop at first non-comment line
                     break
-            
+
             # Combine description with continuation lines
             if continuation_lines:
                 if description:
-                    full_description = description + " " + " ".join(continuation_lines)
+                    full_description = description + " " + " ".join(continuation_lines)  # noqa: E501
                 else:
                     full_description = " ".join(continuation_lines)
             else:
                 full_description = description
-            
+
             todo_item = {
                 "file": str(file_path),
                 "line": line_num,
@@ -177,7 +203,7 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 "description": full_description,
             }
             todos.append(todo_item)
-            logger.info(f"Found TODO in {file_path}:{line_num}: {full_description}")
+            logger.info(f"Found TODO in {file_path}:{line_num}: {full_description}")  # noqa: E501
 
     if todos:
         logger.info(f"Found {len(todos)} TODO(s) in {file_path}")
@@ -196,7 +222,14 @@ def scan_directory(directory: Path) -> list[dict]:
             for d in dirs
             if not d.startswith(".")
             and d
-            not in {"__pycache__", "node_modules", ".venv", "venv", "build", "dist"}
+            not in {
+                "__pycache__",
+                "node_modules",
+                ".venv",
+                "venv",
+                "build",
+                "dist",
+            }
         ]
 
         for file in files:

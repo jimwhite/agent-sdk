@@ -1,6 +1,6 @@
 ---
 # Automated TODO Management Workflow
-# 
+#
 # This workflow automatically scans for TODO(openhands) comments and creates
 # pull requests to implement them using the OpenHands agent.
 #
@@ -12,290 +12,285 @@
 
 name: Automated TODO Management
 
-on:
-    # Manual trigger
-    workflow_dispatch:
-        inputs:
-            max_todos:
-                description: Maximum number of TODOs to process in this run
-                required: false
-                default: '3'
-                type: string
-            file_pattern:
-                description: File pattern to scan (e.g., "*.py" or "src/**")
-                required: false
-                default: ''
-                type: string
+'on':
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      max_todos:
+        description: Maximum number of TODOs to process in this run
+        required: false
+        default: '3'
+        type: string
+      file_pattern:
+        description: File pattern to scan (e.g., "*.py" or "src/**")
+        required: false
+        default: ''
+        type: string
 
-    # Trigger when 'automatic-todo' label is added to a PR
-    pull_request:
-        types: [labeled]
+  # Trigger when 'automatic-todo' label is added to a PR
+  pull_request:
+    types: [labeled]
 
-    # Scheduled trigger (disabled by default, uncomment and customize as needed)
-    # schedule:
-    #   # Run every Monday at 9 AM UTC
-    #   - cron: "0 9 * * 1"
+  # Scheduled trigger (disabled by default, uncomment and customize as needed)
+  # schedule:
+  # # Run every Monday at 9 AM UTC
+  # - cron: "0 9 * * 1"
 
 permissions:
-    contents: write
-    pull-requests: write
-    issues: write
+  contents: write
+  pull-requests: write
+  issues: write
 
 jobs:
-    scan-todos:
-        runs-on: ubuntu-latest
-        # Only run if triggered manually or if 'automatic-todo' label was added
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.label.name == 'automatic-todo')
-        outputs:
-            todos: ${{ steps.scan.outputs.todos }}
-            todo-count: ${{ steps.scan.outputs.todo-count }}
+  scan-todos:
+    runs-on: ubuntu-latest
+    # Only run if triggered manually or if 'automatic-todo' label was added
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.label.name == 'automatic-todo')
+    outputs:
+      todos: ${{ steps.scan.outputs.todos }}
+      todo-count: ${{ steps.scan.outputs.todo-count }}
+    env:
+      SCANNER_URL: >
+        https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
+        openhands/todo-management-example/examples/github_workflows/
+        03_todo_management/scanner.py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better context
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download TODO scanner
+        run: |
+          curl -sSL "$SCANNER_URL" -o /tmp/scanner.py
+          chmod +x /tmp/scanner.py
+
+      - name: Scan for TODOs
+        id: scan
+        run: |
+          echo "Scanning for TODO(openhands) comments..."
+
+          # Run the scanner and capture output
+          if [ -n "${{ github.event.inputs.file_pattern }}" ]; then
+            # TODO: Add support for file pattern filtering in scanner
+            python /tmp/scanner.py . > todos.json
+          else
+            python /tmp/scanner.py . > todos.json
+          fi
+
+          # Count TODOs
+          TODO_COUNT=$(python -c \
+            "import json; data=json.load(open('todos.json')); print(len(data))")
+          echo "Found $TODO_COUNT TODO(openhands) items"
+
+          # Limit the number of TODOs to process
+          MAX_TODOS="${{ github.event.inputs.max_todos || '3' }}"
+          if [ "$TODO_COUNT" -gt "$MAX_TODOS" ]; then
+            echo "Limiting to first $MAX_TODOS TODOs"
+            python -c "
+          import json
+          data = json.load(open('todos.json'))
+          limited = data[:$MAX_TODOS]
+          json.dump(limited, open('todos.json', 'w'), indent=2)
+          "
+            TODO_COUNT=$MAX_TODOS
+          fi
+
+          # Set outputs
+          echo "todos=$(cat todos.json | jq -c .)" >> $GITHUB_OUTPUT
+          echo "todo-count=$TODO_COUNT" >> $GITHUB_OUTPUT
+
+          # Display found TODOs
+          echo "## 📋 Found TODOs" >> $GITHUB_STEP_SUMMARY
+          if [ "$TODO_COUNT" -eq 0 ]; then
+            echo "No TODO(openhands) comments found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Found $TODO_COUNT TODO(openhands) items:" \
+              >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            python -c "
+          import json
+          data = json.load(open('todos.json'))
+          for i, todo in enumerate(data, 1):
+              print(f'{i}. **{todo[\"file\"]}:{todo[\"line\"]}** - ' +
+                    f'{todo[\"description\"]}')
+          " >> $GITHUB_STEP_SUMMARY
+          fi
+
+  process-todos:
+    needs: scan-todos
+    if: needs.scan-todos.outputs.todo-count > 0
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
+      max-parallel: 1  # Process one TODO at a time to avoid conflicts
+    env:
+      AGENT_URL: >
+        https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
+        openhands/todo-management-example/examples/github_workflows/
+        03_todo_management/agent.py
+      PROMPT_URL: >
+        https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
+        openhands/todo-management-example/examples/github_workflows/
+        03_todo_management/prompt.py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install openhands-sdk
+
+      - name: Download agent files
+        run: |
+          curl -sSL "$AGENT_URL" -o /tmp/agent.py
+          curl -sSL "$PROMPT_URL" -o /tmp/prompt.py
+          chmod +x /tmp/agent.py
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "openhands-bot"
+          git config --global user.email \
+            "openhands-bot@users.noreply.github.com"
+
+      - name: Process TODO
         env:
-            SCANNER_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/scanner.py
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0  # Full history for better context
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TODO_FILE: ${{ matrix.todo.file }}
+          TODO_LINE: ${{ matrix.todo.line }}
+          TODO_TEXT: ${{ matrix.todo.text }}
+          TODO_DESCRIPTION: ${{ matrix.todo.description }}
+        run: |
+          echo "Processing TODO: $TODO_DESCRIPTION"
+          echo "File: $TODO_FILE:$TODO_LINE"
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: '3.12'
+          # Create a unique branch name for this TODO
+          BRANCH_NAME="todo/$(echo "$TODO_DESCRIPTION" | \
+            sed 's/[^a-zA-Z0-9]/-/g' | \
+            sed 's/--*/-/g' | \
+            sed 's/^-\|-$//g' | \
+            tr '[:upper:]' '[:lower:]' | \
+            cut -c1-50)"
+          echo "Branch name: $BRANCH_NAME"
 
-            - name: Download TODO scanner
-              run: |
-                  curl -sSL "$SCANNER_URL" -o /tmp/scanner.py
-                  chmod +x /tmp/scanner.py
+          # Check if branch already exists
+          if git ls-remote --heads origin "$BRANCH_NAME" | \
+            grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists, skipping..."
+            exit 0
+          fi
 
-            - name: Scan for TODOs
-              id: scan
-              run: |
-                  echo "Scanning for TODO(openhands) comments..."
+          # Create and switch to new branch
+          git checkout -b "$BRANCH_NAME"
 
-                  # Run the scanner and capture output
-                  if [ -n "${{ github.event.inputs.file_pattern }}" ]; then
-                    # TODO: Add support for file pattern filtering in scanner
-                    python /tmp/scanner.py . > todos.json
-                  else
-                    python /tmp/scanner.py . > todos.json
-                  fi
+          # Run the agent to process the TODO
+          cd /tmp
+          python agent.py \
+            --file "$GITHUB_WORKSPACE/$TODO_FILE" \
+            --line "$TODO_LINE" \
+            --description "$TODO_DESCRIPTION"
 
-                  # Count TODOs
-                  TODO_COUNT=$(python -c "import json; data=json.load(open('todos.json')); print(len(data))")
-                  echo "Found $TODO_COUNT TODO(openhands) items"
+          # Check if any changes were made
+          cd "$GITHUB_WORKSPACE"
+          if git diff --quiet; then
+            echo "No changes made by agent, skipping PR creation"
+            exit 0
+          fi
 
-                  # Limit the number of TODOs to process
-                  MAX_TODOS="${{ github.event.inputs.max_todos || '3' }}"
-                  if [ "$TODO_COUNT" -gt "$MAX_TODOS" ]; then
-                    echo "Limiting to first $MAX_TODOS TODOs"
-                    python -c "
-                  import json
-                  data = json.load(open('todos.json'))
-                  limited = data[:$MAX_TODOS]
-                  json.dump(limited, open('todos.json', 'w'), indent=2)
-                  "
-                    TODO_COUNT=$MAX_TODOS
-                  fi
+          # Commit changes
+          git add -A
+          git commit -m "Implement TODO: $TODO_DESCRIPTION
 
-                  # Set outputs
-                  echo "todo-count=$TODO_COUNT" >> $GITHUB_OUTPUT
+          Automatically implemented by OpenHands agent.
 
-                  # Prepare todos for matrix (escape for JSON)
-                  TODOS_JSON=$(cat todos.json | jq -c .)
-                  echo "todos=$TODOS_JSON" >> $GITHUB_OUTPUT
+          Original TODO: $TODO_FILE:$TODO_LINE
+          $TODO_TEXT
 
-                  # Upload todos as artifact for debugging
-                  echo "Uploading todos.json as artifact"
+          Co-authored-by: openhands <openhands@all-hands.dev>"
 
-            - name: Upload TODO scan results
-              uses: actions/upload-artifact@v4
-              with:
-                  name: todo-scan-results
-                  path: todos.json
-                  retention-days: 7
+          # Push branch
+          git push origin "$BRANCH_NAME"
 
-    process-todos:
-        needs: scan-todos
-        if: needs.scan-todos.outputs.todo-count > 0
-        runs-on: ubuntu-latest
-        strategy:
-            matrix:
-                todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
-            fail-fast: false  # Continue processing other TODOs even if one fails
-            max-parallel: 2   # Limit concurrent TODO processing
-        env:
-            AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/agent.py
-            LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
-                  token: ${{ secrets.GITHUB_TOKEN }}
+          # Create pull request
+          PR_TITLE="Implement TODO: $TODO_DESCRIPTION"
+          PR_BODY="## 🤖 Automated TODO Implementation
 
-            - name: Configure Git
-              run: |
-                  git config --global user.name "openhands-bot"
-                  git config --global user.email "openhands@all-hands.dev"
+          This PR automatically implements the following TODO:
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: '3.12'
+          **File:** \`$TODO_FILE:$TODO_LINE\`
+          **Description:** $TODO_DESCRIPTION
 
-            - name: Install uv
-              uses: astral-sh/setup-uv@v6
-              with:
-                  enable-cache: true
+          ### Original TODO Comment
+          \`\`\`
+          $TODO_TEXT
+          \`\`\`
 
-            - name: Install GitHub CLI
-              run: |
-                  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-                  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-                  sudo apt update
-                  sudo apt install gh
+          ### Implementation
+          The OpenHands agent has analyzed the TODO and implemented the
+          requested functionality.
 
-            - name: Install OpenHands dependencies
-              run: |
-                  # Install OpenHands SDK and tools from git repository
-                  uv pip install --system "openhands-sdk @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/sdk"
-                  uv pip install --system "openhands-tools @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/tools"
+          ### Review Notes
+          - Please review the implementation for correctness
+          - Test the changes in your development environment
+          - The original TODO comment will be updated with this PR URL
+            once merged
 
-            - name: Download TODO agent and prompt
-              run: |
-                  curl -sSL "$AGENT_URL" -o /tmp/agent.py
-                  curl -sSL "https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/prompt.py" -o /tmp/prompt.py
-                  chmod +x /tmp/agent.py
+          ---
+          *This PR was created automatically by the TODO Management workflow.*"
 
-            - name: Process TODO
-              env:
-                  LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-                  LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
-                  LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  GITHUB_REPOSITORY: ${{ github.repository }}
-                  PYTHONPATH: ''
-              run: |
-                  echo "Processing TODO: ${{ matrix.todo.file }}:${{ matrix.todo.line }}"
-                  echo "Description: ${{ matrix.todo.description }}"
+          # Create PR using GitHub CLI or API
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls" \
+            -d "{
+              \"title\": \"$PR_TITLE\",
+              \"body\": \"$PR_BODY\",
+              \"head\": \"$BRANCH_NAME\",
+              \"base\": \"${{ github.ref_name }}\"
+            }"
 
-                  # Convert matrix.todo to JSON string
-                  TODO_JSON='${{ toJson(matrix.todo) }}'
-                  echo "TODO JSON: $TODO_JSON"
+  summary:
+    needs: [scan-todos, process-todos]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# 🤖 TODO Management Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-                  # Process the TODO
-                  uv run python /tmp/agent.py "$TODO_JSON"
+          TODO_COUNT="${{ needs.scan-todos.outputs.todo-count || '0' }}"
+          echo "**TODOs Found:** $TODO_COUNT" >> $GITHUB_STEP_SUMMARY
 
-            - name: Sanitize artifact name
-              id: sanitize
-              run: |
-                  SANITIZED_FILE=$(echo "${{ matrix.todo.file }}" | tr '/' '_')
-                  echo "sanitized_file=$SANITIZED_FILE" >> $GITHUB_OUTPUT
-                  
-            - name: Upload logs and results as artifact
-              uses: actions/upload-artifact@v4
-              if: always()
-              with:
-                  name: todo-processing-logs-${{ steps.sanitize.outputs.sanitized_file }}-${{ matrix.todo.line }}
-                  path: |
-                      *.log
-                      output/
-                      todo_result_*.json
-                  retention-days: 7
+          if [ "$TODO_COUNT" -gt 0 ]; then
+            echo "**Processing Status:** ✅ Completed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the pull requests created for each TODO" \
+              "implementation." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ℹ️ No TODOs found to process" \
+              >> $GITHUB_STEP_SUMMARY
+          fi
 
-    summary:
-        needs: [scan-todos, process-todos]
-        if: always()
-        runs-on: ubuntu-latest
-        steps:
-            - name: Download all artifacts
-              uses: actions/download-artifact@v4
-              if: needs.scan-todos.outputs.todo-count > 0
-              with:
-                  path: artifacts/
-                  
-            - name: Create comprehensive summary
-              run: |-
-                  echo "# Automated TODO Management Summary" >> $GITHUB_STEP_SUMMARY
-                  echo "" >> $GITHUB_STEP_SUMMARY
-                  echo "**TODOs Found:** ${{ needs.scan-todos.outputs.todo-count }}" >> $GITHUB_STEP_SUMMARY
-                  echo "" >> $GITHUB_STEP_SUMMARY
-
-                  if [ "${{ needs.scan-todos.outputs.todo-count }}" -eq "0" ]; then
-                    echo "✅ No TODO(openhands) comments found in the codebase." >> $GITHUB_STEP_SUMMARY
-                  else
-                    echo "**Processing Status:**" >> $GITHUB_STEP_SUMMARY
-                    if [ "${{ needs.process-todos.result }}" == "success" ]; then
-                      echo "✅ All TODOs processed successfully" >> $GITHUB_STEP_SUMMARY
-                    elif [ "${{ needs.process-todos.result }}" == "failure" ]; then
-                      echo "❌ Some TODOs failed to process" >> $GITHUB_STEP_SUMMARY
-                    else
-                      echo "⚠️ TODO processing was skipped or cancelled" >> $GITHUB_STEP_SUMMARY
-                    fi
-                    
-                    echo "" >> $GITHUB_STEP_SUMMARY
-                    echo "## TODOs and Pull Requests" >> $GITHUB_STEP_SUMMARY
-                    echo "" >> $GITHUB_STEP_SUMMARY
-                    
-                    # Process result files to create TODO/PR summary
-                    counter=1
-                    if [ -d "artifacts/" ]; then
-                      for result_file in artifacts/*/todo_result_*.json; do
-                        if [ -f "$result_file" ]; then
-                          echo "Processing result file: $result_file"
-                          
-                          # Extract information using Python and append to summary
-                          python3 -c "
-                  import json
-                  import sys
-                  
-                  try:
-                      with open('$result_file', 'r') as f:
-                          result = json.load(f)
-                      
-                      todo = result.get('todo', {})
-                      file_path = todo.get('file', 'unknown')
-                      line_num = todo.get('line', 'unknown')
-                      description = todo.get('description', 'No description')
-                      pr_url = result.get('pr_url')
-                      status = result.get('status', 'unknown')
-                      
-                      # Truncate description if too long
-                      if len(description) > 80:
-                          description = description[:77] + '...'
-                      
-                      print(f'$counter. **{file_path}** line {line_num}: {description}')
-                      
-                      if pr_url:
-                          print(f'   - 🔗 PR: [{pr_url}]({pr_url})')
-                          print(f'   - ✅ Status: {status}')
-                      else:
-                          if status == 'failed':
-                              error = result.get('error', 'Unknown error')
-                              print(f'   - ❌ Status: Failed - {error}')
-                          elif status == 'partial':
-                              print(f'   - ⚠️ Status: Partial - Branch created but no PR found')
-                          else:
-                              print(f'   - ⚠️ Status: {status}')
-                      
-                      print('')
-                      
-                  except Exception as e:
-                      print(f'$counter. Error processing result: {e}')
-                      print('')
-                  " >> $GITHUB_STEP_SUMMARY
-                          
-                          counter=$((counter + 1))
-                        fi
-                      done
-                    else
-                      echo "No result artifacts found." >> $GITHUB_STEP_SUMMARY
-                    fi
-                  fi
-
-                  echo "" >> $GITHUB_STEP_SUMMARY
-                  echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
-                  echo "- Review the created pull requests" >> $GITHUB_STEP_SUMMARY
-                  echo "- Merge approved implementations" >> $GITHUB_STEP_SUMMARY
-                  echo "- Check the artifacts for detailed logs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Workflow completed at $(date)*" >> $GITHUB_STEP_SUMMARY
