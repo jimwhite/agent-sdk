@@ -3,6 +3,7 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
@@ -376,8 +377,8 @@ class AgentBase(DiscriminatedUnionMixin, ABC):
                     out.extend(_walk(val))
                 return out
 
-            # Built-in containers
-            if isinstance(obj, dict):
+            # Mapping-like objects
+            if isinstance(obj, dict) or isinstance(obj, MappingProxyType):
                 out: list[LLM] = []
                 for k, v in obj.items():
                     out.extend(_walk(k))
