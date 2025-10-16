@@ -177,8 +177,8 @@ class Action(Schema, ABC):
     )
 
     model_config = ConfigDict(
-        extra="forbid", frozen=False
-    )  # Allow mutation for injection
+        extra="forbid", frozen=True
+    )  # Actions are immutable; use model_copy for updates
 
     @property
     def visualize(self) -> Text:

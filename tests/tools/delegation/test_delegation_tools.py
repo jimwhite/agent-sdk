@@ -77,7 +77,7 @@ def test_delegate_executor_spawn():
 
     # Create spawn action with conversation_id
     action = DelegateAction(operation="spawn", task="Analyze code quality")
-    action.conversation_id = parent_conversation.id
+    action = action.model_copy(update={"conversation_id": parent_conversation.id})
 
     # Mock threading.Thread to avoid spawning real threads
     with patch("threading.Thread") as mock_thread:
@@ -113,7 +113,9 @@ def test_delegate_executor_send():
 
         # First spawn a sub-agent
         spawn_action = DelegateAction(operation="spawn", task="Test task")
-        spawn_action.conversation_id = parent_conversation.id
+        spawn_action = spawn_action.model_copy(
+            update={"conversation_id": parent_conversation.id}
+        )
         spawn_result = executor(spawn_action)
         sub_id = spawn_result.sub_conversation_id
 
@@ -162,7 +164,9 @@ def test_delegate_executor_close():
 
         # First spawn a sub-agent
         spawn_action = DelegateAction(operation="spawn", task="Test task")
-        spawn_action.conversation_id = parent_conversation.id
+        spawn_action = spawn_action.model_copy(
+            update={"conversation_id": parent_conversation.id}
+        )
         spawn_result = executor(spawn_action)
         sub_id = spawn_result.sub_conversation_id
 
@@ -188,7 +192,9 @@ def test_delegate_executor_status():
 
         # First spawn a sub-agent
         spawn_action = DelegateAction(operation="spawn", task="Test task")
-        spawn_action.conversation_id = parent_conversation.id
+        spawn_action = spawn_action.model_copy(
+            update={"conversation_id": parent_conversation.id}
+        )
         spawn_result = executor(spawn_action)
         sub_id = spawn_result.sub_conversation_id
 

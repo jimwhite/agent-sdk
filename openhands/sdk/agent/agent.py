@@ -425,7 +425,9 @@ class Agent(AgentBase):
 
         # Inject conversation context into action before execution
         if action_event.action is not None:
-            action_event.action.conversation_id = state.id
+            action_event.action = action_event.action.model_copy(
+                update={"conversation_id": state.id}
+            )
 
         # Execute actions!
         observation: Observation = tool(action_event.action)
