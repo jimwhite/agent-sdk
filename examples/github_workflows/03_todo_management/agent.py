@@ -66,6 +66,7 @@ def find_pr_for_branch(branch_name: str) -> str | None:
     Returns:
         PR URL if found, None otherwise
     """
+    logger.info(f"Looking for PR associated with branch: {branch_name}")
 
     # Get GitHub token from environment
     github_token = os.getenv("GITHUB_TOKEN")
@@ -230,12 +231,16 @@ def process_todo(todo_data: dict) -> None:
 
     # Store the initial branch (should be main)
     initial_branch = get_current_branch()
+    logger.info(f"Initial branch: {initial_branch}")
 
     # Run the agent
+    logger.info("Running OpenHands agent to implement TODO...")
     conversation.run()
+    logger.info("Agent execution completed")
 
     # After agent runs, check if we're on a different branch (feature branch)
     current_branch = get_current_branch()
+    logger.info(f"Current branch after agent run: {current_branch}")
 
     if current_branch != initial_branch:
         # Agent created a feature branch, find the PR for it

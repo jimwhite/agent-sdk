@@ -7,21 +7,48 @@ Scans for `# TODO(openhands)` comments in Python, TypeScript, and Java files.
 
 import argparse
 import json
+import logging
 import os
 import re
+import sys
 from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr),  # Log to stderr to avoid interfering with JSON output
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 def scan_file_for_todos(file_path: Path) -> list[dict]:
     """Scan a single file for TODO(openhands) comments."""
     # Only scan specific file extensions
     if file_path.suffix.lower() not in {".py", ".ts", ".java"}:
+        logger.debug(f"Skipping file {file_path} (unsupported extension)")
         return []
+    
+    # Skip test files and example files that contain mock TODOs
+    file_str = str(file_path)
+    if (
+        "/test" in file_str or
+        "/tests/" in file_str or
+        "test_" in file_path.name or
+        "/examples/github_workflows/03_todo_management/" in file_str  # Skip our own example files
+    ):
+        logger.debug(f"Skipping test/example file: {file_path}")
+        return []
+    
+    logger.debug(f"Scanning file: {file_path}")
 
     try:
         with open(file_path, encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError) as e:
+        logger.warning(f"Failed to read file {file_path}: {e}")
         return []
 
     todos = []
@@ -30,21 +57,41 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
     for line_num, line in enumerate(lines, 1):
         match = todo_pattern.search(line)
         if match and "pull/" not in line:  # Skip already processed TODOs
+            # Skip false positives
+            stripped_line = line.strip()
+            
+            # Skip if it's in a docstring or comment that's just describing TODOs
+            if (
+                '"""' in line or
+                "'''" in line or
+                stripped_line.startswith('Scans for') or
+                stripped_line.startswith('This script processes') or
+                'description=' in line or
+                '.write_text(' in line or  # Skip test file mock data
+                'content = """' in line or  # Skip test file mock data
+                'TODO(openhands)' in line and '"' in line and line.count('"') >= 2  # Skip quoted strings
+            ):
+                logger.debug(f"Skipping false positive in {file_path}:{line_num}: {stripped_line}")
+                continue
+                
             description = match.group(1).strip() if match.group(1) else ""
-            todos.append(
-                {
-                    "file": str(file_path),
-                    "line": line_num,
-                    "text": line.strip(),
-                    "description": description,
-                }
-            )
+            todo_item = {
+                "file": str(file_path),
+                "line": line_num,
+                "text": line.strip(),
+                "description": description,
+            }
+            todos.append(todo_item)
+            logger.info(f"Found TODO in {file_path}:{line_num}: {description}")
 
+    if todos:
+        logger.info(f"Found {len(todos)} TODO(s) in {file_path}")
     return todos
 
 
 def scan_directory(directory: Path) -> list[dict]:
     """Recursively scan a directory for TODO(openhands) comments."""
+    logger.info(f"Scanning directory: {directory}")
     all_todos = []
 
     for root, dirs, files in os.walk(directory):
@@ -82,10 +129,12 @@ def main():
 
     directory = Path(args.directory)
     if not directory.exists():
-        print(f"Error: Directory '{directory}' does not exist")
+        logger.error(f"Directory '{directory}' does not exist")
         return 1
 
+    logger.info(f"Starting TODO scan in directory: {directory}")
     todos = scan_directory(directory)
+    logger.info(f"Scan complete. Found {len(todos)} total TODO(s)")
     output = json.dumps(todos, indent=2)
 
     if args.output:

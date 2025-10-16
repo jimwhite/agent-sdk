@@ -120,6 +120,10 @@ def trigger_workflow(
         "inputs": inputs
     }
     
+    print(f"📋 Workflow dispatch payload:")
+    print(f"   Branch: {data['ref']}")
+    print(f"   Inputs: {json.dumps(inputs, indent=4)}")
+    
     status_code, response = make_github_request(
         "POST", 
         f"/repos/{owner}/{repo}/actions/workflows/todo-management.yml/dispatches",
