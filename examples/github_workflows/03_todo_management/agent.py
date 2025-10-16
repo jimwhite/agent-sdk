@@ -30,7 +30,6 @@ import sys
 import warnings
 
 from prompt import PROMPT
-from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
@@ -158,29 +157,24 @@ def process_todo(todo_data: dict) -> dict:
     }
 
     try:
-        # Check required environment variables
-        required_env_vars = ["LLM_API_KEY", "GITHUB_TOKEN", "GITHUB_REPOSITORY"]
-        for var in required_env_vars:
-            if not os.getenv(var):
-                error_msg = f"Required environment variable {var} is not set"
-                logger.error(error_msg)
-                result["error"] = error_msg
-                return result
-
-        # Set up LLM configuration
+        # Configure LLM
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
-            error_msg = "LLM_API_KEY is required"
-            logger.error(error_msg)
-            result["error"] = error_msg
+            logger.error("LLM_API_KEY environment variable is not set.")
+            result["error"] = "LLM_API_KEY environment variable is not set."
             return result
 
+        model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+        base_url = os.getenv("LLM_BASE_URL")
+
         llm_config = {
-            "model": os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929"),
-            "api_key": SecretStr(api_key),
+            "model": model,
+            "api_key": api_key,
+            "service_id": "todo_agent",
+            "drop_params": True,
         }
 
-        if base_url := os.getenv("LLM_BASE_URL"):
+        if base_url:
             llm_config["base_url"] = base_url
 
         llm = LLM(**llm_config)
@@ -193,9 +187,20 @@ def process_todo(todo_data: dict) -> dict:
             todo_text=todo_text,
         )
 
-        # Initialize agent and conversation
-        agent = get_default_agent(llm=llm, cli_mode=True)
-        conversation = Conversation(agent=agent, workspace=os.getcwd())
+        # Get the current working directory as workspace
+        cwd = os.getcwd()
+
+        # Create agent with default tools
+        agent = get_default_agent(
+            llm=llm,
+            cli_mode=True,
+        )
+
+        # Create conversation
+        conversation = Conversation(
+            agent=agent,
+            workspace=cwd,
+        )
 
         # Ensure we're starting from main branch
         initial_branch = get_current_branch()
@@ -209,14 +214,12 @@ def process_todo(todo_data: dict) -> dict:
             initial_branch = get_current_branch()
             logger.info(f"Switched to branch: {initial_branch}")
 
-        # Send the prompt to the agent
-        logger.info("Sending TODO implementation request to agent")
-        conversation.send_message(prompt)
+        logger.info("Starting task execution...")
+        logger.info(f"Prompt: {prompt[:200]}...")
 
-        # Run the agent
-        logger.info("Running OpenHands agent to implement TODO...")
+        # Send the prompt and run the agent
+        conversation.send_message(prompt)
         conversation.run()
-        logger.info("Agent execution completed")
 
         # After agent runs, check if we're on a different branch (feature branch)
         current_branch = get_current_branch()
