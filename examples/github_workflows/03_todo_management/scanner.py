@@ -5,8 +5,6 @@ TODO Scanner for OpenHands Automated TODO Management
 Scans for `# TODO(openhands)` comments in Python, TypeScript, and Java files.
 """
 
-# TODO(openhands): Add a simple docstring to the main() function explaining its purpose
-
 import argparse
 import json
 import logging
