@@ -27,12 +27,17 @@ import json
 import os
 import subprocess
 import sys
+import warnings
 
 from prompt import PROMPT
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
+
+# Suppress Pydantic serialization warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
 
 
 logger = get_logger(__name__)
