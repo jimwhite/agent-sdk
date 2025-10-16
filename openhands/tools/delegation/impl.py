@@ -74,8 +74,8 @@ class DelegateExecutor(ToolExecutor):
                     message=f"Parent conversation {action.conversation_id} not found",
                 )
 
-            # Create a worker agent for the sub-agent
-            from openhands.tools.preset.worker import get_worker_agent
+            # Create a worker agent for the sub-agent (using default agent without delegation)
+            from openhands.tools.preset.default import get_default_agent
 
             # Get the parent agent's LLM to use for worker
             # Type ignore because BaseConversation protocol doesn't expose agent
@@ -87,10 +87,11 @@ class DelegateExecutor(ToolExecutor):
                 False,
             ) or not hasattr(parent_conversation, "workspace")
 
-            # Create worker agent
-            worker_agent = get_worker_agent(
+            # Create worker agent (default agent with delegation disabled)
+            worker_agent = get_default_agent(
                 llm=parent_llm.model_copy(update={"service_id": "sub_agent"}),
                 cli_mode=cli_mode,
+                enable_delegation=False,
             )
 
             # Get visualize setting from parent conversation (default True)
