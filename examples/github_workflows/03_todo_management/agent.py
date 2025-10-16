@@ -205,12 +205,17 @@ def process_todo(todo_data: dict) -> dict:
         # Ensure we're starting from main branch
         initial_branch = get_current_branch()
         logger.info(f"Starting branch: {initial_branch}")
-        
+
         if initial_branch != "main":
-            logger.warning(f"Expected to start from 'main' branch, but currently on '{initial_branch}'")
+            logger.warning(
+                f"Expected to start from 'main' branch, "
+                f"but currently on '{initial_branch}'"
+            )
             # Switch to main branch
             subprocess.run(["git", "checkout", "main"], check=True, cwd=os.getcwd())
-            subprocess.run(["git", "pull", "origin", "main"], check=True, cwd=os.getcwd())
+            subprocess.run(
+                ["git", "pull", "origin", "main"], check=True, cwd=os.getcwd()
+            )
             initial_branch = get_current_branch()
             logger.info(f"Switched to branch: {initial_branch}")
 
