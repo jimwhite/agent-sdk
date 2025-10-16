@@ -208,10 +208,19 @@ jobs:
 
                   # Run the agent to process the TODO
                   cd /tmp
-                  uv run python agent.py \
-                    --file "$GITHUB_WORKSPACE/$TODO_FILE" \
-                    --line "$TODO_LINE" \
-                    --description "$TODO_DESCRIPTION"
+
+                  # Create JSON payload for the agent
+                  TODO_JSON=$(cat <<EOF
+                  {
+                    "file": "$TODO_FILE",
+                    "line": $TODO_LINE,
+                    "description": "$TODO_DESCRIPTION",
+                    "text": "$TODO_TEXT"
+                  }
+                  EOF
+                  )
+
+                  uv run python agent.py "$TODO_JSON"
 
                   # Check if any changes were made
                   cd "$GITHUB_WORKSPACE"
