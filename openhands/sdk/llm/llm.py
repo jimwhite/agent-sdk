@@ -382,7 +382,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[Message],
         tools: Sequence[ToolBase] | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -504,7 +504,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         tools: Sequence[ToolBase] | None = None,
         include: list[str] | None = None,
         store: bool | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -636,6 +636,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                     message=r"There is no current event loop",
                     category=DeprecationWarning,
                 )
+                warnings.filterwarnings(
+                    "ignore",
+                    category=UserWarning,
+                )
                 # Some providers need renames handled in _normalize_call_kwargs.
                 ret = litellm_completion(
                     model=self.model,
@@ -757,12 +761,14 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         out["temperature"] = 1.0
         out["tool_choice"] = "auto"
 
+        # Auto-enable encrypted reasoning for GPT-5 models (required by OpenAI)
+        enable_encrypted = self.enable_encrypted_reasoning
+        if not enable_encrypted and "gpt-5" in self.model:
+            enable_encrypted = True
+
         # Include encrypted reasoning if enabled
         include_list = list(include) if include is not None else []
-        if (
-            self.enable_encrypted_reasoning
-            and "reasoning.encrypted_content" not in include_list
-        ):
+        if enable_encrypted and "reasoning.encrypted_content" not in include_list:
             include_list.append("reasoning.encrypted_content")
         if include_list:
             out["include"] = include_list
