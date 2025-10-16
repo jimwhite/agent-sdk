@@ -66,5 +66,5 @@ addopts = "-v --tb=short"
 asyncio_mode = "auto"
 
 [tool.uv.extra-build-dependencies]
-openhands-tools = ["openhands.tools"]
+openhands-tools = ["openhands-sdk"]
 
