@@ -125,8 +125,8 @@ jobs:
             max-parallel: 2   # Limit concurrent TODO processing
         env:
             AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/agent.py
-            LLM_MODEL: openhands/claude-sonnet-4-5-20250929
-            LLM_BASE_URL: ''
+            LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
+            LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -171,6 +171,8 @@ jobs:
             - name: Process TODO
               env:
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+                  LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
+                  LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   GITHUB_REPOSITORY: ${{ github.repository }}
                   PYTHONPATH: ''
