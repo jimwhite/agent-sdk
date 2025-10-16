@@ -14,9 +14,8 @@ Arguments:
 
 Environment Variables:
     LLM_API_KEY: API key for the LLM (required)
-    LLM_MODEL: Language model to use (default: litellm_proxy/anthropic/claude-sonnet-4-5-20250929)
-    LLM_BASE_URL: Base URL for LLM API (default: https://llm-proxy.eval.all-hands.dev)
-    RUNTIME_API_KEY: API key for runtime API access (required)
+    LLM_MODEL: Language model to use (default: openhands/claude-sonnet-4-5-20250929)
+    LLM_BASE_URL: Optional base URL for LLM API
     GITHUB_TOKEN: GitHub token for creating PRs (required)
     GITHUB_REPOSITORY: Repository in format owner/repo (required)
 
@@ -33,9 +32,8 @@ import warnings
 from prompt import PROMPT
 from pydantic import SecretStr
 
-from openhands.sdk import LLM, Conversation, RemoteConversation, get_logger
+from openhands.sdk import LLM, Conversation, get_logger
 from openhands.tools.preset.default import get_default_agent
-from openhands.workspace import APIRemoteWorkspace
 
 
 # Suppress Pydantic serialization warnings
@@ -62,20 +60,6 @@ def get_current_branch() -> str:
     """Get the current git branch name."""
     result = run_git_command(["git", "branch", "--show-current"])
     return result.stdout.strip()
-
-
-def get_current_branch_remote(workspace) -> str:
-    """Get the current git branch in remote workspace."""
-    try:
-        result = workspace.execute_command("git branch --show-current")
-        if result.exit_code == 0:
-            return result.stdout.strip()
-        else:
-            logger.warning(f"Could not determine current branch: {result.stderr}")
-            return "unknown"
-    except Exception as e:
-        logger.warning(f"Error getting current branch: {e}")
-        return "unknown"
 
 
 def find_pr_for_branch(branch_name: str) -> str | None:
@@ -176,7 +160,7 @@ def process_todo(todo_data: dict) -> dict:
 
     try:
         # Check required environment variables
-        required_env_vars = ["LLM_API_KEY", "RUNTIME_API_KEY", "GITHUB_TOKEN", "GITHUB_REPOSITORY"]
+        required_env_vars = ["LLM_API_KEY", "GITHUB_TOKEN", "GITHUB_REPOSITORY"]
         for var in required_env_vars:
             if not os.getenv(var):
                 error_msg = f"Required environment variable {var} is not set"
@@ -186,14 +170,19 @@ def process_todo(todo_data: dict) -> dict:
 
         # Set up LLM configuration
         api_key = os.getenv("LLM_API_KEY")
-        runtime_api_key = os.getenv("RUNTIME_API_KEY")
-        
+        if not api_key:
+            error_msg = "LLM_API_KEY is required"
+            logger.error(error_msg)
+            result["error"] = error_msg
+            return result
+
         llm_config = {
-            "service_id": "agent",
-            "model": os.getenv("LLM_MODEL", "litellm_proxy/anthropic/claude-sonnet-4-5-20250929"),
-            "base_url": os.getenv("LLM_BASE_URL", "https://llm-proxy.eval.all-hands.dev"),
+            "model": os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929"),
             "api_key": SecretStr(api_key),
         }
+
+        if base_url := os.getenv("LLM_BASE_URL"):
+            llm_config["base_url"] = base_url
 
         llm = LLM(**llm_config)
 
@@ -205,41 +194,58 @@ def process_todo(todo_data: dict) -> dict:
             todo_text=todo_text,
         )
 
-        # Initialize agent and remote workspace
-        agent = get_default_agent(llm=llm, cli_mode=True)
-        
-        # Use remote workspace with proper GitHub token access
-        with APIRemoteWorkspace(
-            runtime_api_url="https://runtime.eval.all-hands.dev",
-            runtime_api_key=runtime_api_key,
-            server_image="ghcr.io/all-hands-ai/agent-server:latest-python",
-        ) as workspace:
-            conversation = Conversation(agent=agent, workspace=workspace)
-            assert isinstance(conversation, RemoteConversation)
+        # Initialize agent and conversation
+        agent = get_default_agent(llm=llm)
+        conversation = Conversation(agent=agent)
 
-            # Send the prompt to the agent
-            logger.info("Sending TODO implementation request to agent")
-            conversation.send_message(prompt)
+        # Send the prompt to the agent
+        logger.info("Sending TODO implementation request to agent")
+        conversation.send_message(prompt)
 
-            # Store the initial branch (should be main)
-            initial_branch = get_current_branch_remote(workspace)
-            logger.info(f"Initial branch: {initial_branch}")
+        # Store the initial branch (should be main)
+        initial_branch = get_current_branch()
+        logger.info(f"Initial branch: {initial_branch}")
 
-            # Run the agent
-            logger.info("Running OpenHands agent to implement TODO...")
+        # Run the agent
+        logger.info("Running OpenHands agent to implement TODO...")
+        conversation.run()
+        logger.info("Agent execution completed")
+
+        # After agent runs, check if we're on a different branch (feature branch)
+        current_branch = get_current_branch()
+        logger.info(f"Current branch after agent run: {current_branch}")
+        result["branch"] = current_branch
+
+        if current_branch != initial_branch:
+            # Agent created a feature branch, find the PR for it
+            logger.info(f"Agent switched from {initial_branch} to {current_branch}")
+            pr_url = find_pr_for_branch(current_branch)
+
+            if pr_url:
+                logger.info(f"Found PR URL: {pr_url}")
+                result["pr_url"] = pr_url
+                result["status"] = "success"
+                logger.info(f"TODO processed successfully with PR: {pr_url}")
+            else:
+                logger.warning(f"Could not find PR for branch {current_branch}")
+                result["status"] = "partial"  # Branch created but no PR found
+        else:
+            # Agent didn't create a feature branch, ask it to do so
+            logger.info("Agent didn't create a feature branch, requesting one")
+            follow_up = (
+                "It looks like you haven't created a feature branch "
+                "and pull request yet. "
+                "Please create a feature branch for your changes and push them "
+                "to create a pull request."
+            )
+            conversation.send_message(follow_up)
             conversation.run()
-            logger.info("Agent execution completed")
 
-            # After agent runs, check if we're on a different branch (feature branch)
-            current_branch = get_current_branch_remote(workspace)
-            logger.info(f"Current branch after agent run: {current_branch}")
+            # Check again for branch change
+            current_branch = get_current_branch()
             result["branch"] = current_branch
-
             if current_branch != initial_branch:
-                # Agent created a feature branch, find the PR for it
-                logger.info(f"Agent switched from {initial_branch} to {current_branch}")
                 pr_url = find_pr_for_branch(current_branch)
-
                 if pr_url:
                     logger.info(f"Found PR URL: {pr_url}")
                     result["pr_url"] = pr_url
@@ -249,34 +255,9 @@ def process_todo(todo_data: dict) -> dict:
                     logger.warning(f"Could not find PR for branch {current_branch}")
                     result["status"] = "partial"  # Branch created but no PR found
             else:
-                # Agent didn't create a feature branch, ask it to do so
-                logger.info("Agent didn't create a feature branch, requesting one")
-                follow_up = (
-                    "It looks like you haven't created a feature branch "
-                    "and pull request yet. "
-                    "Please create a feature branch for your changes and push them "
-                    "to create a pull request."
-                )
-                conversation.send_message(follow_up)
-                conversation.run()
-
-                # Check again for branch change
-                current_branch = get_current_branch_remote(workspace)
-                result["branch"] = current_branch
-                if current_branch != initial_branch:
-                    pr_url = find_pr_for_branch(current_branch)
-                    if pr_url:
-                        logger.info(f"Found PR URL: {pr_url}")
-                        result["pr_url"] = pr_url
-                        result["status"] = "success"
-                        logger.info(f"TODO processed successfully with PR: {pr_url}")
-                    else:
-                        logger.warning(f"Could not find PR for branch {current_branch}")
-                        result["status"] = "partial"  # Branch created but no PR found
-                else:
-                    logger.warning("Agent still didn't create a feature branch")
-                    result["status"] = "failed"
-                    result["error"] = "Agent did not create a feature branch"
+                logger.warning("Agent still didn't create a feature branch")
+                result["status"] = "failed"
+                result["error"] = "Agent did not create a feature branch"
 
     except Exception as e:
         logger.error(f"Error processing TODO: {e}")
