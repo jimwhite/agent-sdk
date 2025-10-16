@@ -178,6 +178,7 @@ jobs:
                   LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_REPOSITORY: ${{ github.repository }}
                   TODO_FILE: ${{ matrix.todo.file }}
                   TODO_LINE: ${{ matrix.todo.line }}
                   TODO_TEXT: ${{ matrix.todo.text }}
