@@ -194,8 +194,8 @@ def process_todo(todo_data: dict) -> dict:
         )
 
         # Initialize agent and conversation
-        agent = get_default_agent(llm=llm)
-        conversation = Conversation(agent=agent)
+        agent = get_default_agent(llm=llm, cli_mode=True)
+        conversation = Conversation(agent=agent, workspace=os.getcwd())
 
         # Ensure we're starting from main branch
         initial_branch = get_current_branch()
