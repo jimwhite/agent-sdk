@@ -1,11 +1,11 @@
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.types import SourceType
 
 
-class LLMErrorEvent(EventBase):
+class LLMErrorEvent(Event):
     """Error event indicating a failure from the LLM provider.
 
     This is not an agent error. It represents issues surfaced from the upstream
