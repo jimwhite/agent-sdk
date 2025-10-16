@@ -144,6 +144,11 @@ jobs:
                   fetch-depth: 0
                   token: ${{ secrets.GITHUB_TOKEN }}
 
+            - name: Switch to main branch
+              run: |
+                  git checkout main
+                  git pull origin main
+
             - name: Set up Python
               uses: actions/setup-python@v5
               with:

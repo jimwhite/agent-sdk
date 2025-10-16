@@ -197,13 +197,21 @@ def process_todo(todo_data: dict) -> dict:
         agent = get_default_agent(llm=llm)
         conversation = Conversation(agent=agent)
 
+        # Ensure we're starting from main branch
+        initial_branch = get_current_branch()
+        logger.info(f"Starting branch: {initial_branch}")
+        
+        if initial_branch != "main":
+            logger.warning(f"Expected to start from 'main' branch, but currently on '{initial_branch}'")
+            # Switch to main branch
+            subprocess.run(["git", "checkout", "main"], check=True, cwd=os.getcwd())
+            subprocess.run(["git", "pull", "origin", "main"], check=True, cwd=os.getcwd())
+            initial_branch = get_current_branch()
+            logger.info(f"Switched to branch: {initial_branch}")
+
         # Send the prompt to the agent
         logger.info("Sending TODO implementation request to agent")
         conversation.send_message(prompt)
-
-        # Store the initial branch (should be main)
-        initial_branch = get_current_branch()
-        logger.info(f"Initial branch: {initial_branch}")
 
         # Run the agent
         logger.info("Running OpenHands agent to implement TODO...")
