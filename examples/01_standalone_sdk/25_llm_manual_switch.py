@@ -31,9 +31,9 @@ claude_llm = LLM(
     api_key=SecretStr(api_key),
 )
 
-gpt_4o_llm = LLM(
-    service_id="gpt-4o",
-    model="litellm_proxy/openai/gpt-4o",
+gpt_5_llm = LLM(
+    service_id="gpt-5",
+    model="litellm_proxy/openai/gpt-5-2025-08-07",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
 )
@@ -42,7 +42,7 @@ dynamic_router = DynamicRouter(
     service_id="dynamic-router",
     llms_for_routing={
         "primary": claude_llm,
-        "gpt-4o": gpt_4o_llm,
+        "gpt-5": gpt_5_llm,
     },  # primary is the default
 )
 
@@ -85,14 +85,14 @@ conversation.send_message(
 conversation.run()
 
 print("=" * 50)
-print("Switching to GPT-4o...")
+print("Switching to GPT-5...")
 
-# Manually switch to GPT-4o
-success = dynamic_router.switch_to_llm("gpt-4o")
-print(f"GPT-4o switched successfully: {success}")
+# Manually switch to GPT-5
+success = dynamic_router.switch_to_llm("gpt-5")
+print(f"GPT-5 switched successfully: {success}")
 print(f"Current LLM: {dynamic_router.active_llm_identifier}")
 
-# Interaction with GPT-4o
+# Interaction with GPT-5
 conversation.send_message(
     message=Message(
         role="user",
@@ -119,7 +119,7 @@ conversation = Conversation(
 )
 
 print(f"After deserialization - Current LLM: {dynamic_router.active_llm_identifier}")
-assert dynamic_router.active_llm_identifier == "gpt-4o"
+assert dynamic_router.active_llm_identifier == "gpt-5"
 print(f"Available LLMs: {list(dynamic_router.llms_for_routing.keys())}")
 
 # Continue conversation after persistence
