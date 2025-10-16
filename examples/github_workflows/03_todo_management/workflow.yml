@@ -17,16 +17,16 @@ on:
     workflow_dispatch:
         inputs:
             max_todos:
-                description: 'Maximum number of TODOs to process in this run'
+                description: Maximum number of TODOs to process in this run
                 required: false
                 default: '3'
                 type: string
             file_pattern:
-                description: 'File pattern to scan (e.g., "*.py" or "src/**")'
+                description: File pattern to scan (e.g., "*.py" or "src/**")
                 required: false
                 default: ''
                 type: string
-    
+
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
     # schedule:
     #   # Run every Monday at 9 AM UTC
@@ -44,7 +44,8 @@ jobs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
         env:
-            TODO_SCANNER_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_todo_management/todo_scanner.py
+            TODO_SCANNER_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/github_workflows/02_todo_management/todo_scanner.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -65,7 +66,7 @@ jobs:
               id: scan
               run: |
                   echo "Scanning for TODO(openhands) comments..."
-                  
+
                   # Run the scanner and capture output
                   if [ -n "${{ github.event.inputs.file_pattern }}" ]; then
                     # TODO: Add support for file pattern filtering in scanner
@@ -73,11 +74,11 @@ jobs:
                   else
                     python /tmp/todo_scanner.py . > todos.json
                   fi
-                  
+
                   # Count TODOs
                   TODO_COUNT=$(python -c "import json; data=json.load(open('todos.json')); print(len(data))")
                   echo "Found $TODO_COUNT TODO(openhands) items"
-                  
+
                   # Limit the number of TODOs to process
                   MAX_TODOS="${{ github.event.inputs.max_todos || '3' }}"
                   if [ "$TODO_COUNT" -gt "$MAX_TODOS" ]; then
@@ -90,14 +91,14 @@ jobs:
                   "
                     TODO_COUNT=$MAX_TODOS
                   fi
-                  
+
                   # Set outputs
                   echo "todo-count=$TODO_COUNT" >> $GITHUB_OUTPUT
-                  
+
                   # Prepare todos for matrix (escape for JSON)
                   TODOS_JSON=$(cat todos.json | jq -c .)
                   echo "todos=$TODOS_JSON" >> $GITHUB_OUTPUT
-                  
+
                   # Upload todos as artifact for debugging
                   echo "Uploading todos.json as artifact"
 
@@ -170,11 +171,11 @@ jobs:
               run: |
                   echo "Processing TODO: ${{ matrix.todo.file }}:${{ matrix.todo.line }}"
                   echo "Description: ${{ matrix.todo.description }}"
-                  
+
                   # Convert matrix.todo to JSON string
                   TODO_JSON='${{ toJson(matrix.todo) }}'
                   echo "TODO JSON: $TODO_JSON"
-                  
+
                   # Process the TODO
                   uv run python /tmp/todo_agent.py "$TODO_JSON"
 
@@ -194,12 +195,12 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Create summary
-              run: |
+              run: |-
                   echo "# Automated TODO Management Summary" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "**TODOs Found:** ${{ needs.scan-todos.outputs.todo-count }}" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
-                  
+
                   if [ "${{ needs.scan-todos.outputs.todo-count }}" -eq "0" ]; then
                     echo "✅ No TODO(openhands) comments found in the codebase." >> $GITHUB_STEP_SUMMARY
                   else
@@ -212,7 +213,7 @@ jobs:
                       echo "⚠️ TODO processing was skipped or cancelled" >> $GITHUB_STEP_SUMMARY
                     fi
                   fi
-                  
+
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
                   echo "- Review the created pull requests" >> $GITHUB_STEP_SUMMARY
