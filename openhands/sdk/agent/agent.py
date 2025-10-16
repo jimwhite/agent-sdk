@@ -134,9 +134,6 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
-        # Store conversation ID for action creation
-        self._current_conversation_id = state.id
-
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = ConversationState.get_unmatched_actions(state.events)
@@ -227,6 +224,7 @@ class Agent(AgentBase):
             action_events: list[ActionEvent] = []
             for i, tool_call in enumerate(message.tool_calls):
                 action_event = self._get_action_event(
+                    str(state.id),
                     tool_call,
                     llm_response_id=llm_response.id,
                     on_event=on_event,
@@ -299,15 +297,14 @@ class Agent(AgentBase):
         if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
             state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
             # Clean up temporary conversation ID
-            self._current_conversation_id = None
             return True
 
         # Clean up temporary conversation ID
-        self._current_conversation_id = None
         return False
 
     def _get_action_event(
         self,
+        conversation_id: str,
         tool_call: MessageToolCall,
         llm_response_id: str,
         on_event: ConversationCallbackType,
@@ -370,13 +367,8 @@ class Agent(AgentBase):
                 "Unexpected 'security_risk' key found in tool arguments"
             )
 
-            # Inject conversation_id into arguments if available
-            if (
-                hasattr(self, "_current_conversation_id")
-                and self._current_conversation_id is not None
-            ):
-                arguments = arguments.copy()
-                arguments["conversation_id"] = self._current_conversation_id
+            # Add id to arguments for agent delegation tools
+            arguments["conversation_id"] = conversation_id
 
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
@@ -438,8 +430,6 @@ class Agent(AgentBase):
                 f"Tool '{action_event.tool_name}' not found. This should not happen "
                 "as it was checked earlier."
             )
-
-        # Conversation ID is now injected during action creation
 
         # Execute actions!
         observation: Observation = tool(action_event.action)
