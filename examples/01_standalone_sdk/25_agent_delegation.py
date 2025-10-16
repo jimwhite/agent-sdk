@@ -151,12 +151,13 @@ try:
         # Replace the executor with one that uses our delegation manager
         delegate_executor = DelegateExecutor(delegation_manager)
         delegate_executor.set_parent_conversation(conversation)
-        
+
         # Update the tool with our configured executor
         from openhands.tools.delegation import DelegationTool
+
         updated_tool = DelegationTool.set_executor(delegate_executor)
         main_agent.tools_map["delegate"] = updated_tool
-        
+
         print("🔗 Wired parent conversation to DelegateExecutor")
     else:
         raise RuntimeError("Delegate tool not found in agent")
