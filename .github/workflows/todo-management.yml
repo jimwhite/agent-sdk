@@ -187,11 +187,17 @@ jobs:
                   # Process the TODO
                   uv run python /tmp/agent.py "$TODO_JSON"
 
+            - name: Sanitize artifact name
+              id: sanitize
+              run: |
+                  SANITIZED_FILE=$(echo "${{ matrix.todo.file }}" | tr '/' '_')
+                  echo "sanitized_file=$SANITIZED_FILE" >> $GITHUB_OUTPUT
+                  
             - name: Upload logs and results as artifact
               uses: actions/upload-artifact@v4
               if: always()
               with:
-                  name: todo-processing-logs-${{ replace(matrix.todo.file, '/', '_') }}-${{ matrix.todo.line }}
+                  name: todo-processing-logs-${{ steps.sanitize.outputs.sanitized_file }}-${{ matrix.todo.line }}
                   path: |
                       *.log
                       output/
