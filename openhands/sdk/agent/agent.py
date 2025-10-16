@@ -134,6 +134,9 @@ class Agent(AgentBase):
         state: ConversationState,
         on_event: ConversationCallbackType,
     ) -> None:
+        # Store conversation ID for action creation
+        self._current_conversation_id = state.id
+
         # Check for pending actions (implicit confirmation)
         # and execute them before sampling new actions.
         pending_actions = ConversationState.get_unmatched_actions(state.events)
@@ -295,8 +298,12 @@ class Agent(AgentBase):
         # Grab the confirmation policy from the state and pass in the risks.
         if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
             state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
+            # Clean up temporary conversation ID
+            self._current_conversation_id = None
             return True
 
+        # Clean up temporary conversation ID
+        self._current_conversation_id = None
         return False
 
     def _get_action_event(
@@ -362,6 +369,15 @@ class Agent(AgentBase):
             assert "security_risk" not in arguments, (
                 "Unexpected 'security_risk' key found in tool arguments"
             )
+
+            # Inject conversation_id into arguments if available
+            if (
+                hasattr(self, "_current_conversation_id")
+                and self._current_conversation_id is not None
+            ):
+                arguments = arguments.copy()
+                arguments["conversation_id"] = self._current_conversation_id
+
             action: Action = tool.action_from_arguments(arguments)
         except (json.JSONDecodeError, ValidationError) as e:
             err = (
@@ -423,14 +439,7 @@ class Agent(AgentBase):
                 "as it was checked earlier."
             )
 
-        # Inject conversation id into action before execution
-        # This is needed for delegation tools that need to know which is the
-        # parent conversation.
-        if action_event.action is not None:
-            updated_action = action_event.action.model_copy(
-                update={"conversation_id": state.id}
-            )
-            action_event = action_event.model_copy(update={"action": updated_action})
+        # Conversation ID is now injected during action creation
 
         # Execute actions!
         observation: Observation = tool(action_event.action)
