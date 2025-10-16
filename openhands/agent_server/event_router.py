@@ -6,16 +6,10 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Query,
-    status,
-)
+from fastapi import APIRouter, HTTPException, Query, status
 
 from openhands.agent_server.conversation_service import ConversationService
-from openhands.agent_server.dependencies import get_conversation_service
+from openhands.agent_server.config import get_default_config
 from openhands.agent_server.models import (
     ConfirmationResponseRequest,
     EventPage,
@@ -24,15 +18,19 @@ from openhands.agent_server.models import (
     Success,
 )
 from openhands.sdk import Message
-from openhands.sdk.event import EventBase
+from openhands.sdk.event import Event
+
+
+# Module-level service for test patching and simplicity
+conversation_service: ConversationService = ConversationService.get_instance(
+    get_default_config()
+)
 
 
 event_router = APIRouter(
     prefix="/conversations/{conversation_id}/events", tags=["Events"]
 )
 logger = logging.getLogger(__name__)
-
-# Read methods
 
 
 @event_router.get("/search", responses={404: {"description": "Conversation not found"}})
@@ -56,7 +54,6 @@ async def search_conversation_events(
         EventSortOrder,
         Query(title="Sort order for events"),
     ] = EventSortOrder.TIMESTAMP,
-    conversation_service: ConversationService = Depends(get_conversation_service),
 ) -> EventPage:
     """Search / List local events"""
     assert limit > 0
@@ -76,7 +73,6 @@ async def count_conversation_events(
             title="Optional filter by event kind/type (e.g., ActionEvent, MessageEvent)"
         ),
     ] = None,
-    conversation_service: ConversationService = Depends(get_conversation_service),
 ) -> int:
     """Count local events matching the given filters"""
     event_service = await conversation_service.get_event_service(conversation_id)
@@ -87,11 +83,7 @@ async def count_conversation_events(
 
 
 @event_router.get("/{event_id}", responses={404: {"description": "Item not found"}})
-async def get_conversation_event(
-    conversation_id: UUID,
-    event_id: str,
-    conversation_service: ConversationService = Depends(get_conversation_service),
-) -> EventBase:
+async def get_conversation_event(conversation_id: UUID, event_id: str) -> Event:
     """Get a local event given an id"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
@@ -102,12 +94,10 @@ async def get_conversation_event(
     return event
 
 
-@event_router.get("/")
+@event_router.get("")
 async def batch_get_conversation_events(
-    conversation_id: UUID,
-    event_ids: list[str],
-    conversation_service: ConversationService = Depends(get_conversation_service),
-) -> list[EventBase | None]:
+    conversation_id: UUID, event_ids: list[str]
+) -> list[Event | None]:
     """Get a batch of local events given their ids, returning null for any
     missing item."""
     event_service = await conversation_service.get_event_service(conversation_id)
@@ -117,18 +107,14 @@ async def batch_get_conversation_events(
     return events
 
 
-@event_router.post("/")
-async def send_message(
-    conversation_id: UUID,
-    request: SendMessageRequest,
-    conversation_service: ConversationService = Depends(get_conversation_service),
-) -> Success:
+@event_router.post("")
+async def send_message(conversation_id: UUID, request: SendMessageRequest) -> Success:
     """Send a message to a conversation"""
     event_service = await conversation_service.get_event_service(conversation_id)
     if event_service is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     message = Message(role=request.role, content=request.content)
-    await event_service.send_message(message)
+    await event_service.send_message(message, request.run)
     return Success()
 
 
@@ -136,9 +122,7 @@ async def send_message(
     "/respond_to_confirmation", responses={404: {"description": "Item not found"}}
 )
 async def respond_to_confirmation(
-    conversation_id: UUID,
-    request: ConfirmationResponseRequest,
-    conversation_service: ConversationService = Depends(get_conversation_service),
+    conversation_id: UUID, request: ConfirmationResponseRequest
 ) -> Success:
     """Accept or reject a pending action in confirmation mode."""
     event_service = await conversation_service.get_event_service(conversation_id)

@@ -49,8 +49,6 @@ async def get_vscode_url(
 ) -> VSCodeUrlResponse:
     # Resolve for direct calls (outside FastAPI DI)
     if isinstance(vscode_service, DependsParam):  # type: ignore[unreachable]
-        # In direct calls, tests patch get_vscode_service to be a zero-arg function
-        # returning the mocked service. Cast to satisfy the type checker.
         try:
             getter = cast(Any, get_vscode_service)
             vscode_service = getter()
@@ -73,7 +71,7 @@ async def get_vscode_url(
         )
 
     try:
-        url = vscode_service.get_vscode_url(base_url)
+        url = vscode_service.get_vscode_url(base_url, "workspace")
         return VSCodeUrlResponse(url=url)
     except Exception as e:
         logger.error(f"Error getting VSCode URL: {e}")
@@ -104,7 +102,8 @@ async def get_vscode_status(
         }
 
     try:
-        return {"running": vscode_service.is_running(), "enabled": True}
+        running = vscode_service.is_running()
+        return {"running": running, "enabled": True}
     except Exception as e:
         logger.error(f"Error getting VSCode status: {e}")
         raise HTTPException(status_code=500, detail="Failed to get VSCode status")

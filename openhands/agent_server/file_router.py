@@ -23,17 +23,19 @@ file_router = APIRouter(prefix="/file", tags=["Files"])
 
 @file_router.post("/upload/{path}")
 async def upload_file(
-    path: Annotated[
-        str, FastApiPath(alias="path", description="Target path relative to workspace")
-    ],
+    path: Annotated[str, FastApiPath(alias="path", description="Absolute file path.")],
     file: UploadFile = File(...),
     config=Depends(get_config),
 ) -> Success:
-    """Upload a file to the workspace."""
-    # Determine target path
-    target_path = _get_target_path(path, config)
-
+    """Upload a file to an absolute path on disk."""
     try:
+        target_path = Path(path)
+        if not target_path.is_absolute():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Path must be absolute",
+            )
+
         # Ensure target directory exists
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -45,6 +47,8 @@ async def upload_file(
         logger.info(f"Uploaded file to {target_path}")
         return Success()
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to upload file: {e}")
         raise HTTPException(
@@ -55,12 +59,16 @@ async def upload_file(
 
 @file_router.get("/download/{path}")
 async def download_file(
-    path: Annotated[str, FastApiPath(description="File path relative to workspace")],
-    config=Depends(get_config),
+    path: Annotated[str, FastApiPath(description="Absolute file path.")],
 ) -> FileResponse:
-    """Download a file from the workspace."""
+    """Download a file from an absolute path on disk."""
     try:
-        target_path = _get_target_path(path, config)
+        target_path = Path(path)
+        if not target_path.is_absolute():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Path must be absolute",
+            )
 
         if not target_path.exists():
             raise HTTPException(
@@ -87,18 +95,3 @@ async def download_file(
             detail=f"Failed to download file: {str(e)}",
         )
 
-
-def _get_target_path(path: str, config) -> Path:
-    # Get the target path from the variable given, making sure it
-    # is within the workspace
-    target_path = config.workspace_path / path
-    target_path = target_path.resolve()
-    workspace_path = config.workspace_path.resolve()
-    try:
-        target_path.relative_to(workspace_path)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot upload file outside workspace",
-        )
-    return target_path

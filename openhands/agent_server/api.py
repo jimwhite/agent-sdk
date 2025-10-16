@@ -18,6 +18,8 @@ from openhands.agent_server.dependencies import (
     create_session_api_key_dependency,
     get_vscode_service as get_vscode_service,
 )
+from openhands.agent_server.desktop_router import desktop_router
+from openhands.agent_server.desktop_service import get_desktop_service
 from openhands.agent_server.event_router import event_router
 from openhands.agent_server.file_router import file_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
@@ -40,20 +42,27 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     # Services are initialized from the injected Config and stored on app.state.
     config: Config = api.state.config
 
-    conversation_service = ConversationService.get_instance(config)
-    bash_event_service = BashEventService(
-        working_dir=config.workspace_path, bash_events_dir=config.bash_events_dir
-    )
-    vscode_service: VSCodeService | None = None
-    if config.enable_vscode:
-        vscode_service = VSCodeService(
-            workspace_path=config.workspace_path, create_workspace=True
-        )
+    service = ConversationService.get_instance(config)
+    bash_event_service = BashEventService(bash_events_dir=config.bash_events_dir)
 
     # Attach to app.state for DI
-    api.state.conversation_service = conversation_service
+    api.state.conversation_service = service
     api.state.bash_event_service = bash_event_service
-    api.state.vscode_service = vscode_service
+
+    # Optional services
+    vscode_service: VSCodeService | None = None
+    if config.enable_vscode:
+        # get_vscode_service is imported for test patching; prefer it if callable
+        try:
+            vscode_service = get_vscode_service(api)  # type: ignore[misc]
+        except Exception:
+            try:
+                vscode_service = get_vscode_service()  # type: ignore[misc]
+            except Exception:
+                vscode_service = VSCodeService(port=config.vscode_port)
+
+    desktop_service = get_desktop_service()
+
 
     # Start VSCode service if enabled
     if vscode_service is not None:
@@ -65,13 +74,27 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     else:
         logger.info("VSCode service is disabled")
 
-    async with conversation_service:
+    # Start Desktop service if enabled
+    if desktop_service is not None:
+        desktop_started = await desktop_service.start()
+        if desktop_started:
+            logger.info("Desktop service started successfully")
+        else:
+            logger.warning(
+                "Desktop service failed to start, continuing without desktop"
+            )
+    else:
+        logger.info("Desktop service is disabled")
+
+    async with service:
         try:
             yield
         finally:
-            # Stop VSCode service on shutdown
+            # Stop services on shutdown
             if vscode_service is not None:
                 await vscode_service.stop()
+            if desktop_service is not None:
+                await desktop_service.stop()
 
 
 def _create_fastapi_instance() -> FastAPI:
@@ -128,6 +151,7 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(bash_router)
     api_router.include_router(file_router)
     api_router.include_router(vscode_router)
+    api_router.include_router(desktop_router)
     app.include_router(api_router)
     app.include_router(sockets_router)
 
