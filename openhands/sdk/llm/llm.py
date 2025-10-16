@@ -385,7 +385,7 @@ class LLMBase(DiscriminatedUnionMixin, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[Message],
         tools: Sequence[ToolBase] | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -404,7 +404,7 @@ class LLMBase(DiscriminatedUnionMixin, RetryMixin, NonNativeToolCallingMixin):
         tools: Sequence[ToolBase] | None = None,
         include: list[str] | None = None,
         store: bool | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
