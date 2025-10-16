@@ -74,6 +74,11 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
     """
     todos = []
     
+    # Only scan specific file extensions
+    supported_extensions = {'.py', '.ts', '.java'}
+    if file_path.suffix.lower() not in supported_extensions:
+        return todos
+    
     if should_skip_file(file_path) or is_binary_file(file_path):
         return todos
     

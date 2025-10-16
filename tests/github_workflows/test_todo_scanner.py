@@ -55,17 +55,40 @@ def function2():
     assert expected_content in todos[1]['content']
 
 
-def test_scan_javascript_file_with_todos():
-    """Test scanning a JavaScript file with TODO comments."""
-    content = '''// JavaScript file with TODOs
-function processData(data) {
+def test_scan_typescript_file_with_todos():
+    """Test scanning a TypeScript file with TODO comments."""
+    content = '''// TypeScript file with TODOs
+function processData(data: any[]): any[] {
     // TODO(openhands): Add data validation
     return data.map(item => item.value);
 }
 
 /* TODO(openhands): Implement caching mechanism */
-function fetchData() {
+function fetchData(): Promise<any> {
     return fetch('/api/data');
+}
+'''
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.ts', delete=False) as f:
+        f.write(content)
+        f.flush()
+        
+        todos = scan_file_for_todos(Path(f.name))
+    
+    # Clean up
+    Path(f.name).unlink()
+    
+    assert len(todos) == 2
+    assert todos[0]['description'] == 'Add data validation'
+    assert todos[1]['description'] == 'Implement caching mechanism'
+
+
+def test_scan_unsupported_file_extension():
+    """Test that unsupported file extensions are ignored."""
+    content = '''// JavaScript file with TODOs (but .js not supported)
+function processData(data) {
+    // TODO(openhands): This should be ignored
+    return data;
 }
 '''
     
@@ -78,9 +101,8 @@ function fetchData() {
     # Clean up
     Path(f.name).unlink()
     
-    assert len(todos) == 2
-    assert todos[0]['description'] == 'Add data validation'
-    assert todos[1]['description'] == 'Implement caching mechanism'
+    # Should find no TODOs because .js is not supported
+    assert len(todos) == 0
 
 
 def test_scan_file_with_processed_todos():

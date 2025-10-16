@@ -14,16 +14,15 @@ The automated TODO management system consists of three main components:
 
 1. **Scan Phase**: The workflow scans your repository for `# TODO(openhands)` comments
 2. **Implementation Phase**: For each TODO found:
-   - Creates a feature branch
-   - Uses OpenHands agent to implement the TODO
-   - Creates a pull request with the implementation
+   - Uses OpenHands agent to implement the TODO (agent handles branch creation and PR)
 3. **Update Phase**: Updates the original TODO comment with the PR URL (e.g., `# TODO(in progress: https://github.com/owner/repo/pull/123)`)
 
 ## Files
 
 - **`workflow.yml`**: GitHub Actions workflow file
-- **`todo_scanner.py`**: Python script to scan for TODO comments
+- **`todo_scanner.py`**: Python script to scan for TODO comments (Python, TypeScript, Java only)
 - **`todo_agent.py`**: Python script that implements individual TODOs using OpenHands
+- **`prompt.py`**: Contains the prompt template for TODO implementation
 - **`README.md`**: This documentation file
 
 ## Setup

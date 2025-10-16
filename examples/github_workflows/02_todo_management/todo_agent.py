@@ -3,10 +3,8 @@
 TODO Agent for OpenHands Automated TODO Management
 
 This script processes individual TODO(openhands) comments by:
-1. Creating a feature branch
-2. Using OpenHands agent to implement the TODO
-3. Creating a pull request
-4. Updating the original TODO comment with the PR URL
+1. Using OpenHands agent to implement the TODO (agent creates branch and PR)
+2. Updating the original TODO comment with the PR URL
 
 Usage:
     python todo_agent.py <todo_json>
@@ -29,9 +27,8 @@ import json
 import os
 import subprocess
 import sys
-import uuid
-from pathlib import Path
 
+from prompt import PROMPT
 from pydantic import SecretStr
 
 from openhands.sdk import LLM, Conversation, get_logger
@@ -48,237 +45,209 @@ def run_git_command(cmd: list, check: bool = True) -> subprocess.CompletedProces
     
     if check and result.returncode != 0:
         logger.error(f"Git command failed: {result.stderr}")
-        raise subprocess.CalledProcessError(
-            result.returncode, cmd, result.stdout, result.stderr
-        )
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stderr)
     
     return result
 
 
-def create_feature_branch(todo_info: dict) -> str:
-    """Create a feature branch for the TODO implementation."""
-    # Generate a unique branch name based on the TODO
-    file_name = Path(todo_info['file']).stem
-    line_num = todo_info['line']
-    unique_id = str(uuid.uuid4())[:8]
+def get_current_branch() -> str:
+    """Get the current git branch name."""
+    result = run_git_command(['git', 'branch', '--show-current'])
+    return result.stdout.strip()
+
+
+def get_recent_branches() -> list[str]:
+    """Get list of recent branches that might be feature branches."""
+    result = run_git_command(['git', 'branch', '--sort=-committerdate'])
+    branches = []
+    for line in result.stdout.strip().split('\n'):
+        branch = line.strip().lstrip('* ').strip()
+        if branch and branch != 'main' and branch != 'master':
+            branches.append(branch)
+    return branches[:10]  # Get last 10 branches
+
+
+def check_for_recent_pr(_todo_description: str) -> str | None:
+    """
+    Check if there's a recent PR that might be related to this TODO.
+    This is a simple heuristic - in practice you might want to use GitHub API.
+    """
+    # For now, return None - this would need GitHub API integration
+    return None
+
+
+def update_todo_with_pr_url(
+    file_path: str, 
+    line_num: int, 
+    pr_url: str,
+    feature_branch: str | None = None
+) -> None:
+    """
+    Update the TODO comment with PR URL on main branch and feature branch.
     
-    branch_name = f"openhands/todo-{file_name}-line{line_num}-{unique_id}"
+    Args:
+        file_path: Path to the file containing the TODO
+        line_num: Line number of the TODO comment
+        pr_url: URL of the pull request
+        feature_branch: Name of the feature branch (if known)
+    """
+    # Update on main branch
+    current_branch = get_current_branch()
     
-    # Ensure we're on main/master branch
-    try:
+    # Switch to main branch
+    if current_branch != 'main':
         run_git_command(['git', 'checkout', 'main'])
-    except subprocess.CalledProcessError:
-        try:
-            run_git_command(['git', 'checkout', 'master'])
-        except subprocess.CalledProcessError:
-            logger.warning(
-                "Could not checkout main or master branch, "
-                "continuing from current branch"
-            )
+        run_git_command(['git', 'pull', 'origin', 'main'])
     
-    # Pull latest changes
-    try:
-        run_git_command(['git', 'pull', 'origin', 'HEAD'])
-    except subprocess.CalledProcessError:
-        logger.warning("Could not pull latest changes, continuing with current state")
-    
-    # Create and checkout feature branch
-    run_git_command(['git', 'checkout', '-b', branch_name])
-    
-    return branch_name
-
-
-def generate_todo_prompt(todo_info: dict) -> str:
-    """Generate a prompt for the OpenHands agent to implement the TODO."""
-    file_path = todo_info['file']
-    line_num = todo_info['line']
-    description = todo_info['description']
-    content = todo_info['content']
-    context = todo_info['context']
-    
-    # Build context information
-    context_info = ""
-    if context['before']:
-        context_info += "Lines before the TODO:\n"
-        start_line = line_num - len(context['before'])
-        for i, line in enumerate(context['before'], start=start_line):
-            context_info += f"{i}: {line}\n"
-    
-    context_info += f"{line_num}: {content}\n"
-    
-    if context['after']:
-        context_info += "Lines after the TODO:\n"
-        for i, line in enumerate(context['after'], start=line_num+1):
-            context_info += f"{i}: {line}\n"
-    
-    prompt = f"""I need you to implement a TODO comment found in the codebase.
-
-**TODO Details:**
-- File: {file_path}
-- Line: {line_num}
-- Content: {content}
-- Description: {description or "No specific description provided"}
-
-**Context around the TODO:**
-```
-{context_info}
-```
-
-**Instructions:**
-1. Analyze the TODO comment and understand what needs to be implemented
-2. Look at the surrounding code context to understand the codebase structure
-3. Implement the required functionality following the existing code patterns and style
-4. Remove or update the TODO comment once the implementation is complete
-5. Ensure your implementation is well-tested and follows best practices
-6. If the TODO requires significant changes, break them down into logical steps
-
-**Important Notes:**
-- Follow the existing code style and patterns in the repository
-- Add appropriate tests if the codebase has a testing structure
-- Make sure your implementation doesn't break existing functionality
-- If you need to make assumptions about the requirements, document them clearly
-- Focus on creating a minimal, working implementation that addresses the TODO
-
-Please implement this TODO and provide a clear summary of what you've done."""
-
-    return prompt
-
-
-def create_pull_request(branch_name: str, todo_info: dict) -> str:
-    """Create a pull request for the TODO implementation."""
-    github_token = os.getenv('GITHUB_TOKEN')
-    github_repo = os.getenv('GITHUB_REPOSITORY')
-    
-    if not github_token or not github_repo:
-        logger.error(
-            "GITHUB_TOKEN and GITHUB_REPOSITORY environment variables are required"
-        )
-        raise ValueError("Missing GitHub configuration")
-    
-    # Generate PR title and body
-    file_name = Path(todo_info['file']).name
-    description = todo_info['description'] or "implementation"
-    
-    title = f"Implement TODO in {file_name}:{todo_info['line']} - {description}"
-    
-    body = f"""## Automated TODO Implementation
-
-This PR was automatically created by the OpenHands TODO management system.
-
-**TODO Details:**
-- **File:** `{todo_info['file']}`
-- **Line:** {todo_info['line']}
-- **Original Comment:** `{todo_info['content']}`
-- **Description:** {todo_info['description'] or "No specific description provided"}
-
-**Implementation:**
-This PR implements the functionality described in the TODO comment. The implementation 
-follows the existing code patterns and includes appropriate tests where applicable.
-
-**Context:**
-The TODO was automatically detected and implemented using the OpenHands agent system. 
-Please review the changes and merge if they meet the project's standards.
-
----
-*This PR was created automatically by OpenHands TODO Management*
-"""
-    
-    # Use GitHub CLI to create the PR
-    cmd = [
-        'gh', 'pr', 'create',
-        '--title', title,
-        '--body', body,
-        '--head', branch_name,
-        '--base', 'main'  # Try main first
-    ]
-    
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        pr_url = result.stdout.strip()
-        logger.info(f"Created pull request: {pr_url}")
-        return pr_url
-    except subprocess.CalledProcessError as e:
-        # Try with master as base if main fails
-        if 'main' in ' '.join(cmd):
-            cmd[-1] = 'master'
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-                pr_url = result.stdout.strip()
-                logger.info(f"Created pull request: {pr_url}")
-                return pr_url
-            except subprocess.CalledProcessError:
-                pass
-        
-        logger.error(f"Failed to create pull request: {e.stderr}")
-        raise
-
-
-def update_todo_with_pr_url(todo_info: dict, pr_url: str):
-    """Update the original TODO comment with the PR URL."""
-    file_path = Path(todo_info['file'])
-    line_num = todo_info['line']
-    
-    # Read the file
+    # Read and update the file
     with open(file_path, encoding='utf-8') as f:
         lines = f.readlines()
     
-    # Update the TODO line
     if line_num <= len(lines):
         original_line = lines[line_num - 1]
-        # Replace the TODO comment with a reference to the PR
-        updated_line = original_line.replace(
-            'TODO(openhands)',
-            f'TODO(in progress: {pr_url})'
+        if 'TODO(openhands)' in original_line and pr_url not in original_line:
+            updated_line = original_line.replace(
+                'TODO(openhands)',
+                f'TODO(in progress: {pr_url})'
+            )
+            lines[line_num - 1] = updated_line
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.writelines(lines)
+            
+            # Commit the change on main
+            run_git_command(['git', 'add', file_path])
+            run_git_command([
+                'git', 'commit', '-m', 
+                f'Update TODO with PR reference: {pr_url}'
+            ])
+            run_git_command(['git', 'push', 'origin', 'main'])
+            
+            # If we know the feature branch, update it there too
+            if feature_branch:
+                try:
+                    # Switch to feature branch and merge the change
+                    run_git_command(['git', 'checkout', feature_branch])
+                    run_git_command(['git', 'merge', 'main', '--no-edit'])
+                    run_git_command(['git', 'push', 'origin', feature_branch])
+                except subprocess.CalledProcessError:
+                    logger.warning(f"Could not update feature branch {feature_branch}")
+                finally:
+                    # Switch back to main
+                    run_git_command(['git', 'checkout', 'main'])
+
+
+def process_todo(todo_data: dict) -> None:
+    """
+    Process a single TODO item using OpenHands agent.
+    
+    Args:
+        todo_data: Dictionary containing TODO information
+    """
+    file_path = todo_data['file']
+    line_num = todo_data['line']
+    description = todo_data['description']
+    todo_text = todo_data['text']
+    
+    logger.info(f"Processing TODO in {file_path}:{line_num}")
+    
+    # Check required environment variables
+    required_env_vars = ['LLM_API_KEY', 'GITHUB_TOKEN', 'GITHUB_REPOSITORY']
+    for var in required_env_vars:
+        if not os.getenv(var):
+            logger.error(f"Required environment variable {var} is not set")
+            sys.exit(1)
+    
+    # Set up LLM configuration
+    llm_config = {
+        'model': os.getenv('LLM_MODEL', 'openhands/claude-sonnet-4-5-20250929'),
+        'api_key': SecretStr(os.getenv('LLM_API_KEY')),
+    }
+    
+    if base_url := os.getenv('LLM_BASE_URL'):
+        llm_config['base_url'] = base_url
+    
+    llm = LLM(**llm_config)
+    
+    # Create the prompt
+    prompt = PROMPT.format(
+        file_path=file_path,
+        line_num=line_num,
+        description=description,
+        todo_text=todo_text
+    )
+    
+    # Initialize conversation and agent
+    conversation = Conversation()
+    agent = get_default_agent(llm=llm)
+    
+    # Send the prompt to the agent
+    logger.info("Sending TODO implementation request to agent")
+    conversation.add_message(role='user', content=prompt)
+    
+    # Run the agent
+    agent.run(conversation=conversation)
+    
+    # Check if agent created a PR
+    # Look for PR URLs in the response
+    pr_url = None
+    feature_branch = None
+    
+    for message in conversation.messages:
+        if message.role == 'assistant' and 'pull/' in message.content:
+            # Extract PR URL from response
+            import re
+            pr_match = re.search(
+                r'https://github\.com/[^/]+/[^/]+/pull/\d+', message.content
+            )
+            if pr_match:
+                pr_url = pr_match.group(0)
+                break
+    
+    if not pr_url:
+        # Agent didn't create a PR, ask it to do so
+        logger.info("Agent didn't create a PR, requesting one")
+        follow_up = (
+            "It looks like you haven't created a feature branch and pull request yet. "
+            "Please create a feature branch for your changes and push them to create a "
+            "pull request."
         )
-        lines[line_num - 1] = updated_line
+        conversation.add_message(role='user', content=follow_up)
+        agent.run(conversation=conversation)
         
-        # Write the file back
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.writelines(lines)
+        # Check again for PR URL
+        for message in conversation.messages[-2:]:  # Check last 2 messages
+            if message.role == 'assistant' and 'pull/' in message.content:
+                import re
+                pr_match = re.search(
+                    r'https://github\.com/[^/]+/[^/]+/pull/\d+', message.content
+                )
+                if pr_match:
+                    pr_url = pr_match.group(0)
+                    break
+    
+    if pr_url:
+        logger.info(f"Found PR URL: {pr_url}")
+        # Try to determine the feature branch name
+        recent_branches = get_recent_branches()
+        if recent_branches:
+            feature_branch = recent_branches[0]  # Most recent branch
         
-        logger.info(f"Updated TODO comment in {file_path}:{line_num} with PR URL")
-        
-        # Commit the change to main branch
-        try:
-            # Switch back to main branch
-            run_git_command(['git', 'checkout', 'main'])
-            
-            # Pull latest changes
-            run_git_command(['git', 'pull', 'origin', 'main'])
-            
-            # Make the change again (in case of conflicts)
-            with open(file_path, encoding='utf-8') as f:
-                lines = f.readlines()
-            
-            if line_num <= len(lines):
-                original_line = lines[line_num - 1]
-                if 'TODO(openhands)' in original_line and pr_url not in original_line:
-                    updated_line = original_line.replace(
-                        'TODO(openhands)',
-                        f'TODO(in progress: {pr_url})'
-                    )
-                    lines[line_num - 1] = updated_line
-                    
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.writelines(lines)
-                    
-                    # Stage and commit the change
-                    run_git_command(['git', 'add', str(file_path)])
-                    commit_msg = f'Update TODO comment with PR URL: {pr_url}'
-                    run_git_command(['git', 'commit', '-m', commit_msg])
-                    run_git_command(['git', 'push', 'origin', 'main'])
-                    
-                    logger.info("Successfully updated main branch with PR URL")
-        
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Could not update main branch with PR URL: {e}")
-            # This is not critical, the PR still exists
+        # Update the TODO comment
+        update_todo_with_pr_url(file_path, line_num, pr_url, feature_branch)
+        logger.info(f"Updated TODO comment with PR URL: {pr_url}")
+    else:
+        logger.warning("Could not find PR URL in agent response")
+        logger.info("Agent response summary:")
+        for message in conversation.messages[-3:]:
+            if message.role == 'assistant':
+                logger.info(f"Assistant: {message.content[:200]}...")
 
 
 def main():
-    """Process a single TODO item."""
+    """Main function to process a TODO item."""
     parser = argparse.ArgumentParser(
-        description="Process a TODO(openhands) comment with OpenHands agent"
+        description="Process a TODO(openhands) comment using OpenHands agent"
     )
     parser.add_argument(
         "todo_json",
@@ -287,96 +256,20 @@ def main():
     
     args = parser.parse_args()
     
-    # Parse TODO information
     try:
-        todo_info = json.loads(args.todo_json)
+        todo_data = json.loads(args.todo_json)
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON input: {e}")
         sys.exit(1)
     
-    # Validate required environment variables
-    api_key = os.getenv("LLM_API_KEY")
-    github_token = os.getenv("GITHUB_TOKEN")
-    github_repo = os.getenv("GITHUB_REPOSITORY")
+    # Validate required fields
+    required_fields = ['file', 'line', 'description', 'text']
+    for field in required_fields:
+        if field not in todo_data:
+            logger.error(f"Missing required field in TODO data: {field}")
+            sys.exit(1)
     
-    if not api_key:
-        logger.error("LLM_API_KEY environment variable is not set.")
-        sys.exit(1)
-    
-    if not github_token:
-        logger.error("GITHUB_TOKEN environment variable is not set.")
-        sys.exit(1)
-    
-    if not github_repo:
-        logger.error("GITHUB_REPOSITORY environment variable is not set.")
-        sys.exit(1)
-    
-    logger.info(f"Processing TODO: {todo_info['file']}:{todo_info['line']}")
-    
-    try:
-        # Create feature branch
-        branch_name = create_feature_branch(todo_info)
-        logger.info(f"Created feature branch: {branch_name}")
-        
-        # Configure LLM
-        model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
-        base_url = os.getenv("LLM_BASE_URL")
-        
-        llm_config = {
-            "model": model,
-            "api_key": SecretStr(api_key),
-            "service_id": "todo_agent",
-            "drop_params": True,
-        }
-        
-        if base_url:
-            llm_config["base_url"] = base_url
-        
-        llm = LLM(**llm_config)
-        
-        # Create agent with default tools
-        agent = get_default_agent(
-            llm=llm,
-            cli_mode=True,
-        )
-        
-        # Create conversation
-        conversation = Conversation(
-            agent=agent,
-            workspace=os.getcwd(),
-        )
-        
-        # Generate and send prompt
-        prompt = generate_todo_prompt(todo_info)
-        logger.info("Starting TODO implementation...")
-        logger.info(f"Prompt: {prompt[:200]}...")
-        
-        conversation.send_message(prompt)
-        conversation.run()
-        
-        # Commit changes
-        run_git_command(['git', 'add', '.'])
-        description = todo_info['description'] or 'Automated TODO implementation'
-        commit_message = (
-            f"Implement TODO in {todo_info['file']}:{todo_info['line']}\n\n"
-            f"{description}"
-        )
-        run_git_command(['git', 'commit', '-m', commit_message])
-        
-        # Push the branch
-        run_git_command(['git', 'push', 'origin', branch_name])
-        
-        # Create pull request
-        pr_url = create_pull_request(branch_name, todo_info)
-        
-        # Update the original TODO with PR URL
-        update_todo_with_pr_url(todo_info, pr_url)
-        
-        logger.info(f"Successfully processed TODO. PR created: {pr_url}")
-        
-    except Exception as e:
-        logger.error(f"Failed to process TODO: {e}")
-        sys.exit(1)
+    process_todo(todo_data)
 
 
 if __name__ == "__main__":
