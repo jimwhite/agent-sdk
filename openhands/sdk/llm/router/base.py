@@ -52,7 +52,7 @@ class RouterLLM(LLM):
         self,
         messages: list[Message],
         tools: Sequence[ToolBase] | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -70,7 +70,7 @@ class RouterLLM(LLM):
         return active_llm.completion(
             messages=messages,
             tools=tools,
-            return_metrics=return_metrics,
+            _return_metrics=_return_metrics,
             add_security_risk_prediction=add_security_risk_prediction,
             **kwargs,
         )

@@ -30,7 +30,7 @@ class DynamicRouter(RouterLLM):
     router_name: str = "dynamic_router"
     manual_selection: str | None = None
 
-    def select_llm(self, messages: list[Message]) -> str:
+    def select_llm(self, messages: list[Message]) -> str:  # noqa: ARG002
         """
         Select LLM based on manual selection or fallback to first available.
 
@@ -46,9 +46,9 @@ class DynamicRouter(RouterLLM):
         if self.manual_selection:
             return self.manual_selection
 
-        # Fallback to first available LLM
+        # Use the primary LLM if no manual selection
         if self.llms_for_routing:
-            return next(iter(self.llms_for_routing.keys()))
+            return self.PRIMARY_MODEL_KEY
 
         raise ValueError("No LLMs available for routing")
 
