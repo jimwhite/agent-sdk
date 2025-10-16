@@ -4,12 +4,11 @@ This example demonstrates how to use the OpenHands SDK to automatically scan a c
 
 ## Overview
 
-The workflow consists of four main components:
+The workflow consists of three main components:
 
 1. **Scanner** (`scanner.py`) - Scans the codebase for TODO(openhands) comments
 2. **Agent** (`agent.py`) - Uses OpenHands to implement individual TODOs
-3. **GitHub Actions Workflow** (`workflow.yml`) - Orchestrates the automation
-4. **Debug Tool** (`debug_workflow.py`) - Local testing and workflow debugging
+3. **GitHub Actions Workflow** - Orchestrates the automation (see `.github/workflows/todo-management.yml`)
 
 ## Features
 
@@ -17,7 +16,7 @@ The workflow consists of four main components:
 - 🤖 **AI Implementation**: Uses OpenHands agent to automatically implement TODOs
 - 🔄 **PR Management**: Creates feature branches and pull requests automatically
 - 📝 **Progress Tracking**: Tracks TODO processing status and PR creation
-- 🐛 **Debug Support**: Comprehensive logging and local testing tools
+- 📊 **Comprehensive Reporting**: Detailed GitHub Actions summary with processing status
 - ⚙️ **Configurable**: Customizable limits and file patterns
 
 ## How It Works
@@ -40,12 +39,9 @@ The workflow consists of four main components:
 
 ## Files
 
-- **`workflow.yml`**: GitHub Actions workflow file
 - **`scanner.py`**: Smart TODO scanner with false positive filtering
 - **`agent.py`**: OpenHands agent for TODO implementation
 - **`prompt.py`**: Contains the prompt template for TODO implementation
-- **`debug_workflow.py`**: Debug script to trigger and monitor the workflow
-- **`test_local.py`**: Local component testing script
 - **`README.md`**: This comprehensive documentation
 
 ## Setup
@@ -59,7 +55,7 @@ Add these secrets to your GitHub repository:
 
 ### 2. Install Workflow
 
-Copy `workflow.yml` to `.github/workflows/todo-management.yml` in your repository.
+The GitHub Actions workflow is already installed at `.github/workflows/todo-management.yml` in this repository.
 
 ### 3. Configure Permissions
 
@@ -101,26 +97,14 @@ Supported comment styles:
    - **File Pattern**: Specific files to scan (leave empty for all files)
 4. Click "Run workflow"
 
-### Debug Script
+### Manual Testing
 
-For testing and debugging, use the provided debug script:
+You can test the scanner component locally:
 
 ```bash
-# Basic usage (processes up to 3 TODOs)
-python debug_workflow.py
-
-# Process only 1 TODO for testing
-python debug_workflow.py --max-todos 1
-
-# Scan specific file pattern
-python debug_workflow.py --file-pattern "*.py"
+# Test the scanner on your codebase
+python scanner.py /path/to/your/code
 ```
-
-The debug script will:
-1. Trigger the workflow on GitHub
-2. Wait for it to complete (blocking)
-3. Show detailed logs from all jobs
-4. Report any errors or list URLs of created PRs
 
 **Requirements**: Set `GITHUB_TOKEN` environment variable with a GitHub token that has workflow permissions.
 
@@ -194,29 +178,7 @@ Here's what happens when the workflow runs:
 ```bash
 # Test the scanner
 python scanner.py /path/to/your/code
-
-# Test all components
-python test_local.py
 ```
-
-### Full Workflow Debug
-
-```bash
-# Debug the complete workflow (requires GitHub token)
-python debug_workflow.py --max-todos 1
-
-# With file pattern filtering
-python debug_workflow.py --max-todos 2 --file-pattern "*.py"
-
-# Monitor workflow execution
-python debug_workflow.py --max-todos 1 --monitor
-```
-
-The debug tool provides:
-- 🚀 Workflow triggering via GitHub API
-- 📊 Real-time monitoring of workflow runs
-- 🔍 Detailed logging and error reporting
-- ⏱️ Execution time tracking
 
 ## Smart Filtering
 
@@ -244,7 +206,7 @@ This ensures the workflow only processes unhandled TODOs and avoids creating dup
 1. **No TODOs found**:
    - Ensure you're using the correct format `TODO(openhands)`
    - Check that TODOs aren't in test files or documentation
-   - Use `python scanner.py .` to test locally
+   - Use `python scanner.py .` to test the scanner locally
 
 2. **"GitHub Actions is not permitted to create or approve pull requests"**:
    This is the most common issue. The agent successfully creates and pushes the branch, but PR creation fails.
@@ -303,24 +265,10 @@ The workflow includes comprehensive logging. Check the workflow run logs for det
 
 To improve this example:
 
-1. **Test locally**: Use `test_local.py` and `debug_workflow.py`
-2. **Add file type support**: Extend scanner for new languages
-3. **Improve filtering**: Enhance false positive detection
-4. **Better prompts**: Improve agent implementation quality
-
-### Development Workflow
-
-```bash
-# 1. Make changes to components
-# 2. Test locally
-python test_local.py
-
-# 3. Test with debug tool
-python debug_workflow.py --max-todos 1
-
-# 4. Update documentation
-# 5. Submit pull request
-```
+1. **Add file type support**: Extend scanner for new languages
+2. **Improve filtering**: Enhance false positive detection
+3. **Better prompts**: Improve agent implementation quality
+4. **Test locally**: Use `python scanner.py .` to test the scanner
 
 ## Related Examples
 
