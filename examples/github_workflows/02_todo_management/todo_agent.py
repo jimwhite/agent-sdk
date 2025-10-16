@@ -56,26 +56,17 @@ def get_current_branch() -> str:
     return result.stdout.strip()
 
 
-def get_pr_info(pr_url: str) -> dict | None:
+def find_pr_for_branch(branch_name: str) -> str | None:
     """
-    Extract PR information from GitHub API using the PR URL.
+    Find the PR URL for a given branch using GitHub API.
     
     Args:
-        pr_url: GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)
+        branch_name: Name of the feature branch
     
     Returns:
-        Dictionary with PR info including head and base branch names, or None if failed
+        PR URL if found, None otherwise
     """
-    import re
     import subprocess
-    
-    # Extract owner, repo, and PR number from URL
-    match = re.match(r'https://github\.com/([^/]+)/([^/]+)/pull/(\d+)', pr_url)
-    if not match:
-        logger.error(f"Invalid PR URL format: {pr_url}")
-        return None
-    
-    owner, repo, pr_number = match.groups()
     
     # Get GitHub token from environment
     github_token = os.getenv('GITHUB_TOKEN')
@@ -83,31 +74,54 @@ def get_pr_info(pr_url: str) -> dict | None:
         logger.error("GITHUB_TOKEN environment variable not set")
         return None
     
-    # Call GitHub API to get PR information
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+    # Get repository info from git remote
+    try:
+        remote_result = run_git_command(['git', 'remote', 'get-url', 'origin'])
+        remote_url = remote_result.strip()
+        
+        # Extract owner/repo from remote URL
+        import re
+        match = re.search(r'github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$', remote_url)
+        if not match:
+            logger.error(f"Could not parse GitHub repo from remote URL: {remote_url}")
+            return None
+        
+        owner, repo = match.groups()
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to get git remote URL: {e}")
+        return None
+    
+    # Search for PRs with this head branch
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
+    params = f"?head={owner}:{branch_name}&state=open"
     
     try:
         result = subprocess.run([
             'curl', '-s', '-H', f'Authorization: token {github_token}',
             '-H', 'Accept: application/vnd.github.v3+json',
-            api_url
+            f'{api_url}{params}'
         ], capture_output=True, text=True, check=True)
         
         import json
-        pr_data = json.loads(result.stdout)
+        prs = json.loads(result.stdout)
         
-        return {
-            'head_branch': pr_data['head']['ref'],
-            'base_branch': pr_data['base']['ref'],
-            'head_repo': pr_data['head']['repo']['full_name'],
-            'base_repo': pr_data['base']['repo']['full_name']
-        }
-    except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as e:
-        logger.error(f"Failed to get PR info from GitHub API: {e}")
+        if prs and len(prs) > 0:
+            return prs[0]['html_url']  # Return the first (should be only) PR
+        else:
+            logger.warning(f"No open PR found for branch {branch_name}")
+            return None
+            
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to search for PR: {e}")
         return None
 
 
-def update_todo_with_pr_url(file_path: str, line_num: int, pr_url: str) -> None:
+def update_todo_with_pr_url(
+    file_path: str, 
+    line_num: int, 
+    pr_url: str,
+    feature_branch: str
+) -> None:
     """
     Update the TODO comment with PR URL on main branch and feature branch.
     
@@ -115,25 +129,11 @@ def update_todo_with_pr_url(file_path: str, line_num: int, pr_url: str) -> None:
         file_path: Path to the file containing the TODO
         line_num: Line number of the TODO comment
         pr_url: URL of the pull request
+        feature_branch: Name of the feature branch
     """
-    # Get PR information from GitHub API
-    pr_info = get_pr_info(pr_url)
-    if not pr_info:
-        logger.error("Could not get PR information from GitHub API")
-        return
-    
-    feature_branch = pr_info['head_branch']
-    base_branch = pr_info['base_branch']
-    
-    logger.info(f"PR info: {feature_branch} -> {base_branch}")
-    
-    # Update on base branch (usually main)
-    current_branch = get_current_branch()
-    
-    # Switch to base branch
-    if current_branch != base_branch:
-        run_git_command(['git', 'checkout', base_branch])
-        run_git_command(['git', 'pull', 'origin', base_branch])
+    # Switch to main branch to update the TODO
+    run_git_command(['git', 'checkout', 'main'])
+    run_git_command(['git', 'pull', 'origin', 'main'])
     
     # Read and update the file
     with open(file_path, encoding='utf-8') as f:
@@ -151,25 +151,25 @@ def update_todo_with_pr_url(file_path: str, line_num: int, pr_url: str) -> None:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.writelines(lines)
             
-            # Commit the change on base branch
+            # Commit the change on main branch
             run_git_command(['git', 'add', file_path])
             run_git_command([
                 'git', 'commit', '-m', 
                 f'Update TODO with PR reference: {pr_url}'
             ])
-            run_git_command(['git', 'push', 'origin', base_branch])
+            run_git_command(['git', 'push', 'origin', 'main'])
             
             # Update the feature branch too
             try:
                 # Switch to feature branch and merge the change
                 run_git_command(['git', 'checkout', feature_branch])
-                run_git_command(['git', 'merge', base_branch, '--no-edit'])
+                run_git_command(['git', 'merge', 'main', '--no-edit'])
                 run_git_command(['git', 'push', 'origin', feature_branch])
             except subprocess.CalledProcessError:
                 logger.warning(f"Could not update feature branch {feature_branch}")
             finally:
-                # Switch back to base branch
-                run_git_command(['git', 'checkout', base_branch])
+                # Switch back to main
+                run_git_command(['git', 'checkout', 'main'])
 
 
 def process_todo(todo_data: dict) -> None:
@@ -220,27 +220,30 @@ def process_todo(todo_data: dict) -> None:
     logger.info("Sending TODO implementation request to agent")
     conversation.add_message(role='user', content=prompt)
     
+    # Store the initial branch (should be main)
+    initial_branch = get_current_branch()
+    
     # Run the agent
     agent.run(conversation=conversation)
     
-    # Check if agent created a PR
-    # Look for PR URLs in the response
-    pr_url = None
+    # After agent runs, check if we're on a different branch (feature branch)
+    current_branch = get_current_branch()
     
-    for message in conversation.messages:
-        if message.role == 'assistant' and 'pull/' in message.content:
-            # Extract PR URL from response
-            import re
-            pr_match = re.search(
-                r'https://github\.com/[^/]+/[^/]+/pull/\d+', message.content
-            )
-            if pr_match:
-                pr_url = pr_match.group(0)
-                break
-    
-    if not pr_url:
-        # Agent didn't create a PR, ask it to do so
-        logger.info("Agent didn't create a PR, requesting one")
+    if current_branch != initial_branch:
+        # Agent created a feature branch, find the PR for it
+        logger.info(f"Agent switched from {initial_branch} to {current_branch}")
+        pr_url = find_pr_for_branch(current_branch)
+        
+        if pr_url:
+            logger.info(f"Found PR URL: {pr_url}")
+            # Update the TODO comment
+            update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
+            logger.info(f"Updated TODO comment with PR URL: {pr_url}")
+        else:
+            logger.warning(f"Could not find PR for branch {current_branch}")
+    else:
+        # Agent didn't create a feature branch, ask it to do so
+        logger.info("Agent didn't create a feature branch, requesting one")
         follow_up = (
             "It looks like you haven't created a feature branch and pull request yet. "
             "Please create a feature branch for your changes and push them to create a "
@@ -249,28 +252,18 @@ def process_todo(todo_data: dict) -> None:
         conversation.add_message(role='user', content=follow_up)
         agent.run(conversation=conversation)
         
-        # Check again for PR URL
-        for message in conversation.messages[-2:]:  # Check last 2 messages
-            if message.role == 'assistant' and 'pull/' in message.content:
-                import re
-                pr_match = re.search(
-                    r'https://github\.com/[^/]+/[^/]+/pull/\d+', message.content
-                )
-                if pr_match:
-                    pr_url = pr_match.group(0)
-                    break
-    
-    if pr_url:
-        logger.info(f"Found PR URL: {pr_url}")
-        # Update the TODO comment using GitHub API to get branch info
-        update_todo_with_pr_url(file_path, line_num, pr_url)
-        logger.info(f"Updated TODO comment with PR URL: {pr_url}")
-    else:
-        logger.warning("Could not find PR URL in agent response")
-        logger.info("Agent response summary:")
-        for message in conversation.messages[-3:]:
-            if message.role == 'assistant':
-                logger.info(f"Assistant: {message.content[:200]}...")
+        # Check again for branch change
+        current_branch = get_current_branch()
+        if current_branch != initial_branch:
+            pr_url = find_pr_for_branch(current_branch)
+            if pr_url:
+                logger.info(f"Found PR URL: {pr_url}")
+                update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
+                logger.info(f"Updated TODO comment with PR URL: {pr_url}")
+            else:
+                logger.warning(f"Could not find PR for branch {current_branch}")
+        else:
+            logger.warning("Agent still didn't create a feature branch")
 
 
 def main():
