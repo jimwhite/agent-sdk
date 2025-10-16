@@ -17,7 +17,7 @@ The automated TODO management system consists of three main components:
    - Creates a feature branch
    - Uses OpenHands agent to implement the TODO
    - Creates a pull request with the implementation
-3. **Update Phase**: Updates the original TODO comment with the PR URL (e.g., `# TODO(openhands: https://github.com/owner/repo/pull/123)`)
+3. **Update Phase**: Updates the original TODO comment with the PR URL (e.g., `# TODO(in progress: https://github.com/owner/repo/pull/123)`)
 
 ## Files
 
@@ -130,7 +130,7 @@ Here's what happens when the workflow runs:
 
 4. **Update**: Updates the original TODO:
    ```python
-   # TODO(openhands: https://github.com/owner/repo/pull/123): Add error handling for network timeouts
+   # TODO(in progress: https://github.com/owner/repo/pull/123): Add error handling for network timeouts
    ```
 
 ## Configuration Options

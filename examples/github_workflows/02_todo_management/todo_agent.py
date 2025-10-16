@@ -228,7 +228,7 @@ def update_todo_with_pr_url(todo_info: dict, pr_url: str):
         # Replace the TODO comment with a reference to the PR
         updated_line = original_line.replace(
             'TODO(openhands)',
-            f'TODO(openhands: {pr_url})'
+            f'TODO(in progress: {pr_url})'
         )
         lines[line_num - 1] = updated_line
         
@@ -255,7 +255,7 @@ def update_todo_with_pr_url(todo_info: dict, pr_url: str):
                 if 'TODO(openhands)' in original_line and pr_url not in original_line:
                     updated_line = original_line.replace(
                         'TODO(openhands)',
-                        f'TODO(openhands: {pr_url})'
+                        f'TODO(in progress: {pr_url})'
                     )
                     lines[line_num - 1] = updated_line
                     
