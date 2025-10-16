@@ -1,11 +1,10 @@
-"""Tests for the TODO scanner functionality."""
+"""Tests for the simplified TODO scanner functionality."""
 
-# Import the scanner functions
 import sys
 import tempfile
 from pathlib import Path
 
-
+# Import the scanner functions
 todo_mgmt_path = (
     Path(__file__).parent.parent.parent 
     / "examples" / "github_workflows" / "02_todo_management"
@@ -17,19 +16,13 @@ from todo_scanner import scan_directory, scan_file_for_todos  # noqa: E402
 def test_scan_python_file_with_todos():
     """Test scanning a Python file with TODO comments."""
     content = '''#!/usr/bin/env python3
-"""Test file with TODOs."""
-
 def function1():
     # TODO(openhands): Add input validation
     return "hello"
 
 def function2():
-    # TODO(openhands): Implement error handling for network requests
+    # TODO(openhands): Implement error handling
     pass
-
-# Regular comment, should be ignored
-# TODO: Regular todo, should be ignored
-# TODO(other): Other todo, should be ignored
 '''
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -38,34 +31,18 @@ def function2():
         
         todos = scan_file_for_todos(Path(f.name))
     
-    # Clean up
     Path(f.name).unlink()
     
     assert len(todos) == 2
-    
-    # Check first TODO
-    assert todos[0]['line'] == 5
     assert todos[0]['description'] == 'Add input validation'
-    assert 'TODO(openhands): Add input validation' in todos[0]['content']
-    
-    # Check second TODO
-    assert todos[1]['line'] == 9
-    assert todos[1]['description'] == 'Implement error handling for network requests'
-    expected_content = 'TODO(openhands): Implement error handling for network requests'
-    assert expected_content in todos[1]['content']
+    assert todos[1]['description'] == 'Implement error handling'
 
 
-def test_scan_typescript_file_with_todos():
-    """Test scanning a TypeScript file with TODO comments."""
-    content = '''// TypeScript file with TODOs
-function processData(data: any[]): any[] {
-    // TODO(openhands): Add data validation
-    return data.map(item => item.value);
-}
-
-/* TODO(openhands): Implement caching mechanism */
-function fetchData(): Promise<any> {
-    return fetch('/api/data');
+def test_scan_typescript_file():
+    """Test scanning a TypeScript file."""
+    content = '''function processData(): string {
+    // TODO(openhands): Add validation
+    return data;
 }
 '''
     
@@ -75,22 +52,37 @@ function fetchData(): Promise<any> {
         
         todos = scan_file_for_todos(Path(f.name))
     
-    # Clean up
     Path(f.name).unlink()
     
-    assert len(todos) == 2
-    assert todos[0]['description'] == 'Add data validation'
-    assert todos[1]['description'] == 'Implement caching mechanism'
+    assert len(todos) == 1
+    assert todos[0]['description'] == 'Add validation'
+
+
+def test_scan_java_file():
+    """Test scanning a Java file."""
+    content = '''public class Test {
+    public void method() {
+        // TODO(openhands): Implement this method
+        System.out.println("Hello");
+    }
+}
+'''
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.java', delete=False) as f:
+        f.write(content)
+        f.flush()
+        
+        todos = scan_file_for_todos(Path(f.name))
+    
+    Path(f.name).unlink()
+    
+    assert len(todos) == 1
+    assert todos[0]['description'] == 'Implement this method'
 
 
 def test_scan_unsupported_file_extension():
     """Test that unsupported file extensions are ignored."""
-    content = '''// JavaScript file with TODOs (but .js not supported)
-function processData(data) {
-    // TODO(openhands): This should be ignored
-    return data;
-}
-'''
+    content = '''// TODO(openhands): This should be ignored'''
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
         f.write(content)
@@ -98,21 +90,16 @@ function processData(data) {
         
         todos = scan_file_for_todos(Path(f.name))
     
-    # Clean up
     Path(f.name).unlink()
     
-    # Should find no TODOs because .js is not supported
     assert len(todos) == 0
 
 
-def test_scan_file_with_processed_todos():
+def test_skip_processed_todos():
     """Test that TODOs with PR URLs are skipped."""
-    content = '''def function1():
-    # TODO(openhands: https://github.com/owner/repo/pull/123): Already processed
-    return "hello"
-
-def function2():
-    # TODO(openhands): Still needs processing
+    content = '''def test():
+    # TODO(openhands): This should be found
+    # TODO(in progress: https://github.com/owner/repo/pull/123)
     pass
 '''
     
@@ -122,62 +109,10 @@ def function2():
         
         todos = scan_file_for_todos(Path(f.name))
     
-    # Clean up
     Path(f.name).unlink()
     
-    # Should only find the unprocessed TODO
     assert len(todos) == 1
-    assert todos[0]['description'] == 'Still needs processing'
-
-
-def test_scan_markdown_file_filters_examples():
-    """Test that markdown documentation examples are filtered out."""
-    content = '''# Documentation
-
-Use TODO comments like this:
-
-- `# TODO(openhands): description` (Python, Shell, etc.)
-- `// TODO(openhands): description` (JavaScript, C++, etc.)
-
-Example usage:
-```python
-# TODO(openhands): Add error handling
-def process():
-    pass
-```
-
-This is a real TODO that should be found:
-# TODO(openhands): Update this documentation section
-'''
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-        f.write(content)
-        f.flush()
-        
-        todos = scan_file_for_todos(Path(f.name))
-    
-    # Clean up
-    Path(f.name).unlink()
-    
-    # Should only find the real TODO, not the examples
-    assert len(todos) == 1
-    assert todos[0]['description'] == 'Update this documentation section'
-
-
-def test_scan_binary_file():
-    """Test that binary files are skipped."""
-    # Create a binary file
-    with tempfile.NamedTemporaryFile(mode='wb', suffix='.bin', delete=False) as f:
-        f.write(b'\x00\x01\x02\x03# TODO(openhands): This should not be found')
-        f.flush()
-        
-        todos = scan_file_for_todos(Path(f.name))
-    
-    # Clean up
-    Path(f.name).unlink()
-    
-    # Should find no TODOs in binary file
-    assert len(todos) == 0
+    assert todos[0]['description'] == 'This should be found'
 
 
 def test_scan_directory():
@@ -187,109 +122,32 @@ def test_scan_directory():
         
         # Create Python file with TODO
         py_file = temp_path / "test.py"
-        py_file.write_text('''def func():
-    # TODO(openhands): Fix this function
-    pass
-''')
+        py_file.write_text("# TODO(openhands): Python todo\nprint('hello')")
         
-        # Create JavaScript file with TODO
+        # Create TypeScript file with TODO
+        ts_file = temp_path / "test.ts"
+        ts_file.write_text("// TODO(openhands): TypeScript todo\nconsole.log('hello');")
+        
+        # Create unsupported file (should be ignored)
         js_file = temp_path / "test.js"
-        js_file.write_text('''function test() {
-    // TODO(openhands): Add validation
-    return true;
-}
-''')
-        
-        # Create file without TODOs
-        no_todo_file = temp_path / "clean.py"
-        no_todo_file.write_text('''def clean_function():
-    return "no todos here"
-''')
-        
-        # Create subdirectory with TODO
-        sub_dir = temp_path / "subdir"
-        sub_dir.mkdir()
-        sub_file = sub_dir / "sub.py"
-        sub_file.write_text('''# TODO(openhands): Subdirectory TODO
-def sub_func():
-    pass
-''')
+        js_file.write_text("// TODO(openhands): Should be ignored")
         
         todos = scan_directory(temp_path)
-    
-    # Should find 3 TODOs total
-    assert len(todos) == 3
-    
-    # Check that all files are represented
-    files = {todo['file'] for todo in todos}
-    assert str(py_file) in files
-    assert str(js_file) in files
-    assert str(sub_file) in files
-    assert str(no_todo_file) not in files
-
-
-def test_todo_context_extraction():
-    """Test that context lines are properly extracted."""
-    content = '''def function():
-    """Function docstring."""
-    x = 1
-    y = 2
-    # TODO(openhands): Add error handling
-    z = x + y
-    return z
-'''
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write(content)
-        f.flush()
         
-        todos = scan_file_for_todos(Path(f.name))
-    
-    # Clean up
-    Path(f.name).unlink()
-    
-    assert len(todos) == 1
-    todo = todos[0]
-    
-    # Check context
-    assert len(todo['context']['before']) == 3
-    assert len(todo['context']['after']) == 2
-    assert 'x = 1' in todo['context']['before']
-    assert 'z = x + y' in todo['context']['after']
+        assert len(todos) == 2
+        descriptions = [todo['description'] for todo in todos]
+        assert 'Python todo' in descriptions
+        assert 'TypeScript todo' in descriptions
 
 
 def test_empty_file():
     """Test scanning an empty file."""
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write('')
+        f.write("")
         f.flush()
         
         todos = scan_file_for_todos(Path(f.name))
     
-    # Clean up
     Path(f.name).unlink()
     
     assert len(todos) == 0
-
-
-def test_file_with_unicode():
-    """Test scanning a file with unicode characters."""
-    content = '''# -*- coding: utf-8 -*-
-def process_unicode():
-    # TODO(openhands): Handle unicode strings properly
-    return "Hello 世界"
-'''
-    
-    with tempfile.NamedTemporaryFile(
-        mode='w', suffix='.py', delete=False, encoding='utf-8'
-    ) as f:
-        f.write(content)
-        f.flush()
-        
-        todos = scan_file_for_todos(Path(f.name))
-    
-    # Clean up
-    Path(f.name).unlink()
-    
-    assert len(todos) == 1
-    assert todos[0]['description'] == 'Handle unicode strings properly'

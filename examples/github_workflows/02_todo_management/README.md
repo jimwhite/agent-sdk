@@ -20,7 +20,7 @@ The automated TODO management system consists of three main components:
 ## Files
 
 - **`workflow.yml`**: GitHub Actions workflow file
-- **`todo_scanner.py`**: Python script to scan for TODO comments (Python, TypeScript, Java only)
+- **`todo_scanner.py`**: Simple Python script to scan for TODO comments (Python, TypeScript, Java only)
 - **`todo_agent.py`**: Python script that implements individual TODOs using OpenHands
 - **`prompt.py`**: Contains the prompt template for TODO implementation
 - **`README.md`**: This documentation file
