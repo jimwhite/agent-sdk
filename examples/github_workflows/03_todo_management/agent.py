@@ -183,18 +183,7 @@ def process_todo(todo_data: dict) -> dict:
         if base_url := os.getenv("LLM_BASE_URL"):
             llm_config["base_url"] = base_url
 
-        logger.info(f"Initializing LLM with model: {llm_config['model']}")
-        if "base_url" in llm_config:
-            logger.info(f"Using base URL: {llm_config['base_url']}")
-        
-        try:
-            llm = LLM(**llm_config)
-            logger.info("LLM initialized successfully")
-        except Exception as e:
-            error_msg = f"Failed to initialize LLM: {str(e)}"
-            logger.error(error_msg)
-            result["error"] = error_msg
-            return result
+        llm = LLM(**llm_config)
 
         # Create the prompt
         prompt = PROMPT.format(
@@ -210,33 +199,16 @@ def process_todo(todo_data: dict) -> dict:
 
         # Send the prompt to the agent
         logger.info("Sending TODO implementation request to agent")
-        try:
-            conversation.send_message(prompt)
-            logger.info("Message sent successfully to agent")
-        except Exception as e:
-            error_msg = f"Failed to send message to agent: {str(e)}"
-            logger.error(error_msg)
-            result["error"] = error_msg
-            return result
+        conversation.send_message(prompt)
 
         # Store the initial branch (should be main)
-        try:
-            initial_branch = get_current_branch()
-            logger.info(f"Initial branch: {initial_branch}")
-        except Exception as e:
-            logger.warning(f"Could not get initial branch: {str(e)}")
-            initial_branch = "main"  # fallback
+        initial_branch = get_current_branch()
+        logger.info(f"Initial branch: {initial_branch}")
 
         # Run the agent
         logger.info("Running OpenHands agent to implement TODO...")
-        try:
-            conversation.run()
-            logger.info("Agent execution completed")
-        except Exception as e:
-            error_msg = f"Agent execution failed: {str(e)}"
-            logger.error(error_msg)
-            result["error"] = error_msg
-            return result
+        conversation.run()
+        logger.info("Agent execution completed")
 
         # After agent runs, check if we're on a different branch (feature branch)
         current_branch = get_current_branch()
