@@ -187,7 +187,7 @@ jobs:
                   # Process the TODO
                   uv run python /tmp/agent.py "$TODO_JSON"
 
-            - name: Upload logs as artifact
+            - name: Upload logs and results as artifact
               uses: actions/upload-artifact@v4
               if: always()
               with:
@@ -195,6 +195,7 @@ jobs:
                   path: |
                       *.log
                       output/
+                      todo_result_*.json
                   retention-days: 7
 
     summary:
@@ -202,7 +203,13 @@ jobs:
         if: always()
         runs-on: ubuntu-latest
         steps:
-            - name: Create summary
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              if: needs.scan-todos.outputs.todo-count > 0
+              with:
+                  path: artifacts/
+                  
+            - name: Create comprehensive summary
               run: |-
                   echo "# Automated TODO Management Summary" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
@@ -219,6 +226,65 @@ jobs:
                       echo "❌ Some TODOs failed to process" >> $GITHUB_STEP_SUMMARY
                     else
                       echo "⚠️ TODO processing was skipped or cancelled" >> $GITHUB_STEP_SUMMARY
+                    fi
+                    
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "## TODOs and Pull Requests" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    
+                    # Process result files to create TODO/PR summary
+                    counter=1
+                    if [ -d "artifacts/" ]; then
+                      for result_file in artifacts/*/todo_result_*.json; do
+                        if [ -f "$result_file" ]; then
+                          echo "Processing result file: $result_file"
+                          
+                          # Extract information using Python and append to summary
+                          python3 -c "
+                  import json
+                  import sys
+                  
+                  try:
+                      with open('$result_file', 'r') as f:
+                          result = json.load(f)
+                      
+                      todo = result.get('todo', {})
+                      file_path = todo.get('file', 'unknown')
+                      line_num = todo.get('line', 'unknown')
+                      description = todo.get('description', 'No description')
+                      pr_url = result.get('pr_url')
+                      status = result.get('status', 'unknown')
+                      
+                      # Truncate description if too long
+                      if len(description) > 80:
+                          description = description[:77] + '...'
+                      
+                      print(f'$counter. **{file_path}** line {line_num}: {description}')
+                      
+                      if pr_url:
+                          print(f'   - 🔗 PR: [{pr_url}]({pr_url})')
+                          print(f'   - ✅ Status: {status}')
+                      else:
+                          if status == 'failed':
+                              error = result.get('error', 'Unknown error')
+                              print(f'   - ❌ Status: Failed - {error}')
+                          elif status == 'partial':
+                              print(f'   - ⚠️ Status: Partial - Branch created but no PR found')
+                          else:
+                              print(f'   - ⚠️ Status: {status}')
+                      
+                      print('')
+                      
+                  except Exception as e:
+                      print(f'$counter. Error processing result: {e}')
+                      print('')
+                  " >> $GITHUB_STEP_SUMMARY
+                          
+                          counter=$((counter + 1))
+                        fi
+                      done
+                    else
+                      echo "No result artifacts found." >> $GITHUB_STEP_SUMMARY
                     fi
                   fi
 

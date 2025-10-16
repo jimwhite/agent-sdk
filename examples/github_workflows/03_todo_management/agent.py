@@ -176,12 +176,15 @@ def update_todo_with_pr_url(
                 run_git_command(["git", "checkout", "main"])
 
 
-def process_todo(todo_data: dict) -> None:
+def process_todo(todo_data: dict) -> dict:
     """
     Process a single TODO item using OpenHands agent.
 
     Args:
         todo_data: Dictionary containing TODO information
+        
+    Returns:
+        Dictionary containing processing results
     """
     file_path = todo_data["file"]
     line_num = todo_data["line"]
@@ -189,94 +192,125 @@ def process_todo(todo_data: dict) -> None:
     todo_text = todo_data["text"]
 
     logger.info(f"Processing TODO in {file_path}:{line_num}")
-
-    # Check required environment variables
-    required_env_vars = ["LLM_API_KEY", "GITHUB_TOKEN", "GITHUB_REPOSITORY"]
-    for var in required_env_vars:
-        if not os.getenv(var):
-            logger.error(f"Required environment variable {var} is not set")
-            sys.exit(1)
-
-    # Set up LLM configuration
-    api_key = os.getenv("LLM_API_KEY")
-    if not api_key:
-        logger.error("LLM_API_KEY is required")
-        sys.exit(1)
-
-    llm_config = {
-        "model": os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929"),
-        "api_key": SecretStr(api_key),
+    
+    # Initialize result structure
+    result = {
+        "todo": todo_data,
+        "status": "failed",
+        "pr_url": None,
+        "branch": None,
+        "error": None
     }
 
-    if base_url := os.getenv("LLM_BASE_URL"):
-        llm_config["base_url"] = base_url
+    try:
+        # Check required environment variables
+        required_env_vars = ["LLM_API_KEY", "GITHUB_TOKEN", "GITHUB_REPOSITORY"]
+        for var in required_env_vars:
+            if not os.getenv(var):
+                error_msg = f"Required environment variable {var} is not set"
+                logger.error(error_msg)
+                result["error"] = error_msg
+                return result
 
-    llm = LLM(**llm_config)
+        # Set up LLM configuration
+        api_key = os.getenv("LLM_API_KEY")
+        if not api_key:
+            error_msg = "LLM_API_KEY is required"
+            logger.error(error_msg)
+            result["error"] = error_msg
+            return result
 
-    # Create the prompt
-    prompt = PROMPT.format(
-        file_path=file_path,
-        line_num=line_num,
-        description=description,
-        todo_text=todo_text,
-    )
+        llm_config = {
+            "model": os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929"),
+            "api_key": SecretStr(api_key),
+        }
 
-    # Initialize agent and conversation
-    agent = get_default_agent(llm=llm)
-    conversation = Conversation(agent=agent)
+        if base_url := os.getenv("LLM_BASE_URL"):
+            llm_config["base_url"] = base_url
 
-    # Send the prompt to the agent
-    logger.info("Sending TODO implementation request to agent")
-    conversation.send_message(prompt)
+        llm = LLM(**llm_config)
 
-    # Store the initial branch (should be main)
-    initial_branch = get_current_branch()
-    logger.info(f"Initial branch: {initial_branch}")
-
-    # Run the agent
-    logger.info("Running OpenHands agent to implement TODO...")
-    conversation.run()
-    logger.info("Agent execution completed")
-
-    # After agent runs, check if we're on a different branch (feature branch)
-    current_branch = get_current_branch()
-    logger.info(f"Current branch after agent run: {current_branch}")
-
-    if current_branch != initial_branch:
-        # Agent created a feature branch, find the PR for it
-        logger.info(f"Agent switched from {initial_branch} to {current_branch}")
-        pr_url = find_pr_for_branch(current_branch)
-
-        if pr_url:
-            logger.info(f"Found PR URL: {pr_url}")
-            # Update the TODO comment
-            update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
-            logger.info(f"Updated TODO comment with PR URL: {pr_url}")
-        else:
-            logger.warning(f"Could not find PR for branch {current_branch}")
-    else:
-        # Agent didn't create a feature branch, ask it to do so
-        logger.info("Agent didn't create a feature branch, requesting one")
-        follow_up = (
-            "It looks like you haven't created a feature branch and pull request yet. "
-            "Please create a feature branch for your changes and push them to create a "
-            "pull request."
+        # Create the prompt
+        prompt = PROMPT.format(
+            file_path=file_path,
+            line_num=line_num,
+            description=description,
+            todo_text=todo_text,
         )
-        conversation.send_message(follow_up)
-        conversation.run()
 
-        # Check again for branch change
+        # Initialize agent and conversation
+        agent = get_default_agent(llm=llm)
+        conversation = Conversation(agent=agent)
+
+        # Send the prompt to the agent
+        logger.info("Sending TODO implementation request to agent")
+        conversation.send_message(prompt)
+
+        # Store the initial branch (should be main)
+        initial_branch = get_current_branch()
+        logger.info(f"Initial branch: {initial_branch}")
+
+        # Run the agent
+        logger.info("Running OpenHands agent to implement TODO...")
+        conversation.run()
+        logger.info("Agent execution completed")
+
+        # After agent runs, check if we're on a different branch (feature branch)
         current_branch = get_current_branch()
+        logger.info(f"Current branch after agent run: {current_branch}")
+        result["branch"] = current_branch
+
         if current_branch != initial_branch:
+            # Agent created a feature branch, find the PR for it
+            logger.info(f"Agent switched from {initial_branch} to {current_branch}")
             pr_url = find_pr_for_branch(current_branch)
+
             if pr_url:
                 logger.info(f"Found PR URL: {pr_url}")
+                result["pr_url"] = pr_url
+                result["status"] = "success"
+                # Update the TODO comment
                 update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
                 logger.info(f"Updated TODO comment with PR URL: {pr_url}")
             else:
                 logger.warning(f"Could not find PR for branch {current_branch}")
+                result["status"] = "partial"  # Branch created but no PR found
         else:
-            logger.warning("Agent still didn't create a feature branch")
+            # Agent didn't create a feature branch, ask it to do so
+            logger.info("Agent didn't create a feature branch, requesting one")
+            follow_up = (
+                "It looks like you haven't created a feature branch and pull request yet. "
+                "Please create a feature branch for your changes and push them to create a "
+                "pull request."
+            )
+            conversation.send_message(follow_up)
+            conversation.run()
+
+            # Check again for branch change
+            current_branch = get_current_branch()
+            result["branch"] = current_branch
+            if current_branch != initial_branch:
+                pr_url = find_pr_for_branch(current_branch)
+                if pr_url:
+                    logger.info(f"Found PR URL: {pr_url}")
+                    result["pr_url"] = pr_url
+                    result["status"] = "success"
+                    update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
+                    logger.info(f"Updated TODO comment with PR URL: {pr_url}")
+                else:
+                    logger.warning(f"Could not find PR for branch {current_branch}")
+                    result["status"] = "partial"  # Branch created but no PR found
+            else:
+                logger.warning("Agent still didn't create a feature branch")
+                result["status"] = "failed"
+                result["error"] = "Agent did not create a feature branch"
+                
+    except Exception as e:
+        logger.error(f"Error processing TODO: {e}")
+        result["error"] = str(e)
+        result["status"] = "failed"
+    
+    return result
 
 
 def main():
@@ -301,7 +335,27 @@ def main():
             logger.error(f"Missing required field in TODO data: {field}")
             sys.exit(1)
 
-    process_todo(todo_data)
+    # Process the TODO and get results
+    result = process_todo(todo_data)
+    
+    # Output result to a file for the workflow to collect
+    result_file = f"todo_result_{todo_data['file'].replace('/', '_')}_{todo_data['line']}.json"
+    with open(result_file, 'w') as f:
+        json.dump(result, f, indent=2)
+    
+    logger.info(f"Result written to {result_file}")
+    logger.info(f"Processing result: {result['status']}")
+    
+    if result['status'] == 'success':
+        logger.info(f"PR URL: {result['pr_url']}")
+    elif result['error']:
+        logger.error(f"Error: {result['error']}")
+    
+    # Exit with appropriate code
+    if result['status'] == 'failed':
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 
 if __name__ == "__main__":
