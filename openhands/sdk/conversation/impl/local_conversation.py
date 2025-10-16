@@ -37,6 +37,7 @@ class LocalConversation(BaseConversation):
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: Mapping[str, int] | None = None,
         visualize: bool = True,
         secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
@@ -56,6 +57,10 @@ class LocalConversation(BaseConversation):
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
+            stuck_detection_thresholds: Optional dict to configure stuck detection
+                      thresholds. Keys: 'action_observation', 'action_error',
+                      'monologue', 'alternating_pattern'. Values are integers
+                      representing the number of repetitions before triggering.
         """
         self.agent = agent
         if isinstance(workspace, str):
@@ -99,7 +104,17 @@ class LocalConversation(BaseConversation):
         self.max_iteration_per_run = max_iteration_per_run
 
         # Initialize stuck detector
-        self._stuck_detector = StuckDetector(self._state) if stuck_detection else None
+        if stuck_detection:
+            thresholds = stuck_detection_thresholds or {}
+            self._stuck_detector = StuckDetector(
+                self._state,
+                action_observation_threshold=thresholds.get("action_observation", 4),
+                action_error_threshold=thresholds.get("action_error", 3),
+                monologue_threshold=thresholds.get("monologue", 3),
+                alternating_pattern_threshold=thresholds.get("alternating_pattern", 6),
+            )
+        else:
+            self._stuck_detector = None
 
         with self._state:
             self.agent.init_state(self._state, on_event=self._on_event)
