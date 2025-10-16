@@ -61,8 +61,10 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
             except Exception:
                 vscode_service = VSCodeService(port=config.vscode_port)
 
-    desktop_service = get_desktop_service()
+    # Attach optional services as well for DI fallbacks
+    api.state.vscode_service = vscode_service
 
+    desktop_service = get_desktop_service()
 
     # Start VSCode service if enabled
     if vscode_service is not None:

@@ -1,7 +1,12 @@
 # Compatibility shim: if this module is imported as top-level 'glob' during
 # build isolation (e.g., by setuptools), delegate to the stdlib glob module.
 # This avoids name shadowing from the package path 'openhands.tools.glob'.
-import sys, sysconfig, importlib.util, os  # noqa: E401
+import importlib.util
+import os
+import sys  # noqa: E401
+import sysconfig
+
+
 if __name__ == "glob":  # pragma: no cover - build-time path only
     stdlib = sysconfig.get_paths().get("stdlib")
     if stdlib:
@@ -26,7 +31,11 @@ def __getattr__(name):  # PEP 562 lazy import
     if name in {"GlobTool", "GlobAction", "GlobObservation"}:
         from .definition import GlobAction, GlobObservation, GlobTool
 
-        return {"GlobTool": GlobTool, "GlobAction": GlobAction, "GlobObservation": GlobObservation}[name]
+        return {
+            "GlobTool": GlobTool,
+            "GlobAction": GlobAction,
+            "GlobObservation": GlobObservation,
+        }[name]
     if name == "GlobExecutor":
         from .impl import GlobExecutor
 
