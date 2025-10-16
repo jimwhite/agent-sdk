@@ -224,13 +224,22 @@ The debug tool provides:
 
 ## Smart Filtering
 
-The scanner intelligently filters out false positives:
+The scanner intelligently filters out false positives and already processed TODOs:
 
+### Processed TODO Filtering
+- ❌ TODOs with PR URLs (`pull/`, `github.com/`)
+- ❌ TODOs with progress markers (`TODO(in progress:`, `TODO(implemented:`, `TODO(completed:`)
+- ❌ TODOs containing any URLs (`https://`)
+
+### False Positive Filtering
 - ❌ Documentation strings and comments
 - ❌ Test files and mock data
 - ❌ Quoted strings containing TODO references
+- ❌ Print statements and variable assignments
 - ❌ Code that references TODO(openhands) but isn't a TODO
 - ✅ Legitimate TODO comments in source code
+
+This ensures the workflow only processes unhandled TODOs and avoids creating duplicate PRs.
 
 ## Troubleshooting
 

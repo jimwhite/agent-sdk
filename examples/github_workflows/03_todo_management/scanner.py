@@ -54,22 +54,66 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
 
     todos = []
     todo_pattern = re.compile(r"TODO\(openhands\)(?::\s*(.*))?", re.IGNORECASE)
+    in_docstring = False
+    docstring_delimiter = None
 
     for line_num, line in enumerate(lines, 1):
+        # Track docstring state - handle single line and multi-line docstrings
+        triple_double_count = line.count('"""')
+        triple_single_count = line.count("'''")
+
+        if triple_double_count > 0:
+            if triple_double_count == 2:  # Single line docstring
+                # Don't change in_docstring state for single line docstrings
+                pass
+            elif not in_docstring:
+                in_docstring = True
+                docstring_delimiter = '"""'
+            elif docstring_delimiter == '"""':
+                in_docstring = False
+                docstring_delimiter = None
+        elif triple_single_count > 0:
+            if triple_single_count == 2:  # Single line docstring
+                # Don't change in_docstring state for single line docstrings
+                pass
+            elif not in_docstring:
+                in_docstring = True
+                docstring_delimiter = "'''"
+            elif docstring_delimiter == "'''":
+                in_docstring = False
+                docstring_delimiter = None
         match = todo_pattern.search(line)
-        if match and "pull/" not in line:  # Skip already processed TODOs
-            # Skip false positives
+        if match:
             stripped_line = line.strip()
 
-            # Skip if it's in a docstring or comment that's just describing TODOs
+            # Skip TODOs that have already been processed by the workflow
             if (
-                '"""' in line
+                "pull/" in line  # Contains PR URL
+                or "TODO(in progress:" in line  # In progress marker
+                or "TODO(implemented:" in line  # Implemented marker
+                or "TODO(completed:" in line  # Completed marker
+                or "github.com/" in line  # Contains GitHub URL
+                or "https://" in line  # Contains any URL
+            ):
+                logger.debug(
+                    f"Skipping already processed TODO in {file_path}:{line_num}: "
+                    f"{stripped_line}"
+                )
+                continue
+
+            # Skip false positives
+            if (
+                in_docstring  # Skip TODOs inside docstrings
+                or '"""' in line
                 or "'''" in line
                 or stripped_line.startswith("Scans for")
                 or stripped_line.startswith("This script processes")
                 or "description=" in line
                 or ".write_text(" in line  # Skip test file mock data
                 or 'content = """' in line  # Skip test file mock data
+                or "print(" in line  # Skip print statements
+                or 'print("' in line  # Skip print statements with double quotes
+                or "print('" in line  # Skip print statements with single quotes
                 or (
                     "TODO(openhands)" in line and '"' in line and line.count('"') >= 2
                 )  # Skip quoted strings
@@ -133,13 +177,17 @@ def main():
 
     args = parser.parse_args()
 
-    directory = Path(args.directory)
-    if not directory.exists():
-        logger.error(f"Directory '{directory}' does not exist")
+    path = Path(args.directory)
+    if not path.exists():
+        logger.error(f"Path '{path}' does not exist")
         return 1
 
-    logger.info(f"Starting TODO scan in directory: {directory}")
-    todos = scan_directory(directory)
+    if path.is_file():
+        logger.info(f"Starting TODO scan on file: {path}")
+        todos = scan_file_for_todos(path)
+    else:
+        logger.info(f"Starting TODO scan in directory: {path}")
+        todos = scan_directory(path)
     logger.info(f"Scan complete. Found {len(todos)} total TODO(s)")
     output = json.dumps(todos, indent=2)
 
