@@ -221,7 +221,42 @@ jobs:
                   EOF
                   )
 
-                  uv run python agent.py "$TODO_JSON"
+                  echo "JSON payload for agent:"
+                  echo "$TODO_JSON"
+
+                  # Debug environment and setup
+                  echo "Current working directory: $(pwd)"
+                  echo "Environment variables:"
+                  echo "  LLM_MODEL: $LLM_MODEL"
+                  echo "  LLM_BASE_URL: $LLM_BASE_URL"
+                  echo "  GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+                  echo "  LLM_API_KEY: ${LLM_API_KEY:+[SET]}"
+                  echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:+[SET]}"
+                  echo "Available files:"
+                  ls -la
+
+                  # Run the agent with comprehensive logging
+                  echo "Starting agent execution..."
+                  set +e  # Don't exit on error, we want to capture it
+                  uv run python agent.py "$TODO_JSON" 2>&1 | tee agent_output.log
+                  AGENT_EXIT_CODE=$?
+                  set -e
+
+                  echo "Agent exit code: $AGENT_EXIT_CODE"
+                  echo "Agent output log:"
+                  cat agent_output.log
+
+                  # Check if agent created any result files
+                  echo "Files created by agent:"
+                  ls -la *.json || echo "No JSON result files found"
+
+                  # If agent failed, show more details
+                  if [ $AGENT_EXIT_CODE -ne 0 ]; then
+                    echo "Agent failed with exit code $AGENT_EXIT_CODE"
+                    echo "Last 50 lines of agent output:"
+                    tail -50 agent_output.log
+                    exit $AGENT_EXIT_CODE
+                  fi
 
                   # Check if any changes were made
                   cd "$GITHUB_WORKSPACE"
