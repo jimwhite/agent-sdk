@@ -23,6 +23,7 @@ The automated TODO management system consists of three main components:
 - **`scanner.py`**: Simple Python script to scan for TODO comments (Python, TypeScript, Java only)
 - **`agent.py`**: Python script that implements individual TODOs using OpenHands
 - **`prompt.py`**: Contains the prompt template for TODO implementation
+- **`debug_workflow.py`**: Debug script to trigger and monitor the workflow
 - **`README.md`**: This documentation file
 
 ## Setup
@@ -80,6 +81,29 @@ Supported comment styles:
    - **Max TODOs**: Maximum number of TODOs to process (default: 3)
    - **File Pattern**: Specific files to scan (leave empty for all files)
 4. Click "Run workflow"
+
+### Debug Script
+
+For testing and debugging, use the provided debug script:
+
+```bash
+# Basic usage (processes up to 3 TODOs)
+python debug_workflow.py
+
+# Process only 1 TODO for testing
+python debug_workflow.py --max-todos 1
+
+# Scan specific file pattern
+python debug_workflow.py --file-pattern "*.py"
+```
+
+The debug script will:
+1. Trigger the workflow on GitHub
+2. Wait for it to complete (blocking)
+3. Show detailed logs from all jobs
+4. Report any errors or list URLs of created PRs
+
+**Requirements**: Set `GITHUB_TOKEN` environment variable with a GitHub token that has workflow permissions.
 
 ### Scheduled runs
 
