@@ -13,13 +13,14 @@ import re
 import sys
 from pathlib import Path
 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.StreamHandler(sys.stderr),  # Log to stderr to avoid interfering with JSON output
-    ]
+        logging.StreamHandler(sys.stderr),  # Log to stderr to avoid JSON interference
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -30,18 +31,18 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
     if file_path.suffix.lower() not in {".py", ".ts", ".java"}:
         logger.debug(f"Skipping file {file_path} (unsupported extension)")
         return []
-    
+
     # Skip test files and example files that contain mock TODOs
     file_str = str(file_path)
     if (
-        "/test" in file_str or
-        "/tests/" in file_str or
-        "test_" in file_path.name or
-        "/examples/github_workflows/03_todo_management/" in file_str  # Skip our own example files
+        "/test" in file_str
+        or "/tests/" in file_str
+        or "test_" in file_path.name
+        or "/examples/github_workflows/03_todo_management/" in file_str  # Skip examples
     ):
         logger.debug(f"Skipping test/example file: {file_path}")
         return []
-    
+
     logger.debug(f"Scanning file: {file_path}")
 
     try:
@@ -59,21 +60,26 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
         if match and "pull/" not in line:  # Skip already processed TODOs
             # Skip false positives
             stripped_line = line.strip()
-            
+
             # Skip if it's in a docstring or comment that's just describing TODOs
             if (
-                '"""' in line or
-                "'''" in line or
-                stripped_line.startswith('Scans for') or
-                stripped_line.startswith('This script processes') or
-                'description=' in line or
-                '.write_text(' in line or  # Skip test file mock data
-                'content = """' in line or  # Skip test file mock data
-                'TODO(openhands)' in line and '"' in line and line.count('"') >= 2  # Skip quoted strings
+                '"""' in line
+                or "'''" in line
+                or stripped_line.startswith("Scans for")
+                or stripped_line.startswith("This script processes")
+                or "description=" in line
+                or ".write_text(" in line  # Skip test file mock data
+                or 'content = """' in line  # Skip test file mock data
+                or (
+                    "TODO(openhands)" in line and '"' in line and line.count('"') >= 2
+                )  # Skip quoted strings
             ):
-                logger.debug(f"Skipping false positive in {file_path}:{line_num}: {stripped_line}")
+                logger.debug(
+                    f"Skipping false positive in {file_path}:{line_num}: "
+                    f"{stripped_line}"
+                )
                 continue
-                
+
             description = match.group(1).strip() if match.group(1) else ""
             todo_item = {
                 "file": str(file_path),
