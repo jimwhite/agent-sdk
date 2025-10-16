@@ -32,10 +32,7 @@ def get_bash_event_service(request: Request) -> BashEventService:
     svc = getattr(request.app.state, "bash_event_service", None)
     if svc is None:
         cfg = getattr(request.app.state, "config", get_default_config())
-        svc = BashEventService(
-            working_dir=cfg.workspace_path,
-            bash_events_dir=cfg.bash_events_dir,
-        )
+        svc = BashEventService(bash_events_dir=cfg.bash_events_dir)
         request.app.state.bash_event_service = svc
     return svc
 

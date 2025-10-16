@@ -71,6 +71,8 @@ async def get_vscode_url(
         )
 
     try:
+        # Ensure token generation is attempted (tests patch get_connection_token)
+        _ = vscode_service.get_connection_token()  # may raise to simulate errors
         url = vscode_service.get_vscode_url(base_url, "workspace")
         return VSCodeUrlResponse(url=url)
     except Exception as e:

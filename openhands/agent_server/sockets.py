@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from openhands.agent_server.bash_service import BashEventService
 from openhands.agent_server.config import get_default_config
 from openhands.agent_server.conversation_service import ConversationService
-from openhands.agent_server.dependencies import get_bash_event_service
+from openhands.agent_server.dependencies import get_bash_event_service, get_conversation_service
 from openhands.agent_server.models import BashEventBase
 from openhands.agent_server.pub_sub import Subscriber
 from openhands.sdk import Event, Message
