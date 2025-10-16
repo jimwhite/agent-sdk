@@ -12,8 +12,9 @@ from openhands.sdk.event import (
     ObservationEvent,
     PauseEvent,
     SystemPromptEvent,
+    UserRejectObservation,
 )
-from openhands.sdk.event.base import EventBase
+from openhands.sdk.event.base import Event
 from openhands.sdk.event.condenser import Condensation
 from openhands.sdk.event.error import LLMErrorEvent
 
@@ -41,6 +42,7 @@ DEFAULT_HIGHLIGHT_REGEX = {
     r"^Arguments:": f"bold {_ACTION_COLOR}",
     r"^Tool:": f"bold {_OBSERVATION_COLOR}",
     r"^Result:": f"bold {_OBSERVATION_COLOR}",
+    r"^Rejection Reason:": f"bold {_ERROR_COLOR}",
     # Markdown-style
     r"\*\*(.*?)\*\*": "bold",
     r"\*(.*?)\*": "italic",
@@ -77,7 +79,7 @@ class ConversationVisualizer:
         self._highlight_patterns: dict[str, str] = highlight_regex or {}
         self._conversation_stats = conversation_stats
 
-    def on_event(self, event: EventBase) -> None:
+    def on_event(self, event: Event) -> None:
         """Main event handler that displays events with Rich formatting."""
         panel = self._create_event_panel(event)
         if panel:
@@ -106,7 +108,7 @@ class ConversationVisualizer:
 
         return highlighted
 
-    def _create_event_panel(self, event: EventBase) -> Panel | None:
+    def _create_event_panel(self, event: Event) -> Panel | None:
         """Create a Rich Panel for the event with appropriate styling."""
         # Use the event's visualize property for content
         content = event.visualize
@@ -128,9 +130,17 @@ class ConversationVisualizer:
                 expand=True,
             )
         elif isinstance(event, ActionEvent):
+            # Check if action is None (non-executable)
+            if event.action is None:
+                title = (
+                    f"[bold {_ACTION_COLOR}]Agent Action (Not Executed)"
+                    f"[/bold {_ACTION_COLOR}]"
+                )
+            else:
+                title = f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]"
             return Panel(
                 content,
-                title=f"[bold {_ACTION_COLOR}]Agent Action[/bold {_ACTION_COLOR}]",
+                title=title,
                 subtitle=self._format_metrics_subtitle(),
                 border_style=_ACTION_COLOR,
                 padding=_PANEL_PADDING,
@@ -142,6 +152,15 @@ class ConversationVisualizer:
                 title=f"[bold {_OBSERVATION_COLOR}]Observation"
                 f"[/bold {_OBSERVATION_COLOR}]",
                 border_style=_OBSERVATION_COLOR,
+                padding=_PANEL_PADDING,
+                expand=True,
+            )
+        elif isinstance(event, UserRejectObservation):
+            return Panel(
+                content,
+                title=f"[bold {_ERROR_COLOR}]User Rejected Action"
+                f"[/bold {_ERROR_COLOR}]",
+                border_style=_ERROR_COLOR,
                 padding=_PANEL_PADDING,
                 expand=True,
             )
