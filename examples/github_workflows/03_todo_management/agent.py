@@ -4,7 +4,7 @@ TODO Agent for OpenHands Automated TODO Management
 
 This script processes individual TODO(openhands) comments by:
 1. Using OpenHands agent to implement the TODO (agent creates branch and PR)
-2. Updating the original TODO comment with the PR URL
+2. Tracking the processing status and PR information for reporting
 
 Usage:
     python agent.py <todo_json>
@@ -131,56 +131,6 @@ def find_pr_for_branch(branch_name: str) -> str | None:
         return None
 
 
-def update_todo_with_pr_url(
-    file_path: str, line_num: int, pr_url: str, feature_branch: str
-) -> None:
-    """
-    Update the TODO comment with PR URL on main branch and feature branch.
-
-    Args:
-        file_path: Path to the file containing the TODO
-        line_num: Line number of the TODO comment
-        pr_url: URL of the pull request
-        feature_branch: Name of the feature branch
-    """
-    # Switch to main branch to update the TODO
-    run_git_command(["git", "checkout", "main"])
-    run_git_command(["git", "pull", "origin", "main"])
-
-    # Read and update the file
-    with open(file_path, encoding="utf-8") as f:
-        lines = f.readlines()
-
-    if line_num <= len(lines):
-        original_line = lines[line_num - 1]
-        if "TODO(openhands)" in original_line and pr_url not in original_line:
-            updated_line = original_line.replace(
-                "TODO(openhands)", f"TODO(in progress: {pr_url})"
-            )
-            lines[line_num - 1] = updated_line
-
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-
-            # Commit the change on main branch
-            run_git_command(["git", "add", file_path])
-            run_git_command(
-                ["git", "commit", "-m", f"Update TODO with PR reference: {pr_url}"]
-            )
-            run_git_command(["git", "push", "origin", "main"])
-
-            # Update the feature branch too
-            try:
-                # Switch to feature branch and merge the change
-                run_git_command(["git", "checkout", feature_branch])
-                run_git_command(["git", "merge", "main", "--no-edit"])
-                run_git_command(["git", "push", "origin", feature_branch])
-            except subprocess.CalledProcessError:
-                logger.error(f"Could not update feature branch {feature_branch}")
-            finally:
-                # Switch back to main
-                run_git_command(["git", "checkout", "main"])
-
 
 def process_todo(todo_data: dict) -> dict:
     """
@@ -275,9 +225,7 @@ def process_todo(todo_data: dict) -> dict:
                 logger.info(f"Found PR URL: {pr_url}")
                 result["pr_url"] = pr_url
                 result["status"] = "success"
-                # Update the TODO comment
-                update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
-                logger.info(f"Updated TODO comment with PR URL: {pr_url}")
+                logger.info(f"TODO processed successfully with PR: {pr_url}")
             else:
                 logger.warning(f"Could not find PR for branch {current_branch}")
                 result["status"] = "partial"  # Branch created but no PR found
@@ -302,8 +250,7 @@ def process_todo(todo_data: dict) -> dict:
                     logger.info(f"Found PR URL: {pr_url}")
                     result["pr_url"] = pr_url
                     result["status"] = "success"
-                    update_todo_with_pr_url(file_path, line_num, pr_url, current_branch)
-                    logger.info(f"Updated TODO comment with PR URL: {pr_url}")
+                    logger.info(f"TODO processed successfully with PR: {pr_url}")
                 else:
                     logger.warning(f"Could not find PR for branch {current_branch}")
                     result["status"] = "partial"  # Branch created but no PR found

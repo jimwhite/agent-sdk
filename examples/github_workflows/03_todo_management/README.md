@@ -16,7 +16,7 @@ The workflow consists of four main components:
 - 🔍 **Smart Scanning**: Finds legitimate TODO(openhands) comments while filtering out false positives
 - 🤖 **AI Implementation**: Uses OpenHands agent to automatically implement TODOs
 - 🔄 **PR Management**: Creates feature branches and pull requests automatically
-- 📝 **Progress Tracking**: Updates TODO comments with PR URLs
+- 📝 **Progress Tracking**: Tracks TODO processing status and PR creation
 - 🐛 **Debug Support**: Comprehensive logging and local testing tools
 - ⚙️ **Configurable**: Customizable limits and file patterns
 
@@ -31,16 +31,12 @@ The workflow consists of four main components:
    - Creates a feature branch
    - Uses OpenHands agent to implement the TODO
    - Creates a pull request with the implementation
-   - Updates the original TODO comment with the PR URL
+   - Tracks processing status and PR information
 
-3. **Update Phase**: Original TODO comments are updated:
-   ```python
-   # Before
-   # TODO(openhands): Add input validation
-   
-   # After (when PR is created)
-   # TODO(in progress: https://github.com/owner/repo/pull/123): Add input validation
-   ```
+3. **Summary Phase**: Generates a comprehensive summary showing:
+   - All processed TODOs with their file locations
+   - Associated pull request URLs for successful implementations
+   - Processing status (success, partial, failed) for each TODO
 
 ## Files
 
