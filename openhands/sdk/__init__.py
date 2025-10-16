@@ -6,11 +6,14 @@ from openhands.sdk.context.condenser import (
     LLMSummarizingCondenser,
 )
 from openhands.sdk.conversation import (
+    BaseConversation,
     Conversation,
     ConversationCallbackType,
-    ConversationType,
+    LocalConversation,
+    RemoteConversation,
 )
-from openhands.sdk.event import EventBase, EventWithMetrics, LLMConvertibleEvent
+from openhands.sdk.conversation.conversation_stats import ConversationStats
+from openhands.sdk.event import Event, LLMConvertibleEvent
 from openhands.sdk.event.llm_convertible import MessageEvent
 from openhands.sdk.io import FileStore, LocalFileStore
 from openhands.sdk.llm import (
@@ -18,20 +21,32 @@ from openhands.sdk.llm import (
     ImageContent,
     LLMRegistry,
     Message,
+    RedactedThinkingBlock,
     RegistryEvent,
     TextContent,
+    ThinkingBlock,
 )
 from openhands.sdk.logger import get_logger
-from openhands.sdk.mcp import MCPClient, MCPTool, MCPToolObservation, create_mcp_tools
+from openhands.sdk.mcp import (
+    MCPClient,
+    MCPToolDefinition,
+    MCPToolObservation,
+    create_mcp_tools,
+)
 from openhands.sdk.tool import (
-    ActionBase,
-    ObservationBase,
+    Action,
+    Observation,
     Tool,
     ToolBase,
-    ToolSpec,
+    ToolDefinition,
     list_registered_tools,
     register_tool,
     resolve_tool,
+)
+from openhands.sdk.workspace import (
+    LocalWorkspace,
+    RemoteWorkspace,
+    Workspace,
 )
 
 
@@ -43,28 +58,32 @@ except PackageNotFoundError:
 __all__ = [
     "LLM",
     "LLMRegistry",
+    "ConversationStats",
     "RegistryEvent",
     "Message",
     "TextContent",
     "ImageContent",
+    "ThinkingBlock",
+    "RedactedThinkingBlock",
     "Tool",
+    "ToolDefinition",
     "ToolBase",
-    "ToolSpec",
     "AgentBase",
     "Agent",
-    "ActionBase",
-    "ObservationBase",
+    "Action",
+    "Observation",
     "MCPClient",
-    "MCPTool",
+    "MCPToolDefinition",
     "MCPToolObservation",
     "MessageEvent",
     "create_mcp_tools",
     "get_logger",
     "Conversation",
-    "ConversationType",
+    "BaseConversation",
+    "LocalConversation",
+    "RemoteConversation",
     "ConversationCallbackType",
-    "EventBase",
-    "EventWithMetrics",
+    "Event",
     "LLMConvertibleEvent",
     "AgentContext",
     "LLMSummarizingCondenser",
@@ -73,5 +92,8 @@ __all__ = [
     "register_tool",
     "resolve_tool",
     "list_registered_tools",
+    "Workspace",
+    "LocalWorkspace",
+    "RemoteWorkspace",
     "__version__",
 ]

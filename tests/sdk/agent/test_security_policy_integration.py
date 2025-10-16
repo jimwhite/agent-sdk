@@ -4,10 +4,21 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from unittest.mock import patch
+
+from litellm import ChatCompletionMessageToolCall
+from litellm.types.utils import (
+    Choices,
+    Function,
+    Message as LiteLLMMessage,
+    ModelResponse,
+)
 from pydantic import SecretStr
 
 from openhands.sdk.agent import Agent
-from openhands.sdk.llm import LLM
+from openhands.sdk.conversation import Conversation
+from openhands.sdk.event import ActionEvent, AgentErrorEvent
+from openhands.sdk.llm import LLM, Message, TextContent
 from openhands.sdk.security.llm_analyzer import LLMSecurityAnalyzer
 
 
@@ -15,15 +26,38 @@ def test_security_policy_in_system_message():
     """Test that security policy is included in system message."""
     agent = Agent(
         llm=LLM(
-            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
-        ),
-        security_analyzer=LLMSecurityAnalyzer(),
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
+        )
     )
     system_message = agent.system_message
 
     # Verify that security policy section is present
-    assert "<SECURITY_RISK_ASSESSMENT>" in system_message
-    assert "Security Risk Policy" in system_message
+    assert "🔐 Security Policy" in system_message
+    assert "OK to do without Explicit User Consent" in system_message
+    assert "Do only with Explicit User Consent" in system_message
+    assert "Never Do" in system_message
+
+    # Verify specific policy items are present
+    assert (
+        "Download and run code from a repository specified by a user" in system_message
+    )
+    assert "Open pull requests on the original repositories" in system_message
+    assert "Install and run popular packages from pypi, npm" in system_message
+    assert (
+        "Upload code to anywhere other than the location where it was obtained"
+        in system_message
+    )
+    assert "Upload API keys or tokens anywhere" in system_message
+    assert "Never perform any illegal activities" in system_message
+    assert "Never run software to mine cryptocurrency" in system_message
+
+    # Verify that all security guidelines are consolidated in the policy
+    assert "General Security Guidelines" in system_message
+    assert "Only use GITHUB_TOKEN and other credentials" in system_message
+    assert "Use APIs to work with GitHub or other platforms" in system_message
 
 
 def test_custom_security_policy_in_system_message():
@@ -60,6 +94,7 @@ def test_custom_security_policy_in_system_message():
         # Create agent with custom security policy using absolute paths for both
         agent = Agent(
             llm=LLM(
+                service_id="test-llm",
                 model="test-model",
                 api_key=SecretStr("test-key"),
                 base_url="http://test",
@@ -77,12 +112,45 @@ def test_custom_security_policy_in_system_message():
         assert "Always test custom policies" in system_message
 
 
+def test_security_policy_template_rendering():
+    """Test that the security policy template renders correctly."""
+
+    from openhands.sdk.context.prompts.prompt import render_template
+
+    # Get the prompts directory
+    agent = Agent(
+        llm=LLM(
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
+        )
+    )
+    prompt_dir = agent.prompt_dir
+
+    # Render the security policy template
+    security_policy = render_template(prompt_dir, "security_policy.j2")
+
+    # Verify the content structure
+    assert security_policy.startswith("# 🔐 Security Policy")
+    assert "## OK to do without Explicit User Consent" in security_policy
+    assert "## Do only with Explicit User Consent" in security_policy
+    assert "## Never Do" in security_policy
+
+    # Verify it's properly formatted (no extra whitespace at start/end)
+    assert not security_policy.startswith(" ")
+    assert not security_policy.endswith(" ")
+
+
 def test_llm_security_analyzer_template_kwargs():
     """Test that agent sets template_kwargs appropriately when security analyzer is LLMSecurityAnalyzer."""  # noqa: E501
     # Create agent with LLMSecurityAnalyzer
     agent = Agent(
         llm=LLM(
-            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
         ),
         security_analyzer=LLMSecurityAnalyzer(),
     )
@@ -106,7 +174,10 @@ def test_llm_security_analyzer_sandbox_mode():
     # Create agent with LLMSecurityAnalyzer and cli_mode=False
     agent = Agent(
         llm=LLM(
-            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
         ),
         security_analyzer=LLMSecurityAnalyzer(),
         system_prompt_kwargs={"cli_mode": False},
@@ -131,7 +202,10 @@ def test_no_security_analyzer_excludes_risk_assessment():
     # Create agent without security analyzer
     agent = Agent(
         llm=LLM(
-            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
         )
     )
 
@@ -149,7 +223,6 @@ def test_no_security_analyzer_excludes_risk_assessment():
 
 def test_non_llm_security_analyzer_excludes_risk_assessment():
     """Test that security risk assessment section is excluded when security analyzer is not LLMSecurityAnalyzer."""  # noqa: E501
-    from openhands.sdk.event import ActionEvent
     from openhands.sdk.security.analyzer import SecurityAnalyzerBase
     from openhands.sdk.security.risk import SecurityRisk
 
@@ -160,7 +233,10 @@ def test_non_llm_security_analyzer_excludes_risk_assessment():
     # Create agent with non-LLM security analyzer
     agent = Agent(
         llm=LLM(
-            model="test-model", api_key=SecretStr("test-key"), base_url="http://test"
+            service_id="test-llm",
+            model="test-model",
+            api_key=SecretStr("test-key"),
+            base_url="http://test",
         ),
         security_analyzer=MockSecurityAnalyzer(),
     )
@@ -175,3 +251,59 @@ def test_non_llm_security_analyzer_excludes_risk_assessment():
         "When using tools that support the security_risk parameter"
         not in system_message
     )
+
+
+def _tool_response(name: str, args_json: str) -> ModelResponse:
+    return ModelResponse(
+        id="mock-response",
+        choices=[
+            Choices(
+                index=0,
+                message=LiteLLMMessage(
+                    role="assistant",
+                    content="tool call with security_risk",
+                    tool_calls=[
+                        ChatCompletionMessageToolCall(
+                            id="call_1",
+                            type="function",
+                            function=Function(name=name, arguments=args_json),
+                        )
+                    ],
+                ),
+                finish_reason="tool_calls",
+            )
+        ],
+        created=0,
+        model="test-model",
+        object="chat.completion",
+    )
+
+
+def test_security_risk_param_ignored_when_no_analyzer():
+    """Security risk param is ignored when no analyzer is configured."""
+
+    llm = LLM(
+        service_id="test-llm",
+        model="test-model",
+        api_key=SecretStr("test-key"),
+        base_url="http://test",
+    )
+    agent = Agent(llm=llm, tools=[])
+
+    events = []
+    convo = Conversation(agent=agent, callbacks=[events.append])
+
+    with patch(
+        "openhands.sdk.llm.llm.litellm_completion",
+        return_value=_tool_response(
+            "think",
+            '{"thought": "This is a test thought", "security_risk": "LOW"}',
+        ),
+    ):
+        convo.send_message(
+            Message(role="user", content=[TextContent(text="Please think")])
+        )
+        agent.step(convo.state, on_event=events.append)
+
+    # No agent errors
+    assert not any(isinstance(e, AgentErrorEvent) for e in events)

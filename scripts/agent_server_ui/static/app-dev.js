@@ -178,7 +178,7 @@ class OpenHandsWebChat {
             <div class="conversation-title">${title}</div>
             <div class="conversation-meta">
                 <span>${createdAt}</span>
-                <span class="conversation-status ${conversation.status.toLowerCase()}">${conversation.status}</span>
+                <span class="conversation-status ${conversation.agent_status.toLowerCase()}">${conversation.agent_status}</span>
             </div>
         `;
         
@@ -223,7 +223,7 @@ class OpenHandsWebChat {
         const conversation = this.conversations.get(conversationId);
         if (conversation) {
             this.conversationTitle.textContent = this.getConversationTitle(conversation);
-            this.updateConversationStatus(conversation.status);
+            this.updateConversationStatus(conversation.agent_status);
             this.enableChatControls();
         }
         
@@ -562,7 +562,7 @@ class OpenHandsWebChat {
             const requestBody = {
                 agent: {
                     llm: {
-                        model: "litellm_proxy/anthropic/claude-sonnet-4-20250514",
+                        model: "litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
                         base_url: "https://llm-proxy.eval.all-hands.dev",
                         api_key: "placeholder" // This should be set via environment variable
                     },

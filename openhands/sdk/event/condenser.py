@@ -1,12 +1,12 @@
 from pydantic import Field
 from rich.text import Text
 
-from openhands.sdk.event.base import EventBase, LLMConvertibleEvent
+from openhands.sdk.event.base import Event, LLMConvertibleEvent
 from openhands.sdk.event.types import EventID, SourceType
-from openhands.sdk.llm import Message, MetricsSnapshot, TextContent
+from openhands.sdk.llm import Message, TextContent
 
 
-class Condensation(EventBase):
+class Condensation(Event):
     """This action indicates a condensation of the conversation history is happening."""
 
     forgotten_event_ids: list[EventID] = Field(
@@ -26,11 +26,6 @@ class Condensation(EventBase):
         " indicating where the summary should be inserted.",
     )
 
-    metrics: MetricsSnapshot | None = Field(
-        default=None,
-        description="Snapshot of LLM metrics at the time of condensation",
-    )
-
     source: SourceType = "environment"
 
     @property
@@ -46,7 +41,7 @@ class Condensation(EventBase):
         return text
 
 
-class CondensationRequest(EventBase):
+class CondensationRequest(Event):
     """This action is used to request a condensation of the conversation history.
 
     Attributes:

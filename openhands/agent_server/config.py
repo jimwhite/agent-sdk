@@ -1,16 +1,23 @@
-import json
 import os
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from openhands.agent_server.env_parser import from_env
+
 
 # Environment variable constants
-CONFIG_FILE_PATH_ENV = "OPENHANDS_AGENT_SERVER_CONFIG_PATH"
 SESSION_API_KEY_ENV = "SESSION_API_KEY"
+ENVIRONMENT_VARIABLE_PREFIX = "OH"
 
-# Default config file location
-DEFAULT_CONFIG_FILE_PATH = "workspace/openhands_agent_server_config.json"
+
+def _default_session_api_keys():
+    # Legacy fallback for compability with old runtime API
+    result = []
+    session_api_key = os.getenv(SESSION_API_KEY_ENV)
+    if session_api_key:
+        result.append(session_api_key)
+    return result
 
 
 class WebhookSpec(BaseModel):
@@ -54,11 +61,12 @@ class Config(BaseModel):
     (Typically inside a sandbox).
     """
 
-    session_api_key: str | None = Field(
-        default=None,
+    session_api_keys: list[str] = Field(
+        default_factory=_default_session_api_keys,
         description=(
-            "The session api key used to authenticate all incoming requests. "
-            "None implies the server will be unsecured"
+            "List of valid session API keys used to authenticate incoming requests. "
+            "Empty list implies the server will be unsecured. Any key in this list "
+            "will be accepted for authentication."
         ),
     )
     allow_cors_origins: list[str] = Field(
@@ -74,11 +82,11 @@ class Config(BaseModel):
             "The location of the directory where conversations and events are stored."
         ),
     )
-    workspace_path: Path = Field(
-        default=Path("workspace/project"),
+    bash_events_dir: Path = Field(
+        default=Path("workspace/bash_events"),
         description=(
-            "The location of the project directory where the agent reads/writes. "
-            "Defaults to 'workspace/project'."
+            "The location of the directory where bash events are stored as files. "
+            "Defaults to 'workspace/bash_events'."
         ),
     )
     static_files_path: Path | None = Field(
@@ -93,46 +101,31 @@ class Config(BaseModel):
         default_factory=list,
         description="Webhooks to invoke in response to events",
     )
+    enable_vscode: bool = Field(
+        default=True,
+        description="Whether to enable VSCode server functionality",
+    )
+    vscode_port: int = Field(
+        default=8001,
+        ge=1,
+        le=65535,
+        description="Port on which VSCode server should run",
+    )
+    enable_vnc: bool = Field(
+        default=False,
+        description="Whether to enable VNC desktop functionality",
+    )
     model_config = {"frozen": True}
-
-    @classmethod
-    def from_json_file(cls, file_path: Path) -> "Config":
-        """Load configuration from a JSON file with environment variable overrides."""
-        config_data = {}
-
-        # Load from JSON file if it exists
-        if file_path.exists():
-            with open(file_path, "r") as f:
-                config_data = json.load(f) or {}
-        # Apply environment variable overrides for legacy compatibility
-        if session_api_key := os.getenv(SESSION_API_KEY_ENV):
-            config_data["session_api_key"] = session_api_key
-
-        # Convert string paths to Path objects
-        if "conversations_path" in config_data:
-            config_data["conversations_path"] = Path(config_data["conversations_path"])
-        if "workspace_path" in config_data:
-            config_data["workspace_path"] = Path(config_data["workspace_path"])
-        if (
-            "static_files_path" in config_data
-            and config_data["static_files_path"] is not None
-        ):
-            config_data["static_files_path"] = Path(config_data["static_files_path"])
-
-        return cls(**config_data)
 
 
 _default_config: Config | None = None
 
 
-def get_default_config():
+def get_default_config() -> Config:
     """Get the default local server config shared across the server"""
     global _default_config
     if _default_config is None:
-        # Get config file path from environment variable or use default
-        config_file_path = os.getenv(CONFIG_FILE_PATH_ENV, DEFAULT_CONFIG_FILE_PATH)
-        config_path = Path(config_file_path)
-
-        # Load configuration from JSON file with environment variable overrides
-        _default_config = Config.from_json_file(config_path)
+        # Get the config from the environment variables
+        _default_config = from_env(Config, ENVIRONMENT_VARIABLE_PREFIX)
+        assert _default_config is not None
     return _default_config

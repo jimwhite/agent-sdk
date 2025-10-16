@@ -1,7 +1,7 @@
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from pydantic import ConfigDict, Field
 from rich.text import Text
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 N_CHAR_PREVIEW = 500
 
 
-class EventBase(DiscriminatedUnionMixin, ABC):
+class Event(DiscriminatedUnionMixin, ABC):
     """Base class for all events."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -55,7 +55,7 @@ class EventBase(DiscriminatedUnionMixin, ABC):
         )
 
 
-class LLMConvertibleEvent(EventBase, ABC):
+class LLMConvertibleEvent(Event, ABC):
     """Base class for events that can be converted to LLM messages."""
 
     @abstractmethod
@@ -107,12 +107,11 @@ class LLMConvertibleEvent(EventBase, ABC):
 
                 # Look ahead for related events
                 j = i + 1
-                while (
-                    j < len(events)
-                    and isinstance(events[j], ActionEvent)
-                    and cast(ActionEvent, events[j]).llm_response_id == response_id
-                ):
-                    batch_events.append(cast(ActionEvent, events[j]))
+                while j < len(events) and isinstance(events[j], ActionEvent):
+                    event = events[j]  # Now type checker knows this is ActionEvent
+                    if event.llm_response_id != response_id:
+                        break
+                    batch_events.append(event)
                     j += 1
 
                 # Create combined message for the response
@@ -142,8 +141,8 @@ def _combine_action_events(events: list["ActionEvent"]) -> Message:
 
     return Message(
         role="assistant",
-        content=cast(
-            list[TextContent | ImageContent], events[0].thought
-        ),  # Shared thought content only in the first event
+        content=events[0].thought,  # Shared thought content only in the first event
         tool_calls=[event.tool_call for event in events],
+        reasoning_content=events[0].reasoning_content,  # Shared reasoning content
+        thinking_blocks=events[0].thinking_blocks,  # Shared thinking blocks
     )

@@ -105,6 +105,34 @@ def generate_markdown_report(consolidated: ConsolidatedResults) -> str:
         "",
     ]
 
+    # Add artifacts section if any model has artifact URLs
+    artifacts_available = any(
+        result.artifact_url for result in consolidated.model_results
+    )
+    if artifacts_available:
+        report_lines.extend(
+            [
+                "## 📁 Detailed Logs & Artifacts",
+                "",
+                (
+                    "Click the links below to access detailed agent/LLM logs showing "
+                    "the complete reasoning process for each model. "
+                    "On the GitHub Actions page, scroll down to the 'Artifacts' "
+                    "section to download the logs."
+                ),
+                "",
+            ]
+        )
+
+        for result in consolidated.model_results:
+            if result.artifact_url:
+                report_lines.append(
+                    f"- **{result.model_name}**: "
+                    f"[📥 View & Download Logs]({result.artifact_url})"
+                )
+
+        report_lines.append("")  # Add empty line after artifacts section
+
     # Summary table
     report_lines.extend(
         [
@@ -149,7 +177,7 @@ def main():
             f"Loading consolidated results from {args.input_file}...", file=sys.stderr
         )
 
-        with open(args.input_file, "r") as f:
+        with open(args.input_file) as f:
             data = json.load(f)
 
         consolidated = ConsolidatedResults.model_validate(data)

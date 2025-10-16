@@ -1,6 +1,6 @@
 [project]
 name = "openhands-tools"
-version = "1.0.0"
+version = "1.0.0a1"
 description = "OpenHands Tools - Runtime tools for AI agents"
 
 requires-python = ">=3.12"
@@ -12,6 +12,7 @@ dependencies = [
     "libtmux>=0.46.2",
     "pydantic>=2.11.7",
     "browser-use>=0.7.7",
+    "func-timeout>=4.3.5",
 ]
 
 [build-system]
@@ -22,3 +23,5 @@ build-backend = "setuptools.build_meta"
 where = ["../.."]
 include = ["openhands*"]
 
+[tool.setuptools.package-data]
+"*" = ["py.typed"]

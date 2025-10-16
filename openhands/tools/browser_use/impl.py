@@ -2,34 +2,163 @@
 
 import json
 import logging
+import os
+import shutil
+import subprocess
+from pathlib import Path
 
+from openhands.sdk.logger import DEBUG, get_logger
 from openhands.sdk.tool import ToolExecutor
 from openhands.sdk.utils.async_executor import AsyncExecutor
 from openhands.tools.browser_use.server import CustomBrowserUseServer
+from openhands.tools.utils.timeout import TimeoutError, run_with_timeout
 
 
 # Suppress browser-use logging for cleaner integration
-logging.getLogger("browser_use").setLevel(logging.WARNING)
+if DEBUG:
+    logging.getLogger("browser_use").setLevel(logging.DEBUG)
+else:
+    logging.getLogger("browser_use").setLevel(logging.WARNING)
+
+logger = get_logger(__name__)
+
+
+def _check_chromium_available() -> str | None:
+    """Check if a Chromium/Chrome binary is available in PATH."""
+    for binary in ("chromium", "chromium-browser", "google-chrome", "chrome"):
+        if path := shutil.which(binary):
+            return path
+
+    # Check Playwright-installed Chromium
+    playwright_cache_candidates = [
+        Path.home() / ".cache" / "ms-playwright",
+        Path.home() / "Library" / "Caches" / "ms-playwright",
+    ]
+    for playwright_cache in playwright_cache_candidates:
+        if playwright_cache.exists():
+            chromium_dirs = list(playwright_cache.glob("chromium-*"))
+            for chromium_dir in chromium_dirs:
+                # Check platform-specific paths
+                possible_paths = [
+                    chromium_dir / "chrome-linux" / "chrome",  # Linux
+                    chromium_dir
+                    / "chrome-mac"
+                    / "Chromium.app"
+                    / "Contents"
+                    / "MacOS"
+                    / "Chromium",  # macOS
+                    chromium_dir / "chrome-win" / "chrome.exe",  # Windows
+                ]
+                for p in possible_paths:
+                    if p.exists():
+                        return str(p)
+    return None
+
+
+def _install_chromium() -> bool:
+    """Attempt to install Chromium via uvx playwright install."""
+    try:
+        # Check if uvx is available
+        if not shutil.which("uvx"):
+            logger.warning("uvx not found - cannot auto-install Chromium")
+            return False
+
+        logger.info("Attempting to install Chromium via uvx...")
+        result = subprocess.run(
+            ["uvx", "playwright", "install", "chromium", "--with-deps", "--no-shell"],
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes timeout for installation
+        )
+
+        if result.returncode == 0:
+            logger.info("Chromium installation completed successfully")
+            return True
+        else:
+            logger.error(f"Chromium installation failed: {result.stderr}")
+            return False
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        logger.error(f"Error during Chromium installation: {e}")
+        return False
+
+
+def _ensure_chromium_available() -> str:
+    """Ensure Chromium is available for browser operations.
+
+    Raises:
+        Exception: If Chromium is not available
+    """
+    if path := _check_chromium_available():
+        logger.info(f"Chromium is available for browser operations at {path}")
+        return path
+
+    # Chromium not available - provide clear installation instructions
+    error_msg = (
+        "Chromium is required for browser operations but is not installed.\n\n"
+        "To install Chromium, run one of the following commands:\n"
+        "  1. Using uvx (recommended): uvx playwright install chromium "
+        "--with-deps --no-shell\n"
+        "  2. Using pip: pip install playwright && playwright install chromium\n"
+        "  3. Using system package manager:\n"
+        "     - Ubuntu/Debian: sudo apt install chromium-browser\n"
+        "     - macOS: brew install chromium\n"
+        "     - Windows: winget install Chromium.Chromium\n\n"
+        "After installation, restart your application to use the browser tool."
+    )
+    raise Exception(error_msg)
 
 
 class BrowserToolExecutor(ToolExecutor):
     """Executor that wraps browser-use MCP server for OpenHands integration."""
 
+    _server: CustomBrowserUseServer
+    _config: dict
+
     def __init__(
         self,
-        session_timeout_minutes: int = 30,
         headless: bool = True,
         allowed_domains: list[str] | None = None,
+        session_timeout_minutes: int = 30,
+        init_timeout_seconds: int = 30,
         **config,
     ):
-        self._server = CustomBrowserUseServer(
-            session_timeout_minutes=session_timeout_minutes
-        )
-        self._config = {
-            "headless": headless,
-            "allowed_domains": allowed_domains or [],
-            **config,
-        }
+        """Initialize BrowserToolExecutor with timeout protection.
+
+        Args:
+            headless: Whether to run browser in headless mode
+            allowed_domains: List of allowed domains for browser operations
+            session_timeout_minutes: Browser session timeout in minutes
+            init_timeout_seconds: Timeout for browser initialization in seconds
+            **config: Additional configuration options
+
+        Raises:
+
+        """
+
+        def init_logic():
+            nonlocal headless
+            executable_path = _ensure_chromium_available()
+            self._server = CustomBrowserUseServer(
+                session_timeout_minutes=session_timeout_minutes,
+            )
+            if os.getenv("OH_ENABLE_VNC", "false").lower() in {"true", "1", "yes"}:
+                headless = False  # Force headless off if VNC is enabled
+                logger.info("VNC is enabled - running browser in non-headless mode")
+
+            self._config = {
+                "headless": headless,
+                "allowed_domains": allowed_domains or [],
+                "executable_path": executable_path,
+                **config,
+            }
+
+        try:
+            run_with_timeout(init_logic, init_timeout_seconds)
+        except TimeoutError:
+            raise Exception(
+                f"Browser tool initialization timed out after {init_timeout_seconds}s"
+            )
+
         self._initialized = False
         self._async_executor = AsyncExecutor()
 
@@ -87,7 +216,7 @@ class BrowserToolExecutor(ToolExecutor):
             return BrowserObservation(output=result)
         except Exception as e:
             error_msg = f"Browser operation failed: {str(e)}"
-            logging.error(error_msg, exc_info=True)
+            logger.error(error_msg, exc_info=True)
             return BrowserObservation(output="", error=error_msg)
 
     async def _ensure_initialized(self):
@@ -186,7 +315,7 @@ class BrowserToolExecutor(ToolExecutor):
             if hasattr(self._server, "_close_all_sessions"):
                 await self._server._close_all_sessions()
         except Exception as e:
-            logging.warning(f"Error during browser cleanup: {e}")
+            logger.warning(f"Error during browser cleanup: {e}")
 
     def close(self):
         """Close the browser executor and cleanup resources."""
@@ -194,7 +323,7 @@ class BrowserToolExecutor(ToolExecutor):
             # Run cleanup in the async executor with a shorter timeout
             self._async_executor.run_async(self.cleanup, timeout=30.0)
         except Exception as e:
-            logging.warning(f"Error during browser cleanup: {e}")
+            logger.warning(f"Error during browser cleanup: {e}")
         finally:
             # Always close the async executor
             self._async_executor.close()
