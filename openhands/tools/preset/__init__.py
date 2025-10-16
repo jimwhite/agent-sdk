@@ -22,7 +22,4 @@ from .default import get_default_agent
 from .planning import get_planning_agent
 
 
-__all__ = [
-    "get_default_agent",
-    "get_planning_agent",
-]
+__all__ = ["get_default_agent", "get_planning_agent"]
