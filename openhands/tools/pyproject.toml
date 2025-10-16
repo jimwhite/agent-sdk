@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel", "pydantic>=2.11.7", "rich>=13.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
