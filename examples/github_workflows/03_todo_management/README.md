@@ -52,6 +52,7 @@ Add these secrets to your GitHub repository:
 
 - `LLM_API_KEY` - Your LLM API key (required)
 - `GITHUB_TOKEN` - GitHub token with repo permissions (automatically provided)
+-  Make sure Github Actions are allowed to create and review PRs (in the repo settings)
 
 ### 2. Install Workflow
 
