@@ -124,15 +124,60 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 )
                 continue
 
+            # Extract initial description from the TODO line
             description = match.group(1).strip() if match.group(1) else ""
+            full_text = line.strip()
+            
+            # Look ahead for continuation lines that are also comments
+            continuation_lines = []
+            for next_line_idx in range(line_num, len(lines)):
+                next_line = lines[next_line_idx]
+                next_stripped = next_line.strip()
+                
+                # Check if this line is a comment continuation
+                if (next_stripped.startswith("#") and 
+                    not next_stripped.startswith("# TODO(openhands)") and
+                    next_stripped != "#" and  # Skip empty comment lines
+                    len(next_stripped) > 1):  # Must have content after #
+                    
+                    # Extract comment content (remove # and leading whitespace)
+                    comment_content = next_stripped[1:].strip()
+                    
+                    # Stop if we encounter a comment that looks like a separate comment
+                    # (starts with capital letter and doesn't continue the previous thought)
+                    if (comment_content and 
+                        continuation_lines and  # Only apply this rule if we already have continuation lines
+                        comment_content[0].isupper() and
+                        not comment_content.lower().startswith(('and ', 'or ', 'but ', 'when ', 'that ', 'which ', 'where '))):
+                        break
+                    
+                    if comment_content:  # Only add non-empty content
+                        continuation_lines.append(comment_content)
+                        full_text += " " + comment_content
+                elif next_stripped == "#":
+                    # Empty comment line - continue looking
+                    continue
+                else:
+                    # Stop at first non-comment line
+                    break
+            
+            # Combine description with continuation lines
+            if continuation_lines:
+                if description:
+                    full_description = description + " " + " ".join(continuation_lines)
+                else:
+                    full_description = " ".join(continuation_lines)
+            else:
+                full_description = description
+            
             todo_item = {
                 "file": str(file_path),
                 "line": line_num,
-                "text": line.strip(),
-                "description": description,
+                "text": full_text,
+                "description": full_description,
             }
             todos.append(todo_item)
-            logger.info(f"Found TODO in {file_path}:{line_num}: {description}")
+            logger.info(f"Found TODO in {file_path}:{line_num}: {full_description}")
 
     if todos:
         logger.info(f"Found {len(todos)} TODO(s) in {file_path}")
