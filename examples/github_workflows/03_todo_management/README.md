@@ -1,53 +1,76 @@
-# Automated TODO Management with OpenHands
+# Automated TODO Management with GitHub Actions
 
-This example demonstrates how to set up automated TODO management using the OpenHands agent SDK and GitHub Actions. The system automatically scans your codebase for `# TODO(openhands)` comments and creates pull requests to implement them.
+This example demonstrates how to use the OpenHands SDK to automatically scan a codebase for `# TODO(openhands)` comments and create pull requests to implement them. This showcases practical automation and self-improving codebase capabilities.
 
 ## Overview
 
-The automated TODO management system consists of three main components:
+The workflow consists of four main components:
 
-1. **TODO Scanner** (`scanner.py`): Scans the codebase for `# TODO(openhands)` comments
-2. **TODO Agent** (`agent.py`): Uses OpenHands to implement individual TODOs
-3. **GitHub Workflow** (`workflow.yml`): Orchestrates the entire process
+1. **Scanner** (`scanner.py`) - Scans the codebase for TODO(openhands) comments
+2. **Agent** (`agent.py`) - Uses OpenHands to implement individual TODOs
+3. **GitHub Actions Workflow** (`workflow.yml`) - Orchestrates the automation
+4. **Debug Tool** (`debug_workflow.py`) - Local testing and workflow debugging
+
+## Features
+
+- 🔍 **Smart Scanning**: Finds legitimate TODO(openhands) comments while filtering out false positives
+- 🤖 **AI Implementation**: Uses OpenHands agent to automatically implement TODOs
+- 🔄 **PR Management**: Creates feature branches and pull requests automatically
+- 📝 **Progress Tracking**: Updates TODO comments with PR URLs
+- 🐛 **Debug Support**: Comprehensive logging and local testing tools
+- ⚙️ **Configurable**: Customizable limits and file patterns
 
 ## How It Works
 
-1. **Scan Phase**: The workflow scans your repository for `# TODO(openhands)` comments
-2. **Implementation Phase**: For each TODO found:
-   - Uses OpenHands agent to implement the TODO (agent handles branch creation and PR)
-3. **Update Phase**: Detects the feature branch created by the agent, finds the corresponding PR using GitHub API, then updates the original TODO comment with the PR URL (e.g., `# TODO(in progress: https://github.com/owner/repo/pull/123)`)
+1. **Scan Phase**: The workflow scans your codebase for `# TODO(openhands)` comments
+   - Filters out false positives (documentation, test files, quoted strings)
+   - Supports Python, TypeScript, and Java files
+   - Provides detailed logging of found TODOs
+
+2. **Process Phase**: For each TODO found:
+   - Creates a feature branch
+   - Uses OpenHands agent to implement the TODO
+   - Creates a pull request with the implementation
+   - Updates the original TODO comment with the PR URL
+
+3. **Update Phase**: Original TODO comments are updated:
+   ```python
+   # Before
+   # TODO(openhands): Add input validation
+   
+   # After (when PR is created)
+   # TODO(in progress: https://github.com/owner/repo/pull/123): Add input validation
+   ```
 
 ## Files
 
 - **`workflow.yml`**: GitHub Actions workflow file
-- **`scanner.py`**: Simple Python script to scan for TODO comments (Python, TypeScript, Java only)
-- **`agent.py`**: Python script that implements individual TODOs using OpenHands
+- **`scanner.py`**: Smart TODO scanner with false positive filtering
+- **`agent.py`**: OpenHands agent for TODO implementation
 - **`prompt.py`**: Contains the prompt template for TODO implementation
 - **`debug_workflow.py`**: Debug script to trigger and monitor the workflow
-- **`README.md`**: This documentation file
+- **`test_local.py`**: Local component testing script
+- **`README.md`**: This comprehensive documentation
 
 ## Setup
 
-### 1. Copy the workflow file
+### 1. Repository Secrets
 
-Copy `workflow.yml` to `.github/workflows/todo-management.yml` in your repository:
+Add these secrets to your GitHub repository:
 
-```bash
-cp examples/github_workflows/02_todo_management/workflow.yml .github/workflows/todo-management.yml
-```
+- `LLM_API_KEY` - Your LLM API key (required)
+- `GITHUB_TOKEN` - GitHub token with repo permissions (automatically provided)
 
-### 2. Configure secrets
+### 2. Install Workflow
 
-Set the following secrets in your GitHub repository settings:
+Copy `workflow.yml` to `.github/workflows/todo-management.yml` in your repository.
 
-- **`LLM_API_KEY`** (required): Your LLM API key
-  - Get one from the [OpenHands LLM Provider](https://docs.all-hands.dev/openhands/usage/llms/openhands-llms)
+### 3. Configure Permissions
 
-### 3. Ensure proper permissions
-
-The workflow requires the following permissions (already configured in the workflow file):
-- `contents: write` - To create branches and commit changes
-- `pull-requests: write` - To create pull requests
+Ensure your `GITHUB_TOKEN` has these permissions:
+- `contents: write`
+- `pull-requests: write`
+- `issues: write`
 - `issues: write` - To create issues if needed
 
 ### 4. Add TODO comments to your code
@@ -167,4 +190,111 @@ Here's what happens when the workflow runs:
 
 - **`LLM_MODEL`**: Language model to use (default: `openhands/claude-sonnet-4-5-20250929`)
 - **`LLM_BASE_URL`**: Custom LLM API base URL (optional)
+
+## Local Testing and Debugging
+
+### Quick Component Test
+
+```bash
+# Test the scanner
+python scanner.py /path/to/your/code
+
+# Test all components
+python test_local.py
+```
+
+### Full Workflow Debug
+
+```bash
+# Debug the complete workflow (requires GitHub token)
+python debug_workflow.py --max-todos 1
+
+# With file pattern filtering
+python debug_workflow.py --max-todos 2 --file-pattern "*.py"
+
+# Monitor workflow execution
+python debug_workflow.py --max-todos 1 --monitor
+```
+
+The debug tool provides:
+- 🚀 Workflow triggering via GitHub API
+- 📊 Real-time monitoring of workflow runs
+- 🔍 Detailed logging and error reporting
+- ⏱️ Execution time tracking
+
+## Smart Filtering
+
+The scanner intelligently filters out false positives:
+
+- ❌ Documentation strings and comments
+- ❌ Test files and mock data
+- ❌ Quoted strings containing TODO references
+- ❌ Code that references TODO(openhands) but isn't a TODO
+- ✅ Legitimate TODO comments in source code
+
+## Troubleshooting
+
+### Common Issues
+
+1. **No TODOs found**: 
+   - Ensure you're using the correct format `TODO(openhands)`
+   - Check that TODOs aren't in test files or documentation
+   - Use `python scanner.py .` to test locally
+
+2. **Permission denied**: 
+   - Check that `GITHUB_TOKEN` has required permissions
+   - Verify repository settings allow Actions to create PRs
+
+3. **LLM API errors**: 
+   - Verify your `LLM_API_KEY` is correct and has sufficient credits
+   - Check the model name is supported
+
+4. **Workflow not found**:
+   - Ensure workflow file is in `.github/workflows/`
+   - Workflow must be on the main branch to be triggered
+
+### Debug Mode
+
+The workflow includes comprehensive logging. Check the workflow run logs for detailed information about:
+- TODOs found during scanning
+- Agent execution progress
+- PR creation status
+- Error messages and stack traces
+
+## Limitations
+
+- Processes a maximum number of TODOs per run to avoid overwhelming the system
+- Requires LLM API access for the OpenHands agent
+- GitHub Actions usage limits apply
+- Agent implementation quality depends on TODO description clarity
+
+## Contributing
+
+To improve this example:
+
+1. **Test locally**: Use `test_local.py` and `debug_workflow.py`
+2. **Add file type support**: Extend scanner for new languages
+3. **Improve filtering**: Enhance false positive detection
+4. **Better prompts**: Improve agent implementation quality
+
+### Development Workflow
+
+```bash
+# 1. Make changes to components
+# 2. Test locally
+python test_local.py
+
+# 3. Test with debug tool
+python debug_workflow.py --max-todos 1
+
+# 4. Update documentation
+# 5. Submit pull request
+```
+
+## Related Examples
+
+- `01_basic_action` - Basic GitHub Actions integration
+- `02_pr_review` - Automated PR review workflow
+
+This example builds on the patterns established in `01_basic_action` while adding sophisticated TODO detection and automated implementation capabilities.
 
