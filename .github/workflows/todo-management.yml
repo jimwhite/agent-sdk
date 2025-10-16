@@ -54,7 +54,8 @@ jobs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
         env:
-            SCANNER_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/scanner.py
+            SCANNER_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/scanner.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -132,8 +133,10 @@ jobs:
                 todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
             max-parallel: 1 # Process one TODO at a time to avoid conflicts
         env:
-            AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/agent.py
-            PROMPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/prompt.py
+            AGENT_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/agent.py
+            PROMPT_URL: 
+                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/prompt.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
