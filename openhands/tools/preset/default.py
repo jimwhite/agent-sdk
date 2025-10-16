@@ -113,19 +113,3 @@ def get_default_agent(
         security_analyzer=LLMSecurityAnalyzer(),
     )
     return agent
-
-
-def get_worker_agent(llm: LLM, cli_mode: bool = False) -> Agent:
-    """Get a worker agent that can be used as a sub-agent for delegation.
-
-    This agent is identical to the default agent but without delegation tools.
-    It's designed to be used as a sub-agent by the new default agent with delegation.
-
-    Args:
-        llm: The LLM to use for the agent
-        cli_mode: Whether to run in CLI mode (disables browser tools)
-    """
-    # Import here to avoid circular imports
-    from openhands.tools.preset.worker import get_worker_agent as _get_worker_agent
-
-    return _get_worker_agent(llm=llm, cli_mode=cli_mode)
