@@ -296,10 +296,8 @@ class Agent(AgentBase):
         # Grab the confirmation policy from the state and pass in the risks.
         if any(state.confirmation_policy.should_confirm(risk) for risk in risks):
             state.agent_status = AgentExecutionStatus.WAITING_FOR_CONFIRMATION
-            # Clean up temporary conversation ID
             return True
 
-        # Clean up temporary conversation ID
         return False
 
     def _get_action_event(
