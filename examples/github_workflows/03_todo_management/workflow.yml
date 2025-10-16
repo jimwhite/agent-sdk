@@ -135,6 +135,9 @@ jobs:
                 todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
             max-parallel: 1 # Process one TODO at a time to avoid conflicts
         env:
+            # Configuration (modify these values as needed)
+            LLM_MODEL: <YOUR_LLM_MODEL>
+            LLM_BASE_URL: <YOUR_LLM_BASE_URL>
             AGENT_URL: >
                 https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/
                 openhands/todo-management-example/examples/github_workflows/

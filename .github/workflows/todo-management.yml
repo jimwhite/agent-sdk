@@ -173,6 +173,8 @@ jobs:
 
             - name: Process TODO
               env:
+                  LLM_MODEL: litellm_proxy/claude-sonnet-4-5-20250929
+                  LLM_BASE_URL: https://llm-proxy.eval.all-hands.dev
                   LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   TODO_FILE: ${{ matrix.todo.file }}
