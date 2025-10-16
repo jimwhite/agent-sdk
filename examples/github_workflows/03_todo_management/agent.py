@@ -117,7 +117,7 @@ def find_pr_for_branch(branch_name: str) -> str | None:
         if prs and len(prs) > 0:
             return prs[0]["html_url"]  # Return the first (should be only) PR
         else:
-            logger.warning(f"No open PR found for branch {branch_name}")
+            logger.error(f"No open PR found for branch {branch_name}")
             return None
 
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
@@ -170,7 +170,7 @@ def update_todo_with_pr_url(
                 run_git_command(["git", "merge", "main", "--no-edit"])
                 run_git_command(["git", "push", "origin", feature_branch])
             except subprocess.CalledProcessError:
-                logger.warning(f"Could not update feature branch {feature_branch}")
+                logger.error(f"Could not update feature branch {feature_branch}")
             finally:
                 # Switch back to main
                 run_git_command(["git", "checkout", "main"])
@@ -182,7 +182,7 @@ def process_todo(todo_data: dict) -> dict:
 
     Args:
         todo_data: Dictionary containing TODO information
-        
+
     Returns:
         Dictionary containing processing results
     """
@@ -192,14 +192,14 @@ def process_todo(todo_data: dict) -> dict:
     todo_text = todo_data["text"]
 
     logger.info(f"Processing TODO in {file_path}:{line_num}")
-    
+
     # Initialize result structure
     result = {
         "todo": todo_data,
         "status": "failed",
         "pr_url": None,
         "branch": None,
-        "error": None
+        "error": None,
     }
 
     try:
@@ -280,8 +280,8 @@ def process_todo(todo_data: dict) -> dict:
             logger.info("Agent didn't create a feature branch, requesting one")
             follow_up = (
                 "It looks like you haven't created a feature branch and pull request yet. "
-                "Please create a feature branch for your changes and push them to create a "
-                "pull request."
+                "Please create a feature branch for your changes and push them "
+                "to create a pull request."
             )
             conversation.send_message(follow_up)
             conversation.run()
@@ -304,12 +304,12 @@ def process_todo(todo_data: dict) -> dict:
                 logger.warning("Agent still didn't create a feature branch")
                 result["status"] = "failed"
                 result["error"] = "Agent did not create a feature branch"
-                
+
     except Exception as e:
         logger.error(f"Error processing TODO: {e}")
         result["error"] = str(e)
         result["status"] = "failed"
-    
+
     return result
 
 
@@ -337,22 +337,24 @@ def main():
 
     # Process the TODO and get results
     result = process_todo(todo_data)
-    
+
     # Output result to a file for the workflow to collect
-    result_file = f"todo_result_{todo_data['file'].replace('/', '_')}_{todo_data['line']}.json"
-    with open(result_file, 'w') as f:
+    result_file = (
+        f"todo_result_{todo_data['file'].replace('/', '_')}_{todo_data['line']}.json"
+    )
+    with open(result_file, "w") as f:
         json.dump(result, f, indent=2)
-    
+
     logger.info(f"Result written to {result_file}")
     logger.info(f"Processing result: {result['status']}")
-    
-    if result['status'] == 'success':
+
+    if result["status"] == "success":
         logger.info(f"PR URL: {result['pr_url']}")
-    elif result['error']:
+    elif result["error"]:
         logger.error(f"Error: {result['error']}")
-    
+
     # Exit with appropriate code
-    if result['status'] == 'failed':
+    if result["status"] == "failed":
         sys.exit(1)
     else:
         sys.exit(0)

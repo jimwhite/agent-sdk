@@ -15,9 +15,10 @@ Your task is to:
 
 Please make sure to:
 - Create a descriptive branch name related to the TODO
-- Write clean, well-documented code
-- Include appropriate tests if needed
-- Create a clear pull request description explaining the implementation
+- Fix the issue with clean code
+- Include a test if needed, but not always necessary
+- Use the GITHUB_TOKEN and Github APIs to create a clear 
+pull request description explaining the implementation
 
 The TODO comment is: {todo_text}
 
