@@ -27,6 +27,10 @@ on:
                 default: ''
                 type: string
 
+    # Trigger when 'automatic-todo' label is added to a PR
+    pull_request:
+        types: [labeled]
+
     # Scheduled trigger (disabled by default, uncomment and customize as needed)
     # schedule:
     #   # Run every Monday at 9 AM UTC
@@ -40,6 +44,8 @@ permissions:
 jobs:
     scan-todos:
         runs-on: ubuntu-latest
+        # Only run if triggered manually or if 'automatic-todo' label was added
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.label.name == 'automatic-todo')
         outputs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
