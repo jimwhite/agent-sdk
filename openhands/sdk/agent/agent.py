@@ -423,7 +423,9 @@ class Agent(AgentBase):
                 "as it was checked earlier."
             )
 
-        # Inject conversation context into action before execution
+        # Inject conversation id into action before execution
+        # This is needed for delegation tools that need to know which is the
+        # parent conversation.
         if action_event.action is not None:
             updated_action = action_event.action.model_copy(
                 update={"conversation_id": state.id}
