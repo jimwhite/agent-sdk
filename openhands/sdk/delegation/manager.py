@@ -4,7 +4,11 @@ import threading
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.event import MessageEvent
+from openhands.sdk.llm import Message, TextContent
 from openhands.sdk.logger import get_logger
+from openhands.sdk.workspace import LocalWorkspace
 
 
 if TYPE_CHECKING:
@@ -101,10 +105,6 @@ class DelegationManager:
         Returns:
             The new sub-conversation
         """
-
-        from openhands.sdk.conversation.impl.local_conversation import LocalConversation
-        from openhands.sdk.llm import Message, TextContent
-
         # We need to create a closure that captures the sub_conversation_id
         # But we need the conversation ID first, so we'll use a placeholder
         # that gets updated after conversation creation
@@ -115,8 +115,6 @@ class DelegationManager:
         # Create a callback to route sub-agent messages to parent
         def sub_agent_completion_callback(event):
             """Route sub-agent completion messages to parent."""
-            from openhands.sdk.event import MessageEvent
-
             # When sub-agent sends a message, forward it to parent
             if isinstance(event, MessageEvent) and event.source == "agent":
                 # Get the message content
@@ -153,8 +151,6 @@ class DelegationManager:
 
                     # Trigger parent conversation to run in a separate thread
                     # to avoid blocking the sub-agent thread
-                    import threading
-
                     def run_parent():
                         try:
                             logger.info(
@@ -182,8 +178,6 @@ class DelegationManager:
 
         # Create sub-conversation with callback
         # Access workspace working_dir to get str path for LocalConversation
-        from openhands.sdk.workspace import LocalWorkspace
-
         workspace = parent_conversation.state.workspace
         workspace_path = (
             workspace.working_dir
@@ -357,19 +351,6 @@ class DelegationManager:
             Parent conversation ID or None if not found
         """
         return self.child_to_parent.get(sub_conversation_id)
-
-    def _create_message_router(self, parent_conversation: "BaseConversation"):
-        """Create a callback function that routes sub-agent messages to parent.
-
-        Args:
-            parent_conversation: The parent conversation to route messages to
-
-        Returns:
-            Callback function for message routing
-        """
-        # TODO: Implement message routing for full conversation spawning
-        # For now, this is not used - we use simple sub-agents instead
-        raise NotImplementedError("Message routing not yet implemented")
 
     def create_simple_sub_agent(self, task: str) -> str:
         """Create a simple sub-agent for demonstration purposes."""

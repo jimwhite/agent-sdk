@@ -294,14 +294,6 @@ try:
     print("📊 Check the conversation output above for the delegation workflow")
     print("=" * 100)
 
-    print(f"\nConversation finished. Got {len(llm_messages)} total LLM messages:")
-    for i, message in enumerate(llm_messages):
-        msg_str = str(message)[:200]
-        if "[Sub-agent" in msg_str:
-            print(f"Message {i}: [SUB-AGENT MESSAGE] {msg_str[:150]}...")
-        else:
-            print(f"Message {i}: {msg_str}...")
-
 finally:
     # Clean up temporary file
     if os.path.exists(temp_file_path):
