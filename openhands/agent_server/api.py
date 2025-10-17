@@ -12,11 +12,8 @@ from openhands.agent_server.bash_service import BashEventService
 from openhands.agent_server.config import Config, get_default_config
 from openhands.agent_server.conversation_router import conversation_router
 from openhands.agent_server.conversation_service import ConversationService
-
-# Passthrough export for tests to patch get_vscode_service at this import point
 from openhands.agent_server.dependencies import (
     create_session_api_key_dependency,
-    get_vscode_service as get_vscode_service,
 )
 from openhands.agent_server.desktop_router import desktop_router
 from openhands.agent_server.desktop_service import get_desktop_service
@@ -52,14 +49,7 @@ async def api_lifespan(api: FastAPI) -> AsyncIterator[None]:
     # Optional services
     vscode_service: VSCodeService | None = None
     if config.enable_vscode:
-        # get_vscode_service is imported for test patching; prefer it if callable
-        try:
-            vscode_service = get_vscode_service(api)  # type: ignore[misc]
-        except Exception:
-            try:
-                vscode_service = get_vscode_service()  # type: ignore[misc]
-            except Exception:
-                vscode_service = VSCodeService(port=config.vscode_port)
+        vscode_service = VSCodeService(port=config.vscode_port)
 
     # Attach optional services as well for DI fallbacks
     api.state.vscode_service = vscode_service

@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 from openhands.agent_server import dependencies as deps
 from openhands.agent_server.event_router import event_router
@@ -18,7 +19,13 @@ from openhands.sdk.llm.message import TextContent
 def _client_with_override(conv_svc: AsyncMock) -> TestClient:
     app = FastAPI()
     app.include_router(event_router, prefix="/api")
-    app.dependency_overrides[deps.get_conversation_service] = lambda req: conv_svc
+
+    def _override_get_conversation_service(request: Request):
+        return conv_svc
+
+    app.dependency_overrides[deps.get_conversation_service] = (
+        _override_get_conversation_service
+    )
     return TestClient(app)
 
 
