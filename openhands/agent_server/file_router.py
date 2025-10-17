@@ -3,7 +3,6 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
-    Depends,
     File,
     HTTPException,
     Path as FastApiPath,
@@ -12,7 +11,6 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 
-from openhands.agent_server.dependencies import get_config
 from openhands.agent_server.models import Success
 from openhands.sdk.logger import get_logger
 
@@ -25,7 +23,6 @@ file_router = APIRouter(prefix="/file", tags=["Files"])
 async def upload_file(
     path: Annotated[str, FastApiPath(alias="path", description="Absolute file path.")],
     file: UploadFile = File(...),
-    config=Depends(get_config),
 ) -> Success:
     """Upload a file to an absolute path on disk."""
     try:
@@ -94,4 +91,3 @@ async def download_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to download file: {str(e)}",
         )
-
