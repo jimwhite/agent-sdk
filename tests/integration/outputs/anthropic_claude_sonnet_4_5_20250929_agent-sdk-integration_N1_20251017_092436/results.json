@@ -1,0 +1,26 @@
+{
+  "model_name": "anthropic_claude_sonnet_4_5_20250929",
+  "run_suffix": "anthropic_claude_sonnet_4_5_20250929_agent-sdk-integration_N1_20251017_092436",
+  "llm_config": {
+    "model": "anthropic/claude-sonnet-4-5-20250929"
+  },
+  "timestamp": "2025-10-17T09:24:36.556286",
+  "test_instances": [
+    {
+      "instance_id": "t01_fix_simple_typo",
+      "test_result": {
+        "success": false,
+        "reason": "Test execution failed: LLM_BASE_URL environment variable not set. Skipping real LLM test."
+      },
+      "cost": 0.0,
+      "error_message": "LLM_BASE_URL environment variable not set. Skipping real LLM test."
+    }
+  ],
+  "total_tests": 1,
+  "successful_tests": 0,
+  "success_rate": 0.0,
+  "total_cost": 0.0,
+  "eval_note": "agent-sdk-integration",
+  "artifact_url": null,
+  "status": "completed"
+}

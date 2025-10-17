@@ -1,0 +1,26 @@
+{
+  "model_name": "anthropic_claude_haiku_4_5_20251001",
+  "run_suffix": "anthropic_claude_haiku_4_5_20251001_agent-sdk-integration_N1_20251017_092932",
+  "llm_config": {
+    "model": "anthropic/claude-haiku-4-5-20251001"
+  },
+  "timestamp": "2025-10-17T09:29:40.304054",
+  "test_instances": [
+    {
+      "instance_id": "t01_fix_simple_typo",
+      "test_result": {
+        "success": false,
+        "reason": "Test execution failed: Missing required parameters for function 'str_replace_editor': {'path'}"
+      },
+      "cost": 0.014082999999999998,
+      "error_message": null
+    }
+  ],
+  "total_tests": 1,
+  "successful_tests": 0,
+  "success_rate": 0.0,
+  "total_cost": 0.014082999999999998,
+  "eval_note": "agent-sdk-integration",
+  "artifact_url": null,
+  "status": "completed"
+}
