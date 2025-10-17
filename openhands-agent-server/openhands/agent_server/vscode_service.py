@@ -93,7 +93,7 @@ class VSCodeService:
         Returns:
             VSCode URL with token, or None if not available
         """
-        if not self.connection_token:
+        if not self.is_running():
             return None
 
         if base_url is None:
