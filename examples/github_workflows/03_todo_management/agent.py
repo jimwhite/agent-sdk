@@ -296,7 +296,7 @@ def main():
         sys.exit(1)
 
     # Validate required fields
-    required_fields = ["file", "line", "description", "text"]
+    required_fields = ["file", "line", "description"]
     for field in required_fields:
         if field not in todo_data:
             logger.error(f"Missing required field in TODO data: {field}")

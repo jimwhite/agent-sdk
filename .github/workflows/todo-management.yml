@@ -212,7 +212,7 @@ jobs:
                   {
                     "file": "$TODO_FILE",
                     "line": $TODO_LINE,
-                    "description": "$TODO_DESCRIPTION",
+                    "description": "$TODO_DESCRIPTION"
                   }
                   EOF
                   )
