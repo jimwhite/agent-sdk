@@ -1,12 +1,17 @@
 """Tom consultation tool definition."""
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from openhands.sdk.io import LocalFileStore
 from openhands.sdk.tool import ToolDefinition
 from openhands.tools.tom_consult.action import ConsultTomAction
 from openhands.tools.tom_consult.executor import TomConsultExecutor
 from openhands.tools.tom_consult.observation import ConsultTomObservation
+
+
+if TYPE_CHECKING:
+    from openhands.sdk.conversation.state import ConversationState
 
 
 _DESCRIPTION = """Consult Tom agent for guidance when you need help \
@@ -29,6 +34,7 @@ class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
     @classmethod
     def create(
         cls,
+        conv_state: "ConversationState",
         enable_rag: bool = True,
         llm_model: str | None = None,
         api_key: str | None = None,
@@ -37,6 +43,8 @@ class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
         """Initialize TomConsultTool with executor parameters.
 
         Args:
+            conv_state: Conversation state (required by
+            registry, state passed at runtime)
             enable_rag: Whether to enable RAG in Tom agent
             llm_model: LLM model to use for Tom agent
             api_key: API key for Tom agent's LLM
@@ -45,6 +53,8 @@ class TomConsultTool(ToolDefinition[ConsultTomAction, ConsultTomObservation]):
         Returns:
             Sequence containing the initialized TomConsultTool
         """
+        # conv_state required by registry but not used - state passed at execution time
+        _ = conv_state
         file_store = LocalFileStore(root="~/.openhands")
 
         # Initialize the executor
