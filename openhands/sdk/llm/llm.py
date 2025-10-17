@@ -1163,6 +1163,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "please reduce the length of",
             "the request exceeds the available context size",
             "context length exceeded",
+            "exceeds the context window",
         ]
 
         if any(pattern in error_string for pattern in known_exception_patterns):
