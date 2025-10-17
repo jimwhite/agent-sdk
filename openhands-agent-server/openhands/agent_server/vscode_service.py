@@ -1,7 +1,7 @@
 """VSCode service for managing OpenVSCode Server in the agent server."""
 
 import asyncio
-import uuid
+import os
 from pathlib import Path
 
 from openhands.sdk.logger import get_logger
@@ -16,6 +16,7 @@ class VSCodeService:
     def __init__(
         self,
         port: int = 8001,
+        connection_token: str | None = None,
     ):
         """Initialize VSCode service.
 
@@ -26,7 +27,7 @@ class VSCodeService:
                 exist
         """
         self.port: int = port
-        self.connection_token: str | None = None
+        self.connection_token: str | None = connection_token or os.urandom(32).hex
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root: Path = Path("/openhands/.openvscode-server")
         self.extensions_dir: Path = self.openvscode_server_root / "extensions"
@@ -44,9 +45,6 @@ class VSCodeService:
                     "VSCode server binary not found, VSCode will be disabled"
                 )
                 return False
-
-            # Generate connection token
-            self.connection_token = str(uuid.uuid4())
 
             # Check if port is available
             if not await self._is_port_available():
@@ -221,5 +219,7 @@ def get_vscode_service() -> VSCodeService | None:
             logger.info("VSCode is disabled in configuration")
             return None
         else:
-            _vscode_service = VSCodeService(port=config.vscode_port)
+            _vscode_service = VSCodeService(
+                port=config.vscode_port, connection_token=config.session_api_keys[0]
+            )
     return _vscode_service
