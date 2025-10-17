@@ -382,7 +382,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         self,
         messages: list[Message],
         tools: Sequence[ToolBase] | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -504,7 +504,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
         tools: Sequence[ToolBase] | None = None,
         include: list[str] | None = None,
         store: bool | None = None,
-        return_metrics: bool = False,
+        _return_metrics: bool = False,
         add_security_risk_prediction: bool = False,
         **kwargs,
     ) -> LLMResponse:
@@ -1159,7 +1159,7 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "contextwindowexceedederror",
             "prompt is too long",
             "input length and `max_tokens` exceed context limit",
-            "please reduce the length of either one",
+            "please reduce the length of",
             "the request exceeds the available context size",
             "context length exceeded",
         ]
