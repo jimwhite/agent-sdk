@@ -86,6 +86,25 @@ def test_scan_java_file():
     assert todos[0]["description"] == "Implement this method"
 
 
+def test_scan_rust_file():
+    """Test scanning Rust files."""
+    content = """fn main() {
+    // TODO(openhands): Add error handling
+    println!("Hello, world!");
+}"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
+        f.write(content)
+        f.flush()
+
+        todos = scan_file_for_todos(Path(f.name))
+
+    Path(f.name).unlink()
+
+    assert len(todos) == 1
+    assert todos[0]["description"] == "Add error handling"
+
+
 def test_scan_unsupported_file_extension():
     """Test that unsupported file extensions are ignored."""
     content = """// TODO(openhands): This should be ignored"""
@@ -208,3 +227,46 @@ def test_empty_file():
     Path(f.name).unlink()
 
     assert len(todos) == 0
+
+
+def test_custom_todo_identifier():
+    """Test scanning with a custom TODO identifier."""
+    content = """def test():
+    # TODO(myteam): Custom identifier test
+    # This should be found with custom identifier
+    pass
+"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(content)
+        f.flush()
+
+        # Test with custom identifier
+        todos = scan_file_for_todos(Path(f.name), "TODO(myteam)")
+
+    Path(f.name).unlink()
+
+    assert len(todos) == 1
+    assert todos[0]["description"] == (
+        "Custom identifier test This should be found with custom identifier"
+    )
+
+
+def test_custom_identifier_with_special_chars():
+    """Test custom identifier with regex special characters."""
+    content = """def test():
+    # TODO[urgent]: Special chars in identifier
+    pass
+"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(content)
+        f.flush()
+
+        # Test with identifier containing regex special chars
+        todos = scan_file_for_todos(Path(f.name), "TODO[urgent]")
+
+    Path(f.name).unlink()
+
+    assert len(todos) == 1
+    assert todos[0]["description"] == "Special chars in identifier"
