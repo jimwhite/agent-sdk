@@ -22,11 +22,6 @@ on:
                 required: false
                 default: '3'
                 type: string
-            file_pattern:
-                description: File pattern to scan (e.g., "*.py" or "src/**")
-                required: false
-                default: ''
-                type: string
 
   # Trigger when 'automatic-todo' label is added to a PR
     pull_request:
@@ -78,12 +73,7 @@ jobs:
                   echo "Scanning for TODO(openhands) comments..."
 
                   # Run the scanner and capture output
-                  if [ -n "${{ github.event.inputs.file_pattern }}" ]; then
-                    # TODO: Add support for file pattern filtering in scanner
-                    python /tmp/scanner.py . > todos.json
-                  else
-                    python /tmp/scanner.py . > todos.json
-                  fi
+                  python /tmp/scanner.py . > todos.json
 
                   # Count TODOs
                   TODO_COUNT=$(python -c \
