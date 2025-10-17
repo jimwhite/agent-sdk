@@ -49,8 +49,7 @@ class DelegationManager:
 
         # Store conversation references to prevent garbage collection
         self.conversations: dict[str, BaseConversation | dict[str, Any]] = {}
-        # Track parent-child relationships
-        self.parent_to_children: dict[str, set[str]] = {}
+        # Track parent-child relationships (child_id -> parent_id)
         self.child_to_parent: dict[str, str] = {}
         # Track sub-agent threads
         self.sub_agent_threads: dict[str, threading.Thread] = {}
@@ -200,9 +199,6 @@ class DelegationManager:
 
         # Track parent-child relationship
         parent_id = str(parent_conversation.id)
-        if parent_id not in self.parent_to_children:
-            self.parent_to_children[parent_id] = set()
-        self.parent_to_children[parent_id].add(sub_conversation_id)
         self.child_to_parent[sub_conversation_id] = parent_id
 
         # Start sub-agent in background thread
@@ -296,19 +292,11 @@ class DelegationManager:
             return False
 
         try:
-            # Get parent ID before cleanup
-            parent_id = self.child_to_parent.get(sub_conversation_id)
-
-            # Clean up relationships
-            if parent_id and parent_id in self.parent_to_children:
-                self.parent_to_children[parent_id].discard(sub_conversation_id)
-                if not self.parent_to_children[parent_id]:
-                    del self.parent_to_children[parent_id]
-
+            # Clean up parent-child relationship
             if sub_conversation_id in self.child_to_parent:
                 del self.child_to_parent[sub_conversation_id]
 
-            # Remove conversation reference (works for both dict and conversation objects)  # noqa: E501
+            # Remove conversation reference
             del self.conversations[sub_conversation_id]
 
             logger.info(f"Closed sub-agent {sub_conversation_id}")

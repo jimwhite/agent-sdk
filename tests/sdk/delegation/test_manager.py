@@ -11,7 +11,6 @@ def test_delegation_manager_init():
     manager = DelegationManager()
 
     assert manager.conversations == {}
-    assert manager.parent_to_children == {}
     assert manager.child_to_parent == {}
 
 
@@ -115,7 +114,6 @@ def test_close_sub_agent_with_parent_relationship():
     manager.conversations[child_id] = {"task": "child"}
 
     # Set up parent-child relationship
-    manager.parent_to_children[parent_id] = {child_id}
     manager.child_to_parent[child_id] = parent_id
 
     # Close child
@@ -125,8 +123,8 @@ def test_close_sub_agent_with_parent_relationship():
     assert result is True
     assert child_id not in manager.conversations
     assert child_id not in manager.child_to_parent
-    # Parent entry should be removed from parent_to_children since it has no children
-    assert parent_id not in manager.parent_to_children
+    # Parent should still exist
+    assert parent_id in manager.conversations
 
 
 def test_close_sub_agent_not_found():
