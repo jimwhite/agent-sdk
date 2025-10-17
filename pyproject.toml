@@ -65,6 +65,3 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
 
-[tool.uv.extra-build-dependencies]
-openhands-tools = ["openhands-sdk", "setuptools>=61.0", "wheel"]
-
