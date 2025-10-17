@@ -30,8 +30,8 @@ import warnings
 
 from prompt import PROMPT
 
-from openhands.sdk import LLM, Conversation, get_logger
-from openhands.tools.preset.default import get_default_agent
+from openhands.sdk import LLM, Conversation, get_logger  # type: ignore
+from openhands.tools.preset.default import get_default_agent  # type: ignore
 
 
 # Suppress Pydantic serialization warnings

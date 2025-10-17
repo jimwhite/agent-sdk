@@ -56,8 +56,7 @@ jobs:
             todos: ${{ steps.scan.outputs.todos }}
             todo-count: ${{ steps.scan.outputs.todo-count }}
         env:
-            SCANNER_URL: 
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/scanner.py
+            SCANNER_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/03_todo_management/scanner.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -131,10 +130,8 @@ jobs:
                 todo: ${{ fromJson(needs.scan-todos.outputs.todos) }}
             max-parallel: 1 # Process one TODO at a time to avoid conflicts
         env:
-            AGENT_URL: 
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/agent.py
-            PROMPT_URL: 
-                https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/openhands/todo-management-example/examples/github_workflows/03_todo_management/prompt.py
+            AGENT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/03_todo_management/agent_script.py
+            PROMPT_URL: https://raw.githubusercontent.com/All-Hands-AI/agent-sdk/main/examples/03_github_workflows/03_todo_management/prompt.py
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -160,14 +157,14 @@ jobs:
             - name: Install OpenHands dependencies
               run: |
                   # Install OpenHands SDK and tools from git repository
-                  uv pip install --system "openhands-sdk @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/sdk"
-                  uv pip install --system "openhands-tools @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands/tools"
+                  uv pip install --system "openhands-sdk @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands-sdk"
+                  uv pip install --system "openhands-tools @ git+https://github.com/All-Hands-AI/agent-sdk.git@main#subdirectory=openhands-tools"
 
             - name: Download agent files
               run: |
-                  curl -sSL "$AGENT_URL" -o agent.py
+                  curl -sSL "$AGENT_URL" -o agent_script.py
                   curl -sSL "$PROMPT_URL" -o prompt.py
-                  chmod +x agent.py
+                  chmod +x agent_script.py
 
             - name: Configure Git
               run: |
@@ -232,7 +229,7 @@ jobs:
                   # Run the agent with comprehensive logging
                   echo "Starting agent execution..."
                   set +e  # Don't exit on error, we want to capture it
-                  uv run python agent.py "$TODO_JSON" 2>&1 | tee agent_output.log
+                  uv run python agent_script.py "$TODO_JSON" 2>&1 | tee agent_output.log
                   AGENT_EXIT_CODE=$?
                   set -e
 
