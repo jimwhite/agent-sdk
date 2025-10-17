@@ -95,4 +95,3 @@ def create_websocket_session_api_key_dependency(config: Config):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED)
 
     return check_websocket_session_api_key
-
