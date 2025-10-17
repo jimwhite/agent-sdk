@@ -1,3 +1,16 @@
+# Root project meta configuration
+[project]
+name = "openhands-worktree"
+version = "0.0.0"
+description = "Meta project aggregating OpenHands workspace packages"
+requires-python = ">=3.12"
+dependencies = [
+    "openhands-sdk",
+    "openhands-tools",
+    "openhands-workspace",
+    "openhands-agent-server",
+]
+
 # UV workspace configuration
 [tool.uv.workspace]
 members = ["openhands-sdk", "openhands-tools", "openhands-workspace", "openhands-agent-server"]
