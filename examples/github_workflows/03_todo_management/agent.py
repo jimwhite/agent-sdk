@@ -143,7 +143,6 @@ def process_todo(todo_data: dict) -> dict:
     file_path = todo_data["file"]
     line_num = todo_data["line"]
     description = todo_data["description"]
-    todo_text = todo_data["text"]
 
     logger.info(f"Processing TODO in {file_path}:{line_num}")
 
@@ -184,7 +183,6 @@ def process_todo(todo_data: dict) -> dict:
             file_path=file_path,
             line_num=line_num,
             description=description,
-            todo_text=todo_text,
         )
 
         # Get the current working directory as workspace

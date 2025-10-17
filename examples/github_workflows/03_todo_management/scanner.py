@@ -134,7 +134,6 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
 
             # Extract initial description from the TODO line
             description = match.group(1).strip() if match.group(1) else ""
-            full_text = line.strip()
 
             # Look ahead for continuation lines that are also comments
             continuation_lines = []
@@ -179,7 +178,6 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
 
                     if comment_content:  # Only add non-empty content
                         continuation_lines.append(comment_content)
-                        full_text += " " + comment_content
                 elif next_stripped == "#":
                     # Empty comment line - continue looking
                     continue
@@ -199,7 +197,6 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
             todo_item = {
                 "file": str(file_path),
                 "line": line_num,
-                "text": full_text,
                 "description": full_description,
             }
             todos.append(todo_item)

@@ -186,7 +186,6 @@ jobs:
                   GITHUB_REPOSITORY: ${{ github.repository }}
                   TODO_FILE: ${{ matrix.todo.file }}
                   TODO_LINE: ${{ matrix.todo.line }}
-                  TODO_TEXT: ${{ matrix.todo.text }}
                   TODO_DESCRIPTION: ${{ matrix.todo.description }}
                   PYTHONPATH: ''
               run: |
@@ -214,7 +213,6 @@ jobs:
                     "file": "$TODO_FILE",
                     "line": $TODO_LINE,
                     "description": "$TODO_DESCRIPTION",
-                    "text": "$TODO_TEXT"
                   }
                   EOF
                   )
@@ -269,9 +267,6 @@ jobs:
 
                   Automatically implemented by OpenHands agent.
 
-                  Original TODO: $TODO_FILE:$TODO_LINE
-                  $TODO_TEXT
-
                   Co-authored-by: openhands <openhands@all-hands.dev>"
 
                   # Push branch
@@ -285,11 +280,6 @@ jobs:
 
                   **File:** \`$TODO_FILE:$TODO_LINE\`
                   **Description:** $TODO_DESCRIPTION
-
-                  ### Original TODO Comment
-                  \`\`\`
-                  $TODO_TEXT
-                  \`\`\`
 
                   ### Implementation
                   The OpenHands agent has analyzed the TODO and implemented the
