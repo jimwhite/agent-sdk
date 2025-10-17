@@ -1,7 +1,6 @@
 """DelegationManager for handling agent delegation and message routing."""
 
 import threading
-import uuid
 from typing import TYPE_CHECKING, Any
 
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
@@ -318,37 +317,3 @@ class DelegationManager:
         except Exception as e:
             logger.error(f"Failed to close sub-agent {sub_conversation_id}: {e}")
             return False
-
-    def create_simple_sub_agent(self, task: str) -> str:
-        """Create a simple sub-agent for demonstration purposes."""
-
-        # Generate a unique ID for the sub-agent
-        sub_conversation_id = str(uuid.uuid4())
-
-        # For now, just store the task and return the ID
-        # In a full implementation, this would create an actual conversation
-        self.conversations[sub_conversation_id] = {
-            "task": task,
-            "status": "created",
-            "messages": [],
-        }
-
-        logger.info(f"Created simple sub-agent {sub_conversation_id} with task: {task}")
-        return sub_conversation_id
-
-    def send_simple_message(self, sub_conversation_id: str, message: str) -> bool:
-        """Send a message to a simple sub-agent."""
-        if sub_conversation_id not in self.conversations:
-            logger.error(f"Sub-conversation {sub_conversation_id} not found")
-            return False
-
-        # Store the message in the simple sub-agent
-        sub_agent = self.conversations[sub_conversation_id]
-        if isinstance(sub_agent, dict):
-            sub_agent["messages"].append(message)
-            logger.info(
-                f"Sent message to simple sub-agent {sub_conversation_id}: {message}"
-            )
-            return True
-
-        return False
