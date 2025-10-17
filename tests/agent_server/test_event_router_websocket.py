@@ -97,6 +97,8 @@ class TestWebSocketDisconnectHandling:
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -106,7 +108,10 @@ class TestWebSocketDisconnectHandling:
 
             # This should not hang or loop infinitely
             await events_socket(
-                sample_conversation_id, mock_websocket, session_api_key=None
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                conv_svc=conv_svc,
             )
 
         # Verify that unsubscribe was called
@@ -129,6 +134,8 @@ class TestWebSocketDisconnectHandling:
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -136,7 +143,10 @@ class TestWebSocketDisconnectHandling:
             from openhands.agent_server.sockets import events_socket
 
             await events_socket(
-                sample_conversation_id, mock_websocket, session_api_key=None
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                conv_svc=conv_svc,
             )
 
         # Should be called exactly once (not in both except and finally blocks)
@@ -168,6 +178,8 @@ class TestWebSocketDisconnectHandling:
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -175,7 +187,10 @@ class TestWebSocketDisconnectHandling:
             from openhands.agent_server.sockets import events_socket
 
             await events_socket(
-                sample_conversation_id, mock_websocket, session_api_key=None
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                conv_svc=conv_svc,
             )
 
         # Should have been called twice (once for ValueError, once for disconnect)
@@ -208,6 +223,8 @@ class TestWebSocketDisconnectHandling:
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -215,7 +232,10 @@ class TestWebSocketDisconnectHandling:
             from openhands.agent_server.sockets import events_socket
 
             await events_socket(
-                sample_conversation_id, mock_websocket, session_api_key=None
+                sample_conversation_id,
+                mock_websocket,
+                session_api_key=None,
+                conv_svc=conv_svc,
             )
 
         # Should have processed the message
@@ -243,6 +263,8 @@ class TestWebSocketDisconnectHandling:
         ):
             # Mock config to not require authentication
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -252,7 +274,10 @@ class TestWebSocketDisconnectHandling:
             # This should raise the RuntimeError but still clean up
             with pytest.raises(RuntimeError):
                 await events_socket(
-                    sample_conversation_id, mock_websocket, session_api_key=None
+                    sample_conversation_id,
+                    mock_websocket,
+                    session_api_key=None,
+                    conv_svc=conv_svc,
                 )
 
         # Should still unsubscribe in the finally block
@@ -276,6 +301,8 @@ class TestResendAllFunctionality:
             patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -287,6 +314,7 @@ class TestResendAllFunctionality:
                 mock_websocket,
                 session_api_key=None,
                 resend_all=False,
+                conv_svc=conv_svc,
             )
 
         # search_events should not be called when not resending
@@ -329,6 +357,8 @@ class TestResendAllFunctionality:
             patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -340,6 +370,7 @@ class TestResendAllFunctionality:
                 mock_websocket,
                 session_api_key=None,
                 resend_all=True,
+                conv_svc=conv_svc,
             )
 
         # search_events should be called to get all events
@@ -367,6 +398,8 @@ class TestResendAllFunctionality:
             patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -380,6 +413,7 @@ class TestResendAllFunctionality:
                     mock_websocket,
                     session_api_key=None,
                     resend_all=True,
+                    conv_svc=conv_svc,
                 )
 
         # search_events should be called
@@ -423,6 +457,8 @@ class TestResendAllFunctionality:
             patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
             mock_config.return_value.session_api_keys = None
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
                 return_value=mock_event_service
             )
@@ -435,6 +471,7 @@ class TestResendAllFunctionality:
                 mock_websocket,
                 session_api_key=None,
                 resend_all=True,
+                conv_svc=conv_svc,
             )
 
         # search_events should be called
