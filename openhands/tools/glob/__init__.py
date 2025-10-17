@@ -18,26 +18,14 @@ if __name__ == "glob":  # pragma: no cover - build-time path only
             sys.modules["glob"] = module
             globals().update(module.__dict__)
 
-# Avoid importing heavy dependencies at module import time (helps build isolation)
+# Explicit imports so static type checkers (pyright) can resolve symbols.
+from .definition import GlobAction, GlobObservation, GlobTool  # noqa: E402
+from .impl import GlobExecutor  # noqa: E402
+
+
 __all__ = [
     "GlobTool",
     "GlobAction",
     "GlobObservation",
     "GlobExecutor",
 ]
-
-
-def __getattr__(name):  # PEP 562 lazy import
-    if name in {"GlobTool", "GlobAction", "GlobObservation"}:
-        from .definition import GlobAction, GlobObservation, GlobTool
-
-        return {
-            "GlobTool": GlobTool,
-            "GlobAction": GlobAction,
-            "GlobObservation": GlobObservation,
-        }[name]
-    if name == "GlobExecutor":
-        from .impl import GlobExecutor
-
-        return GlobExecutor
-    raise AttributeError(name)
