@@ -110,7 +110,6 @@ class TestWebSocketDisconnectHandling:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 conv_svc=conv_svc,
             )
 
@@ -145,7 +144,6 @@ class TestWebSocketDisconnectHandling:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 conv_svc=conv_svc,
             )
 
@@ -189,7 +187,6 @@ class TestWebSocketDisconnectHandling:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 conv_svc=conv_svc,
             )
 
@@ -234,7 +231,6 @@ class TestWebSocketDisconnectHandling:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 conv_svc=conv_svc,
             )
 
@@ -276,7 +272,6 @@ class TestWebSocketDisconnectHandling:
                 await events_socket(
                     sample_conversation_id,
                     mock_websocket,
-                    session_api_key=None,
                     conv_svc=conv_svc,
                 )
 
@@ -312,7 +307,6 @@ class TestResendAllFunctionality:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 resend_all=False,
                 conv_svc=conv_svc,
             )
@@ -368,7 +362,6 @@ class TestResendAllFunctionality:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 resend_all=True,
                 conv_svc=conv_svc,
             )
@@ -411,7 +404,6 @@ class TestResendAllFunctionality:
                 await events_socket(
                     sample_conversation_id,
                     mock_websocket,
-                    session_api_key=None,
                     resend_all=True,
                     conv_svc=conv_svc,
                 )
@@ -469,7 +461,6 @@ class TestResendAllFunctionality:
             await events_socket(
                 sample_conversation_id,
                 mock_websocket,
-                session_api_key=None,
                 resend_all=True,
                 conv_svc=conv_svc,
             )
