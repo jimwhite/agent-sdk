@@ -319,39 +319,6 @@ class DelegationManager:
             logger.error(f"Failed to close sub-agent {sub_conversation_id}: {e}")
             return False
 
-    def get_sub_agents(self, parent_conversation_id: str) -> list[str]:
-        """Get list of sub-agent IDs for a parent conversation.
-
-        Args:
-            parent_conversation_id: ID of the parent conversation
-
-        Returns:
-            List of sub-agent conversation IDs
-        """
-        return list(self.parent_to_children.get(parent_conversation_id, set()))
-
-    def is_sub_agent(self, conversation_id: str) -> bool:
-        """Check if a conversation is a sub-agent.
-
-        Args:
-            conversation_id: ID of the conversation to check
-
-        Returns:
-            True if it's a sub-agent, False otherwise
-        """
-        return conversation_id in self.child_to_parent
-
-    def get_parent_id(self, sub_conversation_id: str) -> str | None:
-        """Get the parent conversation ID for a sub-agent.
-
-        Args:
-            sub_conversation_id: ID of the sub-conversation
-
-        Returns:
-            Parent conversation ID or None if not found
-        """
-        return self.child_to_parent.get(sub_conversation_id)
-
     def create_simple_sub_agent(self, task: str) -> str:
         """Create a simple sub-agent for demonstration purposes."""
 
