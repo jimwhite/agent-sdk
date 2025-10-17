@@ -101,11 +101,61 @@ def test_scan_unsupported_file_extension():
     assert len(todos) == 0
 
 
-def test_skip_processed_todos():
-    """Test that TODOs with PR URLs are skipped."""
+def test_scan_all_todos():
+    """Test that all TODO(openhands) comments are found."""
     content = """def test():
     # TODO(openhands): This should be found
-    # TODO(in progress: https://github.com/owner/repo/pull/123)
+    # TODO(openhands): This should also be found
+    # TODO(openhands): https://github.com/owner/repo/pull/123
+    pass
+"""
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(content)
+        f.flush()
+
+        todos = scan_file_for_todos(Path(f.name))
+
+    Path(f.name).unlink()
+
+    assert len(todos) == 3
+    assert todos[0]["description"] == "This should be found"
+    assert todos[1]["description"] == "This should also be found"
+    assert todos[2]["description"] == "https://github.com/owner/repo/pull/123"
+
+
+def test_scan_directory():
+    """Test scanning a directory with multiple files."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        # Create Python file with TODO (avoid "test" in filename)
+        py_file = temp_path / "main.py"
+        py_file.write_text("# TODO(openhands): Python todo\nprint('hello')")
+
+        # Create TypeScript file with TODO (avoid "test" in filename)
+        ts_file = temp_path / "app.ts"
+        ts_file.write_text("// TODO(openhands): TypeScript todo\nconsole.log('hello');")
+
+        # Create unsupported file (should be ignored)
+        js_file = temp_path / "script.js"
+        js_file.write_text("// TODO(openhands): Should be ignored")
+
+        todos = scan_directory(temp_path)
+
+        assert len(todos) == 2
+        descriptions = [todo["description"] for todo in todos]
+        assert "Python todo" in descriptions
+        assert "TypeScript todo" in descriptions
+
+
+def test_todo_with_continuation_lines():
+    """Test TODO with continuation comment lines."""
+    content = """def test():
+    # TODO(openhands): Add error handling
+    # This should handle network timeouts
+    # and retry failed requests
+    # with exponential backoff
     pass
 """
 
@@ -118,32 +168,33 @@ def test_skip_processed_todos():
     Path(f.name).unlink()
 
     assert len(todos) == 1
-    assert todos[0]["description"] == "This should be found"
+    expected_desc = (
+        "Add error handling This should handle network timeouts "
+        "and retry failed requests with exponential backoff"
+    )
+    assert todos[0]["description"] == expected_desc
 
 
-def test_scan_directory():
-    """Test scanning a directory with multiple files."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+def test_todo_without_description():
+    """Test TODO without initial description but with continuation lines."""
+    content = """def test():
+    # TODO(openhands)
+    # Implement user authentication
+    # with proper session management
+    pass
+"""
 
-        # Create Python file with TODO
-        py_file = temp_path / "test.py"
-        py_file.write_text("# TODO(openhands): Python todo\nprint('hello')")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(content)
+        f.flush()
 
-        # Create TypeScript file with TODO
-        ts_file = temp_path / "test.ts"
-        ts_file.write_text("// TODO(openhands): TypeScript todo\nconsole.log('hello');")
+        todos = scan_file_for_todos(Path(f.name))
 
-        # Create unsupported file (should be ignored)
-        js_file = temp_path / "test.js"
-        js_file.write_text("// TODO(openhands): Should be ignored")
+    Path(f.name).unlink()
 
-        todos = scan_directory(temp_path)
-
-        assert len(todos) == 2
-        descriptions = [todo["description"] for todo in todos]
-        assert "Python todo" in descriptions
-        assert "TypeScript todo" in descriptions
+    assert len(todos) == 1
+    expected_desc = "Implement user authentication with proper session management"
+    assert todos[0]["description"] == expected_desc
 
 
 def test_empty_file():

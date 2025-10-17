@@ -56,82 +56,10 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
 
     todos = []
     todo_pattern = re.compile(r"TODO\(openhands\)(?::\s*(.*))?", re.IGNORECASE)
-    in_docstring = False
-    docstring_delimiter = None
 
     for line_num, line in enumerate(lines, 1):
-        # Track docstring state - handle single line and multi-line docstrings
-        triple_double_count = line.count('"""')
-        triple_single_count = line.count("'''")
-
-        if triple_double_count > 0:
-            if triple_double_count == 2:  # Single line docstring
-                # Don't change in_docstring state for single line docstrings
-                pass
-            elif not in_docstring:
-                in_docstring = True
-                docstring_delimiter = '"""'
-            elif docstring_delimiter == '"""':
-                in_docstring = False
-                docstring_delimiter = None
-        elif triple_single_count > 0:
-            if triple_single_count == 2:  # Single line docstring
-                # Don't change in_docstring state for single line docstrings
-                pass
-            elif not in_docstring:
-                in_docstring = True
-                docstring_delimiter = "'''"
-            elif docstring_delimiter == "'''":
-                in_docstring = False
-                docstring_delimiter = None
         match = todo_pattern.search(line)
         if match:
-            stripped_line = line.strip()
-
-            # Skip TODOs that have already been processed by the workflow
-            if (
-                "pull/" in line  # Contains PR URL
-                or "TODO(in progress:" in line  # In progress marker
-                or "TODO(implemented:" in line  # Implemented marker
-                or "TODO(completed:" in line  # Completed marker
-                or "github.com/" in line  # Contains GitHub URL
-                # Contains any URL
-                or "https://" in line
-            ):
-                logger.debug(
-                    f"Skipping already processed TODO in {file_path}:"
-                    f"{line_num}: {stripped_line}"
-                )
-                continue
-
-            # Skip false positives
-            if (
-                in_docstring  # Skip TODOs inside docstrings
-                or '"""' in line
-                or "'''" in line
-                or stripped_line.startswith("Scans for")
-                or stripped_line.startswith("This script processes")
-                or "description=" in line
-                # Skip test file mock data
-                or ".write_text(" in line
-                # Skip test file mock data
-                or 'content = """' in line
-                # Skip print statements
-                or "print(" in line
-                # Skip print statements with double quotes
-                or 'print("' in line
-                # Skip print statements with single quotes
-                or "print('" in line
-                or (
-                    "TODO(openhands)" in line and '"' in line and line.count('"') >= 2  # noqa: E501
-                )  # Skip quoted strings
-            ):
-                logger.debug(
-                    f"Skipping false positive in {file_path}:{line_num}: "
-                    f"{stripped_line}"
-                )
-                continue
-
             # Extract initial description from the TODO line
             description = match.group(1).strip() if match.group(1) else ""
 
@@ -153,29 +81,6 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                     # Extract comment content (remove # and leading whitespace)
                     comment_content = next_stripped[1:].strip()
 
-                    # Stop if we encounter a comment that looks like a
-                    # separate comment (starts with capital letter and doesn't
-                    # continue the previous thought)
-                    if (
-                        comment_content
-                        # Only apply this rule if we already have
-                        # continuation lines
-                        and continuation_lines
-                        and comment_content[0].isupper()
-                        and not comment_content.lower().startswith(
-                            (
-                                "and ",
-                                "or ",
-                                "but ",
-                                "when ",
-                                "that ",
-                                "which ",
-                                "where ",
-                            )
-                        )
-                    ):
-                        break
-
                     if comment_content:  # Only add non-empty content
                         continuation_lines.append(comment_content)
                 elif next_stripped == "#":
@@ -188,7 +93,7 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
             # Combine description with continuation lines
             if continuation_lines:
                 if description:
-                    full_description = description + " " + " ".join(continuation_lines)  # noqa: E501
+                    full_description = description + " " + " ".join(continuation_lines)
                 else:
                     full_description = " ".join(continuation_lines)
             else:
@@ -200,7 +105,7 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 "description": full_description,
             }
             todos.append(todo_item)
-            logger.info(f"Found TODO in {file_path}:{line_num}: {full_description}")  # noqa: E501
+            logger.info(f"Found TODO in {file_path}:{line_num}: {full_description}")
 
     if todos:
         logger.info(f"Found {len(todos)} TODO(s) in {file_path}")
