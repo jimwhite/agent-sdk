@@ -176,10 +176,6 @@ class Action(Schema, ABC):
         exclude=True,
     )
 
-    model_config = ConfigDict(
-        extra="forbid", frozen=True
-    )  # Actions are immutable; use model_copy for updates
-
     @property
     def visualize(self) -> Text:
         """Return Rich Text representation of this action.
