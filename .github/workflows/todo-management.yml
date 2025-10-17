@@ -7,7 +7,7 @@
 # Setup:
 #  1. Add LLM_API_KEY to repository secrets
 #  2. Ensure GITHUB_TOKEN has appropriate permissions
-#  3. Make sure Github Actions are allowed to create and review PRs (in the repo settings)
+#  3. Make sure Github Actions are allowed to create and review PRs
 #  4. Commit this file to .github/workflows/ in your repository
 #  5. Configure the schedule or trigger manually
 
@@ -21,6 +21,11 @@ on:
                 description: Maximum number of TODOs to process in this run
                 required: false
                 default: '3'
+                type: string
+            todo_identifier:
+                description: TODO identifier to search for (e.g., TODO(openhands))
+                required: false
+                default: 'TODO(openhands)'
                 type: string
 
   # Trigger when 'automatic-todo' label is added to a PR
@@ -70,15 +75,16 @@ jobs:
             - name: Scan for TODOs
               id: scan
               run: |
-                  echo "Scanning for TODO(openhands) comments..."
+                  echo "Scanning for TODO comments..."
 
                   # Run the scanner and capture output
-                  python /tmp/scanner.py . > todos.json
+                  TODO_IDENTIFIER="${{ github.event.inputs.todo_identifier || 'TODO(openhands)' }}"
+                  python /tmp/scanner.py . --identifier "$TODO_IDENTIFIER" > todos.json
 
                   # Count TODOs
                   TODO_COUNT=$(python -c \
                     "import json; data=json.load(open('todos.json')); print(len(data))")
-                  echo "Found $TODO_COUNT TODO(openhands) items"
+                  echo "Found $TODO_COUNT $TODO_IDENTIFIER items"
 
                   # Limit the number of TODOs to process
                   MAX_TODOS="${{ github.event.inputs.max_todos || '3' }}"

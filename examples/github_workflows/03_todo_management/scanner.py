@@ -2,7 +2,8 @@
 """
 TODO Scanner for OpenHands Automated TODO Management
 
-Scans for `# TODO(openhands)` comments in Python, TypeScript, and Java files.
+Scans for configurable TODO comments in Python, TypeScript, Java, and Rust files.
+Default identifier: TODO(openhands)
 """
 
 import argparse
@@ -26,10 +27,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def scan_file_for_todos(file_path: Path) -> list[dict]:
-    """Scan a single file for TODO(openhands) comments."""
+def scan_file_for_todos(
+    file_path: Path, todo_identifier: str = "TODO(openhands)"
+) -> list[dict]:
+    """Scan a single file for configurable TODO comments."""
     # Only scan specific file extensions
-    if file_path.suffix.lower() not in {".py", ".ts", ".java"}:
+    if file_path.suffix.lower() not in {".py", ".ts", ".java", ".rs"}:
         logger.debug(f"Skipping file {file_path} (unsupported extension)")
         return []
 
@@ -55,7 +58,9 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
         return []
 
     todos = []
-    todo_pattern = re.compile(r"TODO\(openhands\)(?::\s*(.*))?", re.IGNORECASE)
+    # Escape special regex characters in the identifier
+    escaped_identifier = re.escape(todo_identifier)
+    todo_pattern = re.compile(rf"{escaped_identifier}(?::\s*(.*))?", re.IGNORECASE)
 
     for line_num, line in enumerate(lines, 1):
         match = todo_pattern.search(line)
@@ -72,7 +77,7 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
                 # Check if this line is a comment continuation
                 if (
                     next_stripped.startswith("#")
-                    and not next_stripped.startswith("# TODO(openhands)")
+                    and not next_stripped.startswith(f"# {todo_identifier}")
                     # Skip empty comment lines
                     and next_stripped != "#"
                     # Must have content after #
@@ -112,8 +117,10 @@ def scan_file_for_todos(file_path: Path) -> list[dict]:
     return todos
 
 
-def scan_directory(directory: Path) -> list[dict]:
-    """Recursively scan a directory for TODO(openhands) comments."""
+def scan_directory(
+    directory: Path, todo_identifier: str = "TODO(openhands)"
+) -> list[dict]:
+    """Recursively scan a directory for configurable TODO comments."""
     logger.info(f"Scanning directory: {directory}")
     all_todos = []
 
@@ -136,7 +143,7 @@ def scan_directory(directory: Path) -> list[dict]:
 
         for file in files:
             file_path = Path(root) / file
-            todos = scan_file_for_todos(file_path)
+            todos = scan_file_for_todos(file_path, todo_identifier)
             all_todos.extend(todos)
 
     return all_todos
@@ -145,7 +152,7 @@ def scan_directory(directory: Path) -> list[dict]:
 def main():
     """Main function to scan for TODOs and output results."""
     parser = argparse.ArgumentParser(
-        description="Scan codebase for TODO(openhands) comments"
+        description="Scan codebase for configurable TODO comments"
     )
     parser.add_argument(
         "directory",
@@ -154,6 +161,12 @@ def main():
         help="Directory to scan (default: current directory)",
     )
     parser.add_argument("--output", "-o", help="Output file (default: stdout)")
+    parser.add_argument(
+        "--identifier",
+        "-i",
+        default="TODO(openhands)",
+        help="TODO identifier to search for (default: TODO(openhands))",
+    )
 
     args = parser.parse_args()
 
@@ -164,10 +177,10 @@ def main():
 
     if path.is_file():
         logger.info(f"Starting TODO scan on file: {path}")
-        todos = scan_file_for_todos(path)
+        todos = scan_file_for_todos(path, args.identifier)
     else:
         logger.info(f"Starting TODO scan in directory: {path}")
-        todos = scan_directory(path)
+        todos = scan_directory(path, args.identifier)
     logger.info(f"Scan complete. Found {len(todos)} total TODO(s)")
     output = json.dumps(todos, indent=2)
 
