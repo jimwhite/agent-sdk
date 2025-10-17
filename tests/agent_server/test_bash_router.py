@@ -33,8 +33,10 @@ def client():
 @pytest.mark.asyncio
 async def test_clear_all_bash_events_empty_storage():
     """Test clearing bash events when storage is empty."""
-    with patch("openhands.agent_server.bash_router.bash_event_service") as mock_service:
+    with patch("openhands.agent_server.bash_router.get_bash_event_service") as get_svc:
+        mock_service = AsyncMock(spec=BashEventService)
         mock_service.clear_all_events = AsyncMock(return_value=0)
+        get_svc.return_value = mock_service
 
         config = Config(session_api_keys=[])  # Disable authentication
         client = TestClient(create_app(config))
@@ -48,8 +50,10 @@ async def test_clear_all_bash_events_empty_storage():
 @pytest.mark.asyncio
 async def test_clear_all_bash_events_with_data():
     """Test clearing bash events when storage contains data."""
-    with patch("openhands.agent_server.bash_router.bash_event_service") as mock_service:
+    with patch("openhands.agent_server.bash_router.get_bash_event_service") as get_svc:
+        mock_service = AsyncMock(spec=BashEventService)
         mock_service.clear_all_events = AsyncMock(return_value=5)
+        get_svc.return_value = mock_service
 
         config = Config(session_api_keys=[])  # Disable authentication
         client = TestClient(create_app(config))

@@ -45,11 +45,11 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with run=True."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
-            mock_conv_service.get_event_service = AsyncMock(
-                return_value=mock_event_service
-            )
+            "openhands.agent_server.event_router.get_conversation_service"
+        ) as get_conv_service:
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
+            get_conv_service.return_value = conv_svc
 
             request_data = {
                 "role": "user",
@@ -82,11 +82,11 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with run=False."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
-            mock_conv_service.get_event_service = AsyncMock(
-                return_value=mock_event_service
-            )
+            "openhands.agent_server.event_router.get_conversation_service"
+        ) as get_conv_service:
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
+            get_conv_service.return_value = conv_svc
 
             request_data = {
                 "role": "assistant",
@@ -116,11 +116,11 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with default run value."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
-            mock_conv_service.get_event_service = AsyncMock(
-                return_value=mock_event_service
-            )
+            "openhands.agent_server.event_router.get_conversation_service"
+        ) as get_conv_service:
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
+            get_conv_service.return_value = conv_svc
 
             # Request without run field should use default value
             request_data = {
@@ -150,9 +150,11 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint when conversation is not found."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
-            mock_conv_service.get_event_service = AsyncMock(return_value=None)
+            "openhands.agent_server.event_router.get_conversation_service"
+        ) as get_conv_service:
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=None)
+            get_conv_service.return_value = conv_svc
 
             request_data = {
                 "role": "user",
@@ -172,11 +174,11 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with different content types."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
-            mock_conv_service.get_event_service = AsyncMock(
-                return_value=mock_event_service
-            )
+            "openhands.agent_server.event_router.get_conversation_service"
+        ) as get_conv_service:
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
+            get_conv_service.return_value = conv_svc
 
             # Test with multiple content items
             request_data = {
@@ -215,11 +217,11 @@ class TestSendMessageEndpoint:
     ):
         """Test send_message endpoint with system role."""
         with patch(
-            "openhands.agent_server.event_router.conversation_service"
-        ) as mock_conv_service:
-            mock_conv_service.get_event_service = AsyncMock(
-                return_value=mock_event_service
-            )
+            "openhands.agent_server.event_router.get_conversation_service"
+        ) as get_conv_service:
+            conv_svc = AsyncMock()
+            conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
+            get_conv_service.return_value = conv_svc
 
             request_data = {
                 "role": "system",
