@@ -25,6 +25,12 @@ class StuckDetector:
     5. Context window errors indicating memory issues
     """
 
+    state: ConversationState
+    action_observation_threshold: int
+    action_error_threshold: int
+    monologue_threshold: int
+    alternating_pattern_threshold: int
+
     def __init__(
         self,
         state: ConversationState,

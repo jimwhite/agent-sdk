@@ -413,6 +413,7 @@ class RemoteConversation(BaseConversation):
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
+        stuck_detection_thresholds: Mapping[str, int] | None = None,
         visualize: bool = False,
         secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
@@ -429,6 +430,10 @@ class RemoteConversation(BaseConversation):
             callbacks: Optional callbacks to receive events (not yet streamed)
             max_iteration_per_run: Max iterations configured on server
             stuck_detection: Whether to enable stuck detection on server
+            stuck_detection_thresholds: Optional dict to configure stuck detection
+                      thresholds. Keys: 'action_observation', 'action_error',
+                      'monologue', 'alternating_pattern'. Values are integers
+                      representing the number of repetitions before triggering.
             visualize: Whether to enable the default visualizer callback
         """
         self.agent = agent
@@ -450,6 +455,8 @@ class RemoteConversation(BaseConversation):
                     working_dir=self.workspace.working_dir
                 ).model_dump(),
             }
+            if stuck_detection_thresholds is not None:
+                payload["stuck_detection_thresholds"] = dict(stuck_detection_thresholds)
             resp = _send_request(
                 self._client, "POST", "/api/conversations", json=payload
             )
