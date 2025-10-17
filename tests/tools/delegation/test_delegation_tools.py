@@ -181,49 +181,6 @@ def test_delegate_executor_close():
     assert f"Sub-agent {sub_id} closed successfully" in observation.message
 
 
-def test_delegate_executor_status():
-    """Test DelegateExecutor status operation."""
-    executor, parent_conversation, _ = create_test_executor_and_parent()
-
-    # Mock threading.Thread to avoid spawning real threads
-    with patch("threading.Thread") as mock_thread:
-        mock_thread_instance = MagicMock()
-        mock_thread.return_value = mock_thread_instance
-
-        # First spawn a sub-agent
-        spawn_action = DelegateAction(operation="spawn", task="Test task")
-        spawn_action = spawn_action.model_copy(
-            update={"conversation_id": parent_conversation.id}
-        )
-        spawn_result = executor(spawn_action)
-        sub_id = spawn_result.sub_conversation_id
-
-    # Get status of the sub-agent
-    status_action = DelegateAction(operation="status", sub_conversation_id=sub_id)
-    observation = executor(status_action)
-
-    # Verify
-    assert isinstance(observation, DelegateObservation)
-    assert observation.sub_conversation_id == sub_id
-    assert observation.status == "active"
-    assert f"Sub-agent {sub_id} is" in observation.message
-    assert observation.result is not None and "Agent status:" in observation.result
-
-
-def test_delegate_executor_status_not_found():
-    """Test DelegateExecutor status with non-existent sub-agent."""
-    executor = DelegateExecutor()
-
-    # Get status of non-existent sub-agent
-    status_action = DelegateAction(operation="status", sub_conversation_id="invalid-id")
-    observation = executor(status_action)
-
-    # Verify
-    assert isinstance(observation, DelegateObservation)
-    assert observation.status == "not_found"
-    assert "Sub-agent invalid-id not found" in observation.message
-
-
 def test_delegate_executor_spawn_missing_task():
     """Test DelegateExecutor spawn without task."""
     executor = DelegateExecutor()

@@ -19,7 +19,7 @@ from openhands.tools.delegation.impl import DelegateExecutor
 class DelegateAction(Action):
     """Action for delegating tasks to sub-agents."""
 
-    operation: Literal["spawn", "send", "status", "close"] = Field(
+    operation: Literal["spawn", "send", "close"] = Field(
         description="The delegation operation to perform"
     )
     task: str | None = Field(
@@ -27,7 +27,7 @@ class DelegateAction(Action):
     )
     sub_conversation_id: str | None = Field(
         default=None,
-        description="ID of the sub-conversation for send/status/close operations",
+        description="ID of the sub-conversation for send/close operations",
     )
     message: str | None = Field(
         default=None, description="Message to send to sub-agent (for send operation)"
@@ -43,7 +43,7 @@ class DelegateAction(Action):
             content.append(f"Task: {self.task}")
         elif self.operation == "send" and self.message and self.sub_conversation_id:
             content.append(f"To {self.sub_conversation_id}: {self.message}")
-        elif self.operation in ["status", "close"] and self.sub_conversation_id:
+        elif self.operation == "close" and self.sub_conversation_id:
             content.append(f"Sub-agent: {self.sub_conversation_id}")
 
         return content
@@ -91,12 +91,11 @@ class DelegateObservation(Observation):
 TOOL_DESCRIPTION = """Delegate tasks to sub-agents for parallel processing.
 
 This tool allows the main agent to spawn sub-agents, send them messages,
-check their status, and close them when done.
+and close them when done.
 
 Operations:
 - spawn: Create a new sub-agent with a specific task
 - send: Send a message to an existing sub-agent
-- status: Check the status of a sub-agent
 - close: Close a sub-agent and clean up resources
 
 The main agent should use FinishAction to pause itself when waiting

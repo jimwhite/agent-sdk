@@ -31,8 +31,6 @@ class DelegateExecutor(ToolExecutor):
             return self._spawn_sub_agent(action)
         elif action.operation == "send":
             return self._send_to_sub_agent(action)
-        elif action.operation == "status":
-            return self._get_sub_agent_status(action)
         elif action.operation == "close":
             return self._close_sub_agent(action)
         else:
@@ -141,8 +139,8 @@ class DelegateExecutor(ToolExecutor):
                 status="error", message="Message is required for send operation"
             )
 
-        # For simplified implementation, just store the message
-        success = self.delegation_manager.send_simple_message(
+        # Send message to sub-agent
+        success = self.delegation_manager.send_to_sub_agent(
             sub_conversation_id=action.sub_conversation_id, message=action.message
         )
 
@@ -160,49 +158,6 @@ class DelegateExecutor(ToolExecutor):
                 message=(
                     f"Failed to send message to sub-agent {action.sub_conversation_id}"
                 ),
-            )
-
-    def _get_sub_agent_status(self, action: "DelegateAction") -> "DelegateObservation":
-        """Get the status of a sub-agent."""
-        from openhands.tools.delegation.definition import DelegateObservation
-
-        if not action.sub_conversation_id:
-            return DelegateObservation(
-                status="error",
-                message="Sub-conversation ID is required for status operation",
-            )
-
-        # Check if sub-agent exists
-        if action.sub_conversation_id not in self.delegation_manager.conversations:
-            return DelegateObservation(
-                sub_conversation_id=action.sub_conversation_id,
-                status="not_found",
-                message=f"Sub-agent {action.sub_conversation_id} not found",
-            )
-
-        # Get simple sub-agent and check its status
-        sub_agent = self.delegation_manager.conversations[action.sub_conversation_id]
-        if isinstance(sub_agent, dict):
-            agent_status = sub_agent.get("status", "unknown")
-            return DelegateObservation(
-                sub_conversation_id=action.sub_conversation_id,
-                status="active",
-                message=f"Sub-agent {action.sub_conversation_id} is {agent_status}",
-                result=(
-                    f"Agent status: {agent_status}, "
-                    f"Task: {sub_agent.get('task', 'N/A')}"
-                ),
-            )
-        else:
-            # Real conversation object
-            agent_status = sub_agent.state.agent_status
-            return DelegateObservation(
-                sub_conversation_id=action.sub_conversation_id,
-                status="active",
-                message=(
-                    f"Sub-agent {action.sub_conversation_id} is {agent_status.value}"
-                ),
-                result=f"Agent status: {agent_status.value}",
             )
 
     def _close_sub_agent(self, action: "DelegateAction") -> "DelegateObservation":
