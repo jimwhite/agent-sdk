@@ -1,7 +1,7 @@
 """DelegationManager for handling agent delegation and message routing."""
 
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
 from openhands.sdk.event import MessageEvent
@@ -47,8 +47,8 @@ class DelegationManager:
             return
         self._initialized = True
 
-        # Store conversation references to prevent garbage collection
-        self.conversations: dict[str, BaseConversation | dict[str, Any]] = {}
+        # Store conversation by id
+        self.conversations: dict[str, BaseConversation] = {}
         # Track parent-child relationships (child_id -> parent_id)
         self.child_to_parent: dict[str, str] = {}
         # Track sub-agent threads
@@ -76,11 +76,7 @@ class DelegationManager:
         Returns:
             The conversation object if found, None otherwise
         """
-        conv = self.conversations.get(conversation_id)
-        # Only return if it's a real conversation object (not a dict)
-        if conv is not None and not isinstance(conv, dict):
-            return conv  # type: ignore
-        return None
+        return self.conversations.get(conversation_id)
 
     def spawn_sub_agent(
         self,
@@ -254,23 +250,10 @@ class DelegationManager:
             return False
 
         try:
-            # Handle both dict-based simple agents and real conversation objects
-            if isinstance(sub_conversation, dict):
-                # Simple agent - just store the message
-                if "messages" not in sub_conversation:
-                    sub_conversation["messages"] = []
-                sub_conversation["messages"].append(message)
-                logger.debug(
-                    f"Sent message to simple sub-agent {sub_conversation_id}: "
-                    f"{message[:100]}..."
-                )
-            else:
-                # Real conversation object
-                sub_conversation.send_message(message)  # type: ignore
-                logger.debug(
-                    f"Sent message to sub-agent {sub_conversation_id}: "
-                    f"{message[:100]}..."
-                )
+            sub_conversation.send_message(message)
+            logger.debug(
+                f"Sent message to sub-agent {sub_conversation_id}: {message[:100]}..."
+            )
             return True
         except Exception as e:
             logger.error(
