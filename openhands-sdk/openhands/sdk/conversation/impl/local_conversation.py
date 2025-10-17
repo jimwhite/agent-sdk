@@ -9,7 +9,11 @@ from openhands.sdk.conversation.secrets_manager import SecretValue
 from openhands.sdk.conversation.state import AgentExecutionStatus, ConversationState
 from openhands.sdk.conversation.stuck_detector import StuckDetector
 from openhands.sdk.conversation.title_utils import generate_conversation_title
-from openhands.sdk.conversation.types import ConversationCallbackType, ConversationID
+from openhands.sdk.conversation.types import (
+    ConversationCallbackType,
+    ConversationID,
+    StuckDetectionThresholds,
+)
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizer,
     create_default_visualizer,
@@ -50,7 +54,9 @@ class LocalConversation(BaseConversation):
         callbacks: list[ConversationCallbackType] | None = None,
         max_iteration_per_run: int = 500,
         stuck_detection: bool = True,
-        stuck_detection_thresholds: Mapping[str, int] | None = None,
+        stuck_detection_thresholds: (
+            StuckDetectionThresholds | Mapping[str, int] | None
+        ) = None,
         visualize: bool = True,
         secrets: Mapping[str, SecretValue] | None = None,
         **_: object,
@@ -70,8 +76,9 @@ class LocalConversation(BaseConversation):
                       a default visualizer callback. If False, relies on
                       application to provide visualization through callbacks.
             stuck_detection: Whether to enable stuck detection
-            stuck_detection_thresholds: Optional dict to configure stuck detection
-                      thresholds. Keys: 'action_observation', 'action_error',
+            stuck_detection_thresholds: Optional configuration for stuck detection
+                      thresholds. Can be a StuckDetectionThresholds instance or
+                      a dict with keys: 'action_observation', 'action_error',
                       'monologue', 'alternating_pattern'. Values are integers
                       representing the number of repetitions before triggering.
         """
@@ -118,13 +125,16 @@ class LocalConversation(BaseConversation):
 
         # Initialize stuck detector
         if stuck_detection:
-            thresholds = stuck_detection_thresholds or {}
+            # Convert dict to StuckDetectionThresholds if needed
+            if isinstance(stuck_detection_thresholds, Mapping):
+                threshold_config = StuckDetectionThresholds(
+                    **stuck_detection_thresholds
+                )
+            else:
+                threshold_config = stuck_detection_thresholds
             self._stuck_detector = StuckDetector(
                 self._state,
-                action_observation_threshold=thresholds.get("action_observation", 4),
-                action_error_threshold=thresholds.get("action_error", 3),
-                monologue_threshold=thresholds.get("monologue", 3),
-                alternating_pattern_threshold=thresholds.get("alternating_pattern", 6),
+                thresholds=threshold_config,
             )
         else:
             self._stuck_detector = None

@@ -1,4 +1,5 @@
 from openhands.sdk.conversation.state import ConversationState
+from openhands.sdk.conversation.types import StuckDetectionThresholds
 from openhands.sdk.event import (
     ActionEvent,
     AgentErrorEvent,
@@ -26,24 +27,31 @@ class StuckDetector:
     """
 
     state: ConversationState
-    action_observation_threshold: int
-    action_error_threshold: int
-    monologue_threshold: int
-    alternating_pattern_threshold: int
+    thresholds: StuckDetectionThresholds
 
     def __init__(
         self,
         state: ConversationState,
-        action_observation_threshold: int = 4,
-        action_error_threshold: int = 3,
-        monologue_threshold: int = 3,
-        alternating_pattern_threshold: int = 6,
+        thresholds: StuckDetectionThresholds | None = None,
     ):
         self.state = state
-        self.action_observation_threshold = action_observation_threshold
-        self.action_error_threshold = action_error_threshold
-        self.monologue_threshold = monologue_threshold
-        self.alternating_pattern_threshold = alternating_pattern_threshold
+        self.thresholds = thresholds or StuckDetectionThresholds()
+
+    @property
+    def action_observation_threshold(self) -> int:
+        return self.thresholds.action_observation
+
+    @property
+    def action_error_threshold(self) -> int:
+        return self.thresholds.action_error
+
+    @property
+    def monologue_threshold(self) -> int:
+        return self.thresholds.monologue
+
+    @property
+    def alternating_pattern_threshold(self) -> int:
+        return self.thresholds.alternating_pattern
 
     def is_stuck(self) -> bool:
         """Check if the agent is currently stuck."""
