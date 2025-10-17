@@ -43,7 +43,7 @@ def scan_file_for_todos(
         or "/tests/" in file_str
         or "test_" in file_path.name
         # Skip examples
-        or "examples/github_workflows/03_todo_management/" in file_str
+        or "examples/03_github_workflows/03_todo_management/" in file_str
     ):
         logger.debug(f"Skipping test/example file: {file_path}")
         return []
