@@ -93,10 +93,7 @@ class TestWebSocketDisconnectHandling:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            # Mock config to not require authentication
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -129,10 +126,7 @@ class TestWebSocketDisconnectHandling:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            # Mock config to not require authentication
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -172,10 +166,7 @@ class TestWebSocketDisconnectHandling:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            # Mock config to not require authentication
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -216,10 +207,7 @@ class TestWebSocketDisconnectHandling:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            # Mock config to not require authentication
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -255,10 +243,7 @@ class TestWebSocketDisconnectHandling:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            # Mock config to not require authentication
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -293,9 +278,7 @@ class TestResendAllFunctionality:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -348,9 +331,7 @@ class TestResendAllFunctionality:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -388,9 +369,7 @@ class TestResendAllFunctionality:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
@@ -446,9 +425,7 @@ class TestResendAllFunctionality:
             patch(
                 "openhands.agent_server.sockets.get_conversation_service"
             ) as mock_conv_service,
-            patch("openhands.agent_server.sockets.get_default_config") as mock_config,
         ):
-            mock_config.return_value.session_api_keys = None
             conv_svc = AsyncMock()
             conv_svc.get_event_service = AsyncMock(return_value=mock_event_service)
             mock_conv_service.return_value.get_event_service = AsyncMock(
