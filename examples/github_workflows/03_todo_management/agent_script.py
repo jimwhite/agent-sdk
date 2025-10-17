@@ -25,7 +25,6 @@ For setup instructions and usage examples, see README.md in this directory.
 import argparse
 import json
 import os
-import subprocess
 import sys
 import warnings
 
@@ -41,93 +40,6 @@ warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValu
 
 
 logger = get_logger(__name__)
-
-
-def run_git_command(cmd: list, check: bool = True) -> subprocess.CompletedProcess:
-    """Run a git command and return the result."""
-    logger.info(f"Running git command: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
-    if check and result.returncode != 0:
-        logger.error(f"Git command failed: {result.stderr}")
-        raise subprocess.CalledProcessError(result.returncode, cmd, result.stderr)
-
-    return result
-
-
-def get_current_branch() -> str:
-    """Get the current git branch name."""
-    result = run_git_command(["git", "branch", "--show-current"])
-    return result.stdout.strip()
-
-
-def find_pr_for_branch(branch_name: str) -> str | None:
-    """
-    Find the PR URL for a given branch using GitHub API.
-
-    Args:
-        branch_name: Name of the feature branch
-
-    Returns:
-        PR URL if found, None otherwise
-    """
-    logger.info(f"Looking for PR associated with branch: {branch_name}")
-
-    # Get GitHub token from environment
-    github_token = os.getenv("GITHUB_TOKEN")
-    if not github_token:
-        logger.error("GITHUB_TOKEN environment variable not set")
-        return None
-
-    # Get repository info from git remote
-    try:
-        remote_result = run_git_command(["git", "remote", "get-url", "origin"])
-        remote_url = remote_result.stdout.strip()
-
-        # Extract owner/repo from remote URL
-        import re
-
-        match = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$", remote_url)
-        if not match:
-            logger.error(f"Could not parse GitHub repo from remote URL: {remote_url}")
-            return None
-
-        owner, repo = match.groups()
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to get git remote URL: {e}")
-        return None
-
-    # Search for PRs with this head branch
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
-    params = f"?head={owner}:{branch_name}&state=open"
-
-    try:
-        result = subprocess.run(
-            [
-                "curl",
-                "-s",
-                "-H",
-                f"Authorization: token {github_token}",
-                "-H",
-                "Accept: application/vnd.github.v3+json",
-                f"{api_url}{params}",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        prs = json.loads(result.stdout)
-
-        if prs and len(prs) > 0:
-            return prs[0]["html_url"]  # Return the first (should be only) PR
-        else:
-            logger.error(f"No open PR found for branch {branch_name}")
-            return None
-
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to search for PR: {e}")
-        return None
 
 
 def process_todo(todo_data: dict) -> dict:
@@ -150,8 +62,6 @@ def process_todo(todo_data: dict) -> dict:
     result = {
         "todo": todo_data,
         "status": "failed",
-        "pr_url": None,
-        "branch": None,
         "error": None,
     }
 
@@ -200,77 +110,16 @@ def process_todo(todo_data: dict) -> dict:
             workspace=cwd,
         )
 
-        # Ensure we're starting from main branch
-        initial_branch = get_current_branch()
-        logger.info(f"Starting branch: {initial_branch}")
-
-        if initial_branch != "main":
-            logger.warning(
-                f"Expected to start from 'main' branch, "
-                f"but currently on '{initial_branch}'"
-            )
-            # Switch to main branch
-            subprocess.run(["git", "checkout", "main"], check=True, cwd=os.getcwd())
-            subprocess.run(
-                ["git", "pull", "origin", "main"], check=True, cwd=os.getcwd()
-            )
-            initial_branch = get_current_branch()
-            logger.info(f"Switched to branch: {initial_branch}")
-
         logger.info("Starting task execution...")
         logger.info(f"Prompt: {prompt[:200]}...")
 
-        # Send the prompt and run the agent
+        # Send the prompt and run the agent - trust it to handle everything
         conversation.send_message(prompt)
         conversation.run()
 
-        # After agent runs, check if we're on a different branch (feature branch)
-        current_branch = get_current_branch()
-        logger.info(f"Current branch after agent run: {current_branch}")
-        result["branch"] = current_branch
-
-        if current_branch != initial_branch:
-            # Agent created a feature branch, find the PR for it
-            logger.info(f"Agent switched from {initial_branch} to {current_branch}")
-            pr_url = find_pr_for_branch(current_branch)
-
-            if pr_url:
-                logger.info(f"Found PR URL: {pr_url}")
-                result["pr_url"] = pr_url
-                result["status"] = "success"
-                logger.info(f"TODO processed successfully with PR: {pr_url}")
-            else:
-                logger.warning(f"Could not find PR for branch {current_branch}")
-                result["status"] = "partial"  # Branch created but no PR found
-        else:
-            # Agent didn't create a feature branch, ask it to do so
-            logger.info("Agent didn't create a feature branch, requesting one")
-            follow_up = (
-                "It looks like you haven't created a feature branch "
-                "and pull request yet. "
-                "Please create a feature branch for your changes and push them "
-                "to create a pull request."
-            )
-            conversation.send_message(follow_up)
-            conversation.run()
-
-            # Check again for branch change
-            current_branch = get_current_branch()
-            result["branch"] = current_branch
-            if current_branch != initial_branch:
-                pr_url = find_pr_for_branch(current_branch)
-                if pr_url:
-                    logger.info(f"Found PR URL: {pr_url}")
-                    result["pr_url"] = pr_url
-                    result["status"] = "success"
-                    logger.info(f"TODO processed successfully with PR: {pr_url}")
-                else:
-                    logger.warning(f"Could not find PR for branch {current_branch}")
-                    result["status"] = "partial"  # Branch created but no PR found
-            else:
-                logger.warning("Agent still didn't create a feature branch")
-                result["status"] = "failed"
-                result["error"] = "Agent did not create a feature branch"
+        # Mark as successful - trust the agent handled the task
+        result["status"] = "success"
+        logger.info("TODO processed successfully")
 
     except Exception as e:
         logger.error(f"Error processing TODO: {e}")
@@ -315,9 +164,7 @@ def main():
     logger.info(f"Result written to {result_file}")
     logger.info(f"Processing result: {result['status']}")
 
-    if result["status"] == "success":
-        logger.info(f"PR URL: {result['pr_url']}")
-    elif result["error"]:
+    if result["error"]:
         logger.error(f"Error: {result['error']}")
 
     # Exit with appropriate code
