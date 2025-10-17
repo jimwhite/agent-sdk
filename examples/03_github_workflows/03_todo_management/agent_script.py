@@ -2,12 +2,11 @@
 """
 TODO Agent for OpenHands Automated TODO Management
 
-This script processes individual TODO(openhands) comments by:
-1. Using OpenHands agent to implement the TODO (agent creates branch and PR)
-2. Tracking the processing status and PR information for reporting
+This script processes individual TODO(openhands) comments using OpenHands agent
+to implement the TODO. Designed for use with GitHub Actions workflows.
 
 Usage:
-    python agent.py <todo_json>
+    python agent_script.py <todo_json>
 
 Arguments:
     todo_json: JSON string containing TODO information from scanner.py
@@ -26,107 +25,75 @@ import argparse
 import json
 import os
 import sys
-import warnings
 
 from prompt import PROMPT
 
-from openhands.sdk import LLM, Conversation, get_logger  # type: ignore
-from openhands.tools.preset.default import get_default_agent  # type: ignore
-
-
-# Suppress Pydantic serialization warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
-warnings.filterwarnings("ignore", message=".*PydanticSerializationUnexpectedValue.*")
+from openhands.sdk import LLM, Conversation, get_logger
+from openhands.tools.preset.default import get_default_agent
 
 
 logger = get_logger(__name__)
 
 
-def process_todo(todo_data: dict) -> dict:
-    """
-    Process a single TODO item using OpenHands agent.
-
-    Args:
-        todo_data: Dictionary containing TODO information
-
-    Returns:
-        Dictionary containing processing results
-    """
+def process_todo(todo_data: dict):
+    """Process a single TODO item using OpenHands agent."""
     file_path = todo_data["file"]
     line_num = todo_data["line"]
     description = todo_data["description"]
 
     logger.info(f"Processing TODO in {file_path}:{line_num}")
 
-    # Initialize result structure
-    result = {
-        "todo": todo_data,
-        "status": "failed",
-        "error": None,
+    # Configure LLM
+    api_key = os.getenv("LLM_API_KEY")
+    if not api_key:
+        logger.error("LLM_API_KEY environment variable is not set.")
+        sys.exit(1)
+
+    model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
+    base_url = os.getenv("LLM_BASE_URL")
+
+    llm_config = {
+        "model": model,
+        "api_key": api_key,
+        "service_id": "agent_script",
+        "drop_params": True,
     }
 
-    try:
-        # Configure LLM
-        api_key = os.getenv("LLM_API_KEY")
-        if not api_key:
-            logger.error("LLM_API_KEY environment variable is not set.")
-            result["error"] = "LLM_API_KEY environment variable is not set."
-            return result
+    if base_url:
+        llm_config["base_url"] = base_url
 
-        model = os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929")
-        base_url = os.getenv("LLM_BASE_URL")
+    llm = LLM(**llm_config)
 
-        llm_config = {
-            "model": model,
-            "api_key": api_key,
-            "service_id": "todo_agent",
-            "drop_params": True,
-        }
+    # Create the prompt
+    prompt = PROMPT.format(
+        file_path=file_path,
+        line_num=line_num,
+        description=description,
+    )
 
-        if base_url:
-            llm_config["base_url"] = base_url
+    # Get the current working directory as workspace
+    cwd = os.getcwd()
 
-        llm = LLM(**llm_config)
+    # Create agent with default tools
+    agent = get_default_agent(
+        llm=llm,
+        cli_mode=True,
+    )
 
-        # Create the prompt
-        prompt = PROMPT.format(
-            file_path=file_path,
-            line_num=line_num,
-            description=description,
-        )
+    # Create conversation
+    conversation = Conversation(
+        agent=agent,
+        workspace=cwd,
+    )
 
-        # Get the current working directory as workspace
-        cwd = os.getcwd()
+    logger.info("Starting task execution...")
+    logger.info(f"Prompt: {prompt[:200]}...")
 
-        # Create agent with default tools
-        agent = get_default_agent(
-            llm=llm,
-            cli_mode=True,
-        )
+    # Send the prompt and run the agent
+    conversation.send_message(prompt)
+    conversation.run()
 
-        # Create conversation
-        conversation = Conversation(
-            agent=agent,
-            workspace=cwd,
-        )
-
-        logger.info("Starting task execution...")
-        logger.info(f"Prompt: {prompt[:200]}...")
-
-        # Send the prompt and run the agent - trust it to handle everything
-        conversation.send_message(prompt)
-        conversation.run()
-
-        # Mark as successful - trust the agent handled the task
-        result["status"] = "success"
-        logger.info("TODO processed successfully")
-
-    except Exception as e:
-        logger.error(f"Error processing TODO: {e}")
-        result["error"] = str(e)
-        result["status"] = "failed"
-
-    return result
+    logger.info("Task completed successfully")
 
 
 def main():
@@ -151,27 +118,8 @@ def main():
             logger.error(f"Missing required field in TODO data: {field}")
             sys.exit(1)
 
-    # Process the TODO and get results
-    result = process_todo(todo_data)
-
-    # Output result to a file for the workflow to collect
-    result_file = (
-        f"todo_result_{todo_data['file'].replace('/', '_')}_{todo_data['line']}.json"
-    )
-    with open(result_file, "w") as f:
-        json.dump(result, f, indent=2)
-
-    logger.info(f"Result written to {result_file}")
-    logger.info(f"Processing result: {result['status']}")
-
-    if result["error"]:
-        logger.error(f"Error: {result['error']}")
-
-    # Exit with appropriate code
-    if result["status"] == "failed":
-        sys.exit(1)
-    else:
-        sys.exit(0)
+    # Process the TODO
+    process_todo(todo_data)
 
 
 if __name__ == "__main__":

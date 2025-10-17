@@ -230,9 +230,9 @@ jobs:
                   echo "Agent output log:"
                   cat agent_output.log
 
-                  # Check if agent created any result files
-                  echo "Files created by agent:"
-                  ls -la *.json || echo "No JSON result files found"
+                  # Show files in working directory
+                  echo "Files in working directory:"
+                  ls -la
 
                   # If agent failed, show more details
                   if [ $AGENT_EXIT_CODE -ne 0 ]; then
