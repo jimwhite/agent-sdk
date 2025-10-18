@@ -111,7 +111,7 @@ def test_register_llm_with_new_service(conversation_stats):
     # Patch the LLM class to avoid actual API calls
     with patch("openhands.sdk.llm.llm.litellm_completion"):
         llm = LLM(
-            service_id="new-service",
+            usage_id="new-service",
             model="gpt-4o",
             api_key=SecretStr("test_key"),
             num_retries=2,
@@ -142,7 +142,7 @@ def test_register_llm_with_restored_metrics(conversation_stats):
     # Patch the LLM class to avoid actual API calls
     with patch("openhands.sdk.llm.llm.litellm_completion"):
         llm = LLM(
-            service_id=service_id,
+            usage_id=service_id,
             model="gpt-4o",
             api_key=SecretStr("test_key"),
             num_retries=2,
@@ -174,7 +174,7 @@ def test_llm_registry_notifications(connected_registry_and_stats):
 
     # Create LLM directly
     llm = LLM(
-        service_id=service_id,
+        usage_id=service_id,
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -233,7 +233,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
 
     # Create LLMs directly
     llm1 = LLM(
-        service_id=service1,
+        usage_id=service1,
         model="gpt-4o",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -242,7 +242,7 @@ def test_multiple_llm_services(connected_registry_and_stats):
     )
 
     llm2 = LLM(
-        service_id=service2,
+        usage_id=service2,
         model="gpt-3.5-turbo",
         api_key=SecretStr("test_key"),
         num_retries=2,
@@ -321,7 +321,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
     with patch("openhands.sdk.llm.llm.litellm_completion"):
         # Register first LLM
         llm_1 = LLM(
-            service_id=service_id_1,
+            usage_id=service_id_1,
             model="gpt-4o",
             api_key=SecretStr("test_key"),
             num_retries=2,
@@ -342,7 +342,7 @@ def test_register_llm_with_multiple_restored_services(conversation_stats):
 
         # Register second LLM - this should also work with restored metrics
         llm_2 = LLM(
-            service_id=service_id_2,
+            usage_id=service_id_2,
             model="gpt-3.5-turbo",
             api_key=SecretStr("test_key"),
             num_retries=2,

@@ -12,10 +12,16 @@ class ConversationStats(BaseModel):
     # Public fields that will be serialized
     service_to_metrics: dict[str, Metrics] = Field(
         default_factory=dict,
-        description="Active service metrics tracked by the registry",
+        description="Active usage metrics tracked by the registry (legacy field name)",
     )
 
     _restored_services: set = PrivateAttr(default_factory=set)
+
+    @property
+    def usage_to_metrics(
+        self,
+    ) -> dict[str, Metrics]:  # pragma: no cover - compatibility shim
+        return self.service_to_metrics
 
     def get_combined_metrics(self) -> Metrics:
         total_metrics = Metrics()
@@ -29,19 +35,22 @@ class ConversationStats(BaseModel):
 
         return self.service_to_metrics[service_id]
 
+    def get_metrics_for_usage(self, usage_id: str) -> Metrics:
+        return self.get_metrics_for_service(usage_id)
+
     def register_llm(self, event: RegistryEvent):
         # Listen for llm creations and track their metrics
         llm = event.llm
-        service_id = llm.service_id
+        usage_id = llm.usage_id
 
-        # Service costs exists but has not been restored yet
+        # Usage costs exist but have not been restored yet
         if (
-            service_id in self.service_to_metrics
-            and service_id not in self._restored_services
+            usage_id in self.service_to_metrics
+            and usage_id not in self._restored_services
         ):
-            llm.restore_metrics(self.service_to_metrics[service_id])
-            self._restored_services.add(service_id)
+            llm.restore_metrics(self.service_to_metrics[usage_id])
+            self._restored_services.add(usage_id)
 
-        # Service is new, track its metrics
-        if service_id not in self.service_to_metrics and llm.metrics:
-            self.service_to_metrics[service_id] = llm.metrics
+        # Usage is new, track its metrics
+        if usage_id not in self.service_to_metrics and llm.metrics:
+            self.service_to_metrics[usage_id] = llm.metrics

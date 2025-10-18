@@ -29,7 +29,7 @@ base_url = os.getenv("LLM_BASE_URL")
 
 # Create LLM instance
 llm = LLM(
-    service_id="agent",
+    usage_id="agent",
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
@@ -39,7 +39,7 @@ llm_condenser = LLM(
     model=model,
     base_url=base_url,
     api_key=SecretStr(api_key),
-    service_id="condenser",
+    usage_id="condenser",
 )
 
 # Tools
@@ -70,7 +70,7 @@ conversation.run()
 
 # Demonstrate extraneous costs part of the conversation
 second_llm = LLM(
-    service_id="demo-secondary",
+    usage_id="demo-secondary",
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
