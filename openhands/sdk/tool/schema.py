@@ -173,7 +173,6 @@ class Action(Schema, ABC):
     conversation_id: UUID | None = Field(
         default=None,
         description="Internal conversation ID (auto-injected, not for LLM)",
-        exclude=True,
     )
 
     @property
