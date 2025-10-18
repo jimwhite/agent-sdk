@@ -204,7 +204,7 @@ cache
 openapi.json
 .client/
 # Ignore local runtime and developer files
-.beads/
+.beads/*.db
 *.db
 .worktrees/
 *.code-workspace
