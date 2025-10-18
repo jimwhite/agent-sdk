@@ -208,6 +208,10 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
             "Safety settings for models that support them (like Mistral AI and Gemini)"
         ),
     )
+    profile_id: str | None = Field(
+        default=None,
+        description="Optional profile id (filename under ~/.openhands/llm-profiles).",
+    )
     service_id: str = Field(
         default="default",
         description="Unique identifier for LLM. Typically used by LLM registry.",
