@@ -110,6 +110,20 @@ class LocalConversation(BaseConversation):
         for llm in list(self.agent.get_all_llms()):
             self.llm_registry.add(llm)
 
+        # Eagerly discover and register LLM profiles from disk so they are
+        # available through the registry (profiles are stored under
+        # ~/.openhands/llm-profiles/*.json). This keeps behavior backward
+        # compatible while making named profiles discoverable to the runtime.
+        try:
+            from openhands.sdk.llm.profile_manager import ProfileManager
+
+            ProfileManager().register_all(self.llm_registry)
+        except Exception:
+            # Do not fail conversation initialization if profile loading has problems
+            logger.debug(
+                "No LLM profiles registered or failed to load profiles", exc_info=True
+            )
+
         # Initialize secrets if provided
         if secrets:
             # Convert dict[str, str] to dict[str, SecretValue]
