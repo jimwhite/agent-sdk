@@ -109,8 +109,6 @@ llm = LLM(
     model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
     base_url="https://llm-proxy.eval.all-hands.dev",
     api_key=SecretStr(api_key),
-    service_id="agent",
-    drop_params=True,
 )
 
 cwd = os.getcwd()
