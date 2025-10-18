@@ -1,12 +1,13 @@
 """Glob tool executor implementation."""
 
+# Use absolute import to avoid conflict with our local glob module
+import glob as glob_module
 import os
 import subprocess
-from glob import glob
 from pathlib import Path
 
 from openhands.sdk.tool import ToolExecutor
-from openhands.tools.glob.definition import GlobAction, GlobObservation
+from openhands.tools.glob_tool.definition import GlobAction, GlobObservation
 from openhands.tools.utils import (
     _check_ripgrep_available,
     _log_ripgrep_fallback_warning,
@@ -28,8 +29,8 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         Args:
             working_dir: The working directory to use as the base for searches
         """
-        self.working_dir = Path(working_dir).resolve()
-        self._ripgrep_available = _check_ripgrep_available()
+        self.working_dir: Path = Path(working_dir).resolve()
+        self._ripgrep_available: bool = _check_ripgrep_available()
         if not self._ripgrep_available:
             _log_ripgrep_fallback_warning("glob", "Python glob module")
 
@@ -105,7 +106,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         Returns:
             Tuple of (file_paths, truncated) where file_paths is a list of matching files
             and truncated is True if results were limited to 100 files
-        """  # noqa
+        """  # noqa: E501
         # Build ripgrep command: rg --files {path} -g {pattern} --sortr=modified
         cmd = [
             "rg",
@@ -147,7 +148,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
         Returns:
             Tuple of (file_paths, truncated) where file_paths is a list of matching files
             and truncated is True if results were limited to 100 files
-        """  # noqa
+        """  # noqa: E501
         # Change to search directory for glob to work correctly
         original_cwd = os.getcwd()
         try:
@@ -161,7 +162,7 @@ class GlobExecutor(ToolExecutor[GlobAction, GlobObservation]):
                 pattern = f"**/{pattern}"
 
             # Use glob to find matching files
-            matches = glob(pattern, recursive=True)
+            matches = glob_module.glob(pattern, recursive=True)
 
             # Convert to absolute paths (without resolving symlinks)
             # and sort by modification time
