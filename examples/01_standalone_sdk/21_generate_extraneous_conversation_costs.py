@@ -92,13 +92,13 @@ if spend.accumulated_token_usage:
     print(f"Cache Write Tokens: {spend.accumulated_token_usage.cache_write_tokens}")
 
 
-spend_per_service = conversation.conversation_stats.service_to_metrics
-print("\n=== Spend Breakdown by Service ===\n")
+spend_per_usage = conversation.conversation_stats.usage_to_metrics
+print("\n=== Spend Breakdown by Usage ID ===\n")
 rows = []
-for service, metrics in spend_per_service.items():
+for usage_id, metrics in spend_per_usage.items():
     rows.append(
         [
-            service,
+            usage_id,
             f"${metrics.accumulated_cost:.6f}",
             metrics.accumulated_token_usage.prompt_tokens
             if metrics.accumulated_token_usage
@@ -112,7 +112,7 @@ for service, metrics in spend_per_service.items():
 print(
     tabulate(
         rows,
-        headers=["Service", "Cost", "Prompt Tokens", "Completion Tokens"],
+        headers=["Usage ID", "Cost", "Prompt Tokens", "Completion Tokens"],
         tablefmt="github",
     )
 )
