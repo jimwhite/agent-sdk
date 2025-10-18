@@ -437,6 +437,12 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
                 "kwargs": {k: v for k, v in call_kwargs.items()},
                 "context_window": self.max_input_tokens,
             }
+            conversation_id = self.metadata.get("conversation_id")
+            if conversation_id:
+                log_ctx["conversation_id"] = conversation_id
+            conversation_path = self.metadata.get("conversation_path")
+            if conversation_path:
+                log_ctx["conversation_path"] = conversation_path
             if tools and not use_native_fc:
                 log_ctx["raw_messages"] = original_fncall_msgs
         self._telemetry.on_request(log_ctx=log_ctx)
@@ -540,15 +546,23 @@ class LLM(BaseModel, RetryMixin, NonNativeToolCallingMixin):
 
         # Optional request logging
         assert self._telemetry is not None
-        log_ctx = None
-        if self._telemetry.log_enabled:
-            log_ctx = {
-                "llm_path": "responses",
-                "input": input_items[:],
-                "tools": tools,
-                "kwargs": {k: v for k, v in call_kwargs.items()},
-                "context_window": self.max_input_tokens,
-            }
+        tool_summaries = None
+        if tools:
+            tool_summaries = [getattr(t, "name", t.__class__.__name__) for t in tools]
+        log_ctx = {
+            "llm_path": "responses",
+            "instructions": instructions,
+            "input": input_items[:],
+            "tools": tool_summaries,
+            "kwargs": {k: v for k, v in call_kwargs.items()},
+            "context_window": self.max_input_tokens,
+        }
+        conversation_id = self.metadata.get("conversation_id")
+        if conversation_id:
+            log_ctx["conversation_id"] = conversation_id
+        conversation_path = self.metadata.get("conversation_path")
+        if conversation_path:
+            log_ctx["conversation_path"] = conversation_path
         self._telemetry.on_request(log_ctx=log_ctx)
 
         # Perform call with retries

@@ -124,6 +124,8 @@ class LLMLogEntry:
     latency_sec: float | None
     request: dict[str, Any]
     response: dict[str, Any]
+    conversation_id: str | None = None
+    conversation_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -280,6 +282,9 @@ def load_llm_logs() -> tuple[dict[str, LLMLogEntry], dict[str, str]]:
         elif isinstance(created_at, (int, float)):
             created_dt = datetime.fromtimestamp(created_at)
 
+        conversation_id = data.get("conversation_id")
+        conversation_path = data.get("conversation_path")
+
         log_entry = LLMLogEntry(
             response_id=response_id,
             model=str(resp.get("model", "unknown")),
@@ -288,6 +293,8 @@ def load_llm_logs() -> tuple[dict[str, LLMLogEntry], dict[str, str]]:
             latency_sec=data.get("latency_sec"),
             request=data.get("request", {}),
             response=resp,
+            conversation_id=conversation_id,
+            conversation_path=conversation_path,
         )
         response_logs[response_id] = log_entry
 
