@@ -203,3 +203,15 @@ cache
 /workspace/
 openapi.json
 .client/
+# Ignore local runtime and developer files
+.beads/
+*.db
+.worktrees/
+*.code-workspace
+log.txt
+previous.md
+AGENTS.md
+CLAUDE.md
+docs/agent-sdk.workspace.code-workspace
+docs/llm-model-info-and-caps.md
+docs/llm-refactor.md
