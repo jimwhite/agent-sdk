@@ -1,0 +1,30 @@
+// For format details, see: https://aka.ms/devcontainer.json
+{
+	"name": "OpenHands Agent SDK",
+	// Documentation for this image:
+	// - https://github.com/devcontainers/templates/tree/main/src/python
+	// - https://github.com/microsoft/vscode-remote-try-python
+	// - https://hub.docker.com/r/microsoft/devcontainers-python
+	"image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:latest": {},
+		"ghcr.io/devcontainers-extra/features/uv:latest": {},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts" // Or specify a version like "18", "20", etc.
+		}
+		// "ghcr.io/devcontainers-extra/features/poetry:latest": {},
+		// "ghcr.io/devcontainers/features/node:latest": {}
+	},
+	// "runArgs": [
+	// 	"--add-host=host.docker.internal:host-gateway"
+	// ],
+	"containerEnv": {
+		"DOCKER_HOST_ADDR": "host.docker.internal",
+		"LLM_BASE_URL": "http://host.docker.internal:1234/v1",
+		"LLM_MODEL": "lm_studio/qwen3-next-80b-a3b-instruct-mlx",
+		"LLM_API_KEY": "",
+		"RUNTIME": "local"
+	},
+	// Run .openhands/setup.sh after the container is created.
+	"postCreateCommand": ".openhands/setup.sh"
+}
