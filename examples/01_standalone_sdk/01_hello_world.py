@@ -19,7 +19,7 @@ llm = LLM(
     service_id="agent",
 )
 
-add_security_analyzer = not bool(os.getenv("DISABLE_SECURITY_ANALYZER"))
+add_security_analyzer = not bool(os.getenv("DISABLE_SECURITY_ANALYZER", "").strip())
 agent = get_default_agent(
     llm=llm, cli_mode=True, add_security_analyzer=add_security_analyzer
 )
