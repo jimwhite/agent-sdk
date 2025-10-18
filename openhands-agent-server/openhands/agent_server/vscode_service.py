@@ -27,7 +27,7 @@ class VSCodeService:
                 exist
         """
         self.port: int = port
-        self.connection_token: str | None = connection_token or os.urandom(32).hex
+        self.connection_token: str | None = connection_token
         self.process: asyncio.subprocess.Process | None = None
         self.openvscode_server_root: Path = Path("/openhands/.openvscode-server")
         self.extensions_dir: Path = self.openvscode_server_root / "extensions"
@@ -45,6 +45,10 @@ class VSCodeService:
                     "VSCode server binary not found, VSCode will be disabled"
                 )
                 return False
+
+            # Generate connection token if not already set
+            if self.connection_token is None:
+                self.connection_token = os.urandom(32).hex()
 
             # Check if port is available
             if not await self._is_port_available():
@@ -93,7 +97,7 @@ class VSCodeService:
         Returns:
             VSCode URL with token, or None if not available
         """
-        if not self.is_running():
+        if self.connection_token is None:
             return None
 
         if base_url is None:
