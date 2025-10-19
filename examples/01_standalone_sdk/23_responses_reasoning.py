@@ -24,8 +24,12 @@ from openhands.tools.preset.default import get_default_agent
 logger = get_logger(__name__)
 
 
-api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-assert api_key, "Set LLM_API_KEY or OPENAI_API_KEY in your environment."
+api_key = os.getenv("LLM_API_KEY")
+if api_key is None:
+    api_key = os.getenv("OPENAI_API_KEY")
+assert api_key is not None, (
+    "Neither LLM_API_KEY nor OPENAI_API_KEY environment variable is set."
+)
 
 model = os.getenv("LLM_MODEL", "openhands/gpt-5-codex")
 base_url = os.getenv("LLM_BASE_URL")
@@ -42,9 +46,11 @@ llm = LLM(
 )
 
 print("\n=== Agent Conversation using /responses path ===")
+add_security_analyzer = not bool(os.getenv("DISABLE_SECURITY_ANALYZER", "").strip())
 agent = get_default_agent(
     llm=llm,
     cli_mode=True,  # disable browser tools for env simplicity
+    add_security_analyzer=add_security_analyzer,
 )
 
 llm_messages = []  # collect raw LLM-convertible messages for inspection
