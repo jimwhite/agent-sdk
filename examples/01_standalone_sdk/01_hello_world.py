@@ -16,7 +16,7 @@ llm = LLM(
     model=model,
     api_key=SecretStr(api_key),
     base_url=base_url,
-    service_id="agent",
+    usage_id="agent",
 )
 
 add_security_analyzer = not bool(os.getenv("DISABLE_SECURITY_ANALYZER", "").strip())
