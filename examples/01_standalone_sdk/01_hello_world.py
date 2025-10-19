@@ -18,7 +18,11 @@ llm = LLM(
     base_url=base_url,
     service_id="agent",
 )
-agent = get_default_agent(llm=llm, cli_mode=True)
+
+add_security_analyzer = not bool(os.getenv("DISABLE_SECURITY_ANALYZER", "").strip())
+agent = get_default_agent(
+    llm=llm, cli_mode=True, add_security_analyzer=add_security_analyzer
+)
 
 # Start a conversation and send some messages
 cwd = os.getcwd()
