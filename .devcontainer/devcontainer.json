@@ -24,7 +24,6 @@
 		// TODO: LiteLLM doesn't have this model in their costs listing: https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json
 		"LLM_MODEL": "lm_studio/qwen3-next-80b-a3b-instruct-mlx",
 		"LLM_API_KEY": "",
-		"DISABLE_SECURITY_ANALYZER": "true",
 		"RUNTIME": "local"
 	},
 	// Run .openhands/setup.sh after the container is created.
