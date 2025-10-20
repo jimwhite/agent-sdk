@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 api_key = os.getenv("LLM_API_KEY")
 if api_key is None:
     api_key = os.getenv("OPENAI_API_KEY")
-assert api_key, "Set LLM_API_KEY or OPENAI_API_KEY in your environment."
+assert api_key is not None, "Set LLM_API_KEY or OPENAI_API_KEY in your environment."
 
 model = os.getenv("LLM_MODEL", "openhands/gpt-5-codex")
 base_url = os.getenv("LLM_BASE_URL")
