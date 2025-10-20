@@ -89,10 +89,7 @@ print("PHASE 2: EXECUTION")
 print("=" * 80)
 
 # Create Execution Agent with full editing capabilities
-add_security_analyzer = not bool(os.getenv("DISABLE_SECURITY_ANALYZER", "").strip())
-execution_agent = get_default_agent(
-    llm=llm, cli_mode=True, add_security_analyzer=add_security_analyzer
-)
+execution_agent = get_default_agent(llm=llm, cli_mode=True)
 
 # Create conversation for execution
 execution_conversation = Conversation(

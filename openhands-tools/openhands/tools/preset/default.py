@@ -66,7 +66,7 @@ def get_default_condenser(llm: LLM) -> CondenserBase:
 def get_default_agent(
     llm: LLM,
     cli_mode: bool = False,
-    add_security_analyzer: bool = True,
+    add_security_analyzer: bool = False,
 ) -> Agent:
     tools = get_default_tools(
         # Disable browser tools in CLI mode
