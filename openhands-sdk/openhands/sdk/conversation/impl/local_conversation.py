@@ -219,7 +219,10 @@ class LocalConversation(BaseConversation):
         """
 
         with self._state:
-            if self._state.agent_status == AgentExecutionStatus.PAUSED:
+            if self._state.agent_status in [
+                AgentExecutionStatus.IDLE,
+                AgentExecutionStatus.PAUSED,
+            ]:
                 self._state.agent_status = AgentExecutionStatus.RUNNING
 
         iteration = 0
@@ -254,7 +257,7 @@ class LocalConversation(BaseConversation):
                         self._state.agent_status = AgentExecutionStatus.RUNNING
 
                     # step must mutate the SAME state object
-                    self.agent.step(self._state, on_event=self._on_event)
+                    self.agent.step(self, on_event=self._on_event)
                     iteration += 1
 
                     # Check for non-finished terminal conditions

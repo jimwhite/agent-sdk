@@ -21,6 +21,9 @@ class RemoteWorkspaceMixin(BaseModel):
     api_key: str | None = Field(
         default=None, description="API key for authenticating with the remote host."
     )
+    working_dir: str = Field(
+        description="The working directory for agent operations and tool execution."
+    )
 
     def model_post_init(self, context: Any) -> None:
         # Set up remote host
@@ -67,7 +70,7 @@ class RemoteWorkspaceMixin(BaseModel):
             # Start the command
             response: httpx.Response = yield {
                 "method": "POST",
-                "url": f"{self.host}/api/bash/execute_bash_command",
+                "url": f"{self.host}/api/bash/start_bash_command",
                 "json": payload,
                 "headers": self._headers,
                 "timeout": timeout + 5.0,  # Add buffer to HTTP timeout

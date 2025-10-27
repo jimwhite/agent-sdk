@@ -23,8 +23,8 @@ assert api_key is not None, "LLM_API_KEY environment variable is not set."
 
 llm = LLM(
     usage_id="agent",
-    model="litellm_proxy/anthropic/claude-sonnet-4-5-20250929",
-    base_url="https://llm-proxy.eval.all-hands.dev",
+    model=os.getenv("LLM_MODEL", "openhands/claude-sonnet-4-5-20250929"),
+    base_url=os.getenv("LLM_BASE_URL"),
     api_key=SecretStr(api_key),
 )
 
